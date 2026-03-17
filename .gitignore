@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Runtime data
+.talox/
+.talox-profiles/
+profiles/
+
+# Tesseract OCR model (downloaded at runtime)
+*.traineddata
+
+# Test artifacts
+tests/temp-profiles/
+tests/temp-profiles-*/
+tests/**/*.js
+tests/**/*.js.map
+tests/**/*.d.ts
+tests/**/*.d.ts.map
+
+# Credentials & secrets
+*.credentials.txt
+*-credentials.txt
+test-credentials.txt
+stealth-test-credentials.txt
+
+# Screenshots & test output
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*

@@ -1,0 +1,73 @@
+{
+  "name": "talox",
+  "version": "1.0.0",
+  "description": "Stateful browser runtime for AI agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "src/schema/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "browser-runtime",
+    "agent-browser",
+    "browser-automation",
+    "persistent-sessions",
+    "observability",
+    "replay",
+    "playwright",
+    "accessibility-tree",
+    "web-debugging",
+    "ai-agent"
+  ],
+  "author": "AVANT ICONIC",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AVANT-ICONIC/Talox"
+  },
+  "bugs": {
+    "url": "https://github.com/AVANT-ICONIC/Talox/issues"
+  },
+  "homepage": "https://github.com/AVANT-ICONIC/Talox#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.5.0",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "chromium": "^3.0.3",
+    "fs-extra": "^11.3.4",
+    "js-yaml": "^4.1.0",
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.58.2",
+    "playwright-core": "^1.58.2",
+    "playwright-extra": "^4.3.6",
+    "pngjs": "^7.0.0",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "ssim.js": "^3.5.0",
+    "tesseract.js": "^7.0.0"
+  }
+}
