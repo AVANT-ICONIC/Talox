@@ -27,12 +27,14 @@ NODE_OPTIONS="--loader ts-node/esm --no-warnings" node examples/agent-stress-tes
 ## 🛠️ Interaction Modes (MANDATORY LOGIC)
 When testing, you **must** align your `TaloxController.setMode()` with the following logic:
 
-| Mode | Purpose | Human Logic? | Perception |
+| Mode | Purpose | Human Simulation | Perception |
 | :--- | :--- | :--- | :--- |
 | **`speed`** | Maximum throughput. | **NONE.** Direct Playwright calls. | Fast/Shallow |
-| **`stealth`**| Anti-bot/Anti-captcha. | **MAX.** Fitts's Law, curves, jitter. | Balanced |
+| **`adaptive`** | Resilient interaction for fragile UIs. | **MAX.** Fitts's Law, curves, jitter. | Balanced |
 | **`debug`** | Developer diagnostic. | None. | **MAX.** Full AX-Tree/Network |
-| **`balanced`**| General browsing. | Moderate human-like delays. | Full |
+| **`balanced`** | General browsing. | Moderate human-like delays. | Full |
+
+> **Note:** `stealth` is a backwards-compatible alias for `adaptive`. New code should use `adaptive`.
 
 ---
 
@@ -64,5 +66,3 @@ When verifying page state, prioritize these tools in order of cost:
 For deeper architectural details, see:
 - `docs/TALOX-ARCHITECTURE.md`: System-wide component mapping.
 - `docs/TALOX-SPEC.md`: Detailed functional requirements.
-- `docs/plans/`: Historical context on implementation phases.
-

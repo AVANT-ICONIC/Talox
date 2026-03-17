@@ -1,5 +1,5 @@
 export type ProfileClass = 'qa' | 'ops' | 'sandbox';
-export type TaloxMode = 'speed' | 'stealth' | 'balanced' | 'qa' | 'debug' | 'browse' | 'hybrid';
+export type TaloxMode = 'speed' | 'adaptive' | 'stealth' | 'balanced' | 'qa' | 'debug' | 'browse' | 'hybrid';
 
 export interface TaloxSettings {
   mouseSpeed: number; // 0.1 to 3.0 (1.0 default)

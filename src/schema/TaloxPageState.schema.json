@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/avanticonic/talox/blob/main/src/schema/TaloxPageState.schema.json",
+  "$id": "https://github.com/AVANT-ICONIC/Talox/blob/main/src/schema/TaloxPageState.schema.json",
   "title": "TaloxPageState",
   "description": "The primary structured JSON contract returned to agents after every navigation or state capture.",
   "type": "object",

@@ -32,6 +32,8 @@ curl -L https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata -o en
 4. Run `npm run build && npm test`
 5. Open a Pull Request
 
+External contributions may be subject to a Contributor License Agreement (CLA) or Developer Certificate of Origin (DCO) as the project governance matures. By submitting a pull request, you confirm that you have the right to contribute the code and agree that it may be distributed under the project's license.
+
 ## Code Style
 
 - TypeScript strict mode
@@ -40,7 +42,7 @@ curl -L https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata -o en
 
 ## Reporting Issues
 
-Open a GitHub issue with:
+Open a GitHub issue at https://github.com/AVANT-ICONIC/Talox/issues with:
 - What you were trying to do
 - What happened
 - Minimal reproduction steps

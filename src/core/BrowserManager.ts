@@ -278,23 +278,28 @@ export class BrowserManager {
       }
     }
 
-    const isStealth = mode === 'stealth';
+    // 'adaptive' is the public alias for 'stealth' mode
+    const resolvedMode = mode === 'adaptive' ? 'stealth' : mode;
+    const isAdaptive = resolvedMode === 'stealth';
     
     let launcher: any;
-    if (isStealth) {
+    if (isAdaptive) {
+      // NOTE: playwright-extra + puppeteer-extra-plugin-stealth are used here
+      // to reduce browser automation fingerprinting for fragile UI compatibility.
+      // These dependencies are candidates for privatization into Harbor in a future release.
       launcher = {
         'chromium': chromiumExtra,
         'firefox': firefoxExtra,
         'webkit': webkitExtra
       }[actualBrowserType];
       
-      const stealth = (StealthPlugin as any)();
+      const stealthPlugin = (StealthPlugin as any)();
       // Remove evasions we handle manually
-      if (stealth.enabledEvasions) {
-        stealth.enabledEvasions.delete('user-agent-override');
-        stealth.enabledEvasions.delete('webgl.vendor');
+      if (stealthPlugin.enabledEvasions) {
+        stealthPlugin.enabledEvasions.delete('user-agent-override');
+        stealthPlugin.enabledEvasions.delete('webgl.vendor');
       }
-      launcher.use(stealth);
+      launcher.use(stealthPlugin);
     } else {
       launcher = {
         'chromium': chromium,
@@ -304,7 +309,7 @@ export class BrowserManager {
     }
 
     const launchOptions: any = {
-      headless: isStealth ? false : this.config.browser.headless,
+      headless: isAdaptive ? false : this.config.browser.headless,
       args: [
         '--disable-blink-features=AutomationControlled'
       ],
@@ -316,8 +321,8 @@ export class BrowserManager {
       launchOptions.proxy = this.config.browser.proxy;
     }
 
-    // Use real Chrome channel for stealth or on macOS
-    if (isStealth || process.platform === 'darwin') {
+    // Use real Chrome channel for adaptive mode or on macOS
+    if (isAdaptive || process.platform === 'darwin') {
       launchOptions.channel = 'chrome';
     }
 

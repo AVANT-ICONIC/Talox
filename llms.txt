@@ -1,6 +1,6 @@
 # Talox
 
-> AI-agent-first browser controller built on Playwright. Stealth mode defeats bot detection. Debug mode gives full observability. Both modes return a single structured JSON contract.
+> Stateful browser runtime for AI agents built on Playwright. Adaptive mode provides resilient, human-paced interaction for real-world web UIs. Debug mode gives full observability. Both modes return a single structured JSON contract.
 
 Talox is designed to be consumed directly by AI agents. Every action returns a `TaloxPageState` — a structured JSON object containing the AX-Tree, interactive elements with bounding boxes, console output, network failures, and detected bugs. Agents do not need to parse HTML or interpret screenshots.
 
@@ -12,7 +12,7 @@ Agents interact with Talox through a single controller class (`TaloxController`)
 import { TaloxController } from 'talox';
 
 const talox = new TaloxController('./profiles');
-await talox.launch('agent-id', 'ops', 'stealth');
+await talox.launch('agent-id', 'ops', 'adaptive');
 const state = await talox.navigate('https://example.com');
 // state is a TaloxPageState — ready for agent consumption
 await talox.stop();
@@ -20,7 +20,7 @@ await talox.stop();
 
 ## Modes
 
-- `stealth` — Biomechanical Ghost engine: Fitts's Law, Bezier curves, typo simulation. Use for anti-bot evasion.
+- `adaptive` — Biomechanical Interaction Engine: Fitts's Law, Bezier curves, variable typing cadence. Use for resilient interaction on fragile real-world UIs. (`stealth` is a backwards-compatible alias.)
 - `debug` — Full AX-Tree, all console/network data, layout bug detection. Use for diagnosis.
 - `balanced` — General-purpose agent tasks.
 - `speed` — Maximum throughput, no human simulation.
@@ -75,7 +75,7 @@ Every `navigate()` and `getState()` call returns this object. JSON Schema: `src/
 // Navigation
 const state = await talox.navigate(url);
 
-// Interaction — HumanMouse handles trajectory in stealth/browse modes
+// Interaction — HumanMouse handles trajectory in adaptive/browse modes
 await talox.click({ selector: 'button#submit' });
 await talox.click({ x: 400, y: 300 });
 await talox.type({ text: 'hello', selector: 'input[name="q"]' });
@@ -147,6 +147,7 @@ Load with: `await talox.loadPolicy('./policies/ops.yaml')`
 - `docs/TALOX-CONTRACTS.md` — Full data model documentation
 - `docs/TALOX-SPEC.md` — Technical specification
 - `docs/TALOX-ARCHITECTURE.md` — System design with Mermaid diagrams
-- `examples/stealth-controller.ts` — Stealth session example
+- `docs/HARBOR-BOUNDARY.md` — Talox Core vs Harbor commercial boundary
+- `examples/adaptive-controller.ts` — Adaptive session example
 - `examples/debug-controller.ts` — Debug/observability example
 - `examples/qa-flow.test.ts` — QA bug detection example

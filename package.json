@@ -1,7 +1,7 @@
 {
   "name": "talox",
   "version": "1.1.0",
-  "description": "AI-agent-first browser controller. Stealth mode evades bot detection. Debug mode gives full observability.",
+  "description": "Stateful browser runtime for AI agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,25 +23,27 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "browser-runtime",
+    "agent-browser",
     "browser-automation",
-    "ai-agent",
-    "stealth",
+    "persistent-sessions",
+    "observability",
+    "replay",
     "playwright",
-    "anti-bot",
-    "captcha",
-    "debug",
-    "accessibility-tree"
+    "accessibility-tree",
+    "web-debugging",
+    "ai-agent"
   ],
   "author": "AVANT ICONIC",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/avanticonic/autonomy-agent-browser"
+    "url": "https://github.com/AVANT-ICONIC/Talox"
   },
   "bugs": {
-    "url": "https://github.com/avanticonic/autonomy-agent-browser/issues"
+    "url": "https://github.com/AVANT-ICONIC/Talox/issues"
   },
-  "homepage": "https://github.com/avanticonic/autonomy-agent-browser#readme",
+  "homepage": "https://github.com/AVANT-ICONIC/Talox#readme",
   "engines": {
     "node": ">=18.0.0"
   },

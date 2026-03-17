@@ -5,8 +5,8 @@
 - [x] Local-First Perception (AX-Tree, Bounding Boxes)
 - [x] Rules Engine (Overlap, Clipped, Console, Network)
 - [x] Vision Gate (Pixelmatch, SSIM, OCR)
-- [x] Biomechanical Ghost (HumanMouse)
-- [x] Stealth & Debug mode presets
+- [x] Biomechanical Interaction Engine (HumanMouse)
+- [x] Adaptive & Debug mode presets
 - [x] Trace & Bug Reporting
 - [x] SemanticMapper
 - [x] SelfHealingSelector
@@ -27,8 +27,8 @@
 
 ## v1: Enhanced Intelligence 🧠
 - [ ] **Local VLM Integration:** Quantized vision models (Moondream, Phi-3 Vision) for high-level visual reasoning.
-- [ ] **Captcha Solver Hooks:** Plugin interface for external captcha solving services.
-- [ ] **Stealth Score:** Real-time bot-detection risk scoring per session.
+- [ ] **External Solver Hooks:** Plugin interface for external challenge-solving services.
+- [ ] **Interaction Quality Score:** Real-time scoring of interaction fidelity per session.
 
 ## v2: Deployment ☁️
 - [ ] **Docker Image:** Optimized container for cloud/Kubernetes deployment.

@@ -31,7 +31,7 @@ export function getTaloxTools(): TaloxTool[] {
       type: "function",
       function: {
         name: "talox_navigate",
-        description: "Navigate to a URL and get structured page state. Use stealth mode for anti-detection, debug mode for full observability.",
+        description: "Navigate to a URL and get structured page state. Use adaptive mode for resilient human-paced interaction, debug mode for full observability.",
         parameters: {
           type: "object",
           properties: {
@@ -41,8 +41,8 @@ export function getTaloxTools(): TaloxTool[] {
             },
             mode: {
               type: "string",
-              description: "Browser mode: stealth (anti-bot), debug (full observability), speed (maximum throughput), balanced (default), browse (human-like), qa (testing)",
-              enum: ["stealth", "debug", "speed", "balanced", "browse", "qa"]
+              description: "Browser mode: adaptive (resilient human-paced interaction), debug (full observability), speed (maximum throughput), balanced (default), browse (human-like), qa (testing)",
+              enum: ["adaptive", "stealth", "debug", "speed", "balanced", "browse", "qa"]
             },
             waitUntil: {
               type: "string",
@@ -230,7 +230,7 @@ export function getTaloxTools(): TaloxTool[] {
             mode: {
               type: "string",
               description: "Target mode",
-              enum: ["stealth", "debug", "speed", "balanced", "browse", "qa"]
+              enum: ["adaptive", "stealth", "debug", "speed", "balanced", "browse", "qa"]
             }
           },
           required: ["mode"]

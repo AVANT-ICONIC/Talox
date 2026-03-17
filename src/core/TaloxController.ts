@@ -102,12 +102,12 @@ export class TaloxController {
    * - Minimal overhead for fastest possible interactions
    * - Use for: High-volume automation, scraping, performance testing
    * 
-   * STEALTH MODE: Maximum biomechanical protection.
+   * ADAPTIVE MODE (public name) / STEALTH MODE (internal alias): Maximum biomechanical fidelity.
    * - Uses ALL human-like features: Fitts's Law, curves, jitter, randomized delays
-   * - Adaptive stealth enabled by default
-   * - Typo simulation enabled
+   * - Adaptive density awareness enabled by default
+   * - Variable typing cadence enabled
    * - Maximum humanStealth (0.9)
-   * - Use for: Anti-detection, human behavior simulation
+   * - Use for: Resilient interaction on fragile real-world UIs
    * 
    * DEBUG MODE: Maximum data density.
    * - Verbose console/network capture enabled
@@ -118,12 +118,12 @@ export class TaloxController {
    * 
    * BALANCED MODE: Default behavior.
    * - Mix of speed and human-like features
-   * - Moderate stealth settings
+   * - Moderate interaction settings
    * 
    * BROWSE MODE: Human-like browsing.
    * - Full human mouse simulation
-   * - Typo simulation
-   * - Adaptive stealth support
+   * - Variable typing cadence
+   * - Adaptive density support
    * 
    * HYBRID MODE: Mix of human and automated.
    * - Some human features with faster timing
@@ -142,6 +142,19 @@ export class TaloxController {
       precisionDecay: 0,
       adaptiveStealthEnabled: false,
       automaticThinkingEnabled: false
+    },
+    // 'adaptive' is the public-facing name; 'stealth' is kept as a backwards-compatible alias
+    'adaptive': { 
+      mouseSpeed: 0.7, 
+      stealthLevel: 'high', 
+      fidgetEnabled: true, 
+      humanStealth: 1.0, 
+      typingDelayMin: 100, 
+      typingDelayMax: 300, 
+      typoProbability: 0.1, 
+      precisionDecay: 0,
+      adaptiveStealthEnabled: true,
+      automaticThinkingEnabled: true
     },
     'stealth': { 
       mouseSpeed: 0.7, 

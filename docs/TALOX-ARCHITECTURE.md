@@ -70,8 +70,9 @@ graph TD
 
 ### 2.6 Mode System
 - **Role:** Dynamic behavioral orchestration.
-- **Presets:** `speed`, `stealth`, `debug`, `balanced`, `browse`, `qa`.
+- **Presets:** `speed`, `adaptive`, `debug`, `balanced`, `browse`, `qa`.
 - **Overrides:** Granular control over `mouseSpeed`, `typingDelay`, and `humanStealth`.
+- **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`.
 
 ### 2.7 Bug / Artifact Engine
 - **Role:** Generates evidence-rich bug reports and replay traces.
@@ -120,7 +121,7 @@ graph TD
 7. **Report/Artifact:** Bug report and trace are generated.
 8. **Response:** Fused page state + bug alerts returned to the agent.
 
-## 4. Stealth Interaction Flow
+## 4. Adaptive Interaction Flow
 1. Agent requests action (e.g., "click submit")
 2. SemanticMapper resolves intent to specific element
 3. SelfHealingSelector builds robust selector chain

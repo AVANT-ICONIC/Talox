@@ -1,7 +1,7 @@
 # TALOX-SPEC.md - Technical Specification
 
 ## 1. Goal
-Talox provides a persistent, human-like browser controller for AI agents. Two primary modes: **stealth** for anti-bot evasion and **debug** for maximum observability.
+Talox provides a persistent, stateful browser runtime for AI agents. Two primary modes: **adaptive** for resilient, human-paced interaction on real-world interfaces, and **debug** for maximum observability.
 
 ## 2. Browser Runtime Manager
 - **Driver:** Playwright (`playwright-core`).
@@ -34,24 +34,26 @@ Talox provides a persistent, human-like browser controller for AI agents. Two pr
 - **OCR (Tesseract.js):** Extract text from screenshots where DOM text is unreliable.
 - **Baseline Vault:** Persistent storage in `./.talox/baselines/`.
 
-## 7. Biomechanical Ghost (HumanMouse)
+## 7. Biomechanical Interaction Engine (HumanMouse)
 - **Fitts's Law:** Steps scaled by distance and target width.
 - **Quintic Easing:** Natural burst-and-settle acceleration curves.
 - **Bezier Pathing:** Non-linear organic trajectories with micro-jitter.
 - **Speed Multiplier:** Applied to steps, polling rates, and jitter.
-- **Typo Simulation:** Realistic keystroke errors with backspace corrections.
-- **Adaptive Stealth:** Adjusts behavior based on UI element density.
+- **Variable Typing Cadence:** Realistic keystroke timing with occasional corrections.
+- **Adaptive Density Awareness:** Adjusts behavior based on UI element density.
 
 ## 8. Mode Presets
 
-| Mode | mouseSpeed | humanStealth | adaptiveStealth | typoProbability |
+| Mode | mouseSpeed | humanStealth | adaptiveDensity | typoProbability |
 | :--- | :--- | :--- | :--- | :--- |
-| `stealth` | 0.7 | 1.0 | enabled | 0.10 |
+| `adaptive` | 0.7 | 1.0 | enabled | 0.10 |
 | `debug` | 1.0 | 0.5 | disabled | 0.05 |
 | `balanced` | 1.0 | 0.5 | enabled | 0.08 |
 | `browse` | 1.0 | 0.5 | enabled | 0.08 |
 | `speed` | 3.0 | 0.0 | disabled | 0.00 |
 | `qa` | 1.5 | 0.2 | disabled | 0.00 |
+
+> **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`. New code should use `adaptive`.
 
 ## 9. Self-Healing Selectors
 - **Selector Recovery:** Automatic rebuild when element selectors fail.

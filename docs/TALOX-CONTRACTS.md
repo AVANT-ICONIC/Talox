@@ -146,14 +146,16 @@ interface TaloxSettings {
 
 ## 6. Mode Presets
 
-| Mode | mouseSpeed | humanStealth | adaptiveStealth | typoProbability | perceptionDepth |
+| Mode | mouseSpeed | humanStealth | adaptiveDensity | typoProbability | perceptionDepth |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `stealth` | 0.7 | 1.0 | enabled | 0.10 | full |
+| `adaptive` | 0.7 | 1.0 | enabled | 0.10 | full |
 | `debug` | 1.0 | 0.5 | disabled | 0.05 | full |
 | `balanced` | 1.0 | 0.5 | enabled | 0.08 | full |
 | `browse` | 1.0 | 0.5 | enabled | 0.08 | full |
 | `speed` | 3.0 | 0.0 | disabled | 0.00 | shallow |
 | `qa` | 1.5 | 0.2 | disabled | 0.00 | full |
+
+> **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`. New code should use `adaptive`.
 
 ---
 

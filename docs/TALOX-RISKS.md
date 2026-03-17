@@ -17,9 +17,9 @@
 - **Performance:** Multiple Chromium instances are CPU/RAM intensive. Memory-efficient context management is a priority.
 - **Network Bandwidth:** Large screenshots and traces should be minimized to reduce agent processing overhead.
 
-## 5. Stealth Limitations
-- **Not a guarantee:** Stealth mode significantly reduces bot detection risk but cannot guarantee evasion against all systems.
-- **Behavioral Uniqueness:** Highly unique behavioral DNA patterns may still be detectable by advanced fingerprinting.
+## 5. Interaction Fidelity
+- **Not a guarantee:** Adaptive mode significantly reduces interaction-related flakiness but cannot guarantee perfect reliability across all real-world UIs.
+- **Behavioral Uniqueness:** Highly unique behavioral DNA patterns may still produce intermittent timing issues on some interfaces.
 - **Adaptive Decay:** Precision decay over long sessions may cause intermittent interaction failures.
 
 ## 6. Network Mocking Risks
