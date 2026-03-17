@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/avanticonic/talox/blob/main/src/schema/TaloxPageState.schema.json",
+  "title": "TaloxPageState",
+  "description": "The primary structured JSON contract returned to agents after every navigation or state capture.",
+  "type": "object",
+  "required": ["url", "title", "timestamp", "mode", "console", "network", "nodes", "interactiveElements", "bugs"],
+  "properties": {
+    "url": { "type": "string", "format": "uri", "description": "Current page URL." },
+    "title": { "type": "string", "description": "Page <title> text." },
+    "timestamp": { "type": "string", "format": "date-time", "description": "ISO 8601 capture time." },
+    "profileId": { "type": "string", "description": "ID of the active Talox profile." },
+    "mode": {
+      "type": "string",
+      "enum": ["speed", "stealth", "balanced", "qa", "debug", "browse", "hybrid"],
+      "description": "Active execution mode at time of capture."
+    },
+    "console": {
+      "type": "object",
+      "required": ["errors"],
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" }, "description": "Captured console.error() messages." },
+        "warnings": { "type": "array", "items": { "type": "string" }, "description": "Captured console.warn() messages." },
+        "logs": { "type": "array", "items": { "type": "string" }, "description": "Captured console.log() messages." }
+      }
+    },
+    "network": {
+      "type": "object",
+      "required": ["failedRequests"],
+      "properties": {
+        "failedRequests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["url", "status"],
+            "properties": {
+              "url": { "type": "string" },
+              "status": { "type": "integer" },
+              "type": { "type": "string" }
+            }
+          },
+          "description": "HTTP requests that returned 4xx or 5xx status codes."
+        },
+        "exceptions": { "type": "array", "items": {}, "description": "CDP Runtime exceptions." }
+      }
+    },
+    "axTree": {
+      "$ref": "#/definitions/TaloxNode",
+      "description": "Full AX-Tree root node. Only present when perceptionDepth is 'full'."
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/TaloxNode" },
+      "description": "Flat list of all accessibility nodes on the page."
+    },
+    "interactiveElements": {
+      "type": "array",
+      "description": "All actionable elements with bounding boxes. Use these for click/type targeting.",
+      "items": {
+        "type": "object",
+        "required": ["id", "tagName", "boundingBox"],
+        "properties": {
+          "id": { "type": "string" },
+          "tagName": { "type": "string", "description": "HTML tag name (e.g. 'button', 'input', 'a')." },
+          "role": { "type": "string", "description": "ARIA role." },
+          "text": { "type": "string", "description": "Visible text content." },
+          "boundingBox": { "$ref": "#/definitions/BoundingBox" },
+          "isActionable": { "type": "boolean", "description": "Whether the element is currently interactable (visible, not disabled)." }
+        }
+      }
+    },
+    "bugs": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/TaloxBug" },
+      "description": "Detected issues. Empty array means no bugs found."
+    },
+    "screenshots": {
+      "type": "object",
+      "properties": {
+        "fullPage": { "type": "string", "description": "Path to full-page screenshot." },
+        "crops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "path", "reason"],
+            "properties": {
+              "id": { "type": "string" },
+              "path": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "BoundingBox": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" }
+      }
+    },
+    "TaloxNode": {
+      "type": "object",
+      "required": ["id", "role", "name", "boundingBox"],
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "description": "ARIA role (e.g. 'button', 'heading', 'link')." },
+        "name": { "type": "string", "description": "Accessible name." },
+        "description": { "type": "string" },
+        "boundingBox": { "$ref": "#/definitions/BoundingBox" },
+        "attributes": { "type": "object", "additionalProperties": { "type": ["string", "boolean"] } },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/TaloxNode" } }
+      }
+    },
+    "TaloxBug": {
+      "type": "object",
+      "required": ["id", "type", "severity", "description", "evidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["JS_ERROR", "NETWORK_FAILURE", "LAYOUT_OVERLAP", "CLIPPED_ELEMENT", "INVISIBLE_CTA", "VISUAL_REGRESSION"],
+          "description": "Bug category."
+        },
+        "severity": { "type": "string", "enum": ["CRITICAL", "MAJOR", "MINOR"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "description": { "type": "string" },
+        "reproductionSteps": { "type": "array", "items": { "type": "string" } },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string" },
+            "profile": { "type": "string" },
+            "consoleLog": { "type": "string" },
+            "networkLog": { "type": "string" },
+            "screenshotRef": { "type": "string" },
+            "cropRef": { "type": "string" }
+          }
+        },
+        "metadata": { "type": "object" }
+      }
+    }
+  }
+}

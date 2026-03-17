@@ -13,6 +13,7 @@
   },
   "files": [
     "dist/",
+    "src/schema/",
     "README.md",
     "LICENSE"
   ],
@@ -31,16 +32,16 @@
     "debug",
     "accessibility-tree"
   ],
-  "author": "",
+  "author": "AVANT ICONIC",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/talox"
+    "url": "https://github.com/avanticonic/autonomy-agent-browser"
   },
   "bugs": {
-    "url": "https://github.com/your-org/talox/issues"
+    "url": "https://github.com/avanticonic/autonomy-agent-browser/issues"
   },
-  "homepage": "https://github.com/your-org/talox#readme",
+  "homepage": "https://github.com/avanticonic/autonomy-agent-browser#readme",
   "engines": {
     "node": ">=18.0.0"
   },

@@ -2,20 +2,20 @@ export type ProfileClass = 'qa' | 'ops' | 'sandbox';
 export type TaloxMode = 'speed' | 'stealth' | 'balanced' | 'qa' | 'debug' | 'browse' | 'hybrid';
 
 export interface TaloxSettings {
-  mouseSpeed: number; // 0.1 to 2.0 (1.0 default)
-  typingDelayMin: number;
-  typingDelayMax: number;
+  mouseSpeed: number; // 0.1 to 3.0 (1.0 default)
+  typingDelayMin: number; // ms
+  typingDelayMax: number; // ms
   stealthLevel: 'low' | 'medium' | 'high';
-  perceptionDepth: 'shallow' | 'full';
+  perceptionDepth: 'shallow' | 'full'; // shallow = interactive elements only, full = entire AX-Tree
   fidgetEnabled: boolean;
   humanStealth: number; // 0.0 to 1.0
   typoProbability: number; // 0.0 to 1.0 - probability of typo per character
-  adaptiveStealthEnabled: boolean; // Enable viewport adaptive stealth
-  adaptiveStealthSensitivity: number; // 0.1 to 2.0 - sensitivity of density calculation
+  adaptiveStealthEnabled: boolean;
+  adaptiveStealthSensitivity: number; // 0.1 to 2.0
   adaptiveStealthRadius: number; // pixel radius for density calculation
   precisionDecay: number; // 0.0 = perfect precision, 1.0 = maximum decay
-  automaticThinkingEnabled: boolean; // Enable automatic thinking behaviors during idle
-  idleTimeout: number; // ms to wait before triggering thinking behaviors
+  automaticThinkingEnabled: boolean;
+  idleTimeout: number; // ms before triggering thinking behaviors
 }
 
 export interface Point {
@@ -31,6 +31,7 @@ export interface TaloxNode {
   description?: string;
   boundingBox: { x: number; y: number; width: number; height: number };
   attributes?: Record<string, string | boolean>;
+  children?: TaloxNode[];
 }
 
 export interface TaloxProfile {
@@ -38,35 +39,102 @@ export interface TaloxProfile {
   class: ProfileClass;
   purpose: string;
   userDataDir: string;
+  policy?: {
+    allowedDomains: string[];
+    blockedActions: string[];
+    extensions: string[];
+  };
   metadata: {
     createdAt: string;
     lastUsed: string;
+    tags?: string[];
   };
 }
 
 export interface TaloxBug {
   id: string;
-  type: string;
+  type: 'JS_ERROR' | 'NETWORK_FAILURE' | 'LAYOUT_OVERLAP' | 'CLIPPED_ELEMENT' | 'INVISIBLE_CTA' | 'VISUAL_REGRESSION' | string;
   severity: 'CRITICAL' | 'MAJOR' | 'MINOR';
+  confidence?: number; // 0.0 - 1.0
   description: string;
-  evidence: any;
+  reproductionSteps?: string[];
+  evidence: {
+    url?: string;
+    profile?: string;
+    consoleLog?: string;
+    networkLog?: string;
+    screenshotRef?: string;
+    cropRef?: string;
+    [key: string]: any;
+  };
+  metadata?: Record<string, any>;
 }
 
 export interface VisualDiffResult {
+  testId?: string;
+  timestamp?: string;
+  passed?: boolean;
+  baselinePath?: string;
+  currentPath?: string;
+  diffPath?: string;
+  similarity?: number; // 0.0 - 1.0
   mismatchedPixels: number;
   ssimScore: number;
   ocrText?: string;
   diffImageUrl?: string;
+  diffRegions?: Array<{ x: number; y: number; width: number; height: number }>;
+}
+
+export interface BehavioralDNA {
+  profileId?: string;
+  jitterFrequency: number;
+  accelerationCurve: 'linear' | 'ease-out' | 'ease-in-out' | 'bezier';
+  typingRhythm: 'fast' | 'medium' | 'slow' | 'variable';
+  clickPrecision: number;
+  movementStyle: 'smooth' | 'jerky' | 'precise' | 'relaxed';
+  typeBehavior?: {
+    avgTypingSpeed: number; // chars per second
+    errorRate: number;
+    pauseBetweenWords: number;
+  };
+  clickPattern?: {
+    doubleClickProbability: number;
+    hoverDuration: number;
+  };
+  timingVariance?: {
+    actionDelayMin: number;
+    actionDelayMax: number;
+  };
 }
 
 export interface TaloxPageState {
   url: string;
   title: string;
   timestamp: string;
+  profileId?: string;
   mode: TaloxMode;
-  console: { errors: string[] };
-  network: { failedRequests: Array<{ url: string; status: number }> };
-  nodes: TaloxNode[];
-  interactiveElements: Array<{ id: string; tagName: string; boundingBox: { x: number; y: number; width: number; height: number } }>;
+  console: {
+    errors: string[];
+    warnings?: string[];
+    logs?: string[];
+  };
+  network: {
+    failedRequests: Array<{ url: string; status: number; type?: string }>;
+    exceptions?: any[];
+  };
+  axTree?: TaloxNode; // Full AX-Tree root (perceptionDepth: 'full')
+  nodes: TaloxNode[]; // Flat list of all AX nodes
+  interactiveElements: Array<{
+    id: string;
+    tagName: string;
+    role?: string;
+    text?: string;
+    boundingBox: { x: number; y: number; width: number; height: number };
+    isActionable?: boolean;
+  }>;
   bugs: TaloxBug[];
+  screenshots?: {
+    fullPage?: string;
+    crops?: Array<{ id: string; path: string; reason: string }>;
+  };
 }
