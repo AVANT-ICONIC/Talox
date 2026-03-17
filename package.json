@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AI-agent-first browser controller. Stealth mode evades bot detection. Debug mode gives full observability.",
   "type": "module",
   "main": "dist/index.js",
