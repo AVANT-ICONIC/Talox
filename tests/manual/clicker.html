@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AAB Clicker Game</title>
+    <style>
+        #game { width: 600px; height: 400px; background: #eee; position: relative; overflow: hidden; }
+        #target { width: 50px; height: 50px; background: red; border-radius: 50%; position: absolute; cursor: pointer; }
+        #score { font-size: 24px; margin-bottom: 10px; }
+        #input-test { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>AAB Clicker Game</h1>
+    <div id="score">Score: 0</div>
+    <div id="game">
+        <div id="target" style="left: 100px; top: 100px;"></div>
+    </div>
+    <div id="input-test">
+        <input type="text" id="nameInput" placeholder="Enter your name">
+        <div id="greeting"></div>
+    </div>
+    <script>
+        let score = 0;
+        const target = document.getElementById('target');
+        const scoreEl = document.getElementById('score');
+        const input = document.getElementById('nameInput');
+        const greeting = document.getElementById('greeting');
+
+        target.onclick = () => {
+            score++;
+            scoreEl.innerText = `Score: ${score}`;
+            moveTarget();
+        };
+
+        function moveTarget() {
+            const x = Math.random() * 550;
+            const y = Math.random() * 350;
+            target.style.left = `${x}px`;
+            target.style.top = `${y}px`;
+        }
+
+        input.oninput = (e) => {
+            greeting.innerText = `Hello, ${e.target.value}!`;
+        };
+    </script>
+</body>
+</html>
