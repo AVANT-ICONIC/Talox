@@ -4,7 +4,7 @@
 
 <br />
 
-<img src="./talox.png" alt="Talox logo" width="72" />
+<img src="./talox.webp" alt="Talox logo" width="72" />
 
 <br />
 

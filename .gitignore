@@ -31,6 +31,7 @@ stealth-test-credentials.txt
 *.jpg
 *.jpeg
 !talox.png
+!talox.webp
 !docs/**/*.png
 !docs/**/*.jpg
 
