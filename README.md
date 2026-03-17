@@ -4,6 +4,10 @@
 
 <br />
 
+<img src="./talox.png" alt="Talox logo" width="72" />
+
+<br />
+
 <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=22&pause=1200&color=2DD4BF&center=true&vCenter=true&width=980&lines=Stateful+browser+runtime+for+AI+agents.;Persistent+profiles.+Deep+observability.+Structured+state+contracts.;Resilient+interaction+for+real-world+web+UIs." alt="Typing SVG" />
 
 <br />
