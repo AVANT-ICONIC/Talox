@@ -6,7 +6,27 @@ import { ArtifactBuilder } from './ArtifactBuilder.js';
 import { HumanMouse } from './HumanMouse.js';
 import { PolicyEngine } from './PolicyEngine.js';
 import { VisionGate } from './VisionGate.js';
-import type { TaloxProfile, TaloxPageState, ProfileClass, TaloxMode, Point, VisualDiffResult, TaloxSettings, TaloxNode } from '../types/index.js';
+import { SemanticMapper, type SemanticEntity } from './SemanticMapper.js';
+import { EventEmitter } from 'events';
+import type { TaloxProfile, TaloxPageState, ProfileClass, TaloxMode, Point, VisualDiffResult, TaloxSettings, TaloxNode, TaloxBug } from '../types/index.js';
+
+export type TaloxEventType = 
+  | 'navigation'
+  | 'elementChanged'
+  | 'consoleError'
+  | 'consoleWarning'
+  | 'consoleLog'
+  | 'networkError'
+  | 'bugDetected'
+  | 'stateChanged'
+  | 'modeChanged'
+  | 'error';
+
+export interface TaloxEvent {
+  type: TaloxEventType;
+  timestamp: string;
+  data?: any;
+}
 
 export interface AttentionFrame {
   x: number;
@@ -38,6 +58,7 @@ export class TaloxController {
   private artifactBuilder: ArtifactBuilder;
   private policyEngine: PolicyEngine;
   private visionGate: VisionGate;
+  private semanticMapper: SemanticMapper;
   private profile: TaloxProfile | null = null;
   private mode: TaloxMode = 'browse';
   private globalLastMousePos: Point = { x: 0, y: 0 };
@@ -68,6 +89,9 @@ export class TaloxController {
   private autoThinkingCheckInterval: NodeJS.Timeout | null = null;
   private lastActivityTimestamp: number = 0;
   private isAutoThinkingActive: boolean = false;
+
+  private emitter: EventEmitter = new EventEmitter();
+  private eventListeners: Map<TaloxEventType, Set<(event: TaloxEvent) => void>> = new Map();
 
   /**
    * 🎛️ MODE PRESETS
@@ -164,6 +188,7 @@ export class TaloxController {
     this.artifactBuilder = new ArtifactBuilder();
     this.policyEngine = new PolicyEngine();
     this.visionGate = new VisionGate();
+    this.semanticMapper = new SemanticMapper();
   }
 
   /**
@@ -275,6 +300,7 @@ export class TaloxController {
         this.updateSettings(preset);
     }
     this.artifactBuilder.addAction('setMode', { mode });
+    this.emit('modeChanged', { mode, settings: this.settings });
   }
 
   /**
@@ -603,6 +629,15 @@ export class TaloxController {
   }
 
   /**
+   * 📄 MULTI-PAGE: Get the raw Playwright page for advanced operations.
+   */
+  getPlaywrightPage(): any {
+    const collector = this.getActivePage();
+    if (!collector) return null;
+    return (collector as any).page;
+  }
+
+  /**
    * 📄 MULTI-PAGE: Get all open pages.
    */
   getAllPages(): PageStateCollector[] {
@@ -860,6 +895,20 @@ export class TaloxController {
 
     state.bugs.push(...this.rulesEngine.analyze(state));
     this.lastState = state;
+
+    this.emit('navigation', { url: state.url, title: state.title });
+    this.emit('stateChanged', state);
+
+    if (state.console.errors.length > 0) {
+      for (const error of state.console.errors) {
+        this.emit('consoleError', { error, url: state.url });
+      }
+    }
+
+    for (const bug of state.bugs) {
+      this.emit('bugDetected', bug);
+    }
+
     return state;
   }
 
@@ -1868,5 +1917,294 @@ export class TaloxController {
         throw new Error(`Human-in-the-Loop blocked risky action: ${action} on ${target}`);
       }
     }
+  }
+
+  /**
+   * 📖 DESCRIBE PAGE: Get a human-readable description of the current page.
+   * Uses SemanticMapper to generate an LLM-friendly summary.
+   */
+  async describePage(): Promise<string> {
+    if (!this.lastState) {
+      return "No page loaded yet. Call navigate() first.";
+    }
+
+    const entities = this.semanticMapper.mapNodes(this.lastState.nodes, this.lastState.url);
+    const interactive = this.semanticMapper.filterInteractive(entities);
+    const grouped = this.semanticMapper.groupByType(interactive);
+
+    const parts: string[] = [];
+
+    parts.push(`Page: "${this.lastState.title}" at ${this.lastState.url}`);
+
+    const forms = grouped.get('form');
+    if (forms && forms.length > 0) {
+      parts.push(`Contains ${forms.length} form(s).`);
+    }
+
+    const inputs = grouped.get('input');
+    if (inputs && inputs.length > 0) {
+      const inputLabels = inputs.slice(0, 5).map(e => e.label).join(', ');
+      parts.push(`Input fields: ${inputLabels}${inputs.length > 5 ? '...' : ''}`);
+    }
+
+    const buttons = grouped.get('button');
+    if (buttons && buttons.length > 0) {
+      const buttonLabels = buttons.slice(0, 5).map(e => e.label).join(', ');
+      parts.push(`Buttons: ${buttonLabels}${buttons.length > 5 ? '...' : ''}`);
+    }
+
+    const links = grouped.get('link');
+    if (links && links.length > 0) {
+      parts.push(`Links: ${links.length} link(s) on page`);
+    }
+
+    const searchBoxes = grouped.get('search');
+    if (searchBoxes && searchBoxes.length > 0) {
+      parts.push(`Search: ${searchBoxes.length} search input(s)`);
+    }
+
+    const headings = grouped.get('heading');
+    if (headings && headings.length > 0) {
+      const topHeadings = headings.slice(0, 3).map(e => `"${e.name}"`).join(', ');
+      parts.push(`Headings: ${topHeadings}`);
+    }
+
+    if (this.lastState.console.errors.length > 0) {
+      parts.push(`Console errors: ${this.lastState.console.errors.length} error(s)`);
+    }
+
+    if (this.lastState.bugs.length > 0) {
+      parts.push(`Detected ${this.lastState.bugs.length} bug(s)`);
+    }
+
+    return parts.join(' ');
+  }
+
+  /**
+   * 🎯 GET INTENT STATE: Get compact intent-focused state for quick decision making.
+   */
+  async getIntentState(): Promise<{
+    pageType: string;
+    primaryAction: { type: string; label: string; selector: string } | null;
+    inputs: Array<{ label: string; type: string; id: string }>;
+    errors: string[];
+    bugs: Array<{ type: string; severity: string }>;
+  }> {
+    if (!this.lastState) {
+      return {
+        pageType: 'unknown',
+        primaryAction: null,
+        inputs: [],
+        errors: [],
+        bugs: []
+      };
+    }
+
+    const entities = this.semanticMapper.mapNodes(this.lastState.nodes, this.lastState.url);
+    const interactive = this.semanticMapper.filterInteractive(entities);
+    const sorted = this.semanticMapper.sortByPosition(interactive);
+
+    let pageType = 'unknown';
+    const urlLower = this.lastState.url.toLowerCase();
+    if (urlLower.includes('login') || urlLower.includes('signin')) {
+      pageType = 'login';
+    } else if (urlLower.includes('checkout') || urlLower.includes('cart')) {
+      pageType = 'checkout';
+    } else if (urlLower.includes('search') || urlLower.includes('results')) {
+      pageType = 'search';
+    } else if (urlLower.includes('product') || urlLower.includes('item')) {
+      pageType = 'product';
+    } else if (urlLower.includes('article') || urlLower.includes('post') || urlLower.includes('blog')) {
+      pageType = 'article';
+    } else if (interactive.some(e => e.type === 'form')) {
+      pageType = 'form';
+    }
+
+    const inputs = interactive
+      .filter(e => e.type === 'input' || e.type === 'search')
+      .slice(0, 10)
+      .map(e => ({
+        label: e.label,
+        type: e.role,
+        id: e.id
+      }));
+
+    let primaryAction: { type: string; label: string; selector: string } | null = null;
+    if (sorted.length > 0) {
+      const first = sorted[0];
+      if (first) {
+        primaryAction = {
+          type: first.type,
+          label: first.label,
+          selector: first.id
+        };
+      }
+    }
+
+    return {
+      pageType,
+      primaryAction,
+      inputs,
+      errors: this.lastState!.console.errors,
+      bugs: this.lastState!.bugs.map(b => ({ type: b.type, severity: b.severity }))
+    };
+  }
+
+  /**
+   * 📸 SCREENSHOT: Take a screenshot of the full page or a specific element.
+   */
+  async screenshot(options?: { selector?: string; path?: string }): Promise<Buffer | string> {
+    const page = this.getPlaywrightPage();
+    if (!page) throw new Error('No active page');
+
+    if (options?.selector) {
+      const element = await page.$(options.selector);
+      if (!element) throw new Error(`Element not found: ${options.selector}`);
+      return element.screenshot({ path: options.path, type: 'png' });
+    }
+
+    return page.screenshot({ path: options?.path, type: 'png', fullPage: true });
+  }
+
+  /**
+   * 📜 SCROLL TO: Scroll an element into view with smooth scrolling.
+   */
+  async scrollTo(selector: string, align: 'start' | 'center' | 'end' | 'nearest' = 'center'): Promise<void> {
+    const page = this.getPlaywrightPage();
+    if (!page) throw new Error('No active page');
+
+    const element = await page.$(selector);
+    if (!element) throw new Error(`Element not found: ${selector}`);
+
+    await element.scrollIntoViewIfNeeded();
+    await element.evaluate((el: any) => {
+      el.scrollIntoView({ behavior: 'smooth', block: align });
+    });
+  }
+
+  /**
+   * 📊 EXTRACT TABLE: Extract table data as JSON array of objects.
+   */
+  async extractTable(selector: string): Promise<Array<Record<string, string>>> {
+    const page = this.getPlaywrightPage();
+    if (!page) throw new Error('No active page');
+
+    const table = await page.$(selector);
+    if (!table) throw new Error(`Table not found: ${selector}`);
+
+    return table.evaluate((tableEl: HTMLTableElement) => {
+      const headers = Array.from(tableEl.querySelectorAll('thead th, thead td'))
+        .map(th => th.textContent?.trim() || `col${Math.random()}`);
+      
+      const rows = Array.from(tableEl.querySelectorAll('tbody tr, tr'));
+      return rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('td, th'));
+        const rowData: Record<string, string> = {};
+        cells.forEach((cell, i) => {
+          const key = headers[i] || `col${i}`;
+          rowData[key] = cell.textContent?.trim() || '';
+        });
+        return rowData;
+      }).filter(row => Object.values(row).some(v => v));
+    });
+  }
+
+  /**
+   * ⏳ WAIT FOR LOAD STATE: Wait for a specific page load state.
+   */
+  async waitForLoadState(state: 'load' | 'domcontentloaded' | 'networkidle', timeout: number = 30000): Promise<void> {
+    const page = this.getPlaywrightPage();
+    if (!page) throw new Error('No active page');
+
+    await page.waitForLoadState(state, { timeout });
+  }
+
+  /**
+   * 🔍 FIND ELEMENT: Find an element by text content or accessible name.
+   */
+  async findElement(text: string, elementType?: 'button' | 'link' | 'input' | 'checkbox' | 'radio' | 'menuitem' | 'any'): Promise<{ selector: string; boundingBox: { x: number; y: number; width: number; height: number } } | null> {
+    if (!this.lastState) return null;
+
+    const entities = this.semanticMapper.mapNodes(this.lastState.nodes, this.lastState.url);
+    let filtered = entities;
+
+    if (elementType && elementType !== 'any') {
+      filtered = this.semanticMapper.filterByType(entities, [elementType as any]);
+    }
+
+    const matches = filtered.filter(e => 
+      e.label.toLowerCase().includes(text.toLowerCase()) ||
+      e.name.toLowerCase().includes(text.toLowerCase())
+    );
+
+    if (matches.length === 0) return null;
+
+    const best = matches.sort((a, b) => b.confidence - a.confidence)[0];
+    if (!best) return null;
+    
+    return {
+      selector: best.id,
+      boundingBox: best.boundingBox
+    };
+  }
+
+  /**
+   * ⚡ EVALUATE: Execute JavaScript in the browser context.
+   */
+  async evaluate<T = any>(script: string): Promise<T> {
+    const page = this.getPlaywrightPage();
+    if (!page) throw new Error('No active page');
+
+    return page.evaluate(script);
+  }
+
+  /**
+   * 📡 EVENT EMITTER: Subscribe to Talox events.
+   */
+  on(eventType: TaloxEventType, handler: (event: TaloxEvent) => void): void {
+    this.emitter.on(eventType, handler);
+    if (!this.eventListeners.has(eventType)) {
+      this.eventListeners.set(eventType, new Set());
+    }
+    this.eventListeners.get(eventType)!.add(handler);
+  }
+
+  /**
+   * 📡 EVENT EMITTER: Unsubscribe from Talox events.
+   */
+  off(eventType: TaloxEventType, handler: (event: TaloxEvent) => void): void {
+    this.emitter.off(eventType, handler);
+    this.eventListeners.get(eventType)?.delete(handler);
+  }
+
+  /**
+   * 📡 EVENT EMITTER: Emit a Talox event.
+   */
+  private emit(eventType: TaloxEventType, data?: any): void {
+    const event: TaloxEvent = {
+      type: eventType,
+      timestamp: new Date().toISOString(),
+      data
+    };
+    this.emitter.emit(eventType, event);
+  }
+
+  /**
+   * 📡 EVENT EMITTER: Get all registered event listeners.
+   */
+  getEventListeners(): Map<TaloxEventType, number> {
+    const result = new Map<TaloxEventType, number>();
+    for (const [type, handlers] of this.eventListeners) {
+      result.set(type, handlers.size);
+    }
+    return result;
+  }
+
+  /**
+   * 📡 EVENT EMITTER: Remove all event listeners.
+   */
+  removeAllListeners(): void {
+    this.emitter.removeAllListeners();
+    this.eventListeners.clear();
   }
 }
