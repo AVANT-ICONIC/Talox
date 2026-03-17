@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Buggy Test Page</title>
+    <style>
+        .overlap-container { position: relative; height: 100px; }
+        .btn1 { position: absolute; left: 10px; top: 10px; width: 100px; height: 50px; background: red; }
+        .btn2 { position: absolute; left: 20px; top: 20px; width: 100px; height: 50px; background: blue; opacity: 0.8; }
+        .clipped { position: absolute; left: 1200px; top: 10px; width: 200px; height: 50px; background: green; }
+    </style>
+</head>
+<body>
+    <h1>AAB Buggy Page</h1>
+    <div class="overlap-container">
+        <button class="btn1">Button 1</button>
+        <button class="btn2">Button 2</button>
+    </div>
+    <button class="clipped">I am clipped</button>
+    <button id="errorBtn" onclick="throw new Error('User clicked error button')">Cause Error</button>
+    <script>
+        console.error("Initial load error");
+    </script>
+</body>
+</html>
