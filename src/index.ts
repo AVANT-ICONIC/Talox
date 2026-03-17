@@ -1,4 +1,4 @@
-export * from './core/TaloxController.js';
+export { TaloxController, type AttentionFrame, type MovementStyle, type TypingRhythm, type AccelerationCurve, type BehavioralDNA } from './core/TaloxController.js';
 export * from './core/BrowserManager.js';
 export * from './core/ProfileVault.js';
 export * from './core/PageStateCollector.js';
@@ -6,4 +6,5 @@ export * from './core/RulesEngine.js';
 export * from './core/BugEngine.js';
 export * from './core/HumanMouse.js';
 export * from './core/PolicyEngine.js';
+export * from './core/TaloxTools.js';
 export * from './types/index.js';
