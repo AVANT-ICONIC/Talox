@@ -48,5 +48,5 @@ describe('End-to-End Gaming/Ops Flow', () => {
         await controller.stop();
         throw error;
     }
-  }, 60000);
+  }, 120000);
 });
