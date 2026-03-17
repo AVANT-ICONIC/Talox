@@ -3,7 +3,7 @@
 ## Getting Started
 
 ```bash
-git clone https://github.com/your-org/talox
+git clone https://github.com/AVANT-ICONIC/Talox
 cd talox
 npm install
 npm run build
