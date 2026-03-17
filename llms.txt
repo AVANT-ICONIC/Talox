@@ -1,0 +1,153 @@
+# Talox
+
+> Stateful browser runtime for AI agents built on Playwright. Adaptive mode provides resilient, human-paced interaction for real-world web UIs. Debug mode gives full observability. Both modes return a single structured JSON contract.
+
+Talox is designed to be consumed directly by AI agents. Every action returns a `TaloxPageState` — a structured JSON object containing the AX-Tree, interactive elements with bounding boxes, console output, network failures, and detected bugs. Agents do not need to parse HTML or interpret screenshots.
+
+## Core Concept
+
+Agents interact with Talox through a single controller class (`TaloxController`). The controller manages browser lifecycle, profile persistence, mode switching, and returns structured state after every action.
+
+```typescript
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+await talox.launch('agent-id', 'ops', 'adaptive');
+const state = await talox.navigate('https://example.com');
+// state is a TaloxPageState — ready for agent consumption
+await talox.stop();
+```
+
+## Modes
+
+- `adaptive` — Biomechanical Ghost Engine: Fitts's Law, Bezier curves, variable typing cadence. Use for resilient interaction on fragile real-world UIs. (`stealth` is a backwards-compatible alias.)
+- `debug` — Full AX-Tree, all console/network data, layout bug detection. Use for diagnosis.
+- `balanced` — General-purpose agent tasks.
+- `speed` — Maximum throughput, no human simulation.
+- `browse` — Human-like browsing sessions.
+- `qa` — Testing and visual regression.
+
+Switch modes at runtime: `await talox.setMode('debug')`
+
+## TaloxPageState (the JSON contract)
+
+Every `navigate()` and `getState()` call returns this object. JSON Schema: `src/schema/TaloxPageState.schema.json`
+
+```typescript
+{
+  url: string;               // current page URL
+  title: string;             // page title
+  timestamp: string;         // ISO 8601
+  profileId?: string;        // active profile ID
+  mode: TaloxMode;           // active mode
+
+  console: {
+    errors: string[];        // console.error() output
+    warnings?: string[];     // console.warn() output
+    logs?: string[];         // console.log() output
+  };
+
+  network: {
+    failedRequests: Array<{ url: string; status: number; type?: string }>;
+    exceptions?: any[];
+  };
+
+  axTree?: TaloxNode;        // full AX-Tree root (perceptionDepth: 'full' only)
+  nodes: TaloxNode[];        // flat list of all AX nodes
+
+  interactiveElements: Array<{
+    id: string;
+    tagName: string;         // 'button', 'input', 'a', etc.
+    role?: string;           // ARIA role
+    text?: string;           // visible text
+    boundingBox: { x: number; y: number; width: number; height: number };
+    isActionable?: boolean;  // false if disabled/hidden
+  }>;
+
+  bugs: TaloxBug[];          // detected issues, empty = no bugs
+  screenshots?: { fullPage?: string; crops?: Array<...> };
+}
+```
+
+## Key Actions
+
+```typescript
+// Navigation
+const state = await talox.navigate(url);
+
+// Interaction — HumanMouse handles trajectory in adaptive/browse modes
+await talox.click({ selector: 'button#submit' });
+await talox.click({ x: 400, y: 300 });
+await talox.type({ text: 'hello', selector: 'input[name="q"]' });
+await talox.press({ key: 'Enter' });
+
+// State
+const state = await talox.getState();
+
+// Visual regression
+const diff = await talox.verifyVisual({ baselinePath: './baseline.png', threshold: 0.01 });
+
+// Mode switching
+await talox.setMode('debug');
+
+// Granular setting override
+talox.override('mouseSpeed', 0.5);
+
+// Multi-page
+await talox.openPage('https://other.com');
+await talox.switchPage(pageId);
+```
+
+## Profile Classes
+
+- `ops` — Persistent authenticated sessions, domain-restricted via policy YAML
+- `qa` — Full perception, visual regression, debugging
+- `sandbox` — Ephemeral, low-risk experimentation
+
+## perceptionDepth
+
+- `shallow` — Returns only `interactiveElements` (buttons, inputs, links). Minimal tokens.
+- `full` — Returns complete `nodes` array and `axTree` root. Use for deep analysis.
+
+Set via: `talox.override('perceptionDepth', 'shallow')`
+
+## Bug Types
+
+The Rules Engine automatically detects and returns these in `state.bugs`:
+
+- `JS_ERROR` — JavaScript exception thrown on page
+- `NETWORK_FAILURE` — 4xx/5xx HTTP response
+- `LAYOUT_OVERLAP` — Two elements with overlapping bounding boxes
+- `CLIPPED_ELEMENT` — Element overflows its container
+- `INVISIBLE_CTA` — Button/link that is not visible or pointer-events: none
+- `VISUAL_REGRESSION` — Pixel diff exceeds threshold vs baseline
+
+## Self-Healing Selectors
+
+If a selector fails (DOM changed), Talox automatically retries using a fallback chain: ID → text content → ARIA role → position. No agent intervention needed.
+
+## Policy-as-Code
+
+Restrict agent actions per profile using YAML:
+
+```yaml
+allowedDomains:
+  - example.com
+blockedActions:
+  - navigate:https://competitor.com
+```
+
+Load with: `await talox.loadPolicy('./policies/ops.yaml')`
+
+## Files
+
+- `src/types/index.ts` — All TypeScript types
+- `src/schema/TaloxPageState.schema.json` — JSON Schema for TaloxPageState
+- `src/core/TaloxController.ts` — Main API
+- `docs/TALOX-CONTRACTS.md` — Full data model documentation
+- `docs/TALOX-SPEC.md` — Technical specification
+- `docs/TALOX-ARCHITECTURE.md` — System design with Mermaid diagrams
+- `docs/HARBOR-BOUNDARY.md` — Talox Core vs Harbor commercial boundary
+- `examples/adaptive-controller.ts` — Adaptive session example
+- `examples/debug-controller.ts` — Debug/observability example
+- `examples/qa-flow.test.ts` — QA bug detection example
