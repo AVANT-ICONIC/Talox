@@ -15,6 +15,10 @@ profiles/
 # Test artifacts
 tests/temp-profiles/
 tests/temp-profiles-*/
+tests/**/*.js
+tests/**/*.js.map
+tests/**/*.d.ts
+tests/**/*.d.ts.map
 
 # Credentials & secrets
 *.credentials.txt
