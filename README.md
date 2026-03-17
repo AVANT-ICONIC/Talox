@@ -277,6 +277,20 @@ const element = await talox.findElement('Submit', 'button');
 
 ---
 
+## VPS / Headless Server Setup
+
+Playwright's Chromium requires system dependencies that aren't present on a bare Linux VPS. Run this once after install:
+
+```bash
+npx playwright install chromium --with-deps
+```
+
+Talox defaults to `headless: true`, so no display server is needed. The required Chromium flags (`--no-sandbox`, `--disable-dev-shm-usage`) are set automatically.
+
+If you're on a low-memory VPS (< 1GB), set `PLAYWRIGHT_CHROMIUM_SANDBOX=0` as an environment variable as well.
+
+---
+
 ## Quick Start
 
 ```bash

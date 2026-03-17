@@ -309,9 +309,12 @@ export class BrowserManager {
     }
 
     const launchOptions: any = {
-      headless: isAdaptive ? false : this.config.browser.headless,
+      headless: this.config.browser.headless,
       args: [
-        '--disable-blink-features=AutomationControlled'
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
       ],
       ...extraOptions
     };
@@ -321,8 +324,8 @@ export class BrowserManager {
       launchOptions.proxy = this.config.browser.proxy;
     }
 
-    // Use real Chrome channel for adaptive mode or on macOS
-    if (isAdaptive || process.platform === 'darwin') {
+    // Use real Chrome channel for adaptive mode on macOS/desktop only
+    if (isAdaptive && process.platform === 'darwin') {
       launchOptions.channel = 'chrome';
     }
 
