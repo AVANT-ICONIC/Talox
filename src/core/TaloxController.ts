@@ -719,7 +719,7 @@ export class TaloxController {
   }
 
   /**
-   * 🎭 STEALTH: Inject evasion scripts to bypass bot detection.
+   * 🎭 ADAPTIVE: Inject fingerprint normalization scripts for low-noise interaction.
    */
   private async injectStealthScripts(page: any): Promise<void> {
     const webgl = this.webglInfo || this.webglRenderers[0];

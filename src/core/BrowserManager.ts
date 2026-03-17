@@ -294,7 +294,7 @@ export class BrowserManager {
       }[actualBrowserType];
       
       const stealthPlugin = (StealthPlugin as any)();
-      // Remove evasions we handle manually
+      // Remove evasions we handle manually via Biomechanical Ghost Engine
       if (stealthPlugin.enabledEvasions) {
         stealthPlugin.enabledEvasions.delete('user-agent-override');
         stealthPlugin.enabledEvasions.delete('webgl.vendor');
