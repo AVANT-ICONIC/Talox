@@ -125,6 +125,10 @@ Debug mode maximizes what the agent can see without interfering with it.
 │  │  VisionGate  │  │  RulesEngine │  │   PolicyEngine     │ │
 │  │  SSIM + OCR  │  │  Bug detect  │  │   YAML policies    │ │
 │  └──────────────┘  └──────────────┘  └────────────────────┘ │
+│  ┌──────────────┐  ┌──────────────────────────────────────┐  │
+│  │  TaloxTools  │  │         EventEmitter                │  │
+│  │  LLM Schema  │  │   (navigation, errors, bugs)        │  │
+│  └──────────────┘  └──────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
                             │
               ┌─────────────┼─────────────┐
@@ -148,6 +152,63 @@ Debug mode maximizes what the agent can see without interfering with it.
 | `AXTreeDiffer` | Structural diff between AX-Tree snapshots |
 | `GhostVisualizer` | Mouse path overlay for session replay and debugging |
 | `PolicyEngine` | YAML-based action restrictions per profile |
+| `TaloxTools` | LLM function calling schema for AI agents |
+| `EventEmitter` | Real-time notifications for navigation, errors, bugs |
+
+---
+
+## Agent-Friendly API
+
+### LLM Function Schema
+Talox provides built-in tools compatible with OpenAI function calling, Claude tools, and other LLM APIs:
+
+```typescript
+import { getTaloxTools, TaloxController } from 'talox';
+
+const tools = getTaloxTools();
+// Returns 14 tool definitions: navigate, click, type, get_state, 
+// describe_page, get_intent_state, screenshot, scroll_to, 
+// extract_table, wait_for_load_state, set_mode, verify_visual, 
+// find_element, evaluate
+```
+
+### Semantic Page Understanding
+```typescript
+// Get human-readable page description
+const description = await talox.describePage();
+// "Page: 'Example Domain' at https://example.com. Input fields: search. Buttons: Submit..."
+
+// Get compact intent state for quick decision making
+const intent = await talox.getIntentState();
+// { pageType: 'search', primaryAction: {...}, inputs: [...], errors: [], bugs: [...] }
+```
+
+### Event-Driven Workflows
+```typescript
+// Subscribe to real-time events
+talox.on('navigation', (event) => console.log('Navigated to:', event.data.url));
+talox.on('consoleError', (event) => console.log('Error:', event.data.error));
+talox.on('bugDetected', (event) => console.log('Bug:', event.data));
+```
+
+### Utility Methods
+```typescript
+// Screenshot
+await talox.screenshot(); // full page
+await talox.screenshot({ selector: '#hero', path: 'hero.png' });
+
+// Scroll
+await talox.scrollTo('#footer', 'center');
+
+// Extract table data
+const rows = await talox.extractTable('table.product-list');
+
+// Execute JavaScript
+const title = await talox.evaluate(() => document.title);
+
+// Find element by text
+const element = await talox.findElement('Submit', 'button');
+```
 
 ---
 
@@ -196,6 +257,8 @@ await talox.stop();
 | Mouse Pathing | Quintic-eased Cubic Bezier with speed-scaled jitter |
 | Perception | AX-Tree + DOM + Console + Network → single JSON contract |
 | Visual Diff | Pixelmatch (1px), SSIM, OCR (Tesseract.js) |
+| LLM Tools | 14 function-calling tools for AI agents |
+| Events | navigation, stateChanged, consoleError, bugDetected, modeChanged |
 | Node.js | ≥ 18 |
 
 ---

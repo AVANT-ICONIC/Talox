@@ -91,3 +91,21 @@ Talox provides a persistent, human-like browser controller for AI agents. Two pr
 ## 16. Multi-Page Support
 - **Page Management:** `switchPage(pageId)`, `openPage(url)`, `closePage(pageId)`.
 - **Context Isolation:** Each page maintains independent state within the same browser context.
+
+## 17. Agent-Friendly API
+- **LLM Function Schema:** Built-in OpenAI function calling support via `getTaloxTools()`.
+- **Tool Definitions:** 14 ready-to-use tools for LLM agents.
+- **Event Emitter:** Real-time notifications for `navigation`, `stateChanged`, `consoleError`, `bugDetected`, `modeChanged`.
+
+## 18. Semantic Page Description
+- **Page Summaries:** `describePage()` generates human-readable page descriptions.
+- **Intent State:** `getIntentState()` provides compact page type, primary action, inputs, and errors.
+- **Element Discovery:** `findElement()` locates elements by text or accessible name.
+
+## 19. Utility Methods
+- **Screenshot:** `screenshot()` captures full page or specific elements.
+- **Scroll:** `scrollTo()` smoothly scrolls elements into view.
+- **Table Extraction:** `extractTable()` parses table data as JSON.
+- **Load State:** `waitForLoadState()` waits for `load`, `domcontentloaded`, or `networkidle`.
+- **JavaScript:** `evaluate()` executes scripts in browser context.
+- **Direct Access:** `getPlaywrightPage()` exposes raw Playwright page for advanced operations.

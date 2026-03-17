@@ -102,6 +102,14 @@ graph TD
 - **Role:** YAML-based action restriction framework.
 - **Functionality:** Policy definition language with conditions, actions, and assertions. Policy chaining, dry-run mode, built-in rule library.
 
+### 2.14 TaloxTools
+- **Role:** LLM function calling schema for AI agents.
+- **Functionality:** Exports 14 ready-to-use tool definitions compatible with OpenAI function calling, Claude tools, and other LLM APIs. Tools include: navigate, click, type, get_state, describe_page, get_intent_state, screenshot, scroll_to, extract_table, wait_for_load_state, set_mode, verify_visual, find_element, evaluate.
+
+### 2.15 EventEmitter
+- **Role:** Real-time event notifications for agents.
+- **Functionality:** Emits events on navigation, state changes, console errors, bug detection, and mode changes. Enables agents to react to page events in real-time.
+
 ## 3. Data Flow
 1. **Agent Request:** Agent asks to navigate to a URL using a specific profile.
 2. **Profile Loading:** Talox loads the profile and launches Chromium.

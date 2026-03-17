@@ -17,6 +17,14 @@
 - [x] Behavioral DNA Fingerprinting
 - [x] Automated Thinking Behaviors
 
+## v0.1: Agent DX Improvements ✅ COMPLETE
+- [x] **LLM Function Schema:** OpenAI function calling support via TaloxTools
+- [x] **Semantic Page Description:** describePage() for human-readable summaries
+- [x] **Intent State:** getIntentState() for compact decision-making
+- [x] **Event Emitter:** Real-time notifications for navigation, errors, bugs
+- [x] **Utility Methods:** screenshot(), scrollTo(), extractTable(), waitForLoadState()
+- [x] **Direct Playwright Access:** getPlaywrightPage() for advanced operations
+
 ## v1: Enhanced Intelligence 🧠
 - [ ] **Local VLM Integration:** Quantized vision models (Moondream, Phi-3 Vision) for high-level visual reasoning.
 - [ ] **Captcha Solver Hooks:** Plugin interface for external captcha solving services.
