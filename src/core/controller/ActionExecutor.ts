@@ -76,8 +76,8 @@ export class ActionExecutor {
 
     // Smart-Settle Wait: Ensure hydration before proceeding
     const waitOption = this.modes.isSpeedMode()
-      ? { waitUntil: 'networkidle' } as any
-      : { waitUntil: 'load' } as any;
+      ? { waitUntil: 'domcontentloaded' } as any
+      : { waitUntil: 'networkidle' } as any;
 
     await page.goto(url, waitOption);
     setFirstNavigation(false);
@@ -389,9 +389,9 @@ export class ActionExecutor {
     if (!element) throw new Error(`Element not found: ${selector}`);
 
     await element.scrollIntoViewIfNeeded();
-    await element.evaluate((el: any) => {
-      el.scrollIntoView({ behavior: 'smooth', block: align });
-    });
+    await element.evaluate((el: any, block: string) => {
+      el.scrollIntoView({ behavior: 'smooth', block });
+    }, align);
   }
 
   // ─── Screenshot ──────────────────────────────────────────────────────────────

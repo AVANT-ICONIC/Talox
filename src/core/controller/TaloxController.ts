@@ -204,7 +204,7 @@ export class TaloxController {
     text: string,
     elementType?: 'button' | 'link' | 'input' | 'checkbox' | 'radio' | 'menuitem' | 'any',
   ): Promise<{ selector: string; boundingBox: { x: number; y: number; width: number; height: number } } | null> {
-    return this._actions.findElement(text, elementType);
+    return this._actions.findElement(text, elementType, this._session.lastState);
   }
 
   /** Execute JavaScript in the browser context. */
@@ -317,8 +317,7 @@ export class TaloxController {
 
   async getElementsInFrame(): Promise<TaloxNode[]> {
     if (!this.attentionFrame) throw new Error('No attention frame set.');
-    const state = this._session.getActiveStateCollector();
-    const allNodes: TaloxNode[] = (state as any).state?.nodes ?? [];
+    const allNodes: TaloxNode[] = this._session.lastState?.nodes ?? [];
     return allNodes.filter(n => n.boundingBox && this.isElementInFrame(n.boundingBox));
   }
 
