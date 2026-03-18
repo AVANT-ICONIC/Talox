@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },

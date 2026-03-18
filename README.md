@@ -297,6 +297,14 @@ If you're on a low-memory VPS (< 1GB), set `PLAYWRIGHT_CHROMIUM_SANDBOX=0` as an
 npm install talox
 ```
 
+Or from source:
+
+```bash
+git clone https://github.com/AVANT-ICONIC/Talox.git
+cd Talox
+npm install   # automatically builds dist/
+```
+
 ```typescript
 import { TaloxController } from 'talox';
 
