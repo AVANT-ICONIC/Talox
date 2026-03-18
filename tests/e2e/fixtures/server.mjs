@@ -21,7 +21,16 @@ http.createServer((req, res) => {
     return res.end(JSON.stringify({ error: 'Too Many Requests' }));
   }
 
-  const filePath = path.join(PAGES_DIR, req.url === '/' ? 'index.html' : req.url);
+  // Strip query string to prevent path corruption
+  const pathname = new URL(req.url, 'http://x').pathname;
+  const filePath = path.join(PAGES_DIR, pathname === '/' ? 'index.html' : pathname);
+
+  // Prevent path traversal
+  if (!filePath.startsWith(PAGES_DIR + path.sep) && filePath !== PAGES_DIR) {
+    res.writeHead(403);
+    return res.end('Forbidden');
+  }
+
   const ext = path.extname(filePath);
 
   try {
