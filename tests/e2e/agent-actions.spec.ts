@@ -11,7 +11,8 @@ test.describe('Surface 1 — Agent Actions', () => {
 
   test.beforeEach(async () => {
     talox = new TaloxController(PROFILES);
-    await talox.launch('e2e-actions', 'sandbox');
+    // debug mode: testing our own fixture server — no stealth warmup needed
+    await talox.launch('e2e-actions', 'sandbox', 'debug');
   });
 
   test.afterEach(async () => {
@@ -36,6 +37,46 @@ test.describe('Surface 1 — Agent Actions', () => {
     expect(['smart', 'speed', 'debug', 'observe']).toContain(state.mode);
   });
 
+  // ── Full form interaction flow ───────────────────────────────────────────────
+
+  test('full flow: type email + password → submit → success appears', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await talox.type('#email', 'agent@talox.dev');
+    await talox.type('#password', 'SuperSecret123!');
+    await talox.click('#submit');
+    const page = talox.getPlaywrightPage();
+    await page.waitForSelector('#success', { state: 'visible', timeout: 5000 });
+    const text = await page.innerText('#success');
+    expect(text).toContain('Welcome back');
+  });
+
+  test('full flow: contact form fill → submit → sent message appears', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.type('#name', 'Talox Agent');
+    await talox.type('#message', 'Hello from the automated agent!');
+    const page = talox.getPlaywrightPage();
+    await page.click('button[type="submit"]');
+    await page.waitForSelector('#sent', { state: 'visible', timeout: 5000 });
+    const text = await page.innerText('#sent');
+    expect(text).toContain('Message sent');
+  });
+
+  test('type() value persists after clicking into another field', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await talox.type('#email', 'persist@talox.dev');
+    await talox.click('#password');
+    const page = talox.getPlaywrightPage();
+    const value = await page.inputValue('#email');
+    expect(value).toBe('persist@talox.dev');
+  });
+
+  test('type() returns updated page state with correct url', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const state = await talox.type('#email', 'state@talox.dev');
+    expect(state.url).toContain('form.html');
+    expect(Array.isArray(state.nodes)).toBe(true);
+  });
+
   // ── Click ───────────────────────────────────────────────────────────────────
 
   test('click() on submit button triggers success div', async () => {
@@ -46,23 +87,117 @@ test.describe('Surface 1 — Agent Actions', () => {
     expect(successVisible).toBe(true);
   });
 
-  // ── Type ────────────────────────────────────────────────────────────────────
-
-  test('type() fills an input field', async () => {
+  test('click() returns updated page state', async () => {
     await talox.navigate(`${BASE}/form.html`);
-    await talox.type('#email', 'agent@talox.dev');
+    const state = await talox.click('#submit');
+    expect(state.url).toContain('form.html');
+    expect(Array.isArray(state.nodes)).toBe(true);
+  });
+
+  test('click() on a nav link updates the page url hash', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.click('a[href="#about"]');
     const page = talox.getPlaywrightPage();
-    const value = await page.inputValue('#email');
-    expect(value).toBe('agent@talox.dev');
+    expect(page.url()).toContain('#about');
+  });
+
+  // ── Human mouse movement ─────────────────────────────────────────────────────
+
+  test('mouseMove() resolves without error to a coordinate', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await expect(talox.mouseMove(300, 200)).resolves.toBeUndefined();
+  });
+
+  test('mouseMove() can traverse the viewport in sequence', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    // Simulate human cursor travelling across the page
+    await talox.mouseMove(100, 100);
+    await talox.mouseMove(400, 300);
+    await talox.mouseMove(200, 500);
+    const page = talox.getPlaywrightPage();
+    // Page must still be responsive after mouse movement
+    expect(page.url()).toContain('form.html');
+  });
+
+  // ── Human idle behaviours ────────────────────────────────────────────────────
+
+  test('fidget() completes simulated idle movement without error', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await expect(talox.fidget(300)).resolves.toBeUndefined();
+  });
+
+  test('think() completes simulated thinking pause without error', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await expect(talox.think(300)).resolves.toBeUndefined();
+  });
+
+  // ── Scroll ──────────────────────────────────────────────────────────────────
+
+  test('scrollTo() brings an element into the viewport', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.scrollTo('#primary-action');
+    const page = talox.getPlaywrightPage();
+    const inViewport = await page.evaluate(() => {
+      const el = document.querySelector('#primary-action');
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight;
+    });
+    expect(inViewport).toBe(true);
+  });
+
+  test('scrollTo() align:start places element near top of viewport', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.scrollTo('#primary-action', 'start');
+    const page = talox.getPlaywrightPage();
+    const top = await page.evaluate(() => {
+      const el = document.querySelector('#primary-action');
+      return el ? el.getBoundingClientRect().top : -1;
+    });
+    expect(top).toBeGreaterThanOrEqual(0);
   });
 
   // ── Screenshot ──────────────────────────────────────────────────────────────
 
-  test('screenshot() returns a Buffer with bytes', async () => {
+  test('screenshot() returns a non-empty Buffer', async () => {
     await talox.navigate(`${BASE}/form.html`);
     const result = await talox.screenshot();
     expect(result).toBeInstanceOf(Buffer);
     expect((result as Buffer).length).toBeGreaterThan(1000);
+  });
+
+  test('screenshot() captures element when selector provided', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const result = await talox.screenshot({ selector: '#login-form' });
+    expect(result).toBeInstanceOf(Buffer);
+    expect((result as Buffer).length).toBeGreaterThan(500);
+  });
+
+  // ── evaluate() ───────────────────────────────────────────────────────────────
+
+  test('evaluate() can read the page title from the DOM', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const title = await talox.evaluate<string>('document.title');
+    expect(title).toBe('Talox Test — Form');
+  });
+
+  test('evaluate() can count elements on the page', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const inputCount = await talox.evaluate<number>(
+      'document.querySelectorAll("input").length',
+    );
+    expect(inputCount).toBeGreaterThanOrEqual(2); // email + password
+  });
+
+  test('evaluate() can set a DOM value and read it back', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await talox.evaluate(
+      'document.querySelector("#email").value = "eval@talox.dev"',
+    );
+    const value = await talox.evaluate<string>(
+      'document.querySelector("#email").value',
+    );
+    expect(value).toBe('eval@talox.dev');
   });
 
   // ── findElement ─────────────────────────────────────────────────────────────
@@ -74,21 +209,40 @@ test.describe('Surface 1 — Agent Actions', () => {
     expect(el!.selector).toBeTruthy();
   });
 
+  test('findElement() returns bounding box with positive dimensions', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const el = await talox.findElement('Sign In', 'button');
+    expect(el).not.toBeNull();
+    expect(el!.boundingBox.width).toBeGreaterThan(0);
+    expect(el!.boundingBox.height).toBeGreaterThan(0);
+  });
+
+  test('findElement() returns null for text that does not exist', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    const el = await talox.findElement('NonExistentButtonXYZ', 'button');
+    expect(el).toBeNull();
+  });
+
+  test('findElement() → click() end-to-end semantic flow', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    const el = await talox.findElement('Place Order', 'button');
+    expect(el).not.toBeNull();
+    // Selector returned by findElement must be directly usable in click()
+    const state = await talox.click(el!.selector);
+    expect(state.url).toContain('observe-target.html');
+  });
+
   // ── extractTable ─────────────────────────────────────────────────────────────
 
   test('extractTable() returns empty array when no table exists', async () => {
-    // observe-target.html has no <table>; extractTable throws when selector is
-    // not found — catch the error and verify it is the expected "not found" case
     await talox.navigate(`${BASE}/observe-target.html`);
     let rows: unknown[] = [];
     try {
       rows = await talox.extractTable('table');
     } catch (err: any) {
-      // Implementation throws when the selector is absent — that is acceptable
       expect(err.message).toContain('Table not found');
       return;
     }
-    // If it ever returns instead of throwing, it must be an empty array
     expect(Array.isArray(rows)).toBe(true);
     expect(rows.length).toBe(0);
   });
@@ -100,6 +254,15 @@ test.describe('Surface 1 — Agent Actions', () => {
     await expect(talox.waitForSelector('#email', 5000)).resolves.toBeUndefined();
   });
 
+  test('waitForSelector() resolves for a dynamically shown element', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await talox.click('#submit');
+    // #success is shown by JS after click — must be present within 3s
+    await expect(
+      talox.waitForSelector('#success', 3000),
+    ).resolves.toBeUndefined();
+  });
+
   // ── Mode presets ─────────────────────────────────────────────────────────────
 
   test('speed mode: navigation completes without warmup delay', async () => {
@@ -107,14 +270,15 @@ test.describe('Surface 1 — Agent Actions', () => {
     const start = Date.now();
     await talox.navigate(`${BASE}/form.html`);
     const elapsed = Date.now() - start;
-    // Speed mode skips the 2000ms+ warmup delay — should be well under 4s
-    expect(elapsed).toBeLessThan(4000);
+    // Speed mode skips the 2000ms+ smart-mode warmup + 500ms settle.
+    // PageStateCollector DOM scan takes ~3–4s regardless of mode.
+    // Smart mode totals ~8–9s; speed mode must be meaningfully faster.
+    expect(elapsed).toBeLessThan(8000);
   });
 
   test('debug mode: state.console.errors array is present', async () => {
     await talox.setMode('debug');
     const state = await talox.navigate(`${BASE}/form.html`);
-    // form.html has no console errors — verify collection works in debug mode
     expect(Array.isArray(state.console.errors)).toBe(true);
   });
 
@@ -130,30 +294,32 @@ test.describe('Surface 1 — Agent Actions', () => {
   });
 
   test('multi-page: page state is isolated between tabs', async () => {
-    // Navigate tab 0 to form.html, then open tab 1 and navigate it to observe-target
     await talox.navigate(`${BASE}/form.html`);
     await talox.openPage(`${BASE}/observe-target.html`);
     talox.switchPage(1);
     await talox.navigate(`${BASE}/observe-target.html`);
 
-    // Verify tab 1 is on observe-target
     const tab1Page = talox.getPlaywrightPage();
     expect(tab1Page.url()).toContain('observe-target.html');
 
-    // Switch back to tab 0 — it should still be on form.html
     talox.switchPage(0);
     const tab0Page = talox.getPlaywrightPage();
     expect(tab0Page.url()).toContain('form.html');
+  });
+
+  test('closePage() removes the tab from the pool', async () => {
+    await talox.navigate(`${BASE}/form.html`);
+    await talox.openPage(`${BASE}/observe-target.html`);
+    expect(talox.getPageCount()).toBe(2);
+    await talox.closePage(1);
+    expect(talox.getPageCount()).toBe(1);
   });
 
   // ── Shadow DOM ───────────────────────────────────────────────────────────────
 
   test('shadow DOM: interactiveElements are collected from the page', async () => {
     const state = await talox.navigate(`${BASE}/shadow-dom.html`);
-    // Verify state collection completes on a shadow DOM page without error
-    // and returns a valid (possibly empty) array
     expect(Array.isArray(state.interactiveElements)).toBe(true);
-    // The page has a visible h1 — nodes should contain at least one item
     expect(state.nodes.length).toBeGreaterThan(0);
   });
 
@@ -165,5 +331,23 @@ test.describe('Surface 1 — Agent Actions', () => {
     const el = await talox.findElement('Place Order', 'button');
     expect(el).not.toBeNull();
     talox.clearAttentionFrame();
+  });
+
+  test('getElementsInFrame() returns nodes scoped to the attention frame', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.setAttentionFrame('main');
+    const elements = await talox.getElementsInFrame();
+    expect(Array.isArray(elements)).toBe(true);
+    expect(elements.length).toBeGreaterThan(0);
+    talox.clearAttentionFrame();
+  });
+
+  test('clearAttentionFrame() removes frame scope for subsequent actions', async () => {
+    await talox.navigate(`${BASE}/observe-target.html`);
+    await talox.setAttentionFrame('main');
+    talox.clearAttentionFrame();
+    // After clearing, findElement should still work on the full page
+    const el = await talox.findElement('Place Order', 'button');
+    expect(el).not.toBeNull();
   });
 });

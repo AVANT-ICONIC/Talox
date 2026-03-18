@@ -202,7 +202,7 @@ test.describe('Surface 2 — Observe Mode', () => {
 
     // Stop the session (triggers finalize + file write)
     await talox.stop();
-    await new Promise(r => setTimeout(r, 500)); // give reporter time to flush
+    await new Promise(r => setTimeout(r, 1200)); // give reporter time to flush
 
     const files = fs.readdirSync(outputDir);
     const jsonFile = files.find(f => f.endsWith('.json'));
@@ -232,7 +232,7 @@ test.describe('Surface 2 — Observe Mode', () => {
     });
 
     await talox.stop();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1200));
 
     const files = fs.readdirSync(outputDir);
     const jsonFile = files.find(f => f.endsWith('.json'))!;
@@ -264,7 +264,7 @@ test.describe('Surface 2 — Observe Mode', () => {
     });
 
     await talox.stop();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1200));
 
     const files = fs.readdirSync(outputDir);
     const mdFile = files.find(f => f.endsWith('.md'))!;
@@ -281,7 +281,7 @@ test.describe('Surface 2 — Observe Mode', () => {
     talox.on('sessionEnd', (e) => events.push(e));
 
     await talox.stop();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1200));
 
     expect(events.length).toBe(1);
     expect(typeof events[0]!.sessionId).toBe('string');

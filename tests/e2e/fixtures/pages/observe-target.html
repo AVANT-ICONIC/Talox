@@ -16,6 +16,13 @@
       <textarea id="message" placeholder="Your message"></textarea>
       <button type="submit">Send</button>
     </form>
+    <div id="sent" style="display:none">Message sent!</div>
   </main>
+  <script>
+    document.getElementById('contact-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('sent').style.display = 'block';
+    });
+  </script>
 </body>
 </html>
