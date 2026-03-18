@@ -26,7 +26,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-1.0.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-1.1.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">

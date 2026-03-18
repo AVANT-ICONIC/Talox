@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Stateful browser runtime for AI agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
@@ -62,12 +62,11 @@
     "chromium": "^3.0.3",
     "fs-extra": "^11.3.4",
     "js-yaml": "^4.1.0",
+    "patchright": "^1.58.2",
     "pixelmatch": "^7.1.0",
     "playwright": "^1.58.2",
     "playwright-core": "^1.58.2",
-    "playwright-extra": "^4.3.6",
     "pngjs": "^7.0.0",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "ssim.js": "^3.5.0",
     "tesseract.js": "^7.0.0"
   }

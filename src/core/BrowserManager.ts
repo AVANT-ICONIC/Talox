@@ -1,6 +1,5 @@
+import { chromium as patchrightChromium } from 'patchright';
 import { chromium, firefox, webkit, type BrowserContext } from 'playwright-core';
-import { chromium as chromiumExtra, firefox as firefoxExtra, webkit as webkitExtra } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -284,22 +283,13 @@ export class BrowserManager {
     
     let launcher: any;
     if (isAdaptive) {
-      // NOTE: playwright-extra + puppeteer-extra-plugin-stealth are used here
-      // to reduce browser automation fingerprinting for fragile UI compatibility.
-      // These dependencies are candidates for privatization into Harbor in a future release.
-      launcher = {
-        'chromium': chromiumExtra,
-        'firefox': firefoxExtra,
-        'webkit': webkitExtra
-      }[actualBrowserType];
-      
-      const stealthPlugin = (StealthPlugin as any)();
-      // Remove evasions we handle manually via Biomechanical Ghost Engine
-      if (stealthPlugin.enabledEvasions) {
-        stealthPlugin.enabledEvasions.delete('user-agent-override');
-        stealthPlugin.enabledEvasions.delete('webgl.vendor');
-      }
-      launcher.use(stealthPlugin);
+      // Patchright: patched Playwright driver that fixes CDP Runtime.enable leak,
+      // removes --enable-automation flag, and patches other detection vectors at
+      // the driver level — no JS injection needed for these signals.
+      // Only Chromium is supported by Patchright; other browser types fall back to standard.
+      launcher = actualBrowserType === 'chromium'
+        ? patchrightChromium
+        : { firefox, webkit }[actualBrowserType] ?? chromium;
     } else {
       launcher = {
         'chromium': chromium,
@@ -311,7 +301,6 @@ export class BrowserManager {
     const launchOptions: any = {
       headless: this.config.browser.headless,
       args: [
-        '--disable-blink-features=AutomationControlled',
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',

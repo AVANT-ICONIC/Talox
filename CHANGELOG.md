@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-18
+
+### Changed
+- Replaced `playwright-extra` + `puppeteer-extra-plugin-stealth` with **Patchright** — a patched Playwright driver that fixes detection at the driver level rather than via JS injection
+- Patchright eliminates the `Runtime.enable` CDP leak (the primary automation detection signal), removes the `--enable-automation` flag, and patches other command-flag detection vectors
+- `puppeteer-extra-plugin-stealth` fingerprint is no longer visible to detection tools (was identified by CreepJS)
+- Removed `--disable-blink-features=AutomationControlled` from manual args — Patchright handles this correctly
+- Adaptive mode now uses Patchright for Chromium; Firefox/WebKit fall back to standard Playwright
+
+### Fixed
+- Headless VPS compatibility: all features (screenshots, visual diff, OCR, GhostVisualizer) confirmed working fully headless without a display server
+
+---
+
 ## [1.0.0] - 2026-03-18
 
 ### Added
