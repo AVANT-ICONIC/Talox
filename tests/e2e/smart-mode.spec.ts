@@ -64,13 +64,11 @@ test.describe('Surface 3 — Smart Mode Adaptation', () => {
     const events: AdaptedEvent[] = [];
     talox.on('adapted', (e) => events.push(e));
 
-    // Navigate to a neutral page first so getPlaywrightPage() returns a non-null page,
-    // then set up the response listener before navigating to the rate-limit fixture.
-    await talox.navigate(`${BASE}/form.html`);
+    // Set up response watcher before navigating — avoids race condition
     const page = talox.getPlaywrightPage()!;
     const responsePromise = page.waitForResponse('**/api/data');
     await talox.navigate(`${BASE}/rate-limit.html`);
-    await responsePromise; // guarantees 429 response has been processed before assertion
+    await responsePromise; // guarantees 429 response has been received before assertion
 
     const reasons = events.map(e => e.reason);
     expect(reasons).toContain('rate_limit');
@@ -136,7 +134,8 @@ test.describe('Surface 3 — Smart Mode Adaptation', () => {
   });
 
   test('resetSemanticHealing() clears the flag', async () => {
-    await talox.navigate(`${BASE}/form.html`);
+    // Navigate to captcha to trigger adaptation (which may activate semantic healing)
+    await talox.navigate(`${BASE}/captcha.html`);
     // @ts-ignore — _adapt is @internal; access is intentional in test context
     talox._adapt.resetSemanticHealing();
     // @ts-ignore

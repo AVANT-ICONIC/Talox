@@ -1,4 +1,4 @@
-import type { Page } from 'playwright-core';
+import type { Page, Response } from 'playwright-core';
 import type { TaloxPageState, TaloxNode } from '../types/index.js';
 import type { AnyTaloxMode } from '../types/modes.js';
 import { resolveMode } from '../types/modes.js';
@@ -58,10 +58,10 @@ export class PageStateCollector {
     });
 
     // Track HTTP error responses (4xx / 5xx) for bot-detection heuristics
-    this.page.on('response', (response: any) => {
+    this.page.on('response', (response: Response) => {
       const status: number = response.status();
       if (status >= 400) {
-        this.failedRequests.push({ url: response.url(), status });
+        this.failedRequests.push({ url: response.url(), status, type: response.request().resourceType() });
       }
     });
   }
