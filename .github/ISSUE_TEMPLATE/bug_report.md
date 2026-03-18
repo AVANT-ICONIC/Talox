@@ -20,4 +20,4 @@ labels: bug
 - Node.js version:
 - OS:
 
-**Mode / profile class used** (stealth / debug / balanced / etc.):
+**Mode used** (`smart` / `speed` / `debug` / `observe`):

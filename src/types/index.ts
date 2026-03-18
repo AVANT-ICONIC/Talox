@@ -1,5 +1,47 @@
 export type ProfileClass = 'qa' | 'ops' | 'sandbox';
-export type TaloxMode = 'speed' | 'adaptive' | 'stealth' | 'balanced' | 'qa' | 'debug' | 'browse' | 'hybrid';
+
+// ─── Mode System (canonical 4 modes + deprecated aliases) ────────────────────
+import type { TaloxMode } from './modes.js';
+export type { TaloxMode, DeprecatedTaloxMode, AnyTaloxMode } from './modes.js';
+export { CANONICAL_MODES, DEPRECATED_MODE_MAP, resolveMode } from './modes.js';
+
+// ─── Event System ─────────────────────────────────────────────────────────────
+export type {
+  TaloxEventMap,
+  TaloxEventType,
+  TaloxEvent,
+  AdaptedEvent,
+  AdaptationReason,
+  SessionEndEvent,
+  AnnotationAddedEvent,
+  AnnotationUndoneEvent,
+} from './events.js';
+
+// ─── Annotation Types ─────────────────────────────────────────────────────────
+export type {
+  AnnotationLabel,
+  BuiltInAnnotationLabel,
+  AnnotationElement,
+  AnnotationEntry,
+} from './annotation.js';
+export { ANNOTATION_LABEL_EMOJI, getLabelEmoji } from './annotation.js';
+
+// ─── Session Report Types ─────────────────────────────────────────────────────
+export type {
+  SessionOutputFormat,
+  InteractionType,
+  TaloxInteraction,
+  TaloxSessionSummary,
+  TaloxSessionReport,
+  ObserveSessionOptions,
+} from './session.js';
+
+/**
+ * @deprecated Use `TaloxMode` from `./modes.js` instead.
+ * This inline type is kept for backwards compatibility only.
+ * Will be removed in v2.0.
+ */
+type _LegacyTaloxMode = 'speed' | 'adaptive' | 'stealth' | 'balanced' | 'qa' | 'debug' | 'browse' | 'hybrid';
 
 export interface TaloxSettings {
   mouseSpeed: number; // 0.1 to 3.0 (1.0 default)

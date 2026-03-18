@@ -55,3 +55,13 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# Claude Code AI assistant config (local only — never commit)
+.claude/
+
+# Internal planning & AI session docs (not for public repo)
+docs/superpowers/
+
+# Playwright test artifacts
+playwright-report/
+test-results/

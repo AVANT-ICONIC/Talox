@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  unit:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +22,23 @@ jobs:
 
       - run: npm run build
 
-      # Only run unit tests that don't require a browser launch
-      # Browser integration tests require a real Chrome install and are run manually
-      - run: npx vitest run tests/core/HumanMouse.test.ts tests/core/RulesEngine.test.ts tests/core/ArtifactBuilder.test.ts tests/core/ProfileVault.test.ts tests/core/BugEngine.test.ts
+      - name: Run unit tests
+        run: npx vitest run tests/core/ArtifactBuilder.test.ts tests/core/BugEngine.test.ts tests/core/RulesEngine.test.ts tests/core/ProfileVault.test.ts tests/core/HumanMouse.test.ts tests/core/controller/EventBus.test.ts tests/core/controller/ModeManager.test.ts tests/core/controller/modes.test.ts tests/core/observe/AnnotationBuffer.test.ts tests/core/smart/BotDetector.test.ts tests/core/smart/AdaptationEngine.test.ts
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e

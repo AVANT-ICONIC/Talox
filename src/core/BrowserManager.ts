@@ -3,7 +3,10 @@ import { chromium, firefox, webkit, type BrowserContext } from 'playwright-core'
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import type { TaloxProfile, TaloxSettings, TaloxMode } from '../types/index.js';
+import type { TaloxProfile, TaloxSettings } from '../types/index.js';
+import type { AnyTaloxMode } from '../types/modes.js';
+/** @internal backwards-compat alias used by BrowserManager */
+type TaloxMode = AnyTaloxMode;
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
 

@@ -30,10 +30,9 @@ describe('End-to-End Gaming/Ops Flow', () => {
         console.log(`⌨️ Typing name...`);
         await controller.type('#nameInput', 'Agent Biomech');
 
-        // 5. Verify score and greeting
-        const page = (controller as any).getPage();
-        const score = await page.innerText('#score');
-        const greeting = await page.innerText('#greeting');
+        // 5. Verify score and greeting using evaluate
+        const score = await controller.evaluate<string>('document.querySelector("#score")?.textContent ?? ""');
+        const greeting = await controller.evaluate<string>('document.querySelector("#greeting")?.textContent ?? ""');
         
         console.log(`📈 Final Results: ${score}, ${greeting}`);
         

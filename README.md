@@ -26,7 +26,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-1.1.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-1.2.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -52,10 +52,7 @@
 
 ## Overview
 
-Talox gives AI agents a persistent, human-paced browser with two primary modes:
-
-- **Adaptive** — low-noise, human-paced interaction for fragile real-world interfaces
-- **Debug** — maximizes observability for root-cause analysis and replay
+Talox gives AI agents a persistent, human-paced browser with four execution modes — including a new **observe mode** for human-driven test sessions where the agent captures full context automatically.
 
 Every mode returns the same structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume.
 
@@ -64,13 +61,27 @@ import { TaloxController } from 'talox';
 
 const talox = new TaloxController('./profiles');
 
-await talox.launch('my-agent', 'ops', 'adaptive');
+// Agent mode — smart self-healing with biomechanical simulation
+await talox.launch('my-agent', 'ops', 'smart');
 const state = await talox.navigate('https://example.com');
 
-await talox.setMode('debug');
-const debugState = await talox.getState();
+talox.on('adapted', (e) => console.log(`Smart mode adjusted: ${e.reason} → ${e.strategy}`));
 
 await talox.stop();
+```
+
+```typescript
+// Observe mode — human drives, agent watches
+talox.on('sessionEnd', (e) => {
+  console.log(`Report: ${e.reportPath}`)
+  console.log(`${e.interactionCount} interactions, ${e.annotationCount} annotations`)
+})
+
+await talox.launch('human-session', 'ops', 'observe', 'chromium', {
+  output: 'both',  // generates JSON + Markdown report
+})
+
+// Browser opens. Right-click for Comment Mode. Close browser when done.
 ```
 
 ---
@@ -89,22 +100,66 @@ await talox.stop();
 
 ## Modes
 
-| Mode | Purpose | Interaction Pace | Human Simulation |
-| :--- | :--- | :--- | :--- |
-| `adaptive` | Resilient interaction for fragile UIs | 0.7× | Full — Fitts's Law, Bezier curves, variable timing |
-| `debug` | Root-cause analysis, full observability | 1.0× | Minimal — no interference |
-| `balanced` | General-purpose agent tasks | 1.0× | Moderate |
-| `speed` | High-throughput automation | 3.0× | None |
-| `browse` | Human-paced browsing sessions | 1.0× | Full |
-| `qa` | Testing and verification | 1.5× | Light |
+Talox has four canonical execution modes. Legacy mode strings (`adaptive`, `balanced`, `browse`, `qa`, `stealth`) continue to work with a deprecation warning and map to `smart`.
 
-> **Note:** `adaptive` is the new public name for what was previously called `stealth`. The internal mode identifier `stealth` remains valid as a backwards-compatible alias. New code should use `adaptive`.
+| Mode | Purpose | Who uses it | Human Simulation |
+| :--- | :--- | :--- | :--- |
+| `smart` | Self-healing production agent | AI agents | Full — Fitts's Law, Bezier curves, outcome-feedback loop |
+| `speed` | Raw Playwright, max throughput | CI pipelines, bulk tasks | None |
+| `debug` | Static, verbose, fully reproducible | Diagnosing failures | Minimal |
+| `observe` | **Human drives, agent watches** | Human test runs | None (passive) |
+
+### `smart` mode
+
+The default for production agents. Runs the **Biomechanical Ghost Engine** and adds a self-healing outcome loop:
+
+- After every interaction, `AdaptationEngine` scans the page for bot-detection signals
+- Automatically applies named strategies (`stealth_nudge`, `stealth_escalation`, `pace_reduction`, etc.)
+- Emits `adapted` events so the agent has full transparency without being blocked
+
+### `observe` mode
+
+Human-driven sessions where the agent receives complete context automatically:
+
+- Browser opens in non-headless mode
+- Right-click anywhere → Talox context menu
+- **Comment Mode** → element inspector → annotation modal with tag chips + comment
+- Every click, navigation, console error, and network failure is captured
+- Close the browser → session report written automatically (JSON + Markdown)
+- Agent receives `sessionEnd` event with the report path
+
+```typescript
+talox.on('annotationAdded', (e) => {
+  console.log(`[${e.entry.labels.join(', ')}] ${e.entry.comment}`)
+})
+
+talox.on('sessionEnd', ({ reportPath, interactionCount }) => {
+  console.log(`${interactionCount} interactions captured → ${reportPath}`)
+})
+
+await talox.launch('test-run', 'qa', 'observe', 'chromium', {
+  output: 'both',      // 'json' | 'markdown' | 'both'
+  outputDir: './sessions',
+})
+```
+
+### `debug` mode
+
+Static, verbose, fully reproducible. Settings never auto-adjust.
+
+- Full AX-Tree snapshots
+- `bugDetected` events emitted (only mode where this fires)
+- `consoleError` and `networkError` events emitted
+
+### `speed` mode
+
+Raw Playwright, zero simulation, maximum throughput. No human-like delays, no HumanMouse, no self-healing.
 
 ---
 
-## The Adaptive Interaction Engine
+## The Smart Interaction Engine
 
-Adaptive mode runs the **Biomechanical Ghost Engine** — a mouse and keyboard system that produces human-paced, low-noise interaction patterns suited for fragile or complex real-world interfaces.
+Smart mode runs the **Biomechanical Ghost Engine** — a mouse and keyboard system that produces human-paced, low-noise interaction patterns suited for fragile or complex real-world interfaces.
 
 - **Fitts's Law** — movement speed scales naturally with target size and distance
 - **Quintic Easing** — natural burst-and-settle acceleration curves

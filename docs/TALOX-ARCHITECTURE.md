@@ -1,5 +1,7 @@
 # TALOX-ARCHITECTURE.md - System Design
 
+> **v1.2.0** — `TaloxController` refactored from a 2,223-line monolith into a thin orchestrator. New `observe` mode and `smart` mode added. See [CHANGELOG](../CHANGELOG.md) for full details.
+
 ## 1. System Overview
 Talox follows a modular "sidecar" architecture. The AI agent interacts with the browser engine via Playwright and CDP through a single controller API.
 
