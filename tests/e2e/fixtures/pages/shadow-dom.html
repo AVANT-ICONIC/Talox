@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Talox Test — Shadow DOM</title></head>
+<body>
+  <h1>Shadow DOM Test</h1>
+  <my-widget></my-widget>
+  <script>
+    class MyWidget extends HTMLElement {
+      constructor() {
+        super();
+        const shadow = this.attachShadow({ mode: 'open' });
+        shadow.innerHTML = `
+          <button id="shadow-btn">Shadow Button</button>
+          <input id="shadow-input" type="text" placeholder="Shadow input" />
+        `;
+      }
+    }
+    customElements.define('my-widget', MyWidget);
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Talox Test — Rate Limit</title></head>
+<body>
+  <h1>Dashboard</h1>
+  <div id="data">Loading…</div>
+  <script>
+    // This fires on page load and triggers a 429 from the fixture server
+    fetch('/api/data')
+      .then(r => { document.getElementById('data').textContent = 'Status: ' + r.status; })
+      .catch(() => { document.getElementById('data').textContent = 'Error'; });
+  </script>
+</body>
+</html>
