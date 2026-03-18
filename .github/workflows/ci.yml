@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main]
   pull_request:
-    branches: [master, main]
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -19,9 +19,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Install Patchright browser
-        run: npx patchright install chromium --with-deps
-
       - run: npm run build
 
-      - run: npm test -- --run
+      # Only run unit tests that don't require a browser launch
+      # Browser integration tests require a real Chrome install and are run manually
+      - run: npx vitest run tests/core/HumanMouse.test.ts tests/core/RulesEngine.test.ts tests/core/ArtifactBuilder.test.ts tests/core/ProfileVault.test.ts tests/core/BugEngine.test.ts
