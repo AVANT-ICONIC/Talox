@@ -1,68 +1,129 @@
-# 🤖 Talox Agent-to-Agent Testing & Stress Run Guide
+# Testing Guide
 
-This guide is for any AI agent or developer who needs to verify the **Talox** system. It covers the logic behind the "Stress Test Waves" and how to perform them safely.
+Talox has two test layers. Both must pass before any release.
 
 ---
 
-## 🚀 Quick Start: Running the Tests
-Before running any test, ensure the project is built:
+## Unit Tests (vitest)
+
+Pure-logic tests — no browser, no network, fast.
+
 ```bash
-npm install && npm run build
+npm test
 ```
 
-Execute the standard stress test suites using `node` with the ESM loader:
+**Coverage:**
+- `EventBus` — on/off/once/emit, listener counts, error isolation
+- `ModeManager` — deprecated alias resolution, presets, capability queries, `updateSettings`
+- `modes` — `resolveMode()`, `CANONICAL_MODES` set, all deprecated alias mappings
+- `AnnotationBuffer` — push/size/isEmpty/getAll/peek/get/undo/clear
+- `BotDetector` — null clean page, CAPTCHA title/URL, hard block, 429, fingerprint script, signal ordering
+- `AdaptationEngine` — no-op in debug/speed, adapted event in smart, settings patch, semantic healing
+
+---
+
+## E2E Tests (Playwright Test)
+
+Three surfaces, all must be green. Runs against a local fixture server on port 9999.
+
 ```bash
-# Wave 1: Core functionality (Search, Extraction, Policy, Visual Gate)
-NODE_OPTIONS="--loader ts-node/esm --no-warnings" node examples/agent-stress-test.ts
-
-# Wave 2: Advanced UI (Structural Bugs, Multi-Tab, Infinite Scroll)
-NODE_OPTIONS="--loader ts-node/esm --no-warnings" node examples/agent-stress-test-wave2.ts
-
-# Wave 3: Behavioral Nuance (Rapid Clicking, Form Filling, Foveated Perception)
-NODE_OPTIONS="--loader ts-node/esm --no-warnings" node examples/agent-stress-test-wave3.ts
+npm run test:e2e
 ```
 
----
+### Fixture server
 
-## 🛠️ Interaction Modes (MANDATORY LOGIC)
-When testing, you **must** align your `TaloxController.setMode()` with the following logic:
+The fixture server starts and stops automatically via `playwright.config.ts` `webServer`. Six HTML fixtures:
 
-| Mode | Purpose | Human Simulation | Perception |
-| :--- | :--- | :--- | :--- |
-| **`speed`** | Maximum throughput. | **NONE.** Direct Playwright calls. | Fast/Shallow |
-| **`adaptive`** | Resilient interaction for fragile UIs. | **MAX.** Fitts's Law, curves, jitter. | Balanced |
-| **`debug`** | Developer diagnostic. | None. | **MAX.** Full AX-Tree/Network |
-| **`balanced`** | General browsing. | Moderate human-like delays. | Full |
+| Path | Purpose |
+| :--- | :--- |
+| `/form.html` | Login form with email + password + submit |
+| `/captcha.html` | Simulates CAPTCHA page (triggers `adapted` in smart mode) |
+| `/rate-limit.html` + `/api/data` (429) | Rate limit detection |
+| `/shadow-dom.html` | Shadow DOM element collection |
+| `/observe-target.html` | Multi-section page with nav links, contact form, product section |
+| `/multi-page.html` | Second tab target |
 
-> **Note:** `stealth` is a backwards-compatible alias for `adaptive`. New code should use `adaptive`.
+### Surface 1 — Agent Actions (`tests/e2e/agent-actions.spec.ts`)
 
----
+Tests run in **`debug` mode** — the correct mode for testing your own app or site.
 
-## 🛡️ Safety & Policies
-Talox is governed by the `PolicyEngine`. Testing across different profiles will yield different results:
-- **`qa` profile:** Allowed to visit anything (`*`).
-- **`ops` profile:** Highly restricted (e.g., Google, GitHub, Localhost).
-- **`sandbox` profile:** General purpose.
-- **Destructive Actions:** Actions containing strings like "delete" or "remove" are blocked for `ops` profiles by default.
+Covers: full form fill + submit (email → password → click → success div), value persistence after focus change, `click()` state return, nav link hash update, `mouseMove()` traversal, `fidget()`, `think()`, `scrollTo()`, `evaluate()`, `findElement()` bounding box + null case + end-to-end click, `screenshot()`, shadow DOM collection, multi-tab open/switch/close, `setAttentionFrame()` + `clearAttentionFrame()`.
 
----
+### Surface 2 — Observe Mode (`tests/e2e/observe-mode.spec.ts`)
 
-## 🔍 Perception & Verification
-When verifying page state, prioritize these tools in order of cost:
-1. **AX-Tree (Deterministic):** Use `state.nodes` for structural verification (Zero-cost).
-2. **SSIM/OCR (VisionGate):** Use `controller.verifyVisual()` for layout/text matching (Zero-cost).
-3. **Local VLM (Optional):** Only for complex reasoning (Future/Post-v0).
+Tests the human-driven session infrastructure.
 
----
+Covers: `window.__talox__` defined after navigation, `sessionId` is a non-empty string, overlay persists after SPA navigation, `__taloxEmit__` exposed on window, `annotation:add` fires `annotationAdded` event, `annotation:undo` fires `annotationUndone` and decrements buffer, undo on empty buffer is safe no-op, browser close writes session report to outputDir, session report JSON is valid with annotations, Markdown report contains annotations table, `sessionEnd` event fires with correct counts.
 
-## ⚠️ Known Implementation Nuances (Agent Warnings)
-1. **Navigation Context:** Rapid navigation or clicks that trigger page loads can destroy the Execution Context. Always wrap `collect()` or `click()` in try-catch blocks to handle `context destroyed` errors gracefully.
-2. **Coordinate Scaling:** Bounding boxes from the AX-Tree might use viewport-relative pixels. When filtering nodes by region (Foveated Perception), ensure you account for device scale factor and offsets.
-3. **Importing:** Since this is an ESM project, ensure all imports in your test scripts use `.js` extensions even when referencing `.ts` files, as per TypeScript requirements for `nodenext`.
+### Surface 3 — Smart Mode (`tests/e2e/smart-mode.spec.ts`)
+
+Tests the AdaptationEngine feedback loop.
+
+Covers: CAPTCHA page fires `adapted` with `captcha_detected`, payload has `reason/strategy/from/to`, settings patch applied, rate-limit page fires `adapted` with `rate_limit`, clean page fires no `adapted`, `adapted` NOT emitted in debug or speed mode, two bot signals produce two `adapted` events, `isSemanticHealingActive()` starts false, `resetSemanticHealing()` clears the flag.
 
 ---
 
-## 📚 Further Reading
-For deeper architectural details, see:
-- `docs/TALOX-ARCHITECTURE.md`: System-wide component mapping.
-- `docs/TALOX-SPEC.md`: Detailed functional requirements.
+## When to use which mode in your tests
+
+The most common mistake is launching in `smart` mode when testing your own app. `smart` mode adds human-paced delays, bot-detection warmup, and stealth settings designed for the open internet — none of which you want when the app is yours. Use `debug`.
+
+| You are testing... | Use mode | Why |
+| :--- | :--- | :--- |
+| Your own app or website | `debug` | Clean deterministic execution, full bug events, no stealth noise |
+| Bot-resilience / third-party sites | `smart` | Self-healing + AdaptationEngine feedback loop |
+| Raw throughput / CI speed | `speed` | `domcontentloaded` wait, zero simulation overhead |
+| Human interaction recording | `observe` | Full CDP bridge, context menu, annotation modal, session report |
+| AI exploratory testing | `observe` | Agent fires annotations via `talox.evaluate()` + `__taloxEmit__` |
+
+> **Decision rule**: If you own the server, use `debug`. If you don't, use `smart`.
+
+---
+
+## Writing Observe-Driven Tests
+
+Talox's observe mode supports a new category of test that traditional frameworks can't express: **AI exploratory tests with element-attached annotations**.
+
+The pattern:
+
+1. Launch in `observe` mode and listen for `sessionEnd`
+2. Navigate and inspect the app using `getState()` — check `state.bugs`, `state.console.errors`, `state.network.failedRequests`
+3. Use `talox.evaluate()` to call `window.__taloxEmit__('annotation:add', {...})` for each issue found
+4. End the session; the report becomes your test artifact
+
+```typescript
+await talox.launch('ai-test', 'qa', 'observe', 'chromium', { output: 'both' });
+await talox.navigate('http://localhost:3000');
+
+const state = await talox.getState();
+for (const bug of state.bugs) {
+  await talox.evaluate(`
+    window.__taloxEmit__('annotation:add', {
+      interactionIndex: 1,
+      labels: ['bug'],
+      comment: ${JSON.stringify(bug.message)},
+      element: { tag: 'body', text: '' },
+    });
+  `);
+}
+
+// End and collect report
+await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
+```
+
+The generated Markdown report is ready to paste into a PR comment or GitHub issue.
+
+---
+
+## Pre-publish gate
+
+```bash
+npm run test:publish
+```
+
+Runs: TypeScript check → unit tests → E2E tests → production build. All must pass.
+
+---
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs unit and E2E jobs in parallel on every push and pull request.

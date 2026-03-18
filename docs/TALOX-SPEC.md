@@ -1,7 +1,11 @@
 # TALOX-SPEC.md - Technical Specification
 
 ## 1. Goal
-Talox provides a persistent, stateful browser runtime for AI agents. Two primary modes: **adaptive** for resilient, human-paced interaction on real-world interfaces, and **debug** for maximum observability.
+Talox provides a persistent, stateful browser runtime for AI agents. It has four canonical execution modes:
+- **`smart`** — resilient interaction for third-party, bot-protected, or fragile real-world sites
+- **`speed`** — raw Playwright, maximum throughput for CI and bulk tasks
+- **`debug`** — clean, deterministic execution for developing and testing your own web app or site
+- **`observe`** — human-driven sessions where the agent captures full context automatically
 
 ## 2. Browser Runtime Manager
 - **Driver:** Playwright (`playwright-core`).
@@ -44,16 +48,32 @@ Talox provides a persistent, stateful browser runtime for AI agents. Two primary
 
 ## 8. Mode Presets
 
-| Mode | mouseSpeed | humanStealth | adaptiveDensity | typoProbability |
-| :--- | :--- | :--- | :--- | :--- |
-| `adaptive` | 0.7 | 1.0 | enabled | 0.10 |
-| `debug` | 1.0 | 0.5 | disabled | 0.05 |
-| `balanced` | 1.0 | 0.5 | enabled | 0.08 |
-| `browse` | 1.0 | 0.5 | enabled | 0.08 |
-| `speed` | 3.0 | 0.0 | disabled | 0.00 |
-| `qa` | 1.5 | 0.2 | disabled | 0.00 |
+| Mode | mouseSpeed | humanStealth | stealthLevel | typoProbability | adaptiveStealth | autoThink | perceptionDepth | Use case |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `smart` | 0.7× | 1.0 | high | 0.08 | enabled | enabled | full | Third-party / bot-protected sites |
+| `speed` | 3.0× | 0.0 | low | 0.00 | disabled | disabled | shallow | CI pipelines, bulk tasks |
+| `debug` | 1.0× | 0.5 | medium | 0.02 | disabled | disabled | full | Your own app or site |
+| `observe` | 1.0× | 0.0 | low | 0.00 | disabled | disabled | full | Human-driven / AI exploratory sessions |
 
-> **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`. New code should use `adaptive`.
+> **Deprecated aliases**: `adaptive`, `stealth`, `balanced`, `browse`, `qa` all resolve to `smart`. They continue to work with a console warning. New code should use `smart`.
+
+### Mode selection decision guide
+
+```
+Are you getting blocked, seeing a CAPTCHA, or hitting rate limits?
+  → smart
+
+Do you own the server / are you testing your own app?
+  → debug  (not smart — smart mode adds noise that distorts your test results)
+
+Do you need maximum throughput for a CI pipeline or bulk task?
+  → speed
+
+Do you want to record a human session or run AI exploratory tests?
+  → observe
+```
+
+The most common mistake: using `smart` mode when testing your own app. `smart` adds bot-detection warmup delays, stealth randomness, and self-healing that are only useful on servers you don't control.
 
 ## 9. Self-Healing Selectors
 - **Selector Recovery:** Automatic rebuild when element selectors fail.
@@ -111,3 +131,37 @@ Talox provides a persistent, stateful browser runtime for AI agents. Two primary
 - **Load State:** `waitForLoadState()` waits for `load`, `domcontentloaded`, or `networkidle`.
 - **JavaScript:** `evaluate()` executes scripts in browser context.
 - **Direct Access:** `getPlaywrightPage()` exposes raw Playwright page for advanced operations.
+
+## 20. Observe-Driven Testing
+
+Observe mode supports AI-driven exploratory testing by exposing `window.__taloxEmit__` as a CDP bridge callable via `talox.evaluate()`.
+
+**Annotation protocol:**
+
+```typescript
+await talox.evaluate(`
+  window.__taloxEmit__('annotation:add', {
+    interactionIndex: 1,         // which step in the interaction timeline
+    labels: ['bug'],             // 'bug' | 'note' | 'question' | 'improve'
+    comment: 'Error message...',
+    element: {
+      tag: 'button',
+      text: 'Submit',
+    },
+  });
+`);
+```
+
+**Session end:**
+
+```typescript
+await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
+```
+
+After `session:end`, `SessionReporter` writes:
+- `session-{id}-{timestamp}.json` — machine-readable report
+- `session-{id}-{timestamp}.md` — Markdown ready to paste into a PR or issue
+
+The Markdown report includes a timeline of interactions, an annotations table with labels and element references, and a summary of console errors and network failures.
+
+**Implementation note:** In a persistent browser context, `ctx.pages()[0]` returns the default blank page, not the navigated page. Always use `talox.evaluate()` to target the correct active page. Never use `page.evaluate()` directly in tests.

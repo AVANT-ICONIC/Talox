@@ -1,6 +1,6 @@
 # TALOX-ARCHITECTURE.md - System Design
 
-> **v1.2.0** — `TaloxController` refactored from a 2,223-line monolith into a thin orchestrator. New `observe` mode and `smart` mode added. See [CHANGELOG](../CHANGELOG.md) for full details.
+> **v1.3.0** — Bulletproof E2E suite (37 + 14 + 10 tests), all observe overlay bugs fixed, `findElement`/speed-mode/headless fixed. See [CHANGELOG](../CHANGELOG.md) for full details.
 
 ## 1. System Overview
 Talox follows a modular "sidecar" architecture. The AI agent interacts with the browser engine via Playwright and CDP through a single controller API.
@@ -44,7 +44,12 @@ graph TD
 
 ## 2. Core Modules
 
-### 2.1 Browser Runtime Manager
+### 2.1 TaloxController
+- **Role:** Thin ~200-line orchestrator that delegates to `EventBus`, `ModeManager`, `ActionExecutor`, and `SessionManager`.
+- **Refactored from:** 2,223-line monolith in v1.2.0, now a clean sidecar API.
+- **Exported classes:** `TaloxController`, `BrowserManager`, `ModeManager`, `ActionExecutor`, `SessionManager`, `EventBus`.
+
+### 2.1a Browser Runtime Manager
 - **Role:** Launches and manages Chromium instances.
 - **Persistent Profiles:** Manages browser contexts with separate `user-data-dir`.
 - **CDP Bridge:** Exposes low-level DevTools Protocol sessions to the State Collector.
@@ -71,10 +76,14 @@ graph TD
 - **Baseline Vault:** Manages "Golden Master" reference screenshots in `.talox/baselines/`.
 
 ### 2.6 Mode System
-- **Role:** Dynamic behavioral orchestration.
-- **Presets:** `speed`, `adaptive`, `debug`, `balanced`, `browse`, `qa`.
-- **Overrides:** Granular control over `mouseSpeed`, `typingDelay`, and `humanStealth`.
-- **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`.
+- **Role:** Dynamic behavioural orchestration via `ModeManager`.
+- **Four canonical modes:** `smart`, `speed`, `debug`, `observe`
+- **Deprecated aliases:** `adaptive`, `stealth`, `balanced`, `browse`, `qa` → all resolve to `smart`
+- **Key capabilities:**
+  - `smart` — bot-detection resilience, full Biomechanical Ghost Engine, AdaptationEngine feedback loop
+  - `speed` — raw Playwright, domcontentloaded wait, zero simulation
+  - `debug` — clean deterministic execution for your own app, full perception, no simulation noise
+  - `observe` — passive capture; human drives, agent records everything
 
 ### 2.7 Bug / Artifact Engine
 - **Role:** Generates evidence-rich bug reports and replay traces.
@@ -113,6 +122,39 @@ graph TD
 - **Role:** Real-time event notifications for agents.
 - **Functionality:** Emits events on navigation, state changes, console errors, bug detection, and mode changes. Enables agents to react to page events in real-time.
 
+### 2.16 EventBus
+- **Role:** Fully generic typed event emitter replacing NodeJS EventEmitter.
+- **Type safety:** All `on/off/emit` calls TypeScript-enforced against `TaloxEventMap`.
+- **Events:** `adapted`, `sessionEnd`, `annotationAdded`, `annotationUndone`, `bugDetected`, `consoleError`, `networkError`, `navigation`, `modeChanged`, `stateChanged`
+
+### 2.17 ModeManager
+- **Role:** Single source of truth for execution mode and settings presets.
+- **Responsibilities:** Applies presets, resolves deprecated aliases to canonical modes, exposes capability queries (`isSpeedMode()`, `isDebugMode()`, `isSmartMode()`, `isObserveMode()`, `isFullHumanMode()`).
+
+### 2.18 ActionExecutor
+- **Role:** All browser interaction logic extracted from TaloxController.
+- **Covers:** `click`, `type`, `navigate`, `mouseMove`, `scrollTo`, `screenshot`, `evaluate`, `findElement`, `extractTable`, `fidget`, `think`, `setAttentionFrame`
+
+### 2.19 SessionManager
+- **Role:** Browser lifecycle and multi-page management.
+- **Covers:** Profile loading, BrowserManager launch/stop, multi-page switching, auto-thinking idle behaviour, ObserveSession lifecycle.
+
+### 2.20 AdaptationEngine
+- **Role:** Smart mode outcome-feedback loop. Runs after every interaction.
+- **Detects:** Bot signals from BotDetector; applies named strategies; emits `adapted` event.
+- **Strategies:** `stealth_nudge`, `stealth_escalation`, `semantic_fallback`, `pace_reduction`, `backoff`, `captcha_pause`
+
+### 2.21 BotDetector
+- **Role:** Stateless scanner for bot-detection signals on a loaded page.
+- **Detects:** CAPTCHA (title/URL patterns), hard blocks, HTTP 429, fingerprinting scripts.
+- **Returns:** Array of signals ordered by severity.
+
+### 2.22 ObserveSession / AnnotationBuffer / SessionReporter
+- **Role:** Human-driven session infrastructure.
+- **ObserveSession:** Manages CDP bridge, OverlayInjector, and interaction recording.
+- **AnnotationBuffer:** Append-only in-memory stack with undo support.
+- **SessionReporter:** Writes `TaloxSessionReport` to JSON + Markdown on session end.
+
 ## 3. Data Flow
 1. **Agent Request:** Agent asks to navigate to a URL using a specific profile.
 2. **Profile Loading:** Talox loads the profile and launches Chromium.
@@ -131,3 +173,38 @@ graph TD
 5. HumanMouse executes with Behavioral DNA timing (Fitts's Law, Bezier curves, jitter)
 6. AXTreeDiffer captures pre/post state
 7. GhostVisualizer records trajectory for debugging
+
+## 5. Observe-Driven Testing Architecture
+
+Observe mode supports a unique two-channel pattern: the human (or AI agent) drives via the browser UI, while the Node.js layer captures everything automatically.
+
+```
+Browser Page                          Node.js (Talox)
+────────────────                      ─────────────────────────
+User right-click → contextMenu        OverlayInjector
+  → Comment Mode → elementInspector   AnnotationBuffer
+    → click element → annotationModal SessionReporter
+      → Save button
+        window.__taloxEmit__          ← CDP bridge (exposeFunction)
+          'annotation:add'            → EventBus.emit('annotationAdded')
+                                      → TaloxSessionReport
+Browser closes                        → session.json + session.md
+                                      → EventBus.emit('sessionEnd')
+```
+
+For AI-agent-driven testing, `talox.evaluate()` replaces human interaction. The agent calls `window.__taloxEmit__('annotation:add', {...})` programmatically after detecting issues via `getState()`. This means the same observe infrastructure serves both human testers and AI agents — the session report output is identical.
+
+**Key implementation detail**: `ctx.pages()[0]` returns the default blank page in a persistent context, not the navigated page. Always use `talox.evaluate()` (which targets the correct active page internally) when writing observe-mode tests or scripts.
+
+## 6. Mode Selection Architecture
+
+The four canonical modes exist because different scenarios have fundamentally different requirements:
+
+| Scenario | Mode | Reason |
+| :--- | :--- | :--- |
+| Third-party / bot-protected sites | `smart` | AdaptationEngine needed; stealth warmup prevents blocks |
+| Your own app or website | `debug` | Clean deterministic execution; stealth noise distorts bug signals |
+| CI / bulk throughput | `speed` | `domcontentloaded` wait; zero simulation overhead |
+| Session recording / AI exploration | `observe` | Full CDP bridge + overlay; passive capture with structured output |
+
+Using `smart` mode on your own app is a common mistake — it adds delays and randomness that make test results non-deterministic. Using `debug` mode on third-party sites won't trigger the self-healing feedback loop needed for resilience.

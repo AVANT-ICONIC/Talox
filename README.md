@@ -26,7 +26,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-1.2.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-1.3.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -102,12 +102,21 @@ await talox.launch('human-session', 'ops', 'observe', 'chromium', {
 
 Talox has four canonical execution modes. Legacy mode strings (`adaptive`, `balanced`, `browse`, `qa`, `stealth`) continue to work with a deprecation warning and map to `smart`.
 
-| Mode | Purpose | Who uses it | Human Simulation |
+| Mode | Purpose | Who uses it | When to use |
 | :--- | :--- | :--- | :--- |
-| `smart` | Self-healing production agent | AI agents | Full — Fitts's Law, Bezier curves, outcome-feedback loop |
-| `speed` | Raw Playwright, max throughput | CI pipelines, bulk tasks | None |
-| `debug` | Static, verbose, fully reproducible | Diagnosing failures | Minimal |
-| `observe` | **Human drives, agent watches** | Human test runs | None (passive) |
+| `smart` | Self-healing production agent | AI agents | Third-party / bot-protected sites |
+| `speed` | Raw Playwright, max throughput | CI pipelines, bulk tasks | Maximum performance, bulk operations |
+| `debug` | Static, verbose, fully reproducible | Testing your own app · Diagnosing failures | Your own web app or site |
+| `observe` | **Human drives, agent watches** | Human test runs · AI exploratory testing | Recording sessions and generating reports |
+
+### Quick mode selection
+
+> **Getting blocked or seeing bot-detection / CAPTCHA?** → use `smart`
+> **Testing your own app or website?** → use `debug`
+> **Running a fast pipeline task?** → use `speed`
+> **Recording a human session or running AI exploratory tests?** → use `observe`
+
+The two most commonly confused modes are `smart` and `debug`. `smart` is for the real internet where you have no control over the server. `debug` is for apps you own — it gives you more signal (full bug events, console errors) without stealth noise that would distort your results.
 
 ### `smart` mode
 
@@ -144,6 +153,8 @@ await talox.launch('test-run', 'qa', 'observe', 'chromium', {
 ```
 
 ### `debug` mode
+
+**Use this mode when testing your own web app or site.** No stealth noise, no warmup delays — just clean, deterministic execution.
 
 Static, verbose, fully reproducible. Settings never auto-adjust.
 
@@ -214,6 +225,8 @@ Debug mode maximizes what the agent can see without interfering with it.
        SelfHealing     NetworkMocker  ArtifactBuilder
        Selector
 ```
+
+As of v1.2.0, `TaloxController` is a thin orchestrator delegating to `EventBus`, `ModeManager`, `ActionExecutor`, and `SessionManager`. See `docs/TALOX-ARCHITECTURE.md` for the full module map.
 
 | Module | Role |
 | :--- | :--- |
@@ -382,6 +395,64 @@ await talox.stop();
 
 ---
 
+## Observe-Driven Testing
+
+Talox observe mode enables a test pattern that doesn't exist in any other framework: **AI-driven exploratory testing with structured, element-attached annotations**.
+
+Instead of scripting every assertion in advance, an AI agent launches an observe session, explores the UI, and fires annotations via `talox.evaluate()` whenever it finds something wrong. At the end, the session report becomes the test artifact — a Markdown document you can paste directly into a PR comment or GitHub issue.
+
+```typescript
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+
+talox.on('sessionEnd', ({ reportPath, interactionCount, annotationCount }) => {
+  console.log(`Test report: ${reportPath}`);
+  console.log(`${interactionCount} steps · ${annotationCount} issues found`);
+});
+
+await talox.launch('ai-test-run', 'qa', 'observe', 'chromium', {
+  output: 'both',
+  outputDir: './test-sessions',
+});
+
+await talox.navigate('https://my-app.example.com');
+const state = await talox.getState();
+
+// Agent annotates detected layout bugs automatically
+for (const bug of state.bugs) {
+  await talox.evaluate(`
+    window.__taloxEmit__('annotation:add', {
+      interactionIndex: 1,
+      labels: ['bug'],
+      comment: ${JSON.stringify(bug.message)},
+      element: { tag: 'body', text: '' },
+    });
+  `);
+}
+
+// Agent navigates and checks each page
+await talox.click('#checkout');
+const checkoutState = await talox.getState();
+if (checkoutState.console.errors.length > 0) {
+  await talox.evaluate(`
+    window.__taloxEmit__('annotation:add', {
+      interactionIndex: 2,
+      labels: ['bug'],
+      comment: 'Console errors on checkout: ' + ${JSON.stringify(checkoutState.console.errors[0])},
+      element: { tag: 'button', text: 'Checkout' },
+    });
+  `);
+}
+
+// End session — report auto-generated
+await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
+```
+
+This produces a Markdown report with every issue attached to the specific element where it was found — something impossible with traditional assertion-based tests. Human testers can also annotate the same session simultaneously by right-clicking and using Comment Mode, mixing human judgment with automated detection in a single unified report.
+
+---
+
 ## Use Cases
 
 - **AI agent browsing** — give your agent a persistent, stateful browser with structured output
@@ -390,6 +461,7 @@ await talox.stop();
 - **Research workflows** — stateful sessions with session continuity and network recording
 - **Fragile UI automation** — human-paced interaction reduces flakiness on complex real-world interfaces
 - **Agent development** — structured JSON state makes it easy to build and test agent decision logic
+- **Observe-driven testing** — AI agent explores UI, annotates issues, generates PR-ready reports
 
 ---
 

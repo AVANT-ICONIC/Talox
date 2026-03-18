@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-18
+
+### Added
+
+- **Bulletproof E2E test suite** — Playwright Test with local fixture server on port 9999, covering 3 surfaces: Agent Actions (37 tests), Observe Mode (14 tests), Smart Mode Adaptation (10 tests).
+- **79 unit tests** across 6 new test files: `EventBus`, `ModeManager`, `modes`, `AnnotationBuffer`, `BotDetector`, `AdaptationEngine`.
+- **`test:e2e`** and **`test:publish`** npm scripts. `test:publish` gates: TypeScript check → unit tests → E2E → production build.
+- **`esbuild`** added as optional peer dependency (`>=0.17.0`) for OverlayInjector bundle support.
+- **`TALOX_HEADLESS=false`** environment variable respected by `BrowserManager` for headed test sessions.
+- **6 fixture HTML pages** in `tests/e2e/fixtures/pages/`: `form.html`, `captcha.html`, `rate-limit.html`, `shadow-dom.html`, `observe-target.html`, `multi-page.html`.
+
+### Fixed
+
+- **`findElement()` always returned null** — `TaloxController.findElement()` was not passing `lastState` to `ActionExecutor.findElement()`, which has an early return guard. Fixed: passes `this._session.lastState`.
+- **`setAttentionFrame()` scoping broken** — same root cause as `findElement` (no `lastState`). Fixed in the same change.
+- **Speed mode navigation slower than smart mode** — `waitUntil` ternary was inverted: speed mode was using `networkidle` (slowest) and other modes `load`. Fixed: speed mode now uses `domcontentloaded`, other modes use `networkidle`.
+- **`MaxListenersExceededWarning` during test runs** — `process.on('exit')` and `process.on('SIGINT')` handlers were stacked on every `BrowserManager` instantiation. Fixed: handlers now registered once via a module-level flag.
+- **Observe overlay right-click menu never appeared** — `injectStyles()` was called during `addInitScript` bootstrap when `document.head` is `null`; the silent throw prevented the `contextmenu` listener from registering. Fixed: `injectStyles()` moved to `showMenu()`, called only at user interaction when the DOM is always ready.
+- **Overlay menu buttons (Comment Mode, Snapshot, End Session) did nothing** — capture-phase `dismissMenu` listener removed the menu from the DOM before button click handlers could fire. Fixed: now checks `closest('#talox-context-menu')` before dismissing.
+- **Annotation modal Save/Cancel/End Session not responding to real mouse clicks** — backdrop (`position:fixed; inset:0; pointer-events:auto`) was intercepting all real mouse events before they reached the modal buttons. CDP `page.click()` bypassed this by using `getBoundingClientRect` directly, masking the bug. Fixed: added `pointer-events:none` to the backdrop; replaced backdrop click listener with a document-level `mousedown` handler that checks `closest('#talox-annotation-modal')`.
+- **`SessionReporter` crash on undefined `interaction.type`** — `capitalise()` was called with `undefined` for some interaction entries. Fixed: null guard added (`if (!str) return ''`).
+- **Ghost browser windows on macOS** — `launchPersistentContext` with `headless: true` showed ghost window frames on macOS. Fixed: `--headless=new` Chrome flag applied on macOS for headless non-observe runs.
+
+### Changed
+
+- **`agent-actions.spec.ts`** now launches in `debug` mode instead of default `smart` mode — correct for testing against a local fixture server you own.
+- **E2E tests expanded** from 18 navigation-only assertions to 37 full-interaction tests including: form fill + submit → success div visible, value persistence after focus change, mouseMove traversal, fidget/think simulation, scrollTo viewport verification, evaluate() DOM manipulation, findElement() → click() end-to-end, multi-tab management, shadow DOM collection, setAttentionFrame/clearAttentionFrame scoping.
+
+---
+
 ## [1.2.0] - 2026-03-18
 
 ### Added
