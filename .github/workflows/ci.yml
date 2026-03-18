@@ -19,9 +19,9 @@ jobs:
 
       - run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
+      - name: Install Patchright browser
+        run: npx patchright install chromium --with-deps
 
       - run: npm run build
 
-      - run: npm test
+      - run: npm test -- --run
