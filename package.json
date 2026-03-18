@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Stateful browser runtime for AI agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
@@ -21,7 +21,9 @@
     "build": "tsc",
     "prepare": "npm run build",
     "test": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:e2e": "npm run build && playwright test",
+    "test:publish": "tsc --noEmit && npx vitest run tests/core/ArtifactBuilder.test.ts tests/core/BugEngine.test.ts tests/core/RulesEngine.test.ts tests/core/ProfileVault.test.ts tests/core/HumanMouse.test.ts tests/core/controller/EventBus.test.ts tests/core/controller/ModeManager.test.ts tests/core/controller/modes.test.ts tests/core/observe/AnnotationBuffer.test.ts tests/core/smart/BotDetector.test.ts tests/core/smart/AdaptationEngine.test.ts && npm run test:e2e && npm run build"
   },
   "keywords": [
     "browser-runtime",
@@ -48,7 +50,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "peerDependencies": {
+    "esbuild": ">=0.17.0"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.5.0",
