@@ -176,10 +176,13 @@ export class OverlayInjector {
   private async getBundle(): Promise<string> {
     if (this.bundleCache) return this.bundleCache;
 
+    // import.meta.url resolves to dist/core/observe/OverlayInjector.js at runtime.
+    // Navigate back to the project root (../../../) then into src/ where the
+    // TypeScript overlay source lives for esbuild to compile.
     const overlayEntryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
-      'overlay',
-      'index.ts',
+      '..', '..', '..',
+      'src', 'core', 'observe', 'overlay', 'index.ts',
     );
 
     try {

@@ -69,7 +69,12 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 };
 
 export function getDefaultConfig(): TaloxConfig {
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  const cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  // TALOX_HEADLESS=false lets developers watch automation (e.g. during tests)
+  if (process.env.TALOX_HEADLESS === 'false') {
+    cfg.browser.headless = false;
+  }
+  return cfg;
 }
 
 export function resolveConfigDir(): string {
@@ -85,13 +90,13 @@ export class BrowserManager {
 
   constructor(config?: Partial<TaloxConfig>) {
     this.config = { ...getDefaultConfig(), ...config };
-    
-    // Auto-cleanup on process exit
-    process.on('exit', () => this.closeAllSync());
-    process.on('SIGINT', () => {
-      this.closeAllSync();
-      process.exit();
-    });
+
+    // Auto-cleanup on process exit — use once() so multiple instances don't
+    // stack unbounded listeners (avoids MaxListenersExceededWarning in tests).
+    const exitHandler = () => this.closeAllSync();
+    const sigintHandler = () => { this.closeAllSync(); process.exit(); };
+    process.once('exit', exitHandler);
+    process.once('SIGINT', sigintHandler);
   }
 
   private closeAllSync() {
@@ -301,12 +306,19 @@ export class BrowserManager {
       }[actualBrowserType];
     }
 
+    // Resolve effective headless value — extraOptions can override (e.g. observe mode forces false)
+    const effectiveHeadless = extraOptions?.headless !== undefined
+      ? extraOptions.headless
+      : this.config.browser.headless;
+
     const launchOptions: any = {
-      headless: this.config.browser.headless,
+      headless: effectiveHeadless,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        // Use new headless mode on macOS to prevent ghost window flicker
+        ...(effectiveHeadless && process.platform === 'darwin' ? ['--headless=new'] : []),
       ],
       ...extraOptions
     };
