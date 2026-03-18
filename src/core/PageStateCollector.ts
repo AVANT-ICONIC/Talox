@@ -1,5 +1,9 @@
 import type { Page } from 'playwright-core';
-import type { TaloxPageState, TaloxMode, TaloxNode } from '../types/index.js';
+import type { TaloxPageState, TaloxNode } from '../types/index.js';
+import type { AnyTaloxMode } from '../types/modes.js';
+import { resolveMode } from '../types/modes.js';
+/** @internal backwards-compat alias used by PageStateCollector */
+type TaloxMode = AnyTaloxMode;
 
 export interface RetryOptions {
   maxRetries: number;
@@ -32,6 +36,7 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 
 export class PageStateCollector {
   private consoleErrors: string[] = [];
+  private failedRequests: Array<{ url: string; status: number; type?: string }> = [];
   private retryStats: RetryStats = {
     attempts: 0,
     axTreeAttempts: 0,
@@ -50,6 +55,14 @@ export class PageStateCollector {
 
     this.page.on('console', msg => {
       if (msg.type() === 'error') this.consoleErrors.push(msg.text());
+    });
+
+    // Track HTTP error responses (4xx / 5xx) for bot-detection heuristics
+    this.page.on('response', (response: any) => {
+      const status: number = response.status();
+      if (status >= 400) {
+        this.failedRequests.push({ url: response.url(), status });
+      }
     });
   }
 
@@ -377,9 +390,9 @@ export class PageStateCollector {
       url,
       title,
       timestamp: new Date().toISOString(),
-      mode,
+      mode: resolveMode(mode),
       console: { errors: [...this.consoleErrors] },
-      network: { failedRequests: [] },
+      network: { failedRequests: [...this.failedRequests] },
       nodes,
       interactiveElements: mergedInteractiveElements,
       bugs: [],
