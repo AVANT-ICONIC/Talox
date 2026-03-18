@@ -92,16 +92,16 @@ const MENU_STYLES = `
  * @param onCommentMode - Callback invoked when "Comment Mode" is selected.
  */
 export function installContextMenu(onCommentMode: () => void): void {
-  injectStyles();
-
   document.addEventListener('contextmenu', (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     showMenu(e.clientX, e.clientY, onCommentMode);
   }, true);
 
-  // Dismiss on outside click
-  document.addEventListener('click', dismissMenu, true);
+  // Dismiss on click outside the menu
+  document.addEventListener('click', (e: MouseEvent) => {
+    if (!(e.target as Element).closest?.('#talox-context-menu')) dismissMenu();
+  }, true);
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') dismissMenu();
   });
@@ -110,6 +110,7 @@ export function installContextMenu(onCommentMode: () => void): void {
 // ─── Private ─────────────────────────────────────────────────────────────────
 
 function showMenu(x: number, y: number, onCommentMode: () => void): void {
+  injectStyles();
   dismissMenu();
 
   const menu = document.createElement('div');

@@ -45,6 +45,7 @@ const MODAL_STYLES = `
     z-index: 2147483640;
     background: rgba(0, 0, 0, 0.25);
     animation: talox-fade-in 150ms ease;
+    pointer-events: none;
   }
 
   /* ── Modal ────────────────────────────────────────────────────────────── */
@@ -429,8 +430,14 @@ export function showAnnotationModal(
   };
   document.addEventListener('keydown', keyHandler, true);
 
-  // ── Backdrop dismiss ─────────────────────────────────────────────────
-  backdrop.addEventListener('click', cleanup);
+  // ── Outside-click dismiss (backdrop has pointer-events:none so we use document) ──
+  const outsideClickHandler = (e: MouseEvent): void => {
+    if (!(e.target as Element).closest?.('#talox-annotation-modal')) {
+      cleanup();
+      document.removeEventListener('mousedown', outsideClickHandler, true);
+    }
+  };
+  document.addEventListener('mousedown', outsideClickHandler, true);
 
   // Focus comment textarea
   setTimeout(() => {
