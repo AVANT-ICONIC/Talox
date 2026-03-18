@@ -26,6 +26,9 @@ tests/**/*.d.ts.map
 test-credentials.txt
 stealth-test-credentials.txt
 
+# Test profiles (browser session data from test runs)
+test-profiles/
+
 # Screenshots & test output
 *.png
 *.jpg
