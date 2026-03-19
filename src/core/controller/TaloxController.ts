@@ -96,7 +96,14 @@ export class TaloxController {
     this._events  = new EventBus<TaloxEventMap>();
     this._modes   = new ModeManager(this._events);
     this._session = new SessionManager(this._modes, this._events, baseDir);
-    this._adapt   = new AdaptationEngine(this._modes, this._events);
+    // Auto-escalation callback: when a hard block is detected in debug/speed mode,
+    // inject stealth scripts on the current page so future navigations are stealthy.
+    this._adapt   = new AdaptationEngine(this._modes, this._events, async () => {
+      const page = this._session.getPlaywrightPage();
+      if (page) {
+        await this._session.injectStealthScripts(page);
+      }
+    });
 
     // 2. ActionExecutor — wired with accessor callbacks so sub-classes stay decoupled
     this._actions = new ActionExecutor(
@@ -125,11 +132,34 @@ export class TaloxController {
   /**
    * Launch the browser and create/load a persistent profile.
    *
-   * @param profileId     - Unique identifier for the browser profile.
-   * @param profileClass  - `'ops'` | `'qa'` | `'sandbox'`
-   * @param mode          - Execution mode. Defaults to `'smart'`.
-   * @param browserType   - `'chromium'` | `'firefox'` | `'webkit'`. Defaults to `'chromium'`.
-   * @param observeOptions - Only used when `mode === 'observe'`.
+   * @param profileId    - Unique identifier for the browser profile.
+   * @param profileClass - `'ops'` | `'qa'` | `'sandbox'`
+   * @param mode         - Execution mode. Defaults to `'smart'`.
+   *                       `'observe'` is an alias for `'debug'` +
+   *                       `{ headed: true, overlay: true, record: true }`.
+   * @param browserType  - `'chromium'` | `'firefox'` | `'webkit'`. Defaults to `'chromium'`.
+   * @param options      - Launch options.
+   *                       **`debug` mode flags** (also apply when `mode === 'observe'`):
+   *                       - `headed`  — show browser window (default: `false` for debug, `true` for observe)
+   *                       - `overlay` — enable right-click context menu + annotation modal
+   *                       - `record`  — write session report on `stop()`
+   *                       - `output`  — `'json'` | `'markdown'` | `'both'` (default: `'both'`)
+   *                       - `outputDir` — where to write reports
+   *
+   * @example
+   * ```ts
+   * // observe alias: headed browser, overlay, session report
+   * await talox.launch('test', 'qa', 'observe');
+   *
+   * // debug + AI-driven observe: headless, overlay driven via evaluate(), session report
+   * await talox.launch('ai-test', 'qa', 'debug', 'chromium', {
+   *   overlay: true,
+   *   record:  true,
+   * });
+   *
+   * // debug: just watch the browser, no overlay
+   * await talox.launch('watch', 'qa', 'debug', 'chromium', { headed: true });
+   * ```
    */
   async launch(
     profileId:      string,
@@ -164,6 +194,18 @@ export class TaloxController {
     );
     this._session.lastState = state;
     await this._adapt.evaluate(state);
+    return state;
+  }
+
+  /**
+   * Collect and return the current page state without navigating.
+   * Runs the rules engine over the result so `state.bugs` is populated.
+   * Use this after `navigate()` when you need a fresh snapshot mid-test.
+   */
+  async getState(): Promise<TaloxPageState> {
+    const state = await this._session.getActiveStateCollector().collect(this._modes.getMode());
+    state.bugs.push(...this._session.rulesEngine.analyze(state));
+    this._session.lastState = state;
     return state;
   }
 

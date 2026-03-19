@@ -2,11 +2,22 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, experimental/real-world-tests]
   pull_request:
     branches: [main]
+  # Real-world tests run nightly to avoid rate limits on every push.
+  # They can also be triggered manually via workflow_dispatch.
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Test name filter (e.g. "Gorilla Mail" or "Reddit")'
+        required: false
+        default: ''
 
 jobs:
+  # ─── Unit tests — runs on every push / PR ────────────────────────────────────
   unit:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -23,11 +34,17 @@ jobs:
       - run: npm run build
 
       - name: Run unit tests
-        run: npx vitest run tests/core/ArtifactBuilder.test.ts tests/core/BugEngine.test.ts tests/core/RulesEngine.test.ts tests/core/ProfileVault.test.ts tests/core/HumanMouse.test.ts tests/core/controller/EventBus.test.ts tests/core/controller/ModeManager.test.ts tests/core/controller/modes.test.ts tests/core/observe/AnnotationBuffer.test.ts tests/core/smart/BotDetector.test.ts tests/core/smart/AdaptationEngine.test.ts
+        run: npm test
 
-  e2e:
-    name: E2E Tests
+  # ─── Real-world tests — nightly + manual only ────────────────────────────────
+  real-world:
+    name: Real-World Tests
+    # Only run on schedule or manual dispatch — never on regular push/PR.
+    # This prevents rate-limit bans from running against live sites too often.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +55,35 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run build
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - run: npm run test:e2e
+      - name: Run real-world tests
+        run: |
+          if [ -n "${{ github.event.inputs.grep }}" ]; then
+            npx playwright test --grep "${{ github.event.inputs.grep }}"
+          else
+            npx playwright test
+          fi
+        env:
+          REDDIT_USER: ${{ secrets.REDDIT_USER }}
+          REDDIT_PASS: ${{ secrets.REDDIT_PASS }}
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test videos (failures only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-videos-${{ github.run_number }}
+          path: test-results/
+          retention-days: 3

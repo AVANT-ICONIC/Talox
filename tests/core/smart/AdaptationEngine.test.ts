@@ -36,24 +36,31 @@ describe('AdaptationEngine', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('is a no-op in debug mode even when bot is detected', async () => {
+  it('auto-escalates to smart mode in debug mode when hard block detected', async () => {
     const { bus, eng } = makeEngine('debug');
     const handler = vi.fn();
     bus.on('adapted' as any, handler);
 
-    // CAPTCHA in title — would trigger in smart mode
+    // CAPTCHA in title triggers auto-escalation
     await eng.evaluate(makePageState({ title: 'Just a moment...' }));
 
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledOnce();
+    const payload = handler.mock.calls[0][0];
+    expect(payload.reason).toBe('captcha_detected');
+    expect(payload.strategy).toBe('auto_escalated_to_smart');
+    expect(eng.wasEscalated()).toBe(true);  // first read: escalation happened
+    expect(eng.wasEscalated()).toBe(false); // second read: flag was reset
   });
 
-  it('is a no-op in speed mode', async () => {
+  it('auto-escalates to smart mode in speed mode when hard block detected', async () => {
     const { bus, eng } = makeEngine('speed');
     const handler = vi.fn();
     bus.on('adapted' as any, handler);
 
     await eng.evaluate(makePageState({ title: 'Just a moment...' }));
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledOnce();
+    const payload = handler.mock.calls[0][0];
+    expect(payload.strategy).toBe('auto_escalated_to_smart');
   });
 
   it('emits "adapted" event in smart mode when CAPTCHA detected', async () => {
