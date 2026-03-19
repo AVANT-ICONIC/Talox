@@ -52,8 +52,8 @@ Talox provides a persistent, stateful browser runtime for AI agents. It has four
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `smart` | 0.7× | 1.0 | high | 0.08 | enabled | enabled | full | Third-party / bot-protected sites |
 | `speed` | 3.0× | 0.0 | low | 0.00 | disabled | disabled | shallow | CI pipelines, bulk tasks |
-| `debug` | 1.0× | 0.5 | medium | 0.02 | disabled | disabled | full | Your own app or site |
-| `observe` | 1.0× | 0.0 | low | 0.00 | disabled | disabled | full | Human-driven / AI exploratory sessions |
+| `debug` | 1.0× | 0.5 | medium | 0.02 | disabled | disabled | full | **Your own app or site** — all debug + optional overlay/recording |
+| `observe` | (alias) | — | — | — | — | — | — | Alias for `debug` + `{ headed: true, overlay: true, record: true }` |
 
 > **Deprecated aliases**: `adaptive`, `stealth`, `balanced`, `browse`, `qa` all resolve to `smart`. They continue to work with a console warning. New code should use `smart`.
 
@@ -132,7 +132,31 @@ The most common mistake: using `smart` mode when testing your own app. `smart` a
 - **JavaScript:** `evaluate()` executes scripts in browser context.
 - **Direct Access:** `getPlaywrightPage()` exposes raw Playwright page for advanced operations.
 
-## 20. Observe-Driven Testing
+## 20. debug Mode — Unified Developer Mode
+
+`debug` is the single mode for all work against apps you control. Behavior is configured via launch options:
+
+```typescript
+// Minimal: headless AI testing (default)
+await talox.launch('id', 'qa', 'debug');
+
+// Headed: watch the browser without overlay
+await talox.launch('id', 'qa', 'debug', 'chromium', { headed: true });
+
+// Full: headed browser + overlay + session report (= what 'observe' gives you)
+await talox.launch('id', 'qa', 'debug', 'chromium', {
+  headed: true, overlay: true, record: true
+});
+
+// AI-driven observe: headless + overlay (AI drives via evaluate()) + report
+await talox.launch('id', 'qa', 'debug', 'chromium', {
+  overlay: true, record: true
+});
+```
+
+`observe` mode string resolves to `debug` + `{ headed: true, overlay: true, record: true }` — no code changes needed to migrate.
+
+## 21. Observe-Driven Testing
 
 Observe mode supports AI-driven exploratory testing by exposing `window.__taloxEmit__` as a CDP bridge callable via `talox.evaluate()`.
 

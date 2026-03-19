@@ -22,8 +22,9 @@
     "prepare": "npm run build",
     "test": "vitest",
     "prepublishOnly": "npm run build",
-    "test:e2e": "npm run build && playwright test",
-    "test:publish": "tsc --noEmit && npx vitest run tests/core/ArtifactBuilder.test.ts tests/core/BugEngine.test.ts tests/core/RulesEngine.test.ts tests/core/ProfileVault.test.ts tests/core/HumanMouse.test.ts tests/core/controller/EventBus.test.ts tests/core/controller/ModeManager.test.ts tests/core/controller/modes.test.ts tests/core/observe/AnnotationBuffer.test.ts tests/core/smart/BotDetector.test.ts tests/core/smart/AdaptationEngine.test.ts && npm run test:e2e && npm run build"
+    "test:real": "npm run build && playwright test",
+    "test:real:single": "npm run build && playwright test --grep",
+    "test:publish": "tsc --noEmit && npm test && npm run build"
   },
   "keywords": [
     "browser-runtime",

@@ -70,7 +70,8 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 
 export function getDefaultConfig(): TaloxConfig {
   const cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-  // TALOX_HEADLESS=false lets developers watch automation (e.g. during tests)
+  // TALOX_HEADLESS=false is an emergency escape hatch to force headed mode
+  // regardless of mode. Prefer using { headed: true } in launch() options instead.
   if (process.env.TALOX_HEADLESS === 'false') {
     cfg.browser.headless = false;
   }

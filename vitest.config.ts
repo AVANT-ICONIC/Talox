@@ -6,6 +6,7 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/tests/e2e/**',
+      '**/tests/real/**',
       '**/examples/**/*.test.ts',
     ],
   },

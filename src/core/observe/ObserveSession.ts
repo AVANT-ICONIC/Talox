@@ -71,9 +71,15 @@ export class ObserveSession {
     this.interactions = [];
     this.eventBus     = eventBus;
 
+    const wantsOverlay = options.overlay ?? true;
+    const wantsRecord  = options.record  ?? wantsOverlay; // record defaults on if overlay is on
+
     this.options = {
       output:    options.output    ?? 'both',
       outputDir: options.outputDir ?? path.join(process.cwd(), 'talox-sessions'),
+      headed:    options.headed    ?? true,
+      overlay:   wantsOverlay,
+      record:    wantsRecord,
     };
 
     this.injector = new OverlayInjector(
@@ -98,8 +104,10 @@ export class ObserveSession {
   async start(): Promise<void> {
     this.startUrl = this.page.url?.() ?? '';
 
-    // Inject overlay
-    await this.injector.inject(this.page);
+    // Inject overlay only if the overlay flag is enabled
+    if (this.options.overlay) {
+      await this.injector.inject(this.page);
+    }
 
     // Track console errors
     this.page.on('console', (msg: any) => {
@@ -158,8 +166,10 @@ export class ObserveSession {
       });
     });
 
-    console.info(`[Talox] Observe session started · ID: ${this.sessionId}`);
-    console.info('[Talox] Right-click anywhere in the browser to access the Talox overlay.');
+    console.info(`[Talox] Session started · ID: ${this.sessionId} · overlay=${this.options.overlay} · record=${this.options.record}`);
+    if (this.options.overlay) {
+      console.info('[Talox] Right-click anywhere in the browser to access the Talox overlay.');
+    }
   }
 
   /**
@@ -208,8 +218,12 @@ export class ObserveSession {
     this.finalised = true;
 
     const report = this.buildReport();
-    const paths  = await this.reporter.write(report, this.options.output);
-    const reportPath = paths.json ?? paths.markdown ?? this.options.outputDir;
+    let reportPath: string = this.options.outputDir;
+
+    if (this.options.record) {
+      const paths = await this.reporter.write(report, this.options.output);
+      reportPath  = paths.json ?? paths.markdown ?? this.options.outputDir;
+    }
 
     this.eventBus.emit('sessionEnd', {
       sessionId:         this.sessionId,

@@ -101,12 +101,28 @@ export class SessionManager {
     this.profile = await this.profileVault.createProfile(profileId, profileClass, 'Agent Session');
     const behavioralDNA = this.generateBehavioralDNA(profileId);
 
-    let launchOptions: any = {};
-
-    // Observe mode: always headed
+    // ── Resolve observe → debug alias with headed/overlay/record defaults ──────
+    // observe mode is now an alias for debug + { headed: true, overlay: true, record: true }.
+    // AI agents can achieve the same by launching in debug mode with those flags.
+    const resolvedOpts: ObserveSessionOptions = { ...observeOptions };
     if (this.modes.isObserveMode()) {
+      resolvedOpts.headed  = resolvedOpts.headed  ?? true;
+      resolvedOpts.overlay = resolvedOpts.overlay ?? true;
+      resolvedOpts.record  = resolvedOpts.record  ?? true;
+    }
+
+    // ── Mode-aware headless policy ─────────────────────────────────────────────
+    // - smart / speed: always headless (no UI needed, reduce ghost windows)
+    // - debug: headless by default; set headed:true to watch the browser
+    // - observe alias: headed by default (human needs to see the browser)
+    const isDebugOrObserve = this.modes.getMode() === 'debug' || this.modes.isObserveMode();
+    const wantsHeaded      = isDebugOrObserve && (resolvedOpts.headed === true);
+
+    let launchOptions: any = {};
+    if (wantsHeaded) {
       launchOptions.headless = false;
     }
+    // smart/speed: headless stays at BrowserManager default (true)
 
     // Smart mode (was stealth): randomise fingerprint parameters once per session
     if (this.modes.getMode() === 'smart') {
@@ -145,9 +161,14 @@ export class SessionManager {
     this.pageMousePositions.set(0, { x: 0, y: 0 });
     this.artifactBuilder.addAction('launch', { profileId, profileClass, mode, browserType, launchOptions });
 
-    // Observe mode: hand off to ObserveSession
-    if (this.modes.isObserveMode()) {
-      this.observeSession = new ObserveSession(page, context, this.events, observeOptions);
+    // Start ObserveSession when:
+    //   - mode is 'observe' (always), OR
+    //   - mode is 'debug' with overlay or record flags explicitly requested
+    const needsSession = this.modes.isObserveMode() ||
+      (this.modes.getMode() === 'debug' && (resolvedOpts.overlay === true || resolvedOpts.record === true));
+
+    if (needsSession) {
+      this.observeSession = new ObserveSession(page, context, this.events, resolvedOpts);
       await this.observeSession.start();
     }
 

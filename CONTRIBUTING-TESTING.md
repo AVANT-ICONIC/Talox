@@ -22,58 +22,76 @@ npm test
 
 ---
 
-## E2E Tests (Playwright Test)
+## Real-World Tests (Playwright Test)
 
-Three surfaces, all must be green. Runs against a local fixture server on port 9999.
+Tests run against real websites. No local fixture server.
 
 ```bash
-npm run test:e2e
+npm run test:real
 ```
 
-### Fixture server
+Run a single scenario:
 
-The fixture server starts and stops automatically via `playwright.config.ts` `webServer`. Six HTML fixtures:
+```bash
+npm run test:real:single "Gorilla Mail"
+npm run test:real:single "Reddit"
+npm run test:real:single "ChatGPT"
+```
 
-| Path | Purpose |
-| :--- | :--- |
-| `/form.html` | Login form with email + password + submit |
-| `/captcha.html` | Simulates CAPTCHA page (triggers `adapted` in smart mode) |
-| `/rate-limit.html` + `/api/data` (429) | Rate limit detection |
-| `/shadow-dom.html` | Shadow DOM element collection |
-| `/observe-target.html` | Multi-section page with nav links, contact form, product section |
-| `/multi-page.html` | Second tab target |
+### Credentials
 
-### Surface 1 — Agent Actions (`tests/e2e/agent-actions.spec.ts`)
+Some scenarios require credentials. Copy `.env.test.example` to `.env.test` and fill in:
 
-Tests run in **`debug` mode** — the correct mode for testing your own app or site.
+```bash
+cp .env.test.example .env.test
+# Edit .env.test with your test account credentials
+export $(cat .env.test | xargs) && npm run test:real
+```
 
-Covers: full form fill + submit (email → password → click → success div), value persistence after focus change, `click()` state return, nav link hash update, `mouseMove()` traversal, `fidget()`, `think()`, `scrollTo()`, `evaluate()`, `findElement()` bounding box + null case + end-to-end click, `screenshot()`, shadow DOM collection, multi-tab open/switch/close, `setAttentionFrame()` + `clearAttentionFrame()`.
+Tests that need credentials **automatically skip** if the env vars are not set — they will not fail.
 
-### Surface 2 — Observe Mode (`tests/e2e/observe-mode.spec.ts`)
+### Scenarios
 
-Tests the human-driven session infrastructure.
+| File | Site | Mode | Credentials |
+| :--- | :--- | :--- | :--- |
+| `01-guerrillamail.spec.ts` | guerrillamail.com | `smart` | None |
+| `02-reddit-signup.spec.ts` | reddit.com | `smart` | None (generates fresh account) |
+| `03-reddit-login.spec.ts` | reddit.com | `smart` | `REDDIT_USER` + `REDDIT_PASS` |
+| `04-x-bot-detection.spec.ts` | x.com | `smart` | None |
+| `05-stackoverflow.spec.ts` | stackoverflow.com | `smart` | None |
+| `06-chatgpt-agent-to-agent.spec.ts` | chat.openai.com | `smart` | `OPENAI_EMAIL` + `OPENAI_PASS` |
+| `07-observe-driven-ai.spec.ts` | iana.org + example.com | `debug` + overlay | None |
 
-Covers: `window.__talox__` defined after navigation, `sessionId` is a non-empty string, overlay persists after SPA navigation, `__taloxEmit__` exposed on window, `annotation:add` fires `annotationAdded` event, `annotation:undo` fires `annotationUndone` and decrements buffer, undo on empty buffer is safe no-op, browser close writes session report to outputDir, session report JSON is valid with annotations, Markdown report contains annotations table, `sessionEnd` event fires with correct counts.
+### What each scenario proves
 
-### Surface 3 — Smart Mode (`tests/e2e/smart-mode.spec.ts`)
+**Scenario 1 — Gorilla Mail**: Talox can navigate, read, and extract data from a real JS-driven page. Proves `findElement()`, `evaluate()`, and AX-Tree work on a real site.
 
-Tests the AdaptationEngine feedback loop.
+**Scenario 2 — Reddit signup**: Talox can fill real forms on a heavily bot-protected SPA. Proves `type()`, `click()`, and `adapted` event on real bot detection.
 
-Covers: CAPTCHA page fires `adapted` with `captcha_detected`, payload has `reason/strategy/from/to`, settings patch applied, rate-limit page fires `adapted` with `rate_limit`, clean page fires no `adapted`, `adapted` NOT emitted in debug or speed mode, two bot signals produce two `adapted` events, `isSemanticHealingActive()` starts false, `resetSemanticHealing()` clears the flag.
+**Scenario 3 — Reddit login**: Persistent authenticated sessions work correctly. Proves profile continuity, `getState()` AX-Tree accuracy on a logged-in page, and logout flow.
+
+**Scenario 4 — X.com**: Smart mode survives one of the most aggressive bot-detection environments. Proves `AdaptationEngine` doesn't break on sites that actively try to block automation.
+
+**Scenario 5 — Stack Overflow**: Real developer-facing content is readable. Proves `describePage()`, `findElement()`, and `extractTable()` on a Cloudflare-protected site.
+
+**Scenario 6 — ChatGPT**: An AI agent can use Talox to navigate ChatGPT's web UI and send/receive messages. This is the "agent-to-agent fallback" use case — a Talox agent asking another AI when it doesn't know what to do.
+
+**Scenario 7 — AI-driven observe session**: The `debug` + `{ overlay, record }` pattern works headlessly. Proves the full observe pipeline (inject → annotate via evaluate → session:end → report written) without a human or headed browser.
 
 ---
 
-## When to use which mode in your tests
+## When to use which mode
 
-The most common mistake is launching in `smart` mode when testing your own app. `smart` mode adds human-paced delays, bot-detection warmup, and stealth settings designed for the open internet — none of which you want when the app is yours. Use `debug`.
+The most common mistake: using `smart` mode when testing your own app. `smart` adds bot-detection warmup delays and stealth randomness that distort your results. Use `debug`.
 
-| You are testing... | Use mode | Why |
+| You are testing... | Use mode | Headless? |
 | :--- | :--- | :--- |
-| Your own app or website | `debug` | Clean deterministic execution, full bug events, no stealth noise |
-| Bot-resilience / third-party sites | `smart` | Self-healing + AdaptationEngine feedback loop |
-| Raw throughput / CI speed | `speed` | `domcontentloaded` wait, zero simulation overhead |
-| Human interaction recording | `observe` | Full CDP bridge, context menu, annotation modal, session report |
-| AI exploratory testing | `observe` | Agent fires annotations via `talox.evaluate()` + `__taloxEmit__` |
+| Your own app or website (AI agent) | `debug` | Yes (default) |
+| Your own app, watching the browser | `debug` + `{ headed: true }` | No |
+| Your own app, human annotation session | `debug` + `{ headed, overlay, record }` or `observe` | No |
+| Your own app, AI-driven annotations | `debug` + `{ overlay: true, record: true }` | Yes |
+| Bot-resilience / third-party sites | `smart` | Yes |
+| Raw throughput / CI pipeline | `speed` | Yes |
 
 > **Decision rule**: If you own the server, use `debug`. If you don't, use `smart`.
 
@@ -81,20 +99,23 @@ The most common mistake is launching in `smart` mode when testing your own app. 
 
 ## Writing Observe-Driven Tests
 
-Talox's observe mode supports a new category of test that traditional frameworks can't express: **AI exploratory tests with element-attached annotations**.
-
-The pattern:
-
-1. Launch in `observe` mode and listen for `sessionEnd`
-2. Navigate and inspect the app using `getState()` — check `state.bugs`, `state.console.errors`, `state.network.failedRequests`
-3. Use `talox.evaluate()` to call `window.__taloxEmit__('annotation:add', {...})` for each issue found
-4. End the session; the report becomes your test artifact
+The new test paradigm: AI agent runs a `debug` session with `overlay: true` and `record: true`, programmatically fires annotations via `talox.evaluate()`, gets a PR-ready Markdown report at the end. No human, no headed browser required.
 
 ```typescript
-await talox.launch('ai-test', 'qa', 'observe', 'chromium', { output: 'both' });
-await talox.navigate('http://localhost:3000');
+talox.on('sessionEnd', ({ reportPath }) => {
+  console.log('Test report:', reportPath);
+});
 
+await talox.launch('ai-test', 'qa', 'debug', 'chromium', {
+  overlay: true,
+  record:  true,
+  output:  'both',
+  outputDir: './test-sessions',
+});
+
+await talox.navigate('http://localhost:3000');
 const state = await talox.getState();
+
 for (const bug of state.bugs) {
   await talox.evaluate(`
     window.__taloxEmit__('annotation:add', {
@@ -106,11 +127,10 @@ for (const bug of state.bugs) {
   `);
 }
 
-// End and collect report
 await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
 ```
 
-The generated Markdown report is ready to paste into a PR comment or GitHub issue.
+See `tests/real/07-observe-driven-ai.spec.ts` for the full working example.
 
 ---
 
@@ -120,10 +140,12 @@ The generated Markdown report is ready to paste into a PR comment or GitHub issu
 npm run test:publish
 ```
 
-Runs: TypeScript check → unit tests → E2E tests → production build. All must pass.
+Runs: TypeScript check → unit tests → production build. All must pass.
 
 ---
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs unit and E2E jobs in parallel on every push and pull request.
+GitHub Actions (`.github/workflows/ci.yml`) runs unit tests on every push and pull request.
+Real-world tests are intentionally excluded from the main CI pipeline to avoid rate limits.
+Run them manually before releases with `npm run test:real`.

@@ -113,4 +113,38 @@ export interface ObserveSessionOptions {
    * @default process.cwd() + '/talox-sessions'
    */
   outputDir?: string;
+
+  // ── debug mode flags (also honoured when mode === 'observe') ────────────────
+
+  /**
+   * Show the browser window.
+   * - `observe` mode: `true` by default (human needs to see the browser)
+   * - `debug` mode: `false` by default (headless unless you opt in)
+   *
+   * @default true for observe, false for debug
+   */
+  headed?: boolean;
+
+  /**
+   * Enable the visual overlay — right-click context menu, element inspector,
+   * and annotation modal. When `false`, only raw interaction/console/network
+   * tracking runs (no UI injected into the page).
+   *
+   * - `observe` mode: `true` by default
+   * - `debug` mode: `false` by default
+   *
+   * AI agents can set `overlay: true` in `debug` mode to drive the overlay
+   * programmatically via `talox.evaluate()` without needing a headed browser.
+   *
+   * @default true for observe, false for debug
+   */
+  overlay?: boolean;
+
+  /**
+   * Write a session report (JSON + Markdown) to `outputDir` when `stop()` is
+   * called or the browser closes. Automatically `true` when `overlay` is `true`.
+   *
+   * @default true for observe, false for debug
+   */
+  record?: boolean;
 }

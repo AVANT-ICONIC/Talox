@@ -125,11 +125,34 @@ export class TaloxController {
   /**
    * Launch the browser and create/load a persistent profile.
    *
-   * @param profileId     - Unique identifier for the browser profile.
-   * @param profileClass  - `'ops'` | `'qa'` | `'sandbox'`
-   * @param mode          - Execution mode. Defaults to `'smart'`.
-   * @param browserType   - `'chromium'` | `'firefox'` | `'webkit'`. Defaults to `'chromium'`.
-   * @param observeOptions - Only used when `mode === 'observe'`.
+   * @param profileId    - Unique identifier for the browser profile.
+   * @param profileClass - `'ops'` | `'qa'` | `'sandbox'`
+   * @param mode         - Execution mode. Defaults to `'smart'`.
+   *                       `'observe'` is an alias for `'debug'` +
+   *                       `{ headed: true, overlay: true, record: true }`.
+   * @param browserType  - `'chromium'` | `'firefox'` | `'webkit'`. Defaults to `'chromium'`.
+   * @param options      - Launch options.
+   *                       **`debug` mode flags** (also apply when `mode === 'observe'`):
+   *                       - `headed`  — show browser window (default: `false` for debug, `true` for observe)
+   *                       - `overlay` — enable right-click context menu + annotation modal
+   *                       - `record`  — write session report on `stop()`
+   *                       - `output`  — `'json'` | `'markdown'` | `'both'` (default: `'both'`)
+   *                       - `outputDir` — where to write reports
+   *
+   * @example
+   * ```ts
+   * // observe alias: headed browser, overlay, session report
+   * await talox.launch('test', 'qa', 'observe');
+   *
+   * // debug + AI-driven observe: headless, overlay driven via evaluate(), session report
+   * await talox.launch('ai-test', 'qa', 'debug', 'chromium', {
+   *   overlay: true,
+   *   record:  true,
+   * });
+   *
+   * // debug: just watch the browser, no overlay
+   * await talox.launch('watch', 'qa', 'debug', 'chromium', { headed: true });
+   * ```
    */
   async launch(
     profileId:      string,

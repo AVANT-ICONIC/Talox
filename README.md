@@ -106,17 +106,17 @@ Talox has four canonical execution modes. Legacy mode strings (`adaptive`, `bala
 | :--- | :--- | :--- | :--- |
 | `smart` | Self-healing production agent | AI agents | Third-party / bot-protected sites |
 | `speed` | Raw Playwright, max throughput | CI pipelines, bulk tasks | Maximum performance, bulk operations |
-| `debug` | Static, verbose, fully reproducible | Testing your own app · Diagnosing failures | Your own web app or site |
-| `observe` | **Human drives, agent watches** | Human test runs · AI exploratory testing | Recording sessions and generating reports |
+| `debug` | Full dev mode — bug detection, optional overlay + recording | Testing your own app · AI testing · Human sessions | **Your own web app or site** |
+| `observe` | Alias for `debug` + `{ headed, overlay, record }` | Human test runs | Shorthand for human-visible sessions |
 
 ### Quick mode selection
 
 > **Getting blocked or seeing bot-detection / CAPTCHA?** → use `smart`
-> **Testing your own app or website?** → use `debug`
+> **Testing or debugging your own app?** → use `debug`
 > **Running a fast pipeline task?** → use `speed`
-> **Recording a human session or running AI exploratory tests?** → use `observe`
+> **Human-visible session with overlay + report?** → use `observe` (or `debug` + `{ headed: true, overlay: true, record: true }`)
 
-The two most commonly confused modes are `smart` and `debug`. `smart` is for the real internet where you have no control over the server. `debug` is for apps you own — it gives you more signal (full bug events, console errors) without stealth noise that would distort your results.
+The most commonly confused choice: `smart` vs `debug`. If you **own the server**, use `debug` — `smart` adds stealth delays and randomness that distort your results. `debug` gives you clean, deterministic execution with full bug events.
 
 ### `smart` mode
 
@@ -126,41 +126,55 @@ The default for production agents. Runs the **Biomechanical Ghost Engine** and a
 - Automatically applies named strategies (`stealth_nudge`, `stealth_escalation`, `pace_reduction`, etc.)
 - Emits `adapted` events so the agent has full transparency without being blocked
 
-### `observe` mode
+### `debug` mode — the unified developer mode
 
-Human-driven sessions where the agent receives complete context automatically:
+**Use this mode when testing your own web app or site.** No stealth noise, no warmup delays — clean, deterministic execution with optional overlay and session recording.
 
-- Browser opens in non-headless mode
-- Right-click anywhere → Talox context menu
-- **Comment Mode** → element inspector → annotation modal with tag chips + comment
-- Every click, navigation, console error, and network failure is captured
-- Close the browser → session report written automatically (JSON + Markdown)
-- Agent receives `sessionEnd` event with the report path
+`debug` is the super-mode for everything you own. It replaces the old need to choose between `debug` and `observe` for your own app.
 
 ```typescript
-talox.on('annotationAdded', (e) => {
-  console.log(`[${e.entry.labels.join(', ')}] ${e.entry.comment}`)
-})
+// Headless AI testing — full bug detection, no browser window
+await talox.launch('ai-test', 'qa', 'debug');
 
-talox.on('sessionEnd', ({ reportPath, interactionCount }) => {
-  console.log(`${interactionCount} interactions captured → ${reportPath}`)
-})
+// Watch the browser while testing (headed, no overlay)
+await talox.launch('watch', 'qa', 'debug', 'chromium', { headed: true });
 
-await talox.launch('test-run', 'qa', 'observe', 'chromium', {
-  output: 'both',      // 'json' | 'markdown' | 'both'
+// AI-driven observe: headless, overlay driven via evaluate(), session report
+await talox.launch('ai-observe', 'qa', 'debug', 'chromium', {
+  overlay:   true,   // enables right-click context menu + annotation modal
+  record:    true,   // writes session report on stop()
+  output:    'both',
   outputDir: './sessions',
-})
+});
 ```
 
-### `debug` mode
+Capabilities when `overlay: true`:
+- Right-click context menu with Comment Mode, Snapshot, End Session
+- Element inspector (hover highlight + blue outline)
+- Annotation modal with tag chips (Bug, Note, Question, Improve) + comment
+- Ctrl/Cmd+Z undo last annotation
+- Session report in JSON + Markdown on session end
 
-**Use this mode when testing your own web app or site.** No stealth noise, no warmup delays — just clean, deterministic execution.
+Events always emitted in `debug` mode:
+- `bugDetected` — layout overlap, clipped elements, invisible CTAs
+- `consoleError` — all JS console errors
+- `networkError` — failed requests, 4xx/5xx responses
 
-Static, verbose, fully reproducible. Settings never auto-adjust.
+### `observe` mode — shorthand for `debug` + headed + overlay + recording
 
-- Full AX-Tree snapshots
-- `bugDetected` events emitted (only mode where this fires)
-- `consoleError` and `networkError` events emitted
+`observe` is now an alias for `debug` with `{ headed: true, overlay: true, record: true }`. These two are equivalent:
+
+```typescript
+// Old: observe alias (still works, no breaking change)
+await talox.launch('test-run', 'qa', 'observe', 'chromium', { output: 'both' });
+
+// New: explicit debug flags (same result)
+await talox.launch('test-run', 'qa', 'debug', 'chromium', {
+  headed: true, overlay: true, record: true, output: 'both',
+});
+```
+
+The `observe` mode string continues to work exactly as before — it just resolves internally to `debug` + those defaults. No migration needed.
 
 ### `speed` mode
 
@@ -411,8 +425,11 @@ talox.on('sessionEnd', ({ reportPath, interactionCount, annotationCount }) => {
   console.log(`${interactionCount} steps · ${annotationCount} issues found`);
 });
 
-await talox.launch('ai-test-run', 'qa', 'observe', 'chromium', {
-  output: 'both',
+// debug mode + overlay + record = headless AI-driven observe (no browser window needed)
+await talox.launch('ai-test-run', 'qa', 'debug', 'chromium', {
+  overlay:   true,
+  record:    true,
+  output:    'both',
   outputDir: './test-sessions',
 });
 
