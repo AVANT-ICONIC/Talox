@@ -112,17 +112,20 @@ export class SessionManager {
     }
 
     // ── Mode-aware headless policy ─────────────────────────────────────────────
-    // - smart / speed: always headless (no UI needed, reduce ghost windows)
-    // - debug: headless by default; set headed:true to watch the browser
-    // - observe alias: headed by default (human needs to see the browser)
-    const isDebugOrObserve = this.modes.getMode() === 'debug' || this.modes.isObserveMode();
-    const wantsHeaded      = isDebugOrObserve && (resolvedOpts.headed === true);
+    // Defaults by mode:
+    //   - debug:   headless by default; set headed:true to watch the browser
+    //   - observe: headed by default (human needs to see the browser)
+    //   - smart:   headless by default; set headed:true for Cloudflare/heavy sites
+    //              (headed + ghost interaction passes more bot challenges)
+    //   - speed:   always headless
+    const isSpeed     = this.modes.getMode() === 'speed';
+    const wantsHeaded = !isSpeed && (resolvedOpts.headed === true);
 
     let launchOptions: any = {};
     if (wantsHeaded) {
       launchOptions.headless = false;
     }
-    // smart/speed: headless stays at BrowserManager default (true)
+    // speed: always headless — no override allowed
 
     // Smart mode (was stealth): randomise fingerprint parameters once per session
     if (this.modes.getMode() === 'smart') {

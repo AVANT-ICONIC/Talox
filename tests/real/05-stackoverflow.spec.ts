@@ -2,17 +2,23 @@
  * @file 05-stackoverflow.spec.ts
  * @description Scenario 5 — Stack Overflow: Known bot-detection + real content navigation.
  *
- * Stack Overflow uses Cloudflare. Cloudflare's JS challenge may prevent
- * headless browsers from reaching 'networkidle'. Navigate calls are wrapped
- * in try/catch so a Cloudflare timeout is reported, not a hard test failure.
+ * Stack Overflow uses Cloudflare Turnstile and aggressive bot detection.
+ * We launch in **headed smart mode** with full ghost interaction to pass the
+ * Cloudflare JS challenge. This is the exact use case for:
+ *   - `smart` mode: stealth UA, WebGL spoofing, fingerprint noise
+ *   - `headed: true`: real visible browser (Cloudflare checks for this)
+ *   - `talox.think()`: ghost mouse movements that prove human interaction
+ *
+ * Navigate calls are still wrapped in try/catch — some environments
+ * (e.g. CI without Xvfb) can't run headed mode and will soft-fail.
  *
  * Tests:
- * - Navigate a Stack Overflow question page (or log if Cloudflare blocks)
+ * - Navigate a Stack Overflow question page with headed ghost interaction
  * - AX-Tree contains question title and answer content (not a block)
  * - findElement() locates the answer input or vote buttons
  * - Adapted events documented
  *
- * Mode: smart
+ * Mode: smart + headed
  */
 
 import { test, expect } from '@playwright/test';
@@ -41,7 +47,9 @@ test.describe('Scenario 5 — Stack Overflow real content extraction', () => {
       adaptedEvents.push(e);
     });
 
-    await talox.launch('stackoverflow', 'sandbox', 'smart', 'chromium');
+    // headed: true — Cloudflare's JS challenge requires a real visible browser.
+    // Ghost mouse movements (talox.think()) prove human interaction to CF Turnstile.
+    await talox.launch('stackoverflow', 'sandbox', 'smart', 'chromium', { headed: true });
   });
 
   test.afterAll(async () => {
@@ -49,16 +57,23 @@ test.describe('Scenario 5 — Stack Overflow real content extraction', () => {
     fs.rmSync(profileDir, { recursive: true, force: true });
   });
 
-  test('navigates to Stack Overflow question page', async () => {
-    // Skip the SO homepage (Cloudflare challenge) — go directly to the question URL
-    // which is more likely to bypass the JS challenge check.
+  test('navigates to Stack Overflow question page with ghost interaction', async () => {
+    // Go directly to the question URL (avoid homepage CF challenge).
+    // After navigation starts, think() runs ghost mouse movements — this helps
+    // Cloudflare Turnstile recognize the session as human.
     let state: any;
     try {
       state = await talox.navigate(SO_QUESTION_URL);
       navigationSucceeded = true;
+      // Ghost interaction: let the biomechanical engine simulate human presence
+      await talox.think(4000);
     } catch (e: any) {
       console.warn('[test] SO navigation timed out — Cloudflare may be blocking:', e.message);
-      try { state = await talox.getState(); } catch { /* nothing */ }
+      try {
+        // Give ghost interaction a chance even on slow CF pages
+        await talox.think(2000);
+        state = await talox.getState();
+      } catch { /* nothing */ }
     }
 
     if (state) {
@@ -75,12 +90,13 @@ test.describe('Scenario 5 — Stack Overflow real content extraction', () => {
   });
 
   test('AX-Tree contains content when SO loads', async () => {
-    // Re-navigate for worker-restart resilience
+    // Re-navigate for worker-restart resilience; ghost interaction helps CF challenge
     let state: any;
     try {
       state = await talox.navigate(SO_QUESTION_URL);
+      await talox.think(3000);
     } catch {
-      try { state = await talox.getState(); } catch { /* nothing */ }
+      try { await talox.think(1000); state = await talox.getState(); } catch { /* nothing */ }
     }
 
     if (!state || state.nodes?.length === 0) {
@@ -107,6 +123,7 @@ test.describe('Scenario 5 — Stack Overflow real content extraction', () => {
     let navigated = false;
     try {
       await talox.navigate(SO_QUESTION_URL);
+      await talox.think(2000);
       navigated = true;
     } catch { /* blocked */ }
 
