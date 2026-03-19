@@ -100,10 +100,11 @@ test.describe('Scenario 2 — Reddit signup via Gorilla Mail', () => {
 
   test('Step 2c — AX-Tree has email or username input', async () => {
     // Reddit register may be a SPA modal — give it a moment
+    // Re-navigate to ensure we're on the registration page even if worker restarted
     await talox.waitForTimeout(2000);
-    const state = await talox.getState();
+    const state = await talox.navigate('https://www.reddit.com/register');
 
-    const hasInput = state.nodes.some(n =>
+    const hasInput = (state.nodes ?? []).some(n =>
       (n.role ?? '').toLowerCase() === 'textbox' ||
       (n.name ?? '').toLowerCase().includes('email') ||
       (n.name ?? '').toLowerCase().includes('username'),

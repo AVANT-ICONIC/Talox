@@ -523,7 +523,7 @@ export class SessionManager {
     }
   }
 
-  private async injectStealthScripts(page: any): Promise<void> {
+  async injectStealthScripts(page: any): Promise<void> {
     const webgl = this.webglInfo || this.webglRenderers[0];
 
     await page.addInitScript((data: any) => {

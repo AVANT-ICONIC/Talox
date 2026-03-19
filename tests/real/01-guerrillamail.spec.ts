@@ -50,8 +50,9 @@ test.describe('Scenario 1 — Gorilla Mail (disposable email)', () => {
   });
 
   test('AX-Tree contains interactive elements', async () => {
-    const state = await talox.getState();
-    const interactive = state.interactiveElements ?? state.nodes.filter(
+    // Re-navigate in case the worker restarted after a prior test failure
+    const state = await talox.navigate('https://www.guerrillamail.com');
+    const interactive = (state.nodes ?? []).filter(
       n => ['button', 'link', 'textbox', 'input'].includes((n.role ?? '').toLowerCase()),
     );
     expect(interactive.length).toBeGreaterThan(0);
@@ -76,7 +77,7 @@ test.describe('Scenario 1 — Gorilla Mail (disposable email)', () => {
   });
 
   test('no critical console errors on the page', async () => {
-    const state = await talox.getState();
+    const state = await talox.navigate('https://www.guerrillamail.com');
     // Filter out common benign 3rd-party noise
     const critical = (state.console?.errors ?? []).filter(
       e => !e.includes('favicon') && !e.includes('analytics') && !e.includes('gtm'),
