@@ -32,12 +32,16 @@ import { STRATEGIES, type AdaptationSideEffect } from './strategies.js';
  * ```
  */
 export class AdaptationEngine {
-  private readonly detector:    BotDetector;
-  private readonly modeManager: ModeManager;
-  private readonly eventBus:    EventBus<TaloxEventMap>;
+  private readonly detector:      BotDetector;
+  private readonly modeManager:   ModeManager;
+  private readonly eventBus:      EventBus<TaloxEventMap>;
+  private readonly onEscalation: (() => Promise<void>) | undefined;
 
   /** Tracks whether semantic self-healing is currently forced on. */
   private semanticHealingActive: boolean = false;
+
+  /** Set to true when mode was auto-escalated from debug/speed → smart. */
+  private escalated: boolean = false;
 
   /** Rotating index for user-agent selection. */
   private uaIndex: number = 0;
@@ -51,12 +55,14 @@ export class AdaptationEngine {
   ] as const;
 
   constructor(
-    modeManager: ModeManager,
-    eventBus:    EventBus<TaloxEventMap>,
+    modeManager:   ModeManager,
+    eventBus:      EventBus<TaloxEventMap>,
+    onEscalation?: () => Promise<void>,
   ) {
-    this.detector    = new BotDetector();
-    this.modeManager = modeManager;
-    this.eventBus    = eventBus;
+    this.detector     = new BotDetector();
+    this.modeManager  = modeManager;
+    this.eventBus     = eventBus;
+    this.onEscalation = onEscalation;
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────────
@@ -69,9 +75,39 @@ export class AdaptationEngine {
    * @param state - The `TaloxPageState` returned by the last interaction.
    */
   async evaluate(state: TaloxPageState): Promise<void> {
-    // Only active in smart mode
-    if (!this.modeManager.shouldEmitAdapted()) return;
+    const inSmartMode = this.modeManager.shouldEmitAdapted();
 
+    // ── Auto-escalation: detect hard blocks in ANY mode ───────────────────────
+    // If we're in debug or speed mode and hit a block, automatically escalate
+    // to smart mode so future navigations use stealth settings.
+    if (!inSmartMode) {
+      const reason = this.detector.detect(state);
+      if (reason && (reason === 'bot_detection_hard' || reason === 'captcha_detected' || reason === 'rate_limit')) {
+        const before = this.modeManager.getSettings();
+        this.modeManager.setMode('smart');
+        const after = this.modeManager.getSettings();
+        this.escalated = true;
+
+        this.eventBus.emit('adapted', {
+          reason,
+          strategy: 'auto_escalated_to_smart',
+          from: before,
+          to:   after,
+        });
+
+        console.warn(
+          `[Talox] Block detected (${reason}) — ` +
+          `auto-escalating to smart mode. Stealth will apply on next navigation.`,
+        );
+
+        if (this.onEscalation) {
+          await this.onEscalation();
+        }
+      }
+      return;
+    }
+
+    // ── Standard smart-mode adaptation loop ───────────────────────────────────
     const reason = this.detector.detect(state);
     if (!reason) return;
 
@@ -103,6 +139,16 @@ export class AdaptationEngine {
     if (strategy.sideEffect) {
       await this.handleSideEffect(strategy.sideEffect);
     }
+  }
+
+  /**
+   * Returns `true` if the engine auto-escalated from debug/speed → smart
+   * during the last `evaluate()` call. Resets after being read.
+   */
+  wasEscalated(): boolean {
+    const v = this.escalated;
+    this.escalated = false;
+    return v;
   }
 
   /**

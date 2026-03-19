@@ -96,7 +96,14 @@ export class TaloxController {
     this._events  = new EventBus<TaloxEventMap>();
     this._modes   = new ModeManager(this._events);
     this._session = new SessionManager(this._modes, this._events, baseDir);
-    this._adapt   = new AdaptationEngine(this._modes, this._events);
+    // Auto-escalation callback: when a hard block is detected in debug/speed mode,
+    // inject stealth scripts on the current page so future navigations are stealthy.
+    this._adapt   = new AdaptationEngine(this._modes, this._events, async () => {
+      const page = this._session.getPlaywrightPage();
+      if (page) {
+        await this._session.injectStealthScripts(page);
+      }
+    });
 
     // 2. ActionExecutor — wired with accessor callbacks so sub-classes stay decoupled
     this._actions = new ActionExecutor(
@@ -187,6 +194,18 @@ export class TaloxController {
     );
     this._session.lastState = state;
     await this._adapt.evaluate(state);
+    return state;
+  }
+
+  /**
+   * Collect and return the current page state without navigating.
+   * Runs the rules engine over the result so `state.bugs` is populated.
+   * Use this after `navigate()` when you need a fresh snapshot mid-test.
+   */
+  async getState(): Promise<TaloxPageState> {
+    const state = await this._session.getActiveStateCollector().collect(this._modes.getMode());
+    state.bugs.push(...this._session.rulesEngine.analyze(state));
+    this._session.lastState = state;
     return state;
   }
 
