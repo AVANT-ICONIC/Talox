@@ -47,25 +47,29 @@ test.describe('Scenario 6 — ChatGPT agent-to-agent (guest mode)', () => {
 
   test('Step 1 — navigates to ChatGPT without being hard-blocked', async () => {
     const state = await talox.navigate('https://chat.openai.com');
-    expect(state.url).toContain('openai.com');
+    // chat.openai.com may redirect to chatgpt.com — accept both
+    expect(state.url).toMatch(/openai\.com|chatgpt\.com/);
     expect(state.nodes.length).toBeGreaterThan(0);
     console.log('[test] ChatGPT title:', state.title);
+    console.log('[test] ChatGPT URL:', state.url);
     console.log('[test] ChatGPT node count:', state.nodes.length);
   });
 
   // ── Step 2: Handle landing page (may show "Start chatting" or redirect) ─────
 
   test('Step 2 — page has interactive elements (not a static error page)', async () => {
-    // Give SPA time to settle
-    await talox.waitForTimeout(3000);
-    const state = await talox.getState();
+    // Re-navigate for worker-restart resilience; also gives SPA time to settle
+    await talox.waitForTimeout(1000);
+    const state = await talox.navigate('https://chat.openai.com');
+    await talox.waitForTimeout(2000);
 
     const hasButton = state.nodes.some(n => (n.role ?? '').toLowerCase() === 'button');
     const hasInput  = state.nodes.some(n =>
       ['textbox', 'input', 'searchbox'].includes((n.role ?? '').toLowerCase()),
     );
     console.log('[test] Has button:', hasButton, '| Has input:', hasInput);
-    console.log('[test] Current URL:', state.url);
+    console.log('[test] ChatGPT URL after settle:', state.url);
+    expect(state.url).toMatch(/openai\.com|chatgpt\.com/);
     expect(hasButton || hasInput).toBe(true);
   });
 
