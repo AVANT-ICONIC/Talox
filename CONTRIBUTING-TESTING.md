@@ -150,6 +150,21 @@ Runs: TypeScript check → unit tests → production build. All must pass.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs unit tests on every push and pull request.
-Real-world tests are intentionally excluded from the main CI pipeline to avoid rate limits.
-Run them manually before releases with `npm run test:real`.
+Two jobs in `.github/workflows/ci.yml`:
+
+| Job | Trigger | What it runs |
+| :--- | :--- | :--- |
+| **Unit Tests** | Every push + PR to `main` | `npm test` (vitest, 79 tests, no browser) |
+| **Real-World Tests** | Nightly at 03:00 UTC + manual `workflow_dispatch` | `npx playwright test` against live sites |
+
+Real-world tests never run on regular pushes — this avoids IP bans and rate limits from hitting live sites on every commit.
+
+**Trigger a manual run** (with optional filter):
+1. GitHub → Actions → CI → Run workflow
+2. Optionally enter a test name filter, e.g. `Gorilla Mail` or `Reddit`
+
+**GitHub Secrets required** for credential-based scenarios:
+- `REDDIT_USER` — test account username (Scenario 3 only; skips without it)
+- `REDDIT_PASS` — test account password
+
+Playwright HTML report and failure videos are uploaded as artifacts on every run.
