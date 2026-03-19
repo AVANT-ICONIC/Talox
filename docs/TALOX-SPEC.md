@@ -55,6 +55,27 @@ Talox provides a persistent, stateful browser runtime for AI agents. It has four
 | `debug` | 1.0× | 0.5 | medium | 0.02 | disabled | disabled | full | **Your own app or site** — all debug + optional overlay/recording |
 | `observe` | (alias) | — | — | — | — | — | — | Alias for `debug` + `{ headed: true, overlay: true, record: true }` |
 
+### Headed smart mode — for Cloudflare and heavy bot-protection
+
+`smart` mode can now be launched with `{ headed: true }` for sites that require a visible browser window as part of their bot challenge:
+
+```typescript
+// Headless smart mode (default) — works for most sites
+await talox.launch('agent', 'sandbox', 'smart', 'chromium');
+
+// Headed smart mode — for Cloudflare Turnstile and aggressive challenges
+await talox.launch('agent', 'sandbox', 'smart', 'chromium', { headed: true });
+await talox.navigate('https://stackoverflow.com');
+await talox.think(4000); // ghost mouse interaction passes Cloudflare's human check
+```
+
+The combination of:
+- **Headed browser**: Cloudflare checks `window.innerWidth/Height` and GPU context
+- **Ghost engine**: biomechanical mouse movements, scrolls, jitter prove human presence
+- **Stealth fingerprinting**: UA rotation, WebGL spoofing, canvas noise reduce bot signals
+
+Only `speed` mode is always headless (it's a CI/throughput mode).
+
 > **Deprecated aliases**: `adaptive`, `stealth`, `balanced`, `browse`, `qa` all resolve to `smart`. They continue to work with a console warning. New code should use `smart`.
 
 ### Mode selection decision guide
@@ -62,6 +83,9 @@ Talox provides a persistent, stateful browser runtime for AI agents. It has four
 ```
 Are you getting blocked, seeing a CAPTCHA, or hitting rate limits?
   → smart
+
+Is it behind Cloudflare / very aggressive bot-detection that blocks even smart?
+  → smart + { headed: true }   then call talox.think() after navigation
 
 Do you own the server / are you testing your own app?
   → debug  (not smart — smart mode adds noise that distorts your test results)
@@ -72,6 +96,11 @@ Do you need maximum throughput for a CI pipeline or bulk task?
 Do you want to record a human session or run AI exploratory tests?
   → observe
 ```
+
+Auto-escalation: if a hard block is detected while in `debug` or `speed` mode, Talox
+automatically escalates to `smart` (fires `adapted` event, injects stealth scripts).
+For maximum effect on Cloudflare, restart with `smart + { headed: true }` after the
+escalation event fires.
 
 The most common mistake: using `smart` mode when testing your own app. `smart` adds bot-detection warmup delays, stealth randomness, and self-healing that are only useful on servers you don't control.
 
