@@ -36,6 +36,7 @@ Run a single scenario:
 npm run test:real:single "Gorilla Mail"
 npm run test:real:single "Reddit"
 npm run test:real:single "ChatGPT"
+npm run test:real:single "Grok"
 ```
 
 ### Credentials
@@ -59,7 +60,8 @@ Tests that need credentials **automatically skip** if the env vars are not set �
 | `03-reddit-login.spec.ts` | reddit.com | `smart` | `REDDIT_USER` + `REDDIT_PASS` |
 | `04-x-bot-detection.spec.ts` | x.com | `smart` | None |
 | `05-stackoverflow.spec.ts` | stackoverflow.com | `smart` | None |
-| `06-chatgpt-agent-to-agent.spec.ts` | chat.openai.com | `smart` | `OPENAI_EMAIL` + `OPENAI_PASS` |
+| `06-chatgpt-agent-to-agent.spec.ts` | chat.openai.com | `smart` | None (guest mode) |
+| `06b-grok-agent-to-agent.spec.ts` | grok.com | `smart` | None (free mode) |
 | `07-observe-driven-ai.spec.ts` | iana.org + example.com | `debug` + overlay | None |
 
 ### What each scenario proves
@@ -74,7 +76,9 @@ Tests that need credentials **automatically skip** if the env vars are not set �
 
 **Scenario 5 — Stack Overflow**: Real developer-facing content is readable. Proves `describePage()`, `findElement()`, and `extractTable()` on a Cloudflare-protected site.
 
-**Scenario 6 — ChatGPT**: An AI agent can use Talox to navigate ChatGPT's web UI and send/receive messages. This is the "agent-to-agent fallback" use case — a Talox agent asking another AI when it doesn't know what to do.
+**Scenario 6 — ChatGPT**: An AI agent can use Talox to navigate ChatGPT's web UI and send/receive messages in guest mode (no account required). This is the "agent-to-agent fallback" use case — a Talox agent asking another AI when it doesn't know what to do.
+
+**Scenario 6b — Grok**: Same agent-to-agent pattern on xAI's Grok (grok.com), which is also freely accessible without an account. Proves Talox works on X's infrastructure.
 
 **Scenario 7 — AI-driven observe session**: The `debug` + `{ overlay, record }` pattern works headlessly. Proves the full observe pipeline (inject → annotate via evaluate → session:end → report written) without a human or headed browser.
 
