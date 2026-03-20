@@ -66,3 +66,11 @@ docs/superpowers/
 playwright-report/
 test-results/
 .env.test
+
+# Browser profile data (Chromium session cache — generated at runtime)
+test/
+.harbor-talox/
+harbor-*/
+
+# Leftover demo/scratch scripts
+*.mjs
