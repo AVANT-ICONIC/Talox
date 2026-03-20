@@ -1,14 +1,13 @@
 /**
  * @file TaloxController.ts
- * @description Thin public API orchestrator for Talox.
+ * @description Thin public API orchestrator for Talox v2.
  *
  * `TaloxController` is the single entry point agents and developers interact with.
- * It owns no logic — it delegates entirely to four focused sub-classes:
+ * It owns no logic — it delegates entirely to focused sub-classes:
  *
  * | Sub-class        | Responsibility                                       |
  * |------------------|------------------------------------------------------|
  * | `EventBus`       | Typed event emission and subscription                |
- * | `ModeManager`    | Mode presets, deprecated alias resolution, settings  |
  * | `ActionExecutor` | Browser interactions (click, type, navigate, etc.)   |
  * | `SessionManager` | Browser lifecycle, multi-page, auto-thinking         |
  *
@@ -23,11 +22,11 @@
  * ```ts
  * import { TaloxController } from 'talox';
  *
- * const talox = new TaloxController('./profiles');
+ * const talox = new TaloxController('./profiles', { verbosity: 1 });
  *
  * talox.on('adapted', (e) => console.log(`Smart mode adapted: ${e.reason}`));
  *
- * await talox.launch('my-agent', 'ops', 'smart');
+ * await talox.launch('my-agent', 'ops');
  * await talox.navigate('https://example.com');
  * const state = await talox.click('#submit-button');
  * await talox.stop();
@@ -38,90 +37,122 @@ import type {
   TaloxProfile,
   TaloxPageState,
   ProfileClass,
-  TaloxMode,
   Point,
   VisualDiffResult,
-  TaloxSettings,
   TaloxNode,
+  TaloxBug,
 } from '../../types/index.js';
-import type { AnyTaloxMode }              from '../../types/modes.js';
 import type { TaloxEventMap, TaloxEventType, TaloxEvent } from '../../types/events.js';
 import type { ObserveSessionOptions }     from '../../types/session.js';
 import type { BrowserType }              from '../BrowserManager.js';
+import type { TaloxConfig }              from '../../types/config.js';
+import type { TaloxSettings }            from '../../types/settings.js';
 
 import { EventBus }                      from './EventBus.js';
-import { ModeManager }                   from './ModeManager.js';
 import { ActionExecutor }                from './ActionExecutor.js';
-import { SessionManager }                from './SessionManager.js';
+import { SessionManager }               from './SessionManager.js';
+import { TakeoverBridge }               from './TakeoverBridge.js';
 import { AdaptationEngine }              from '../smart/AdaptationEngine.js';
-import { PageStateCollector }            from '../PageStateCollector.js';
+import { PageStateCollector }           from '../PageStateCollector.js';
 import { SemanticMapper }                from '../SemanticMapper.js';
+import { DEFAULT_SETTINGS }              from '../../types/settings.js';
 
-// Re-export supporting types consumed directly by agents
 export type { AttentionFrame }           from './SessionManager.js';
 export type { MovementStyle, TypingRhythm, AccelerationCurve } from './ActionExecutor.js';
+export type { BehavioralDNA }          from '../../types/index.js';
 
-/** @deprecated Import `BehavioralDNA` from the types package instead. */
-export type { BehavioralDNA }            from '../../types/index.js';
+export interface DebugSnapshot {
+  state?: TaloxPageState;
+  bugs: TaloxBug[];
+  consoleErrors: string[];
+  networkErrors: Array<{ url: string; status: number }>;
+  lastAdaptation: any;
+  verbosity: 0 | 1 | 2 | 3;
+  timestamp: string;
+}
 
 // ─── TaloxController ─────────────────────────────────────────────────────────
 
 /**
- * Main entry point for Talox — stateful browser runtime for AI agents.
+ * Main entry point for Talox v2 — stateful browser runtime for AI agents.
  *
  * All public methods delegate to focused sub-classes. `TaloxController` itself
- * is a thin coordination layer (~200 lines) with no embedded logic.
+ * is a thin coordination layer with no embedded logic.
  */
 export class TaloxController {
-  // ── Sub-class instances (package-internal, not public API) ────────────────
-  /** @internal */ readonly _events:  EventBus<TaloxEventMap>;
-  /** @internal */ readonly _modes:   ModeManager;
-  /** @internal */ readonly _actions: ActionExecutor;
-  /** @internal */ readonly _session: SessionManager;
-  /** @internal */ readonly _adapt:   AdaptationEngine;
+  readonly _events:  EventBus<TaloxEventMap>;
+  readonly _actions: ActionExecutor;
+  readonly _session: SessionManager;
+  readonly _adapt:   AdaptationEngine;
+  readonly _takeover: TakeoverBridge;
 
-  // ── Attention frame (shared between actions + session) ────────────────────
+  settings: TaloxSettings;
+
   private attentionFrame: { x: number; y: number; width: number; height: number; selector?: string } | null = null;
   private viewportScale:  number = 1.0;
 
-  // ── Mouse position tracking ───────────────────────────────────────────────
   private globalLastMousePos:   Point    = { x: 0, y: 0 };
   private useGlobalMousePos:    boolean  = true;
 
-  // ── Behavioral DNA ────────────────────────────────────────────────────────
   private behavioralDNA: any = null;
 
-  constructor(baseDir: string = '.') {
-    // 1. Core services
-    this._events  = new EventBus<TaloxEventMap>();
-    this._modes   = new ModeManager(this._events);
-    this._session = new SessionManager(this._modes, this._events, baseDir);
-    // Auto-escalation callback: when a hard block is detected in debug/speed mode,
-    // inject stealth scripts on the current page so future navigations are stealthy.
-    this._adapt   = new AdaptationEngine(this._modes, this._events, async () => {
+  private takeoverState: 'AGENT_RUNNING' | 'WAITING_FOR_HUMAN' = 'AGENT_RUNNING';
+  private autoResumeTimer: NodeJS.Timeout | null = null;
+
+  constructor(baseDir: string = '.', config: TaloxConfig = {}) {
+    this.settings = { ...DEFAULT_SETTINGS, ...config.settings };
+
+    if (config.humanTakeover !== undefined) {
+      if (typeof config.humanTakeover === 'boolean') {
+        this.settings.humanTakeoverEnabled = config.humanTakeover;
+      } else {
+        this.settings.humanTakeoverEnabled = true;
+        if (config.humanTakeover.timeoutMs !== undefined) {
+          this.settings.humanTakeoverTimeoutMs = config.humanTakeover.timeoutMs;
+        }
+      }
+    }
+
+    // humanTakeover or observe both need headed mode for UI
+    if (config.observe) {
+      this.settings.headed = true;
+    }
+    
+    // If humanTakeover is enabled, we need headed for the UI
+    if (this.settings.humanTakeoverEnabled) {
+      this.settings.headed = true;
+    }
+
+    this._events   = new EventBus<TaloxEventMap>();
+    this._session = new SessionManager(this.settings, this._events, baseDir);
+    this._takeover = new TakeoverBridge(
+      this._events,
+      this.settings.humanTakeoverTimeoutMs,
+    );
+    this._adapt   = new AdaptationEngine(this.settings, this._events, async () => {
       const page = this._session.getPlaywrightPage();
       if (page) {
         await this._session.injectStealthScripts(page);
       }
     });
 
-    // 2. ActionExecutor — wired with accessor callbacks so sub-classes stay decoupled
     this._actions = new ActionExecutor(
-      this._modes,
+      this.settings,
       this._events,
       this._session.artifactBuilder,
       this._session.policyEngine,
       new SemanticMapper(),
-      /* getPage               */ () => this._session.getPage(),
-      /* getActiveStateCollector */ () => this._session.getActiveStateCollector(),
-      /* getProfile            */ () => this._session.profile,
-      /* getCurrentLastMousePos */ () => this.getCurrentLastMousePos(),
-      /* setCurrentLastMousePos */ (pos) => this.setCurrentLastMousePos(pos),
-      /* getAttentionFrame     */ () => this.attentionFrame,
-      /* clampToFrame          */ (x, y) => this.clampToFrame(x, y),
-      /* findElementInFrame    */ (sel) => this.findElementInFrame(sel),
-      /* riskyActionHook       */ undefined,
-      /* recordActivity        */ () => this._session.recordActivity(),
+      () => this._session.getPage(),
+      () => this._session.getActiveStateCollector(),
+      () => this._session.profile,
+      () => this.getCurrentLastMousePos(),
+      (pos) => this.setCurrentLastMousePos(pos),
+      () => this.attentionFrame,
+      (x, y) => this.clampToFrame(x, y),
+      (sel) => this.findElementInFrame(sel),
+      undefined,
+      () => this._session.recordActivity(),
+      () => this._takeover.getCursorStepCallback(),
     );
   }
 
@@ -134,13 +165,9 @@ export class TaloxController {
    *
    * @param profileId    - Unique identifier for the browser profile.
    * @param profileClass - `'ops'` | `'qa'` | `'sandbox'`
-   * @param mode         - Execution mode. Defaults to `'smart'`.
-   *                       `'observe'` is an alias for `'debug'` +
-   *                       `{ headed: true, overlay: true, record: true }`.
    * @param browserType  - `'chromium'` | `'firefox'` | `'webkit'`. Defaults to `'chromium'`.
-   * @param options      - Launch options.
-   *                       **`debug` mode flags** (also apply when `mode === 'observe'`):
-   *                       - `headed`  — show browser window (default: `false` for debug, `true` for observe)
+   * @param options      - Launch options:
+   *                       - `headed`  — show browser window (default: from settings)
    *                       - `overlay` — enable right-click context menu + annotation modal
    *                       - `record`  — write session report on `stop()`
    *                       - `output`  — `'json'` | `'markdown'` | `'both'` (default: `'both'`)
@@ -148,28 +175,31 @@ export class TaloxController {
    *
    * @example
    * ```ts
-   * // observe alias: headed browser, overlay, session report
-   * await talox.launch('test', 'qa', 'observe');
+   * // Launch with default settings
+   * await talox.launch('test', 'qa');
    *
-   * // debug + AI-driven observe: headless, overlay driven via evaluate(), session report
-   * await talox.launch('ai-test', 'qa', 'debug', 'chromium', {
+   * // Launch with browser options
+   * await talox.launch('ai-test', 'qa', 'chromium', {
+   *   headed: true,
    *   overlay: true,
    *   record:  true,
    * });
-   *
-   * // debug: just watch the browser, no overlay
-   * await talox.launch('watch', 'qa', 'debug', 'chromium', { headed: true });
    * ```
    */
   async launch(
     profileId:      string,
     profileClass:   ProfileClass,
-    mode:           AnyTaloxMode = 'smart',
     browserType:    BrowserType  = 'chromium',
     observeOptions?: ObserveSessionOptions,
   ): Promise<void> {
     this.behavioralDNA = this._session.generateBehavioralDNA(profileId);
-    await this._session.launch(profileId, profileClass, mode, browserType, observeOptions);
+    await this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);
+    
+    const page = this._session.getPlaywrightPage();
+    if (page) {
+      // headed:true activates the full agent overlay (cursor + glow + takeover button)
+      await this._takeover.initialize(page as any, this.settings.headed);
+    }
   }
 
   /**
@@ -178,6 +208,10 @@ export class TaloxController {
   async stop(): Promise<void> {
     await this._session.stop();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HUMAN TAKEOVER
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NAVIGATION & CORE ACTIONS
@@ -203,7 +237,7 @@ export class TaloxController {
    * Use this after `navigate()` when you need a fresh snapshot mid-test.
    */
   async getState(): Promise<TaloxPageState> {
-    const state = await this._session.getActiveStateCollector().collect(this._modes.getMode());
+    const state = await this._session.getActiveStateCollector().collect();
     state.bugs.push(...this._session.rulesEngine.analyze(state));
     this._session.lastState = state;
     return state;
@@ -287,16 +321,105 @@ export class TaloxController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // MODE & SETTINGS
+  // VERBOSITY
   // ═══════════════════════════════════════════════════════════════════════════
 
-  setMode(mode: AnyTaloxMode): void    { this._modes.setMode(mode); }
-  getMode(): TaloxMode                  { return this._modes.getMode(); }
-  override(param: keyof TaloxSettings | string, value: any): void {
-    this._modes.override(param, value);
+  setVerbosity(level: 0 | 1 | 2 | 3): void {
+    this.settings.verbosity = level;
+    this._events.emit('verbosityChanged', { level });
   }
-  updateSettings(patch: Partial<TaloxSettings>): void {
-    this._modes.updateSettings(patch);
+
+  getVerbosity(): 0 | 1 | 2 | 3 {
+    return this.settings.verbosity;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEBUG SNAPSHOT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async getDebugSnapshot(): Promise<DebugSnapshot> {
+    const state = this._session.lastState;
+    const snapshot: DebugSnapshot = {
+      bugs: state?.bugs ?? [],
+      consoleErrors: state?.console?.errors ?? [],
+      networkErrors: state?.network?.failedRequests ?? [],
+      lastAdaptation: (this._adapt as any).getLastAdaptation?.() ?? null,
+      verbosity: this.settings.verbosity,
+      timestamp: new Date().toISOString(),
+    };
+    if (state) {
+      snapshot.state = state;
+    }
+    return snapshot;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HEADED MODE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async setHeaded(headed: boolean): Promise<void> {
+    this.settings.headed = headed;
+    await this._session.setHeadedMode(headed);
+  }
+
+  isHeaded(): boolean {
+    return this.settings.headed;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HUMAN TAKEOVER STATE MACHINE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Freeze the agent and hand control to the human.
+   * The overlay switches from cyan to "Resume" state.
+   * Resolves when the human clicks Resume or the timeout fires.
+   */
+  async requestHumanTakeover(reason?: string): Promise<void> {
+    if (this.takeoverState === 'WAITING_FOR_HUMAN') return;
+
+    return new Promise<void>((resolve) => {
+      this._events.once('agentResumed', (_e) => resolve());
+
+      this.takeoverState = 'WAITING_FOR_HUMAN';
+      // TakeoverBridge listens to this event to update the overlay
+      void this._takeover.requestTakeover(reason);
+
+      if (this.settings.humanTakeoverTimeoutMs > 0) {
+        this.autoResumeTimer = setTimeout(() => {
+          this.resumeAgent();
+        }, this.settings.humanTakeoverTimeoutMs);
+      }
+    });
+  }
+
+  /**
+   * Resume agent control after a human takeover.
+   * Overlay sweeps cursor back in from screen edge.
+   */
+  resumeAgent(): void {
+    if (this.takeoverState !== 'WAITING_FOR_HUMAN') return;
+
+    if (this.autoResumeTimer) {
+      clearTimeout(this.autoResumeTimer);
+      this.autoResumeTimer = null;
+    }
+
+    this.takeoverState = 'AGENT_RUNNING';
+    // TakeoverBridge listens to this event to restore the overlay
+    this._takeover.resumeAgent();
+  }
+
+  getTakeoverState(): 'AGENT_RUNNING' | 'WAITING_FOR_HUMAN' {
+    return this.takeoverState;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SETTINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  getSettings(): TaloxSettings {
+    return { ...this.settings };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -454,7 +577,7 @@ export class TaloxController {
   startAutoThinking(): void                            { this._session.startAutoThinking(this.behavioralDNA); }
   stopAutoThinking(): void                             { this._session.stopAutoThinking(); }
   isAutoThinkingRunning(): boolean                     { return this._session.isAutoThinkingRunning(); }
-  setAutomaticThinkingEnabled(enabled: boolean): void  { this._modes.override('automaticThinkingEnabled', enabled); }
+  setAutomaticThinkingEnabled(enabled: boolean): void  { this.settings.automaticThinkingEnabled = enabled; }
   setIdleTimeout(timeoutMs: number): void              { this._session.setIdleTimeout(timeoutMs); }
   recordActivity(): void                               { this._session.recordActivity(); }
   async triggerThinkingBehavior(): Promise<void> {

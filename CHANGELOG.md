@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-20
+
+### Breaking Changes
+
+- **No more modes** — `smart`, `speed`, `debug`, `observe` as constructor parameters are removed. The `TaloxController` constructor now takes `TaloxConfig` with `settings` and optional `observe: boolean` flag.
+- **`launch()` signature changed** — no mode parameter. Old: `launch(id, class, mode)`. New: `launch(id, class, browserType?, observeOptions?)`.
+- **`ModeManager` removed** — all mode-routing logic eliminated.
+- **`setMode()` removed** — use `setVerbosity(0-3)` for runtime perception control instead.
+
+### Added
+
+- **Agent Overlay** — When `headed: true`, automatically injects a self-contained overlay via `page.addInitScript()` (persists across all navigations):
+  - Cyan pulsing glow border (3px inset, breathing animation)
+  - Fake cyan arrow cursor with Bezier comet trail (12-point fading history)
+  - Spinner ring orbiting cursor during `think`/`fidget` states
+  - Shrink + ripple click animation
+  - Transparent click-blocker preventing accidental human interference
+  - "⏸ Take Over" button: bottom-center, appears on mouse-enter, auto-hides after 5s idle
+
+- **Human Takeover** — `requestHumanTakeover(reason?)` freezes agent, returns Promise that resolves on resume. `resumeAgent()` restores control. Auto-resume timer via `humanTakeoverTimeoutMs`.
+
+- **Synthetic mouse events** — `HumanMouse` no longer moves OS cursor during path traversal. Only the final click position moves the real Playwright mouse. Fake cursor renders the full Bezier path visually.
+
+- **`CursorStepCallback`** type exported from `HumanMouse` for custom cursor tracking integrations.
+
+- **New events**: `agentThinking`, `agentActing`, `cursorClicked` added to `TaloxEventMap`.
+
+- **`setVerbosity(0|1|2|3)`** — runtime verbosity control (not a mode). Level 0 = silent, 3 = full trace.
+
+- **`getDebugSnapshot()`** — pull current state + recent events on demand at any verbosity level.
+
+- **`getCursorStepCallback()`** on `TakeoverBridge` — returns a callback ActionExecutor passes to HumanMouse for per-step overlay updates.
+
+- **`aria-hidden="true"`** on all overlay elements — agent's AX-tree never sees Talox UI elements.
+
+### Changed
+
+- **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, full perception active by default, no mode required.
+
+- **`TakeoverBridge`** rebuilt from scratch using correct Playwright APIs (`addInitScript` + `exposeFunction`). Previous version used `evaluate()` which reset on navigation.
+
+- **`HumanMouse.move/click/fidget`** — new optional `onStep?: CursorStepCallback` parameter. When provided, skips intermediate `page.mouse.move()` calls (OS cursor stays still).
+
+- **`ActionExecutor`** — emits `agentActing` before mouse actions, `agentThinking` before think/fidget, `cursorClicked` after every click.
+
+- **Default settings** — `stealthLevel: 'high'`, `adaptiveStealthEnabled: true`, `humanStealth: 1.0`, `perceptionDepth: 'full'` — all default to maximum.
+
+### Fixed
+
+- **Overlay injection** — Fixed critical bug where overlay used `page.evaluate()` (reset on every navigation). Now uses `page.addInitScript()` which persists across all page loads.
+
+- **Duplicate CSS selectors** — Previous `TakeoverBridge` had `#__talox-fake-cursor` defined twice with contradictory rules, causing broken cursor appearance.
+
+---
+
 ## [1.3.0] - 2026-03-18
 
 ### Added

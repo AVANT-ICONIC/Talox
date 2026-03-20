@@ -37,7 +37,7 @@ test.describe('Scenario 4 — X.com bot-detection stress test', () => {
       adaptedEvents.push(e);
     });
 
-    await talox.launch('x-stress', 'sandbox', 'smart', 'chromium');
+    await talox.launch('x-stress', 'sandbox', 'smart', 'chromium', { headed: true });
   });
 
   test.afterAll(async () => {
@@ -46,6 +46,9 @@ test.describe('Scenario 4 — X.com bot-detection stress test', () => {
   });
 
   test('navigates to X.com without being hard-blocked', async () => {
+    // Ghost mouse movement BEFORE navigation to warm up and appear human
+    await talox.think(3000);
+    
     const state = await talox.navigate('https://x.com');
 
     // A hard block would show a minimal page with no real nodes

@@ -16,9 +16,8 @@ export interface AttentionFrame {
 
 import type { TaloxPageState, TaloxProfile, ProfileClass, Point } from '../../types/index.js';
 import type { TaloxEventMap } from '../../types/events.js';
-import type { AnyTaloxMode } from '../../types/modes.js';
 import type { ObserveSessionOptions } from '../../types/session.js';
-import type { ModeManager } from './ModeManager.js';
+import type { TaloxSettings } from '../../types/settings.js';
 import type { EventBus } from './EventBus.js';
 import { BrowserManager, type BrowserType } from '../BrowserManager.js';
 import { ProfileVault } from '../ProfileVault.js';
@@ -71,7 +70,7 @@ export class SessionManager {
   ];
 
   constructor(
-    private readonly modes: ModeManager,
+    private readonly settings: TaloxSettings,
     private readonly events: EventBus<TaloxEventMap>,
     baseDir: string,
   ) {
@@ -86,96 +85,63 @@ export class SessionManager {
   // ─── Launch ──────────────────────────────────────────────────────────────────
 
   /**
-   * Launch a browser session. For 'observe' mode the browser is always headed
-   * and an ObserveSession is started to capture human interactions.
-   * For 'smart' mode (was 'stealth'), UA/WebGL/viewport are randomised once per session.
+   * Launch a browser session.
+   * Settings determine the behavior (headed, stealth, etc.)
    */
   async launch(
     profileId: string,
     profileClass: ProfileClass,
-    mode: AnyTaloxMode = 'smart',
+    settings: TaloxSettings,
     browserType: BrowserType = 'chromium',
     observeOptions?: ObserveSessionOptions,
   ): Promise<void> {
-    this.modes.setMode(mode);
     this.profile = await this.profileVault.createProfile(profileId, profileClass, 'Agent Session');
     const behavioralDNA = this.generateBehavioralDNA(profileId);
 
-    // ── Resolve observe → debug alias with headed/overlay/record defaults ──────
-    // observe mode is now an alias for debug + { headed: true, overlay: true, record: true }.
-    // AI agents can achieve the same by launching in debug mode with those flags.
     const resolvedOpts: ObserveSessionOptions = { ...observeOptions };
-    if (this.modes.isObserveMode()) {
-      resolvedOpts.headed  = resolvedOpts.headed  ?? true;
-      resolvedOpts.overlay = resolvedOpts.overlay ?? true;
-      resolvedOpts.record  = resolvedOpts.record  ?? true;
-    }
-
-    // ── Mode-aware headless policy ─────────────────────────────────────────────
-    // Defaults by mode:
-    //   - debug:   headless by default; set headed:true to watch the browser
-    //   - observe: headed by default (human needs to see the browser)
-    //   - smart:   headless by default; set headed:true for Cloudflare/heavy sites
-    //              (headed + ghost interaction passes more bot challenges)
-    //   - speed:   always headless
-    const isSpeed     = this.modes.getMode() === 'speed';
-    const wantsHeaded = !isSpeed && (resolvedOpts.headed === true);
+    const wantsHeaded = resolvedOpts.headed ?? this.settings.headed;
 
     let launchOptions: any = {};
     if (wantsHeaded) {
       launchOptions.headless = false;
     }
-    // speed: always headless — no override allowed
 
-    // Smart mode (was stealth): randomise fingerprint parameters once per session
-    if (this.modes.getMode() === 'smart') {
-      const ua = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
-      const webgl = this.webglRenderers[Math.floor(Math.random() * this.webglRenderers.length)];
+    const ua = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+    const webgl = this.webglRenderers[Math.floor(Math.random() * this.webglRenderers.length)];
 
-      this.selectedUserAgent = ua ?? this.userAgents[0] ?? null;
-      this.webglInfo = webgl ?? this.webglRenderers[0] ?? null;
+    this.selectedUserAgent = ua ?? this.userAgents[0] ?? null;
+    this.webglInfo = webgl ?? this.webglRenderers[0] ?? null;
 
-      // Randomise viewport: 1280–1920 wide, 720–1080 tall
-      const width = 1280 + Math.floor(Math.random() * (1920 - 1280));
-      const height = 720 + Math.floor(Math.random() * (1080 - 720));
+    const width = 1280 + Math.floor(Math.random() * (1920 - 1280));
+    const height = 720 + Math.floor(Math.random() * (1080 - 720));
 
-      if (this.selectedUserAgent) {
-        launchOptions.userAgent = this.selectedUserAgent;
-        console.log(`Smart Launch: UA=${this.selectedUserAgent.slice(0, 30)}..., Viewport=${width}x${height}`);
-      }
-
-      launchOptions.viewport = { width, height };
+    if (this.selectedUserAgent) {
+      launchOptions.userAgent = this.selectedUserAgent;
+      console.log(`Launch: UA=${this.selectedUserAgent.slice(0, 30)}..., Viewport=${width}x${height}`);
     }
 
-    const context = await this.browserManager.launch(this.profile, this.modes.getMode(), browserType, launchOptions);
+    launchOptions.viewport = { width, height };
+
+    const context = await this.browserManager.launch(this.profile, this.settings.headed, browserType, launchOptions);
     const page = await context.newPage();
 
-    // Inject stealth scripts for smart mode
-    if (this.modes.getMode() === 'smart') {
-      await this.injectStealthScripts(page);
-    }
+    await this.injectStealthScripts(page);
 
-    // Attach Security Guard
     await this.attachSecurityHooks(page);
 
     const stateCollector = new PageStateCollector(page);
     this.activePageIndex = 0;
     this.pages = [stateCollector];
     this.pageMousePositions.set(0, { x: 0, y: 0 });
-    this.artifactBuilder.addAction('launch', { profileId, profileClass, mode, browserType, launchOptions });
+    this.artifactBuilder.addAction('launch', { profileId, profileClass, browserType, launchOptions });
 
-    // Start ObserveSession when:
-    //   - mode is 'observe' (always), OR
-    //   - mode is 'debug' with overlay or record flags explicitly requested
-    const needsSession = this.modes.isObserveMode() ||
-      (this.modes.getMode() === 'debug' && (resolvedOpts.overlay === true || resolvedOpts.record === true));
+    const needsSession = resolvedOpts.overlay === true || resolvedOpts.record === true;
 
     if (needsSession) {
       this.observeSession = new ObserveSession(page, context, this.events, resolvedOpts);
       await this.observeSession.start();
     }
 
-    // Start auto-thinking if the mode supports it
     this.startAutoThinking(behavioralDNA);
   }
 
@@ -191,14 +157,45 @@ export class SessionManager {
     }
   }
 
+  // ─── Headed Mode ─────────────────────────────────────────────────────────────
+
+  async setHeadedMode(headed: boolean): Promise<void> {
+    const context = this.browserManager.getContext();
+    if (!context) return;
+    
+    const page = this.getPage();
+    if (!page) return;
+
+    if (headed) {
+      await page.evaluate(() => {
+        const style = document.createElement('style');
+        style.textContent = 'body { background: #1a1a2e; }';
+        document.head.appendChild(style);
+      });
+    }
+  }
+
+  // ─── Freeze/Unfreeze for Human Takeover ───────────────────────────────────────
+
+  private isFrozen: boolean = false;
+
+  freeze(): void {
+    this.isFrozen = true;
+    this.stopAutoThinking();
+    this.artifactBuilder.addAction('freeze', { timestamp: new Date().toISOString() });
+  }
+
+  unfreeze(): void {
+    this.isFrozen = false;
+    this.artifactBuilder.addAction('unfreeze', { timestamp: new Date().toISOString() });
+  }
+
   // ─── Multi-Page ──────────────────────────────────────────────────────────────
 
   async openPage(url: string): Promise<TaloxPageState> {
     const page = await this.browserManager.newPage();
 
-    if (this.modes.getMode() === 'smart') {
-      await this.injectStealthScripts(page);
-    }
+    await this.injectStealthScripts(page);
 
     await this.attachSecurityHooks(page);
 
@@ -210,7 +207,7 @@ export class SessionManager {
 
     await page.goto(url);
 
-    const state = await stateCollector.collect(this.modes.getMode());
+    const state = await stateCollector.collect();
     state.bugs.push(...this.rulesEngine.analyze(state));
     this.lastState = state;
     return state;
@@ -313,18 +310,10 @@ export class SessionManager {
   // ─── Auto-Thinking ───────────────────────────────────────────────────────────
 
   startAutoThinking(behavioralDNA: any): void {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
 
     if (!settings.automaticThinkingEnabled) {
       this.artifactBuilder.addAction('startAutoThinking', { reason: 'disabled' });
-      return;
-    }
-
-    if (!this.modes.isAutoThinkingSupported()) {
-      this.artifactBuilder.addAction('startAutoThinking', {
-        reason: 'unsupported_mode',
-        mode: this.modes.getMode()
-      });
       return;
     }
 
@@ -343,7 +332,7 @@ export class SessionManager {
 
     this.artifactBuilder.addAction('startAutoThinking', {
       idleTimeout: settings.idleTimeout,
-      mode: this.modes.getMode()
+      mode: 'smart'
     });
   }
 
@@ -371,13 +360,13 @@ export class SessionManager {
   }
 
   setAutomaticThinkingEnabled(enabled: boolean): void {
-    this.modes.updateSettings({ automaticThinkingEnabled: enabled });
+    this.settings.automaticThinkingEnabled = enabled;
     this.artifactBuilder.addAction('setAutomaticThinkingEnabled', { enabled });
   }
 
   setIdleTimeout(timeoutMs: number): void {
     const clamped = Math.max(1000, Math.min(60000, timeoutMs));
-    this.modes.updateSettings({ idleTimeout: clamped });
+    this.settings.idleTimeout = clamped;
     this.artifactBuilder.addAction('setIdleTimeout', { idleTimeout: clamped });
   }
 
@@ -386,8 +375,8 @@ export class SessionManager {
     attentionFrame: any,
     clampToFrame: (x: number, y: number) => Point,
   ): Promise<void> {
-    const settings = this.modes.getSettings();
-    if (!this.modes.isAutoThinkingSupported() || !settings.automaticThinkingEnabled) {
+    const settings = this.settings;
+    if (!settings.automaticThinkingEnabled) {
       return;
     }
 
@@ -416,7 +405,7 @@ export class SessionManager {
     attentionFrame: any,
     clampToFrame: (x: number, y: number) => Point,
   ): Promise<void> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!this.isAutoThinkingActive || !settings.automaticThinkingEnabled) {
       return;
     }

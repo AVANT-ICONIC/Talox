@@ -1,9 +1,5 @@
 import type { Page, Response } from 'playwright-core';
 import type { TaloxPageState, TaloxNode } from '../types/index.js';
-import type { AnyTaloxMode } from '../types/modes.js';
-import { resolveMode } from '../types/modes.js';
-/** @internal backwards-compat alias used by PageStateCollector */
-type TaloxMode = AnyTaloxMode;
 
 export interface RetryOptions {
   maxRetries: number;
@@ -297,7 +293,7 @@ export class PageStateCollector {
     return result;
   }
 
-  async collect(mode: TaloxMode = 'browse'): Promise<TaloxPageState> {
+  async collect(): Promise<TaloxPageState> {
     const url = this.page.url();
     const title = await this.page.title();
     
@@ -390,7 +386,6 @@ export class PageStateCollector {
       url,
       title,
       timestamp: new Date().toISOString(),
-      mode: resolveMode(mode),
       console: { errors: [...this.consoleErrors] },
       network: { failedRequests: [...this.failedRequests] },
       nodes,

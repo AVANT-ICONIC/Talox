@@ -1,6 +1,6 @@
 # TALOX-ARCHITECTURE.md - System Design
 
-> **v1.3.0** — Bulletproof E2E suite (37 + 14 + 10 tests), all observe overlay bugs fixed, `findElement`/speed-mode/headless fixed. See [CHANGELOG](../CHANGELOG.md) for full details.
+> **v2.0.0** — No more modes. Everything always on. Human Takeover Layer, verbosity control, auto headed/headless switching. See [CHANGELOG](../CHANGELOG.md) for full details.
 
 ## 1. System Overview
 Talox follows a modular "sidecar" architecture. The AI agent interacts with the browser engine via Playwright and CDP through a single controller API.
@@ -13,28 +13,30 @@ graph TD
 
     subgraph "Talox Sidecar"
         B[TaloxController API]
-        C[Mode / Policy Engine]
+        C[Policy Engine]
         D[Browser Runtime Manager]
         E[Profile Vault]
         F[Page-State Collector]
         G[Rules Engine]
         H[Vision Gate]
         I[Artifact / Bug Engine]
+        J[TakeoverBridge]
     end
 
     subgraph "Real Browser Stack"
-        J[Playwright / Chromium]
-        K[CDP Session]
+        K[Playwright / Chromium]
+        L[CDP Session]
     end
 
     A <--> B
     B <--> C
+    B <--> J
     C <--> D
     D <--> E
-    D <--> J
     D <--> K
-    J <--> F
+    D <--> L
     K <--> F
+    L <--> F
     F --> G
     F --> H
     G --> I
@@ -45,9 +47,9 @@ graph TD
 ## 2. Core Modules
 
 ### 2.1 TaloxController
-- **Role:** Thin ~200-line orchestrator that delegates to `EventBus`, `ModeManager`, `ActionExecutor`, and `SessionManager`.
+- **Role:** Thin ~200-line orchestrator that delegates to `EventBus`, `TakeoverBridge`, `ActionExecutor`, and `SessionManager`.
 - **Refactored from:** 2,223-line monolith in v1.2.0, now a clean sidecar API.
-- **Exported classes:** `TaloxController`, `BrowserManager`, `ModeManager`, `ActionExecutor`, `SessionManager`, `EventBus`.
+- **Exported classes:** `TaloxController`, `BrowserManager`, `TakeoverBridge`, `ActionExecutor`, `SessionManager`, `EventBus`.
 
 ### 2.1a Browser Runtime Manager
 - **Role:** Launches and manages Chromium instances.
@@ -75,15 +77,13 @@ graph TD
     - `Tesseract.js` for OCR-based text verification within screenshots.
 - **Baseline Vault:** Manages "Golden Master" reference screenshots in `.talox/baselines/`.
 
-### 2.6 Mode System
-- **Role:** Dynamic behavioural orchestration via `ModeManager`.
-- **Four canonical modes:** `smart`, `speed`, `debug`, `observe`
-- **Deprecated aliases:** `adaptive`, `stealth`, `balanced`, `browse`, `qa` → all resolve to `smart`
-- **Key capabilities:**
-  - `smart` — bot-detection resilience, full Biomechanical Ghost Engine, AdaptationEngine feedback loop
-  - `speed` — raw Playwright, domcontentloaded wait, zero simulation
-  - `debug` — clean deterministic execution for your own app, full perception, no simulation noise
-  - `observe` — passive capture; human drives, agent records everything
+### 2.6 Verbosity System (v2)
+- **Role:** Perception depth control — all features always on, control what you receive.
+- **Verbosity levels:** `shallow` | `medium` | `full`
+- **Deprecated:** `ModeManager` — removed in v2. Use launch options instead:
+  - `verbosity: 'shallow' | 'medium' | 'full'` for perception depth
+  - `headed: true | false | 'auto'` for browser display mode
+  - Human Takeover Layer for human intervention
 
 ### 2.7 Bug / Artifact Engine
 - **Role:** Generates evidence-rich bug reports and replay traces.
@@ -127,9 +127,9 @@ graph TD
 - **Type safety:** All `on/off/emit` calls TypeScript-enforced against `TaloxEventMap`.
 - **Events:** `adapted`, `sessionEnd`, `annotationAdded`, `annotationUndone`, `bugDetected`, `consoleError`, `networkError`, `navigation`, `modeChanged`, `stateChanged`
 
-### 2.17 ModeManager
-- **Role:** Single source of truth for execution mode and settings presets.
-- **Responsibilities:** Applies presets, resolves deprecated aliases to canonical modes, exposes capability queries (`isSpeedMode()`, `isDebugMode()`, `isSmartMode()`, `isObserveMode()`, `isFullHumanMode()`).
+### 2.17 TakeoverBridge
+- **Role:** Human Takeover Layer — pauses agent execution for human intervention.
+- **Responsibilities:** Manages takeover states (`idle`, `pending`, `active`), exposes `requestTakeover()`, `getTakeoverStatus()`, emits `takeoverRequested`, `takeoverStarted`, `takeoverEnded` events.
 
 ### 2.18 ActionExecutor
 - **Role:** All browser interaction logic extracted from TaloxController.
@@ -196,15 +196,27 @@ For AI-agent-driven testing, `talox.evaluate()` replaces human interaction. The 
 
 **Key implementation detail**: `ctx.pages()[0]` returns the default blank page in a persistent context, not the navigated page. Always use `talox.evaluate()` (which targets the correct active page internally) when writing observe-mode tests or scripts.
 
-## 6. Mode Selection Architecture
+## 6. Launch Options (v2)
 
-The four canonical modes exist because different scenarios have fundamentally different requirements:
+In v2, there are no modes. All capabilities are always enabled. Control behavior via launch options:
 
-| Scenario | Mode | Reason |
+| Option | Values | Use Case |
 | :--- | :--- | :--- |
-| Third-party / bot-protected sites | `smart` | AdaptationEngine needed; stealth warmup prevents blocks |
-| Your own app or website | `debug` | Clean deterministic execution; stealth noise distorts bug signals |
-| CI / bulk throughput | `speed` | `domcontentloaded` wait; zero simulation overhead |
-| Session recording / AI exploration | `observe` | Full CDP bridge + overlay; passive capture with structured output |
+| `verbosity` | `shallow` \| `medium` \| `full` | Perception depth |
+| `headed` | `true` \| `false` \| `'auto'` | Browser display mode |
+| `overlay` | `boolean` | Enable session overlay |
+| `record` | `boolean` | Enable session recording |
 
-Using `smart` mode on your own app is a common mistake — it adds delays and randomness that make test results non-deterministic. Using `debug` mode on third-party sites won't trigger the self-healing feedback loop needed for resilience.
+```typescript
+// Fast CI run
+await talox.launch('id', 'sandbox', { verbosity: 'shallow' });
+
+// Standard automation
+await talox.launch('id', 'sandbox', { verbosity: 'medium' });
+
+// Full debugging
+await talox.launch('id', 'qa', { verbosity: 'full', overlay: true, record: true });
+
+// Auto headed for bot-protected sites
+await talox.launch('id', 'sandbox', { headed: 'auto' });
+```

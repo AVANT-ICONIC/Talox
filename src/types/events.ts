@@ -27,7 +27,7 @@
  * `TaloxPageState` — they are simply not broadcast as events.
  */
 
-import type { TaloxMode, TaloxSettings } from './index.js';
+import type { TaloxSettings } from './settings.js';
 import type { TaloxPageState, TaloxBug } from './index.js';
 import type { AnnotationEntry } from './annotation.js';
 
@@ -39,12 +39,14 @@ import type { AnnotationEntry } from './annotation.js';
  * internal self-adjustment, not a problem with the website.
  */
 export type AdaptationReason =
-  | 'bot_detection_soft'   // Fingerprinting scripts or suspicious redirects detected
-  | 'bot_detection_hard'   // CAPTCHA or hard block wall detected
-  | 'selector_miss'        // Selector resolution failed — triggering semantic fallback
-  | 'page_timeout'         // Page response too slow — reducing action pace
-  | 'rate_limit'           // HTTP 429 received — backing off
-  | 'captcha_detected';    // CAPTCHA variant detected — requires human or solver
+  | 'bot_detection_soft'            // Fingerprinting scripts or suspicious redirects detected
+  | 'bot_detection_hard'            // CAPTCHA or hard block wall detected
+  | 'selector_miss'                 // Selector resolution failed — triggering semantic fallback
+  | 'page_timeout'                  // Page response too slow — reducing action pace
+  | 'rate_limit'                    // HTTP 429 received — backing off
+  | 'captcha_detected'               // CAPTCHA variant detected — requires human or solver
+  | 'blocker_unresolvable_headless' // Blocker can't be resolved headlessly — escalate to headed
+  | 'blocker_resolved';              // Blocker resolved — can return to headless
 
 /**
  * Payload for the `adapted` event.
@@ -125,8 +127,6 @@ export interface TaloxEventMap {
   // ── Available in all modes ────────────────────────────────────────────────
   /** Fired after every page navigation (goto, link click, redirect). */
   navigation:       { url: string; title: string };
-  /** Fired when the execution mode is changed via `setMode()`. */
-  modeChanged:      { mode: TaloxMode; settings: TaloxSettings };
   /** Fired for internal Talox errors (not website errors). */
   error:            { message: string; stack?: string };
 
@@ -168,6 +168,26 @@ export interface TaloxEventMap {
   annotationUndone: AnnotationUndoneEvent;
   /** Browser closed or endSession() called — session report written to disk. */
   sessionEnd:       SessionEndEvent;
+
+  // ── v2 events ─────────────────────────────────────────────────────────────
+  /** Fired when verbosity level is changed via `setVerbosity()`. */
+  verbosityChanged: { level: 0 | 1 | 2 | 3 };
+  /** Fired when human takeover is requested. */
+  humanTakeoverRequested: { reason?: string; timestamp: string };
+  /** Fired when agent resumes after human takeover. */
+  agentResumed: { reason: 'timeout' | 'manual' };
+  /** Fired when Talox auto-escalates from headless to headed mode. */
+  headedEscalation: { reason: string; previousMode: 'headless' | 'headed' };
+  /** Fired when Talox returns to headless mode after headed escalation. */
+  headlessRestored: { reason: string };
+  /** Fired when mouse moves - used to sync visual fake cursor. */
+  cursorMoved: { x: number; y: number };
+  /** Fired when agent is about to perform a mouse action - starts cursor movement animation. */
+  agentActing: undefined;
+  /** Fired when agent is waiting / reading / processing - cursor enters think state. */
+  agentThinking: undefined;
+  /** Fired when a click happens at given coords - triggers ripple animation on fake cursor. */
+  cursorClicked: { x: number; y: number };
 }
 
 /** Union of all event names. */

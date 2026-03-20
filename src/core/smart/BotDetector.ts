@@ -1,6 +1,6 @@
 /**
  * @file BotDetector.ts
- * @description Detects bot-detection signals in page state for smart mode.
+ * @description Detects bot-detection signals in page state.
  *
  * `BotDetector` examines a `TaloxPageState` and returns the most critical
  * `AdaptationReason` if a detection signal is found, or `null` if the page

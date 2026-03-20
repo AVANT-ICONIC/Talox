@@ -45,22 +45,25 @@ const MODAL_STYLES = `
     z-index: 2147483640;
     background: rgba(0, 0, 0, 0.25);
     animation: talox-fade-in 150ms ease;
-    pointer-events: none;
+    pointer-events: auto;
   }
 
   /* ── Modal ────────────────────────────────────────────────────────────── */
   #talox-annotation-modal {
     position: fixed;
     z-index: 2147483641;
-    width: 360px;
+    width: min(720px, calc(100vw - 32px));
+    max-height: min(86vh, 760px);
     background: #18181b;
     border: 1px solid #3f3f46;
-    border-radius: 10px;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    border-radius: 16px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.72);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     color: #fafafa;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     animation: talox-modal-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -73,32 +76,39 @@ const MODAL_STYLES = `
   .talox-modal-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 14px 10px;
+    gap: 10px;
+    padding: 16px 18px 14px;
     background: #09090b;
     border-bottom: 1px solid #27272a;
   }
 
   .talox-modal-header-pin {
-    font-size: 13px;
+    font-size: 16px;
     flex-shrink: 0;
   }
 
   .talox-modal-header-label {
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 11px;
+    font-size: 12px;
     color: #a1a1aa;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.5;
   }
 
   /* ── Body ─────────────────────────────────────────────────────────────── */
   .talox-modal-body {
-    padding: 12px 14px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 18px;
+    overflow-y: auto;
+  }
+
+  .talox-modal-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   /* ── Section labels ───────────────────────────────────────────────────── */
@@ -107,8 +117,7 @@ const MODAL_STYLES = `
     font-weight: 600;
     color: #71717a;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 4px;
+    letter-spacing: 0.08em;
     display: block;
   }
 
@@ -116,21 +125,22 @@ const MODAL_STYLES = `
   .talox-tags-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
+    gap: 8px;
+    align-items: flex-start;
   }
 
   .talox-tag-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 10px;
+    min-height: 34px;
+    padding: 7px 12px;
     border-radius: 999px;
     border: 1px solid #3f3f46;
     background: transparent;
     color: #a1a1aa;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
     transition: all 80ms ease;
     white-space: nowrap;
@@ -158,16 +168,36 @@ const MODAL_STYLES = `
     padding: 0 0 0 2px;
   }
 
+  .talox-custom-tag-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    border: 1px solid #3f3f46;
+    background: #09090b;
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .talox-custom-tag-prefix {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #71717a;
+  }
+
   .talox-custom-tag-input {
-    flex: 1;
-    min-width: 100px;
-    border: none;
-    background: transparent;
+    width: 100%;
+    border: 1px solid #27272a;
+    background: #111114;
     color: #fafafa;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     outline: none;
-    padding: 3px 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    box-sizing: border-box;
   }
 
   .talox-custom-tag-input::placeholder {
@@ -181,17 +211,17 @@ const MODAL_STYLES = `
 
   .talox-comment-input {
     width: 100%;
-    min-height: 72px;
-    max-height: 240px;
+    min-height: 180px;
+    max-height: 42vh;
     resize: vertical;
     background: #09090b;
     border: 1px solid #3f3f46;
-    border-radius: 6px;
+    border-radius: 10px;
     color: #fafafa;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
-    padding: 8px 10px;
+    padding: 12px 14px;
     box-sizing: border-box;
     outline: none;
     transition: border-color 80ms ease;
@@ -209,26 +239,29 @@ const MODAL_STYLES = `
   .talox-modal-divider {
     height: 1px;
     background: #27272a;
-    margin: 2px 0;
   }
 
   /* ── Footer ───────────────────────────────────────────────────────────── */
   .talox-modal-footer {
     display: flex;
-    justify-content: flex-end;
     align-items: center;
-    gap: 8px;
-    padding: 10px 14px 12px;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px 18px;
+    background: linear-gradient(180deg, rgba(24,24,27,0.94), rgba(9,9,11,0.98));
   }
 
   .talox-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
-    padding: 6px 14px;
-    border-radius: 6px;
+    min-width: 132px;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 10px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 80ms ease;
@@ -257,6 +290,31 @@ const MODAL_STYLES = `
 
   .talox-btn--primary:active {
     background: #1D4ED8;
+  }
+
+  @media (max-width: 640px) {
+    #talox-annotation-modal {
+      width: calc(100vw - 24px);
+      max-height: calc(100vh - 24px);
+    }
+
+    .talox-modal-header {
+      padding: 14px 14px 12px;
+    }
+
+    .talox-modal-body {
+      padding: 14px;
+    }
+
+    .talox-modal-footer {
+      padding: 12px 14px 14px;
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+
+    .talox-btn {
+      width: 100%;
+    }
   }
 
   /* ── Undo toast ───────────────────────────────────────────────────────── */
@@ -315,7 +373,7 @@ export function showAnnotationModal(
     </div>
 
     <div class="talox-modal-body">
-      <div>
+      <div class="talox-modal-section">
         <span class="talox-section-label">Tags</span>
         <div class="talox-tags-container" id="talox-tags-container">
           ${PRESET_TAGS.map(t => `
@@ -325,23 +383,29 @@ export function showAnnotationModal(
               type="button"
             >${t.emoji} ${t.label.charAt(0).toUpperCase() + t.label.slice(1)}</button>
           `).join('')}
+        </div>
+        <div class="talox-custom-tag-row">
+          <span class="talox-custom-tag-prefix">+ custom tag</span>
           <input
             class="talox-custom-tag-input"
             id="talox-custom-tag-input"
-            placeholder="+ type &amp; press Enter…"
+            placeholder="type and press Enter"
             type="text"
             autocomplete="off"
           />
         </div>
       </div>
 
-      <div class="talox-comment-wrapper">
+      <div class="talox-modal-section">
+        <span class="talox-section-label">Comment</span>
+        <div class="talox-comment-wrapper">
         <textarea
           class="talox-comment-input"
           id="talox-comment-input"
-          placeholder="Your comment here…"
-          rows="3"
+          placeholder="What is wrong here, what feels off, or what should change?"
+          rows="6"
         ></textarea>
+        </div>
       </div>
     </div>
 
@@ -386,7 +450,7 @@ export function showAnnotationModal(
       const value = customInput.value.trim();
       if (value && !activeTags.has(value)) {
         activeTags.add(value);
-        addCustomChip(tagsContainer, value, activeTags, customInput);
+        addCustomChip(tagsContainer, value, activeTags);
         customInput.value = '';
       }
     }
@@ -470,7 +534,6 @@ function addCustomChip(
   container:   HTMLElement,
   label:       string,
   activeTags:  Set<string>,
-  inputRef:    HTMLInputElement,
 ): void {
   const chip = document.createElement('button');
   chip.className = 'talox-tag-chip talox-tag-chip--active';
@@ -493,29 +556,21 @@ function addCustomChip(
   chip.appendChild(labelSpan);
   chip.appendChild(removeSpan);
 
-  // Insert before the input
-  container.insertBefore(chip, inputRef);
+  container.appendChild(chip);
 }
 
 function positionModal(
   modal:       HTMLElement,
-  elementBox:  { x: number; y: number; width: number; height: number },
+  _elementBox: { x: number; y: number; width: number; height: number },
 ): void {
-  const modalWidth  = 360;
-  const modalHeight = 320; // approximate
+  const modalRect   = modal.getBoundingClientRect();
+  const modalWidth  = modalRect.width;
+  const modalHeight = modalRect.height;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Try to anchor below the element, then above, then centred
-  let top  = elementBox.y + elementBox.height + 12 - window.scrollY;
-  let left = elementBox.x + elementBox.width / 2 - modalWidth / 2;
-
-  // Clamp to viewport
-  if (top + modalHeight > vh - 16) top = Math.max(16, elementBox.y - modalHeight - 12 - window.scrollY);
-  left = Math.max(16, Math.min(left, vw - modalWidth - 16));
-
-  // Fallback: centre in viewport
-  if (top < 16) top = Math.round(vh / 2 - modalHeight / 2);
+  const top = Math.max(16, Math.round((vh - modalHeight) / 2));
+  const left = Math.max(16, Math.round((vw - modalWidth) / 2));
 
   modal.style.top  = `${top}px`;
   modal.style.left = `${left}px`;

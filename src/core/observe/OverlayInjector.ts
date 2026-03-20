@@ -39,7 +39,9 @@ export class OverlayInjector {
   private readonly annotBuffer:  AnnotationBuffer;
   private readonly eventBus:     EventBus<TaloxEventMap>;
   private readonly interactions: TaloxInteraction[];
-  private          bridgeInstalled: boolean = false;
+  private readonly onSessionEndRequest: (() => Promise<void>) | undefined;
+  private readonly bridgeInstalledPages = new WeakSet<object>();
+  private readonly injectedPages = new WeakSet<object>();
 
   constructor(
     sessionId:    string,
@@ -47,12 +49,14 @@ export class OverlayInjector {
     annotBuffer:  AnnotationBuffer,
     eventBus:     EventBus<TaloxEventMap>,
     interactions: TaloxInteraction[],
+    onSessionEndRequest?: () => Promise<void>,
   ) {
     this.sessionId    = sessionId;
     this.startedAt    = startedAt;
     this.annotBuffer  = annotBuffer;
     this.eventBus     = eventBus;
     this.interactions = interactions;
+    this.onSessionEndRequest = onSessionEndRequest;
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────────
@@ -64,10 +68,14 @@ export class OverlayInjector {
    * @param page - The Playwright `Page` instance.
    */
   async inject(page: any): Promise<void> {
-    // Install the CDP bridge function (exposeFunction is idempotent)
-    if (!this.bridgeInstalled) {
+    if (this.injectedPages.has(page)) {
+      return;
+    }
+
+    // Install the CDP bridge function once per page.
+    if (!this.bridgeInstalledPages.has(page)) {
       await page.exposeFunction('__taloxEmit__', this.handleBridgeEvent.bind(this));
-      this.bridgeInstalled = true;
+      this.bridgeInstalledPages.add(page);
     }
 
     // Build and inject the overlay bootstrap script
@@ -107,6 +115,8 @@ export class OverlayInjector {
         // Page may have navigated away — ignore
       }
     });
+
+    this.injectedPages.add(page);
   }
 
   // ─── Bridge Event Handler ────────────────────────────────────────────────────
@@ -156,7 +166,11 @@ export class OverlayInjector {
       }
 
       case 'session:end': {
-        // Handled by ObserveSession — this is a no-op here
+        if (this.onSessionEndRequest) {
+          void this.onSessionEndRequest().catch((err: unknown) => {
+            console.error('[Talox] Failed to end observe session from overlay:', err);
+          });
+        }
         break;
       }
 

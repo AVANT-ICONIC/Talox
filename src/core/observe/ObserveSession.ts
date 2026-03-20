@@ -88,6 +88,10 @@ export class ObserveSession {
       this.buffer,
       this.eventBus,
       this.interactions,
+      async () => {
+        await this.finalize();
+        await this.context.close();
+      },
     );
 
     this.reporter = new SessionReporter(this.options.outputDir);

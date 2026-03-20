@@ -1,11 +1,18 @@
 # TALOX-SPEC.md - Technical Specification
 
+> **v2.0.0** — No more modes. Everything is always on. Human Takeover Layer, verbosity control, and auto headed/headless switching.
+
 ## 1. Goal
-Talox provides a persistent, stateful browser runtime for AI agents. It has four canonical execution modes:
-- **`smart`** — resilient interaction for third-party, bot-protected, or fragile real-world sites
-- **`speed`** — raw Playwright, maximum throughput for CI and bulk tasks
-- **`debug`** — clean, deterministic execution for developing and testing your own web app or site
-- **`observe`** — human-driven sessions where the agent captures full context automatically
+Talox provides a persistent, stateful browser runtime for AI agents. In v2, there are no execution modes — all capabilities are always enabled. You control behavior through launch options:
+- **Verbosity** — Choose how much perception and simulation you want (`debug` is now a verbosity level, not a mode)
+- **Headed/Headless** — Auto-switch or manual control for sites with aggressive bot detection
+- **Human Takeover** — Pause agent execution and let a human take control, then resume
+
+## 2. v2 Breaking Changes
+- **No modes** — `smart`, `speed`, `debug`, `observe` are deprecated. Use launch options instead.
+- **Verbosity** — Use `verbosity: 'shallow' | 'medium' | 'full'` instead of mode-based perception
+- **Headed control** — Use `headed: true | false | 'auto'` instead of mode selection
+- **No AdaptationEngine auto-escalation** — Manual intervention via Human Takeover Layer
 
 ## 2. Browser Runtime Manager
 - **Driver:** Playwright (`playwright-core`).
@@ -46,27 +53,48 @@ Talox provides a persistent, stateful browser runtime for AI agents. It has four
 - **Variable Typing Cadence:** Realistic keystroke timing with occasional corrections.
 - **Adaptive Density Awareness:** Adjusts behavior based on UI element density.
 
-## 8. Mode Presets
+## 8. Verbosity — Perception Depth Control
 
-| Mode | mouseSpeed | humanStealth | stealthLevel | typoProbability | adaptiveStealth | autoThink | perceptionDepth | Use case |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `smart` | 0.7× | 1.0 | high | 0.08 | enabled | enabled | full | Third-party / bot-protected sites |
-| `speed` | 3.0× | 0.0 | low | 0.00 | disabled | disabled | shallow | CI pipelines, bulk tasks |
-| `debug` | 1.0× | 0.5 | medium | 0.02 | disabled | disabled | full | **Your own app or site** — all debug + optional overlay/recording |
-| `observe` | (alias) | — | — | — | — | — | — | Alias for `debug` + `{ headed: true, overlay: true, record: true }` |
+In v2, `debug` is no longer a mode — it's a verbosity level that controls how much perception data you receive.
 
-### Headed smart mode — for Cloudflare and heavy bot-protection
-
-`smart` mode can now be launched with `{ headed: true }` for sites that require a visible browser window as part of their bot challenge:
+| Verbosity | Perception Depth | Use case |
+| :--- | :--- | :--- |
+| `shallow` | DOM + basic AX-Tree | CI pipelines, bulk tasks, speed-critical operations |
+| `medium` | DOM + AX-Tree + console + network | Standard automation tasks |
+| `full` | DOM + AX-Tree + console + network + visual map + bug detection | Development, debugging, complex sites |
 
 ```typescript
-// Headless smart mode (default) — works for most sites
-await talox.launch('agent', 'sandbox', 'smart', 'chromium');
+// Fast CI run
+await talox.launch('id', 'sandbox', { verbosity: 'shallow' });
 
-// Headed smart mode — for Cloudflare Turnstile and aggressive challenges
-await talox.launch('agent', 'sandbox', 'smart', 'chromium', { headed: true });
+// Standard automation
+await talox.launch('id', 'sandbox', { verbosity: 'medium' });
+
+// Full debugging with all perception features
+await talox.launch('id', 'qa', { verbosity: 'full' });
+```
+
+## 9. Auto Headed/Headless Switching
+
+Talox v2 can automatically switch between headed and headless based on bot detection.
+
+| Headed Option | Behavior |
+| :--- | :--- |
+| `false` | Always headless (default) |
+| `true` | Always headed |
+| `'auto'` | Starts headless, switches to headed if bot detection triggers |
+
+```typescript
+// Always headless (default for most sites)
+await talox.launch('id', 'sandbox', { headed: false });
+
+// Always headed (for Cloudflare, aggressive bot protection)
+await talox.launch('id', 'sandbox', { headed: true });
 await talox.navigate('https://stackoverflow.com');
-await talox.think(4000); // ghost mouse interaction passes Cloudflare's human check
+await talox.think(4000); // ghost mouse proves human presence
+
+// Auto-switch: starts headless, switches to headed on block
+await talox.launch('id', 'sandbox', { headed: 'auto' });
 ```
 
 The combination of:
@@ -74,86 +102,83 @@ The combination of:
 - **Ghost engine**: biomechanical mouse movements, scrolls, jitter prove human presence
 - **Stealth fingerprinting**: UA rotation, WebGL spoofing, canvas noise reduce bot signals
 
-Only `speed` mode is always headless (it's a CI/throughput mode).
+## 10. Human Takeover Layer
 
-> **Deprecated aliases**: `adaptive`, `stealth`, `balanced`, `browse`, `qa` all resolve to `smart`. They continue to work with a console warning. New code should use `smart`.
+The Human Takeover Layer allows AI agents to pause execution and hand control to a human, then resume automatically.
 
-### Mode selection decision guide
+```typescript
+// Request human takeover
+await talox.requestTakeover('Click the CAPTCHA to continue');
 
-```
-Are you getting blocked, seeing a CAPTCHA, or hitting rate limits?
-  → smart
+// Agent pauses here until human completes the task
+// When human clicks "Resume" in the overlay, agent continues
 
-Is it behind Cloudflare / very aggressive bot-detection that blocks even smart?
-  → smart + { headed: true }   then call talox.think() after navigation
-
-Do you own the server / are you testing your own app?
-  → debug  (not smart — smart mode adds noise that distorts your test results)
-
-Do you need maximum throughput for a CI pipeline or bulk task?
-  → speed
-
-Do you want to record a human session or run AI exploratory tests?
-  → observe
+// Check takeover status
+const status = talox.getTakeoverStatus();
+// { state: 'active' | 'pending' | 'idle', humanPresent: boolean }
 ```
 
-Auto-escalation: if a hard block is detected while in `debug` or `speed` mode, Talox
-automatically escalates to `smart` (fires `adapted` event, injects stealth scripts).
-For maximum effect on Cloudflare, restart with `smart + { headed: true }` after the
-escalation event fires.
+**Events:**
+- `takeoverRequested` — Agent requested human intervention
+- `takeoverStarted` — Human has taken control
+- `takeoverEnded` — Human released control, agent resumes
 
-The most common mistake: using `smart` mode when testing your own app. `smart` adds bot-detection warmup delays, stealth randomness, and self-healing that are only useful on servers you don't control.
+**Use cases:**
+- CAPTCHA solving
+- 2FA verification
+- Complex interactions the agent can't handle
+- Debugging failed automations
 
-## 9. Self-Healing Selectors
+## 11. Self-Healing Selectors
 - **Selector Recovery:** Automatic rebuild when element selectors fail.
 - **Fallback Chain:** ID → text → role → position.
 - **Learning:** Stores successful selector paths for future use.
 
-## 10. Semantic Mapper
+## 12. Semantic Mapper
 - **Component Mapping:** Logical names to DOM node references.
 - **Relationship Graph:** Parent/child/sibling relationships.
 - **Content Indexing:** Text-based fast lookup layer.
 
-## 11. Network Mocker
+## 13. Network Mocker
 - **Modes:** `record`, `replay`, `mock`, `passthrough`.
 - **Recording:** Capture request/response pairs to HAR files.
 - **Mocking:** Define custom responses via URL patterns or RegEx.
 
-## 12. AX-Tree Differ
+## 14. AX-Tree Differ
 - **Diff Computation:** Minimal delta between AX-Tree snapshots.
 - **Change Types:** Added, removed, modified node detection.
 - **Semantic Diffs:** Property-level change tracking (label, value, description).
 
-## 13. Ghost Visualizer
+## 15. Ghost Visualizer
 - **Trail Overlay:** Canvas-based movement path visualization.
 - **Timing Annotations:** Event timestamps on playback.
 - **Session Replay:** Record and replay sessions with visualization.
 
-## 14. Policy-as-Code
+## 16. Policy-as-Code
 - **YAML Loading:** `loadPolicy(path)` for YAML policy files.
 - **Profile Integration:** Policies applied at profile initialization.
 - **Runtime Updates:** Hot-reload policies without restart.
 
-## 15. Behavioral DNA Fingerprinting
+## 17. Behavioral DNA Fingerprinting
 - **Typing Cadence:** Inter-key timing distribution unique per profile.
 - **Movement Profiles:** Unique trajectory signatures.
 - **Session Fingerprints:** Stored behavioral profiles per profile ID.
 
-## 16. Multi-Page Support
+## 18. Multi-Page Support
 - **Page Management:** `switchPage(pageId)`, `openPage(url)`, `closePage(pageId)`.
 - **Context Isolation:** Each page maintains independent state within the same browser context.
 
-## 17. Agent-Friendly API
+## 19. Agent-Friendly API
 - **LLM Function Schema:** Built-in OpenAI function calling support via `getTaloxTools()`.
 - **Tool Definitions:** 14 ready-to-use tools for LLM agents.
-- **Event Emitter:** Real-time notifications for `navigation`, `stateChanged`, `consoleError`, `bugDetected`, `modeChanged`.
+- **Event Emitter:** Real-time notifications for `navigation`, `stateChanged`, `consoleError`, `bugDetected`, `takeover*`.
 
-## 18. Semantic Page Description
+## 20. Semantic Page Description
 - **Page Summaries:** `describePage()` generates human-readable page descriptions.
 - **Intent State:** `getIntentState()` provides compact page type, primary action, inputs, and errors.
 - **Element Discovery:** `findElement()` locates elements by text or accessible name.
 
-## 19. Utility Methods
+## 21. Utility Methods
 - **Screenshot:** `screenshot()` captures full page or specific elements.
 - **Scroll:** `scrollTo()` smoothly scrolls elements into view.
 - **Table Extraction:** `extractTable()` parses table data as JSON.
@@ -161,31 +186,56 @@ The most common mistake: using `smart` mode when testing your own app. `smart` a
 - **JavaScript:** `evaluate()` executes scripts in browser context.
 - **Direct Access:** `getPlaywrightPage()` exposes raw Playwright page for advanced operations.
 
-## 20. debug Mode — Unified Developer Mode
+## 22. Overlay and Session Recording
 
-`debug` is the single mode for all work against apps you control. Behavior is configured via launch options:
+Use the `overlay` and `record` options to capture sessions for debugging:
 
 ```typescript
-// Minimal: headless AI testing (default)
-await talox.launch('id', 'qa', 'debug');
-
-// Headed: watch the browser without overlay
-await talox.launch('id', 'qa', 'debug', 'chromium', { headed: true });
-
-// Full: headed browser + overlay + session report (= what 'observe' gives you)
-await talox.launch('id', 'qa', 'debug', 'chromium', {
-  headed: true, overlay: true, record: true
+// Full: headed browser + overlay + session report
+await talox.launch('id', 'qa', {
+  headed: true,
+  overlay: true,
+  record: true
 });
 
-// AI-driven observe: headless + overlay (AI drives via evaluate()) + report
-await talox.launch('id', 'qa', 'debug', 'chromium', {
-  overlay: true, record: true
+// AI-driven: headless + overlay (AI drives via evaluate()) + report
+await talox.launch('id', 'qa', {
+  overlay: true,
+  record: true
 });
 ```
 
-`observe` mode string resolves to `debug` + `{ headed: true, overlay: true, record: true }` — no code changes needed to migrate.
+### Annotation Protocol
 
-## 21. Observe-Driven Testing
+The overlay exposes `window.__taloxEmit__` as a CDP bridge callable via `talox.evaluate()`:
+
+```typescript
+await talox.evaluate(`
+  window.__taloxEmit__('annotation:add', {
+    interactionIndex: 1,
+    labels: ['bug'],
+    comment: 'Error message...',
+    element: {
+      tag: 'button',
+      text: 'Submit',
+    },
+  });
+`);
+```
+
+**Session end:**
+
+```typescript
+await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
+```
+
+After `session:end`, `SessionReporter` writes:
+- `session-{id}-{timestamp}.json` — machine-readable report
+- `session-{id}-{timestamp}.md` — Markdown ready to paste into a PR or issue
+
+The Markdown report includes a timeline of interactions, an annotations table with labels and element references, and a summary of console errors and network failures.
+
+> **Implementation note:** In a persistent browser context, `ctx.pages()[0]` returns the default blank page, not the navigated page. Always use `talox.evaluate()` to target the correct active page. Never use `page.evaluate()` directly in tests.
 
 Observe mode supports AI-driven exploratory testing by exposing `window.__taloxEmit__` as a CDP bridge callable via `talox.evaluate()`.
 

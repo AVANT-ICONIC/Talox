@@ -1,6 +1,6 @@
 /**
  * @file strategies.ts
- * @description Named adaptation strategies for smart mode's self-healing loop.
+ * @description Named adaptation strategies for the self-healing loop.
  *
  * Each strategy is a named recipe that the `AdaptationEngine` applies when a
  * specific `AdaptationReason` is detected. Strategies patch `TaloxSettings`
@@ -24,7 +24,7 @@ export interface AdaptationStrategy {
   name: string;
   /** Short description for logging and telemetry. */
   description: string;
-  /** Partial settings patch applied by `ModeManager.updateSettings()`. */
+  /** Partial settings patch applied by `AdaptationEngine`. */
   settingsPatch: Partial<TaloxSettings>;
   /** Optional side effect the engine handles after patching settings. */
   sideEffect?: AdaptationSideEffect;
@@ -100,6 +100,23 @@ export const STRATEGIES: Record<AdaptationReason, AdaptationStrategy> = {
       automaticThinkingEnabled: false,
     },
     sideEffect: 'emit_captcha_event',
+  },
+
+  blocker_unresolvable_headless: {
+    name:        'escalate_to_headed',
+    description: 'Blocker cannot be resolved headlessly — escalate to headed mode',
+    settingsPatch: {
+      headed: true,
+      autoHeadedEscalation: true,
+    },
+  },
+
+  blocker_resolved: {
+    name:        'de_escalate_to_headless',
+    description: 'Blocker resolved — return to headless mode',
+    settingsPatch: {
+      headed: false,
+    },
   },
 
 };

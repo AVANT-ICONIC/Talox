@@ -40,7 +40,7 @@ test.describe('Scenario 2 — Reddit signup via Gorilla Mail', () => {
       adaptedEvents.push(e);
     });
 
-    await talox.launch('reddit-signup', 'sandbox', 'smart', 'chromium');
+    await talox.launch('reddit-signup', 'sandbox', 'smart', 'chromium', { headed: true });
   });
 
   test.afterAll(async () => {

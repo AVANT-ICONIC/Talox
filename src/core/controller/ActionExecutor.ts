@@ -10,11 +10,11 @@ export type MovementStyle     = 'smooth' | 'jerky' | 'precise' | 'relaxed';
 export type TypingRhythm      = 'fast' | 'medium' | 'slow' | 'variable';
 export type AccelerationCurve = 'linear' | 'ease-out' | 'ease-in-out' | 'bezier';
 
-import type { TaloxPageState, TaloxNode, TaloxSettings, Point } from '../../types/index.js';
+import type { TaloxPageState, TaloxNode, Point } from '../../types/index.js';
+import type { TaloxSettings } from '../../types/settings.js';
 import type { TaloxEventMap } from '../../types/events.js';
-import type { ModeManager } from './ModeManager.js';
 import type { EventBus } from './EventBus.js';
-import { HumanMouse } from '../HumanMouse.js';
+import { HumanMouse, type CursorStepCallback } from '../HumanMouse.js';
 import { SemanticMapper } from '../SemanticMapper.js';
 import { PolicyEngine } from '../PolicyEngine.js';
 import { ArtifactBuilder } from '../ArtifactBuilder.js';
@@ -32,7 +32,7 @@ export class ActionExecutor {
   ]);
 
   constructor(
-    private readonly modes: ModeManager,
+    private readonly settings: TaloxSettings,
     private readonly events: EventBus<TaloxEventMap>,
     private readonly artifactBuilder: ArtifactBuilder,
     private readonly policyEngine: PolicyEngine,
@@ -47,6 +47,7 @@ export class ActionExecutor {
     private findElementInFrame: (selector: string) => Promise<any>,
     private riskyActionHook: (() => Promise<boolean>) | undefined,
     private recordActivity: () => void,
+    private getCursorStepCallback?: () => CursorStepCallback | undefined,
   ) {}
 
   // ─── Navigation ─────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ export class ActionExecutor {
   async navigate(url: string, isFirstNavigation: boolean, setFirstNavigation: (v: boolean) => void, lastState: TaloxPageState | null, rulesEngine: any): Promise<TaloxPageState> {
     const page = this.getPage();
     const profile = this.getProfile();
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
 
     await this.checkRiskyAction('navigate', url);
 
@@ -62,9 +63,9 @@ export class ActionExecutor {
       throw new Error(`Policy Violation: URL ${url} not allowed for ${profile.class} profile`);
     }
 
-    // Session Warmup: In smart mode (was stealth), navigate to a neutral page first
-    if (this.modes.getMode() === 'smart' && isFirstNavigation && url !== 'about:blank' && !url.includes('google.com')) {
-      console.log('Smart Mode Warmup: Navigating to about:blank before target...');
+    // Session Warmup: navigate to a neutral page first
+    if (isFirstNavigation && url !== 'about:blank' && !url.includes('google.com')) {
+      console.log('Session Warmup: Navigating to about:blank before target...');
       try {
         await page.goto('about:blank');
         await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
@@ -74,20 +75,23 @@ export class ActionExecutor {
       setFirstNavigation(false);
     }
 
-    // Smart-Settle Wait: Ensure hydration before proceeding
-    const waitOption = this.modes.isSpeedMode()
-      ? { waitUntil: 'domcontentloaded' } as any
-      : { waitUntil: 'networkidle' } as any;
+    // Settle Wait: Ensure hydration before proceeding
+    const waitOption = { waitUntil: 'networkidle' } as any;
 
     await page.goto(url, waitOption);
     setFirstNavigation(false);
     this.densityCache.clear();
 
-    const settleTime = this.modes.isSpeedMode() ? 100 : 500;
+    const settleTime = 500;
     await new Promise(r => setTimeout(r, settleTime));
 
-    this.artifactBuilder.addAction('navigate', { url, mode: this.modes.getMode() });
-    const state = await this.getActiveStateCollector().collect(this.modes.getMode());
+    // Auto-think right after navigation to pass bot detection
+    if (this.settings.automaticThinkingEnabled) {
+      await this.fidget(2000);
+    }
+
+    this.artifactBuilder.addAction('navigate', { url });
+    const state = await this.getActiveStateCollector().collect();
 
     if (lastState) {
       const structuralBugs = rulesEngine.diffStructural(lastState, state);
@@ -98,17 +102,17 @@ export class ActionExecutor {
 
     this.events.emit('navigation', { url: state.url, title: state.title });
 
-    if (!this.modes.isObserveMode()) {
+    if (this.settings.verbosity > 0) {
       this.events.emit('stateChanged', state);
     }
 
-    if (state.console.errors.length > 0 && this.modes.shouldEmitConsoleErrors()) {
+    if (state.console.errors.length > 0 && this.settings.verbosity >= 2) {
       for (const error of state.console.errors) {
         this.events.emit('consoleError', { error, url: state.url });
       }
     }
 
-    if (this.modes.shouldEmitBugDetected()) {
+    if (this.settings.verbosity >= 2) {
       for (const bug of state.bugs) {
         this.events.emit('bugDetected', bug);
       }
@@ -139,7 +143,7 @@ export class ActionExecutor {
         const page = this.getPage();
         await page.mouse.click(centerX, centerY);
         await new Promise(r => setTimeout(r, 500));
-        return await this.getActiveStateCollector().collect(this.modes.getMode());
+        return await this.getActiveStateCollector().collect();
       }
       throw error;
     }
@@ -148,7 +152,7 @@ export class ActionExecutor {
   private async _clickInternal(selector: string): Promise<TaloxPageState> {
     const page = this.getPage();
     const profile = this.getProfile();
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
 
     await this.checkRiskyAction('click', selector);
 
@@ -159,11 +163,7 @@ export class ActionExecutor {
     const attentionFrame = this.getAttentionFrame();
     this.artifactBuilder.addAction('click', { selector, hasAttentionFrame: !!attentionFrame });
 
-    const isSpeedMode = this.modes.isSpeedMode();
-    const isFullHuman = this.modes.isFullHumanMode();
-    const isSmartMode = this.modes.getMode() === 'smart';
-    const isDebugMode = this.modes.getMode() === 'debug';
-
+    const useRawMode = settings.humanStealth === 0;
     let effectiveMouseSpeed = settings.mouseSpeed;
     let targetBox: { x: number; y: number; width: number; height: number } | null = null;
 
@@ -175,7 +175,7 @@ export class ActionExecutor {
       targetBox = frameElement.box;
     }
 
-    if (isSpeedMode) {
+    if (useRawMode) {
       const element = targetBox ? null : await page.$(selector);
       const box = targetBox || (element ? await element.boundingBox() : null);
       if (box) {
@@ -186,8 +186,8 @@ export class ActionExecutor {
       } else {
         await page.click(selector, { timeout: 5000 });
       }
-    } else if (isFullHuman) {
-      if ((isSmartMode || settings.adaptiveStealthEnabled) && !isDebugMode) {
+    } else {
+      if (settings.adaptiveStealthEnabled) {
         const element = targetBox ? null : await page.$(selector);
         const box = targetBox || (element ? await element.boundingBox() : null);
         if (box) {
@@ -199,46 +199,23 @@ export class ActionExecutor {
 
       effectiveMouseSpeed = effectiveMouseSpeed * this.getDNAMouseSpeed(null);
 
-      this.setCurrentLastMousePos(await HumanMouse.click(page, selector, false, this.getCurrentLastMousePos(), effectiveMouseSpeed));
-    }
-    // For any remaining modes (observe, etc.) — direct click
-    else {
-      await new Promise(r => setTimeout(r, (100 + Math.random() * 200) / effectiveMouseSpeed));
-
-      const precisionOffset = this.getPrecisionOffset();
-
-      if (attentionFrame && targetBox) {
-        const targetX = targetBox.x + targetBox.width / 2 + precisionOffset.x;
-        const targetY = targetBox.y + targetBox.height / 2 + precisionOffset.y;
-        await page.mouse.click(targetX, targetY);
-      } else {
-        const element = await page.$(selector);
-        if (element) {
-          const box = await element.boundingBox();
-          if (box) {
-            const targetX = box.x + box.width / 2 + precisionOffset.x;
-            const targetY = box.y + box.height / 2 + precisionOffset.y;
-            await page.mouse.click(targetX, targetY);
-          } else {
-            await page.click(selector, { timeout: 5000 });
-          }
-        } else {
-          await page.click(selector, { timeout: 5000 });
-        }
-      }
+      this.events.emit('agentActing');
+      const onStep = this.getCursorStepCallback?.();
+      const finalPos = await HumanMouse.click(page, selector, false, this.getCurrentLastMousePos(), effectiveMouseSpeed, onStep);
+      this.setCurrentLastMousePos(finalPos);
+      this.events.emit('cursorClicked', { x: finalPos.x, y: finalPos.y });
     }
 
     await new Promise(r => setTimeout(r, 500));
     this.recordActivity();
 
     try {
-      return await this.getActiveStateCollector().collect(this.modes.getMode());
+      return await this.getActiveStateCollector().collect();
     } catch (_e) {
       return {
         url: page.url(),
         title: 'Navigating...',
         timestamp: new Date().toISOString(),
-        mode: this.modes.getMode(),
         console: { errors: [] },
         network: { failedRequests: [] },
         nodes: [],
@@ -270,7 +247,7 @@ export class ActionExecutor {
         const page = this.getPage();
         await page.mouse.click(centerX, centerY);
         await page.keyboard.type(text);
-        return await this.getActiveStateCollector().collect(this.modes.getMode());
+        return await this.getActiveStateCollector().collect();
       }
       throw error;
     }
@@ -279,7 +256,7 @@ export class ActionExecutor {
   private async _typeInternal(selector: string, text: string): Promise<TaloxPageState> {
     const page = this.getPage();
     const profile = this.getProfile();
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
 
     await this.checkRiskyAction('type', `${selector} (text: ${text})`);
 
@@ -290,9 +267,7 @@ export class ActionExecutor {
     const attentionFrame = this.getAttentionFrame();
     this.artifactBuilder.addAction('type', { selector, text, hasAttentionFrame: !!attentionFrame });
 
-    const isSpeedMode = this.modes.isSpeedMode();
-    const isSmartMode = this.modes.getMode() === 'smart';
-    const isFullHuman = this.modes.isFullHumanMode();
+    const useRawMode = settings.humanStealth === 0;
 
     let targetBox: { x: number; y: number; width: number; height: number } | null = null;
     if (attentionFrame) {
@@ -303,27 +278,32 @@ export class ActionExecutor {
       targetBox = frameElement.box;
     }
 
-    if (isSpeedMode) {
+    if (useRawMode) {
       if (attentionFrame && targetBox) {
         await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
         await page.keyboard.type(text);
       } else {
         await page.type(selector, text, { timeout: 5000 });
       }
-    } else if (isFullHuman) {
+    } else {
       const dnaSpeed = this.getDNAMouseSpeed(null);
+      this.events.emit('agentActing');
+      const onStep = this.getCursorStepCallback?.();
 
       if (attentionFrame && targetBox) {
         const centerX = targetBox.x + targetBox.width * (0.2 + Math.random() * 0.6);
         const centerY = targetBox.y + targetBox.height * (0.2 + Math.random() * 0.6);
-        await HumanMouse.move(page, centerX, centerY, targetBox.width, false, this.getCurrentLastMousePos(), settings.mouseSpeed * dnaSpeed);
+        await HumanMouse.move(page, centerX, centerY, targetBox.width, false, this.getCurrentLastMousePos(), settings.mouseSpeed * dnaSpeed, onStep);
         await page.mouse.click(centerX, centerY);
         this.setCurrentLastMousePos({ x: Math.round(centerX), y: Math.round(centerY) });
+        this.events.emit('cursorClicked', { x: Math.round(centerX), y: Math.round(centerY) });
       } else {
-        this.setCurrentLastMousePos(await HumanMouse.click(page, selector, true, this.getCurrentLastMousePos(), settings.mouseSpeed * dnaSpeed));
+        const finalPos = await HumanMouse.click(page, selector, true, this.getCurrentLastMousePos(), settings.mouseSpeed * dnaSpeed, onStep);
+        this.setCurrentLastMousePos(finalPos);
+        this.events.emit('cursorClicked', { x: finalPos.x, y: finalPos.y });
       }
 
-      const useTypoSimulation = isSmartMode || settings.typoProbability > 0;
+      const useTypoSimulation = settings.typoProbability > 0;
       const dnaTypingDelay = this.getDNATypingDelay(null);
 
       if (useTypoSimulation) {
@@ -333,46 +313,40 @@ export class ActionExecutor {
           delay: (dnaTypingDelay.min + Math.random() * (dnaTypingDelay.max - dnaTypingDelay.min)) / settings.mouseSpeed
         });
       }
-    } else {
-      if (attentionFrame && targetBox) {
-        await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-      } else {
-        await page.click(selector, { timeout: 5000 });
-      }
-      await page.type(selector, text, { delay: 20 / settings.mouseSpeed });
     }
 
     this.recordActivity();
-    return this.getActiveStateCollector().collect(this.modes.getMode());
+    return this.getActiveStateCollector().collect();
   }
 
   // ─── Mouse Move ──────────────────────────────────────────────────────────────
 
   async mouseMove(x: number, y: number): Promise<void> {
     const page = this.getPage();
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     const attentionFrame = this.getAttentionFrame();
 
     const clampedPos = attentionFrame ? this.clampToFrame(x, y) : { x, y };
     this.artifactBuilder.addAction('mouseMove', { x: clampedPos.x, y: clampedPos.y, hasAttentionFrame: !!attentionFrame });
 
-    const isSpeedMode = this.modes.isSpeedMode();
-    const isFullHuman = this.modes.isFullHumanMode();
+    this.events.emit('agentActing');
+
+    const useRawMode = settings.humanStealth === 0;
 
     let effectiveMouseSpeed = settings.mouseSpeed;
 
-    if (isFullHuman && settings.adaptiveStealthEnabled) {
+    if (!useRawMode && settings.adaptiveStealthEnabled) {
       effectiveMouseSpeed = await this.getEffectiveMouseSpeed(clampedPos.x, clampedPos.y);
     }
 
     effectiveMouseSpeed = effectiveMouseSpeed * this.getDNAMouseSpeed(null);
+    const onStep = this.getCursorStepCallback?.();
 
-    if (isSpeedMode) {
+    if (useRawMode) {
       await page.mouse.move(clampedPos.x, clampedPos.y);
-    } else if (isFullHuman) {
-      await HumanMouse.move(page, clampedPos.x, clampedPos.y, 100, false, this.getCurrentLastMousePos(), effectiveMouseSpeed);
+      this.events.emit('cursorMoved', { x: clampedPos.x, y: clampedPos.y });
     } else {
-      await page.mouse.move(clampedPos.x, clampedPos.y);
+      await HumanMouse.move(page, clampedPos.x, clampedPos.y, 100, false, this.getCurrentLastMousePos(), effectiveMouseSpeed, onStep);
     }
 
     this.setCurrentLastMousePos({ x: clampedPos.x, y: clampedPos.y });
@@ -497,17 +471,36 @@ export class ActionExecutor {
   // ─── Fidget / Think ──────────────────────────────────────────────────────────
 
   async fidget(durationMs: number = 1500): Promise<void> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.fidgetEnabled || settings.humanStealth <= 0.3) {
       return;
     }
 
+    this.events.emit('agentThinking');
+
     const page = this.getPage();
     const lastPos = this.getCurrentLastMousePos();
-    await HumanMouse.fidget(page, lastPos.x, lastPos.y, durationMs);
+
+    let startX = lastPos.x;
+    let startY = lastPos.y;
+    if (startX === 0 && startY === 0) {
+      const viewport = page.viewportSize();
+      if (viewport) {
+        startX = viewport.width * 0.5;
+        startY = viewport.height * 0.5;
+        if (!this.getCursorStepCallback?.()) {
+          await page.mouse.move(startX, startY);
+        }
+        this.setCurrentLastMousePos({ x: startX, y: startY });
+      }
+    }
+
+    const onStep = this.getCursorStepCallback?.();
+    await HumanMouse.fidget(page, startX, startY, durationMs, onStep);
   }
 
   async think(durationMs: number = 2000): Promise<void> {
+    this.events.emit('agentThinking');
     const fidgetDuration = Math.min(durationMs, 2000);
     const remainingTime = durationMs - fidgetDuration;
 
@@ -521,7 +514,7 @@ export class ActionExecutor {
   // ─── Self-Healing ─────────────────────────────────────────────────────────────
 
   private async recoverNodeBySelector(selector: string): Promise<TaloxNode | null> {
-    const state = await this.getActiveStateCollector().collect(this.modes.getMode());
+    const state = await this.getActiveStateCollector().collect();
     const nodes = state.nodes;
 
     const cleanSelector = selector.replace(/[#.[\]()=]/g, ' ').trim();
@@ -556,7 +549,7 @@ export class ActionExecutor {
   // ─── Typing Helpers ──────────────────────────────────────────────────────────
 
   private async typeWithTypos(page: any, selector: string, text: string): Promise<void> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     const dnaTypingDelay = this.getDNATypingDelay(null);
     const baseDelay = (dnaTypingDelay.min + Math.random() * (dnaTypingDelay.max - dnaTypingDelay.min)) / settings.mouseSpeed;
 
@@ -628,7 +621,7 @@ export class ActionExecutor {
 
   getDNAMouseSpeed(behavioralDNA: any): number {
     if (!behavioralDNA) return 1.0;
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     const styleFactor = behavioralDNA.movementStyle === 'precise' ? 0.8 :
       behavioralDNA.movementStyle === 'relaxed' ? 1.2 : 1.0;
     return settings.mouseSpeed * styleFactor;
@@ -640,7 +633,7 @@ export class ActionExecutor {
   }
 
   getDNATypingDelay(behavioralDNA: any): { min: number; max: number } {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!behavioralDNA) {
       return { min: settings.typingDelayMin, max: settings.typingDelayMax };
     }
@@ -664,7 +657,7 @@ export class ActionExecutor {
   // ─── Precision Offset / Decay ────────────────────────────────────────────────
 
   getPrecisionOffset(): Point {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     const decay = settings.precisionDecay;
 
     if (decay <= 0) {
@@ -684,37 +677,37 @@ export class ActionExecutor {
   }
 
   setPrecisionDecay(decay: number): void {
-    this.modes.updateSettings({ precisionDecay: Math.max(0, Math.min(1, decay)) });
-    this.artifactBuilder.addAction('setPrecisionDecay', { precisionDecay: this.modes.getSettings().precisionDecay });
+    this.settings.precisionDecay = Math.max(0, Math.min(1, decay));
+    this.artifactBuilder.addAction('setPrecisionDecay', { precisionDecay: this.settings.precisionDecay });
   }
 
   getPrecisionDecay(): number {
-    return this.modes.getSettings().precisionDecay;
+    return this.settings.precisionDecay;
   }
 
   // ─── Adaptive Stealth Controls ───────────────────────────────────────────────
 
   setAdaptiveStealthEnabled(enabled: boolean): void {
-    this.modes.updateSettings({ adaptiveStealthEnabled: enabled });
+    this.settings.adaptiveStealthEnabled = enabled;
     this.artifactBuilder.addAction('setAdaptiveStealthEnabled', { enabled });
   }
 
   setAdaptiveStealthSensitivity(sensitivity: number): void {
     const clamped = Math.max(0.1, Math.min(2.0, sensitivity));
-    this.modes.updateSettings({ adaptiveStealthSensitivity: clamped });
+    this.settings.adaptiveStealthSensitivity = clamped;
     this.artifactBuilder.addAction('setAdaptiveStealthSensitivity', { sensitivity: clamped });
   }
 
   setAdaptiveStealthRadius(radius: number): void {
     const clamped = Math.max(50, Math.min(500, radius));
-    this.modes.updateSettings({ adaptiveStealthRadius: clamped });
+    this.settings.adaptiveStealthRadius = clamped;
     this.artifactBuilder.addAction('setAdaptiveStealthRadius', { radius: clamped });
   }
 
   // ─── Adaptive Stealth Calculations ──────────────────────────────────────────
 
   async calculateElementDensity(x: number, y: number): Promise<number> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.adaptiveStealthEnabled) {
       return 0.5;
     }
@@ -763,7 +756,7 @@ export class ActionExecutor {
   }
 
   getAdaptiveMouseSpeed(density: number): number {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.adaptiveStealthEnabled) {
       return settings.mouseSpeed;
     }
@@ -776,7 +769,7 @@ export class ActionExecutor {
   }
 
   getAdaptiveJitter(density: number): number {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.adaptiveStealthEnabled) {
       return 0;
     }
@@ -787,7 +780,7 @@ export class ActionExecutor {
   }
 
   async getEffectiveMouseSpeed(targetX: number, targetY: number): Promise<number> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.adaptiveStealthEnabled) {
       return settings.mouseSpeed;
     }
@@ -797,7 +790,7 @@ export class ActionExecutor {
   }
 
   async getEffectiveJitter(targetX: number, targetY: number): Promise<number> {
-    const settings = this.modes.getSettings();
+    const settings = this.settings;
     if (!settings.adaptiveStealthEnabled) {
       return 0;
     }

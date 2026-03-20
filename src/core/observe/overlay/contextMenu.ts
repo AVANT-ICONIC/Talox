@@ -56,6 +56,14 @@ const MENU_STYLES = `
     background: #3f3f46;
   }
 
+  .talox-menu-item--danger {
+    color: #fecaca;
+  }
+
+  .talox-menu-item--danger:hover {
+    background: rgba(127, 29, 29, 0.45);
+  }
+
   .talox-menu-icon {
     font-size: 14px;
     width: 18px;
@@ -126,9 +134,9 @@ function showMenu(x: number, y: number, onCommentMode: () => void): void {
       <span class="talox-menu-label">Snapshot</span>
     </div>
     <div class="talox-menu-divider"></div>
-    <div class="talox-menu-item" id="talox-menu-end">
+    <div class="talox-menu-item talox-menu-item--danger" id="talox-menu-end">
       <span class="talox-menu-icon">✅</span>
-      <span class="talox-menu-label">End Session</span>
+      <span class="talox-menu-label">End Session & Report</span>
     </div>
   `;
 
@@ -156,9 +164,7 @@ function showMenu(x: number, y: number, onCommentMode: () => void): void {
 
   document.getElementById('talox-menu-end')?.addEventListener('click', () => {
     dismissMenu();
-    if (window.confirm('End the Talox observe session and generate the report?')) {
-      taloxEmit('session:end', {});
-    }
+    taloxEmit('session:end', {});
   });
 }
 

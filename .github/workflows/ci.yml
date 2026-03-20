@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, experimental/real-world-tests]
+    branches: [main, experimental/real-world-tests, talox-harbor]
   pull_request:
-    branches: [main]
+    branches: [main, talox-harbor]
   # Real-world tests run nightly to avoid rate limits on every push.
   # They can also be triggered manually via workflow_dispatch.
   schedule:

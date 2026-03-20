@@ -1,10 +1,10 @@
 /**
  * @file AdaptationEngine.ts
- * @description Smart mode outcome-feedback loop.
+ * @description Always-on outcome-feedback loop for Talox.
  *
- * `AdaptationEngine` is called after every interaction in `smart` mode.
+ * `AdaptationEngine` is called after every interaction.
  * It delegates detection to `BotDetector`, selects the appropriate strategy
- * from the registry, applies the settings patch via `ModeManager`, fires the
+ * from the registry, applies the settings patch directly, fires the
  * `adapted` event, and handles any required side effects.
  *
  * This class is the only place in the codebase that emits `'adapted'` events.
@@ -12,15 +12,15 @@
 
 import type { TaloxPageState }         from '../../types/index.js';
 import type { TaloxEventMap }          from '../../types/events.js';
+import type { TaloxSettings }          from '../../types/settings.js';
 import type { EventBus }               from '../controller/EventBus.js';
-import type { ModeManager }            from '../controller/ModeManager.js';
 import { BotDetector }                 from './BotDetector.js';
 import { STRATEGIES, type AdaptationSideEffect } from './strategies.js';
 
 // ─── AdaptationEngine ────────────────────────────────────────────────────────
 
 /**
- * Runs the smart-mode outcome feedback loop after every agent interaction.
+ * Runs the outcome feedback loop after every agent interaction.
  *
  * Flow:
  * ```
@@ -33,7 +33,7 @@ import { STRATEGIES, type AdaptationSideEffect } from './strategies.js';
  */
 export class AdaptationEngine {
   private readonly detector:      BotDetector;
-  private readonly modeManager:   ModeManager;
+  private settings:              TaloxSettings;
   private readonly eventBus:      EventBus<TaloxEventMap>;
   private readonly onEscalation: (() => Promise<void>) | undefined;
 
@@ -46,6 +46,11 @@ export class AdaptationEngine {
   /** Rotating index for user-agent selection. */
   private uaIndex: number = 0;
 
+  /** Tracks whether we're in headed mode after escalation. */
+  private headedEscalated: boolean = false;
+
+  private lastAdaptation: any = null;
+
   private readonly userAgents: readonly string[] = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -55,14 +60,18 @@ export class AdaptationEngine {
   ] as const;
 
   constructor(
-    modeManager:   ModeManager,
+    settings:      TaloxSettings,
     eventBus:      EventBus<TaloxEventMap>,
     onEscalation?: () => Promise<void>,
   ) {
     this.detector     = new BotDetector();
-    this.modeManager  = modeManager;
+    this.settings     = settings;
     this.eventBus     = eventBus;
     this.onEscalation = onEscalation;
+  }
+
+  getLastAdaptation(): any {
+    return this.lastAdaptation;
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────────
@@ -75,53 +84,21 @@ export class AdaptationEngine {
    * @param state - The `TaloxPageState` returned by the last interaction.
    */
   async evaluate(state: TaloxPageState): Promise<void> {
-    const inSmartMode = this.modeManager.shouldEmitAdapted();
-
-    // ── Auto-escalation: detect hard blocks in ANY mode ───────────────────────
-    // If we're in debug or speed mode and hit a block, automatically escalate
-    // to smart mode so future navigations use stealth settings.
-    if (!inSmartMode) {
-      const reason = this.detector.detect(state);
-      if (reason && (reason === 'bot_detection_hard' || reason === 'captcha_detected' || reason === 'rate_limit')) {
-        const before = this.modeManager.getSettings();
-        this.modeManager.setMode('smart');
-        const after = this.modeManager.getSettings();
-        this.escalated = true;
-
-        this.eventBus.emit('adapted', {
-          reason,
-          strategy: 'auto_escalated_to_smart',
-          from: before,
-          to:   after,
-        });
-
-        console.warn(
-          `[Talox] Block detected (${reason}) — ` +
-          `auto-escalating to smart mode. Stealth will apply on next navigation.`,
-        );
-
-        if (this.onEscalation) {
-          await this.onEscalation();
-        }
-      }
-      return;
-    }
-
-    // ── Standard smart-mode adaptation loop ───────────────────────────────────
     const reason = this.detector.detect(state);
     if (!reason) return;
 
     const strategy = STRATEGIES[reason];
     if (!strategy) return;
 
-    // Snapshot settings before patching
-    const before = this.modeManager.getSettings();
+    const before = { ...this.settings };
 
-    // Apply the settings patch
-    this.modeManager.updateSettings(strategy.settingsPatch);
+    if (strategy.settingsPatch) {
+      Object.assign(this.settings, strategy.settingsPatch);
+    }
 
-    // Snapshot settings after patching
-    const after = this.modeManager.getSettings();
+    const after = { ...this.settings };
+
+    this.lastAdaptation = { reason, strategy: strategy.name, before, after };
 
     // Emit the typed adapted event — agent gets full transparency
     this.eventBus.emit('adapted', {
@@ -130,6 +107,20 @@ export class AdaptationEngine {
       from: before,
       to:   after,
     });
+
+    // Handle headed/headless escalation events
+    if (strategy.name === 'escalate_to_headed') {
+      this.headedEscalated = true;
+      this.eventBus.emit('headedEscalation', {
+        reason,
+        previousMode: this.settings.headed ? 'headed' : 'headless',
+      });
+    } else if (strategy.name === 'de_escalate_to_headless') {
+      this.headedEscalated = false;
+      this.eventBus.emit('headlessRestored', {
+        reason,
+      });
+    }
 
     console.info(
       `[Talox Smart] Adapted: ${strategy.name} (${strategy.description})`,
@@ -142,8 +133,8 @@ export class AdaptationEngine {
   }
 
   /**
-   * Returns `true` if the engine auto-escalated from debug/speed → smart
-   * during the last `evaluate()` call. Resets after being read.
+   * Returns `true` if the engine auto-escalated during the last `evaluate()` call.
+   * Resets after being read.
    */
   wasEscalated(): boolean {
     const v = this.escalated;

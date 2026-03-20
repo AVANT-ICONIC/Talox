@@ -4,9 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { TaloxProfile, TaloxSettings } from '../types/index.js';
-import type { AnyTaloxMode } from '../types/modes.js';
-/** @internal backwards-compat alias used by BrowserManager */
-type TaloxMode = AnyTaloxMode;
+/** @deprecated Modes are deprecated. Use `headed` option instead. Kept for backwards compatibility. */
+export type TaloxMode = 'smart' | 'debug' | 'speed' | 'observe' | 'browse' | 'adaptive';
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
@@ -65,6 +64,11 @@ export const DEFAULT_CONFIG: TaloxConfig = {
     precisionDecay: 0.1,
     automaticThinkingEnabled: true,
     idleTimeout: 3000,
+    headed: false,
+    autoHeadedEscalation: true,
+    verbosity: 0,
+    humanTakeoverEnabled: false,
+    humanTakeoverTimeoutMs: 120000,
   },
 };
 
@@ -276,7 +280,7 @@ export class BrowserManager {
     this.config = { ...this.config, ...config };
   }
 
-  async launch(profile: TaloxProfile, mode: TaloxMode = 'balanced', browserType?: BrowserType, extraOptions?: any): Promise<BrowserContext> {
+  async launch(profile: TaloxProfile, headed?: boolean, browserType?: BrowserType, extraOptions?: any): Promise<BrowserContext> {
     let actualBrowserType = browserType || this.config.browser.preferred;
 
     // Skip autoDetect on macOS - just use chrome channel directly
@@ -286,9 +290,8 @@ export class BrowserManager {
       }
     }
 
-    // 'adaptive' is the public alias for 'stealth' mode
-    const resolvedMode = mode === 'adaptive' ? 'stealth' : mode;
-    const isAdaptive = resolvedMode === 'stealth';
+    // Use Patchright for stealth mode (adaptive behavior)
+    const isAdaptive = true;
     
     let launcher: any;
     if (isAdaptive) {

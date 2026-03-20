@@ -15,7 +15,8 @@
 
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/overview-0f172a?style=for-the-badge&logo=readme&logoColor=white" alt="Overview" /></a>
-  <a href="#modes"><img src="https://img.shields.io/badge/modes-0f766e?style=for-the-badge&logo=sparkles&logoColor=white" alt="Modes" /></a>
+  <a href="#key-capabilities"><img src="https://img.shields.io/badge/capabilities-0f766e?style=for-the-badge&logo=sparkles&logoColor=white" alt="Key Capabilities" /></a>
+  <a href="#agent-overlay"><img src="https://img.shields.io/badge/overlay-0d9488?style=for-the-badge&logo=eye&logoColor=white" alt="Agent Overlay" /></a>
   <a href="#architecture"><img src="https://img.shields.io/badge/architecture-0d9488?style=for-the-badge&logo=gitbook&logoColor=white" alt="Architecture" /></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/quick%20start-134e4a?style=for-the-badge&logo=rocket&logoColor=white" alt="Quick Start" /></a>
   <a href="#contributing"><img src="https://img.shields.io/badge/contributing-115e59?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Contributing" /></a>
@@ -26,7 +27,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-1.3.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-2.0.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -52,36 +53,34 @@
 
 ## Overview
 
-Talox gives AI agents a persistent, human-paced browser with four execution modes — including a new **observe mode** for human-driven test sessions where the agent captures full context automatically.
-
-Every mode returns the same structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume.
+Talox is an **agent-first browser** — AI agents use it to do all browser work with maximum stealth and human-like behavior. Everything is always on: HumanMouse (Bezier paths, Fitts's Law), BotDetector, AdaptationEngine, full AX-tree perception — no modes, no toggling. Every action returns a structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume.
 
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
+const talox = new TaloxController('./profiles', {
+  settings: { verbosity: 0 }  // silent by default
+});
 
-// Agent mode — smart self-healing with biomechanical simulation
-await talox.launch('my-agent', 'ops', 'smart');
+// Agent does everything with full stealth — always on
+await talox.launch('my-agent', 'ops');
 const state = await talox.navigate('https://example.com');
-
-talox.on('adapted', (e) => console.log(`Smart mode adjusted: ${e.reason} → ${e.strategy}`));
+await talox.click('button[type=submit]');  // HumanMouse, stealth, always on
 
 await talox.stop();
 ```
 
 ```typescript
-// Observe mode — human drives, agent watches
-talox.on('sessionEnd', (e) => {
-  console.log(`Report: ${e.reportPath}`)
-  console.log(`${e.interactionCount} interactions, ${e.annotationCount} annotations`)
-})
+// Headed mode — shows browser with glow frame + fake cursor overlay
+const talox = new TaloxController('./profiles', {
+  settings: { headed: true }  // overlay auto-activates
+});
 
-await talox.launch('human-session', 'ops', 'observe', 'chromium', {
-  output: 'both',  // generates JSON + Markdown report
-})
-
-// Browser opens. Right-click for Comment Mode. Close browser when done.
+// Human Takeover — agent pauses, human does a step (e.g., login, 2FA)
+await talox.requestHumanTakeover('Need 2FA code');
+// → cyan glow → amber, "▶ Resume Agent" button appears
+// human does their thing
+talox.resumeAgent();  // or auto-resumes after timeout
 ```
 
 ---
@@ -89,6 +88,9 @@ await talox.launch('human-session', 'ops', 'observe', 'chromium', {
 ## Key Capabilities
 
 - **Persistent browser profiles** — each agent gets its own isolated browser context with session continuity across runs
+- **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, full AX-tree perception active by default, no mode required
+- **Agent overlay with human takeover** — visual layer shows agent working (cyan glow, fake cursor trail, spinner), human can pause and take control anytime
+- **Synthetic mouse events** — OS cursor stays still during automation; Bezier paths render visually via fake cursor, only final click moves the real cursor
 - **Structured state contract** — every action returns a single JSON object: AX-Tree, interactive elements, console, network, bugs, screenshots
 - **Deep observability** — full AX-Tree snapshots, console capture, network failure tracking, layout bug detection, visual regression
 - **Resilient interaction** — human-paced timing, self-healing selectors, semantic element resolution
@@ -98,87 +100,33 @@ await talox.launch('human-session', 'ops', 'observe', 'chromium', {
 
 ---
 
-## Modes
+## Agent Overlay
 
-Talox has four canonical execution modes. Legacy mode strings (`adaptive`, `balanced`, `browse`, `qa`, `stealth`) continue to work with a deprecation warning and map to `smart`.
+When `settings.headed === true`, Talox automatically injects a visual overlay into the browser. The overlay persists across all page navigations and shows the agent working in real-time.
 
-| Mode | Purpose | Who uses it | When to use |
-| :--- | :--- | :--- | :--- |
-| `smart` | Self-healing production agent | AI agents | Third-party / bot-protected sites |
-| `speed` | Raw Playwright, max throughput | CI pipelines, bulk tasks | Maximum performance, bulk operations |
-| `debug` | Full dev mode — bug detection, optional overlay + recording | Testing your own app · AI testing · Human sessions | **Your own web app or site** |
-| `observe` | Alias for `debug` + `{ headed, overlay, record }` | Human test runs | Shorthand for human-visible sessions |
+### Visual States
 
-### Quick mode selection
+**Agent Running (default)**
+- **Cyan pulsing glow** — 3px inset border with 2s breathing pulse animation around the viewport
+- **Fake cyan arrow cursor** — follows agent mouse path with a 12-point comet trail (fading points)
+- **Spinner ring** — orbits the cursor during `think()` or `fidget()` states
+- **Click animation** — cursor shrinks + ripple expands on every click
+- **Click blocker** — transparent overlay prevents accidental human interference
+- **"⏸ Take Over" button** — appears at bottom-center on mouse-enter, auto-hides after 5s idle
 
-> **Getting blocked or seeing bot-detection / CAPTCHA?** → use `smart`
-> **Testing or debugging your own app?** → use `debug`
-> **Running a fast pipeline task?** → use `speed`
-> **Human-visible session with overlay + report?** → use `observe` (or `debug` + `{ headed: true, overlay: true, record: true }`)
+**Human Takeover Active**
+- Glow off, cursor hidden, click-blocker removed
+- **"▶ Resume Agent" button** — always visible in amber
+- Human browses freely — right-click context menu still available
+- Optional timer countdown if `humanTakeoverTimeoutMs > 0`
+- On resume: cursor sweeps in from nearest screen edge with trail
 
-The most commonly confused choice: `smart` vs `debug`. If you **own the server**, use `debug` — `smart` adds stealth delays and randomness that distort your results. `debug` gives you clean, deterministic execution with full bug events.
+### Technical Details
 
-### `smart` mode
-
-The default for production agents. Runs the **Biomechanical Ghost Engine** and adds a self-healing outcome loop:
-
-- After every interaction, `AdaptationEngine` scans the page for bot-detection signals
-- Automatically applies named strategies (`stealth_nudge`, `stealth_escalation`, `pace_reduction`, etc.)
-- Emits `adapted` events so the agent has full transparency without being blocked
-
-### `debug` mode — the unified developer mode
-
-**Use this mode when testing your own web app or site.** No stealth noise, no warmup delays — clean, deterministic execution with optional overlay and session recording.
-
-`debug` is the super-mode for everything you own. It replaces the old need to choose between `debug` and `observe` for your own app.
-
-```typescript
-// Headless AI testing — full bug detection, no browser window
-await talox.launch('ai-test', 'qa', 'debug');
-
-// Watch the browser while testing (headed, no overlay)
-await talox.launch('watch', 'qa', 'debug', 'chromium', { headed: true });
-
-// AI-driven observe: headless, overlay driven via evaluate(), session report
-await talox.launch('ai-observe', 'qa', 'debug', 'chromium', {
-  overlay:   true,   // enables right-click context menu + annotation modal
-  record:    true,   // writes session report on stop()
-  output:    'both',
-  outputDir: './sessions',
-});
-```
-
-Capabilities when `overlay: true`:
-- Right-click context menu with Comment Mode, Snapshot, End Session
-- Element inspector (hover highlight + blue outline)
-- Annotation modal with tag chips (Bug, Note, Question, Improve) + comment
-- Ctrl/Cmd+Z undo last annotation
-- Session report in JSON + Markdown on session end
-
-Events always emitted in `debug` mode:
-- `bugDetected` — layout overlap, clipped elements, invisible CTAs
-- `consoleError` — all JS console errors
-- `networkError` — failed requests, 4xx/5xx responses
-
-### `observe` mode — shorthand for `debug` + headed + overlay + recording
-
-`observe` is now an alias for `debug` with `{ headed: true, overlay: true, record: true }`. These two are equivalent:
-
-```typescript
-// Old: observe alias (still works, no breaking change)
-await talox.launch('test-run', 'qa', 'observe', 'chromium', { output: 'both' });
-
-// New: explicit debug flags (same result)
-await talox.launch('test-run', 'qa', 'debug', 'chromium', {
-  headed: true, overlay: true, record: true, output: 'both',
-});
-```
-
-The `observe` mode string continues to work exactly as before — it just resolves internally to `debug` + those defaults. No migration needed.
-
-### `speed` mode
-
-Raw Playwright, zero simulation, maximum throughput. No human-like delays, no HumanMouse, no self-healing.
+- All overlay elements carry `aria-hidden="true"` — invisible to agent's AX-tree
+- Overlay is pure JavaScript, injected via `page.addInitScript()` (persists across navigations)
+- OS cursor only moves at the final click target — NOT during Bezier path traversal
+- Node.js ↔ browser communication via `page.exposeFunction('__taloxAgentBridge__', handler)`
 
 ---
 
@@ -198,9 +146,9 @@ This makes Talox significantly more reliable on real-world UIs that are sensitiv
 
 ---
 
-## Debug Mode
+## Observation & Debugging
 
-Debug mode maximizes what the agent can see without interfering with it.
+Talox provides maximum observability into what the agent sees, without interfering with it:
 
 - Full AX-Tree snapshot as agent-readable JSON
 - All interactive elements with bounding boxes
@@ -211,6 +159,8 @@ Debug mode maximizes what the agent can see without interfering with it.
 - OCR text extraction from screenshots (Tesseract.js)
 - AX-Tree structural diffing between states
 - GhostVisualizer: overlays interaction paths on screenshots for replay
+- Runtime verbosity control via `setVerbosity(0-3)` for pulling debug data on demand
+- `getDebugSnapshot()` returns current state + recent events at any time
 
 ---
 
@@ -392,51 +342,52 @@ npm install   # automatically builds dist/
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
+const talox = new TaloxController('./profiles', {
+  settings: { verbosity: 0 }  // silent by default
+});
 
-// Adaptive mode — resilient, human-paced interaction
-await talox.launch('agent-1', 'ops', 'adaptive');
+// Agent does everything with full stealth
+await talox.launch('agent-1', 'ops');
 const state = await talox.navigate('https://example.com');
 console.log(state.axTree);
 
-// Switch to debug for analysis
-await talox.setMode('debug');
-const debugState = await talox.getState();
+// Pull debug snapshot on demand
+talox.setVerbosity(2);
+const debugState = await talox.getDebugSnapshot();
 console.log(debugState.bugs);
+talox.setVerbosity(0);
 
 await talox.stop();
 ```
 
 ---
 
-## Observe-Driven Testing
+## Observation Sessions
 
-Talox observe mode enables a test pattern that doesn't exist in any other framework: **AI-driven exploratory testing with structured, element-attached annotations**.
-
-Instead of scripting every assertion in advance, an AI agent launches an observe session, explores the UI, and fires annotations via `talox.evaluate()` whenever it finds something wrong. At the end, the session report becomes the test artifact — a Markdown document you can paste directly into a PR comment or GitHub issue.
+Talox supports structured observation sessions where an AI agent or human can annotate issues in real-time as they explore:
 
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
+const talox = new TaloxController('./profiles', {
+  observe: true  // enables annotation and session reporting
+});
 
 talox.on('sessionEnd', ({ reportPath, interactionCount, annotationCount }) => {
   console.log(`Test report: ${reportPath}`);
   console.log(`${interactionCount} steps · ${annotationCount} issues found`);
 });
 
-// debug mode + overlay + record = headless AI-driven observe (no browser window needed)
-await talox.launch('ai-test-run', 'qa', 'debug', 'chromium', {
-  overlay:   true,
-  record:    true,
-  output:    'both',
+// Headless session with overlay-driven annotations and session report
+await talox.launch('ai-test-run', 'qa', 'chromium', {
+  output: 'both',
   outputDir: './test-sessions',
 });
 
 await talox.navigate('https://my-app.example.com');
 const state = await talox.getState();
 
-// Agent annotates detected layout bugs automatically
+// Agent annotates detected layout bugs
 for (const bug of state.bugs) {
   await talox.evaluate(`
     window.__taloxEmit__('annotation:add', {
@@ -466,7 +417,7 @@ if (checkoutState.console.errors.length > 0) {
 await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
 ```
 
-This produces a Markdown report with every issue attached to the specific element where it was found — something impossible with traditional assertion-based tests. Human testers can also annotate the same session simultaneously by right-clicking and using Comment Mode, mixing human judgment with automated detection in a single unified report.
+This produces a Markdown report with every issue attached to the specific element where it was found — something impossible with traditional assertion-based tests.
 
 ---
 
@@ -487,12 +438,13 @@ This produces a Markdown report with every issue attached to the specific elemen
 | Feature | Detail |
 | :--- | :--- |
 | Engine | Playwright (Chromium, Firefox, WebKit) |
-| Modes | `adaptive`, `debug`, `speed`, `balanced`, `browse`, `qa` |
-| Interaction | Quintic-eased Cubic Bezier with variable timing |
-| Perception | AX-Tree + DOM + Console + Network → single JSON contract |
+| Interaction | Fitts's Law + Quintic easing + Bezier curves, synthetic mouse events (OS cursor stays still) |
+| Perception | AX-Tree + DOM + Console + Network → single JSON contract, always on |
+| Overlay | Agent glow frame, fake cursor trail, human takeover layer (when headed: true) |
 | Visual Diff | Pixelmatch (1px), SSIM, OCR (Tesseract.js) |
+| Verbosity | Runtime control via `setVerbosity(0-3)`, no modes |
 | LLM Tools | 14 function-calling tools for AI agents |
-| Events | navigation, stateChanged, consoleError, bugDetected, modeChanged |
+| Events | navigation, stateChanged, consoleError, bugDetected, agentThinking, agentActing, cursorClicked |
 | Node.js | ≥ 18 |
 
 ---

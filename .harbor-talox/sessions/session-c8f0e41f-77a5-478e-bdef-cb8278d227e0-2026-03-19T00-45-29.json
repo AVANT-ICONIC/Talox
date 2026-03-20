@@ -1,0 +1,55 @@
+{
+  "id": "c8f0e41f-77a5-478e-bdef-cb8278d227e0",
+  "startedAt": "2026-03-19T00:45:29.409Z",
+  "endedAt": "2026-03-19T00:46:15.164Z",
+  "durationMs": 45755,
+  "startUrl": "about:blank",
+  "interactions": [
+    {
+      "index": 1,
+      "type": "navigation",
+      "timestamp": "2026-03-19T00:45:29.667Z",
+      "url": "http://127.0.0.1:3000/fleet",
+      "consoleErrors": [],
+      "networkFailures": []
+    },
+    {
+      "index": 2,
+      "type": "navigation",
+      "timestamp": "2026-03-19T00:45:30.838Z",
+      "url": "http://127.0.0.1:3000/fleet",
+      "consoleErrors": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:3000/api/events",
+          "status": -1,
+          "type": "eventsource"
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "type": "navigation",
+      "timestamp": "2026-03-19T00:45:59.624Z",
+      "url": "http://127.0.0.1:3000/fleet",
+      "consoleErrors": [],
+      "networkFailures": []
+    },
+    {
+      "index": 4,
+      "type": "navigation",
+      "timestamp": "2026-03-19T00:46:00.486Z",
+      "url": "http://127.0.0.1:3000/fleet",
+      "consoleErrors": [],
+      "networkFailures": []
+    }
+  ],
+  "annotations": [],
+  "summary": {
+    "totalInteractions": 4,
+    "totalAnnotations": 0,
+    "totalConsoleErrors": 0,
+    "totalNetworkFailures": 1,
+    "annotationsByLabel": {}
+  }
+}
