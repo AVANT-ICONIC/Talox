@@ -128,8 +128,15 @@ graph TD
 - **Events:** `adapted`, `sessionEnd`, `annotationAdded`, `annotationUndone`, `bugDetected`, `consoleError`, `networkError`, `navigation`, `modeChanged`, `stateChanged`
 
 ### 2.17 TakeoverBridge
-- **Role:** Human Takeover Layer — pauses agent execution for human intervention.
-- **Responsibilities:** Manages takeover states (`idle`, `pending`, `active`), exposes `requestTakeover()`, `getTakeoverStatus()`, emits `takeoverRequested`, `takeoverStarted`, `takeoverEnded` events.
+- **Role:** Human Takeover Layer — pauses agent execution for human intervention and manages the agent overlay (headed mode).
+- **Responsibilities:**
+  - Manages takeover states (`idle`, `pending`, `active`)
+  - Exposes `requestTakeover()`, `getTakeoverStatus()`, `resumeAgent()`
+  - Injects self-contained overlay via `page.addInitScript()` (persists across navigations)
+  - Manages overlay state machine (AGENT_RUNNING ↔ WAITING_FOR_HUMAN)
+  - Emits `takeoverRequested`, `takeoverStarted`, `takeoverEnded` events
+  - `getCursorStepCallback()` returns per-step update function for HumanMouse (keeps OS cursor still while fake cursor animates)
+- **Architecture:** No esbuild required — pure JavaScript bundle. Uses correct Playwright APIs (`addInitScript` + `exposeFunction`), not legacy `evaluate()` which resets on navigation.
 
 ### 2.18 ActionExecutor
 - **Role:** All browser interaction logic extracted from TaloxController.

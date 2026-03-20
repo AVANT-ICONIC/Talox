@@ -268,3 +268,33 @@ After `session:end`, `SessionReporter` writes:
 The Markdown report includes a timeline of interactions, an annotations table with labels and element references, and a summary of console errors and network failures.
 
 **Implementation note:** In a persistent browser context, `ctx.pages()[0]` returns the default blank page, not the navigated page. Always use `talox.evaluate()` to target the correct active page. Never use `page.evaluate()` directly in tests.
+
+## 23. Agent Overlay (Headed Mode)
+
+When `settings.headed === true`, Talox automatically injects a visual overlay into the browser via `page.addInitScript()`. The overlay persists across all page navigations and displays agent activity in real-time.
+
+### Visual States
+
+**Agent Running (default)**
+- **Cyan pulsing glow border** — 3px inset, 2s breathing pulse animation around viewport
+- **Fake cyan arrow cursor** — follows agent mouse path (12-point comet trail with fading points)
+- **Spinner ring** — orbits cursor during `think()` / `fidget()` states
+- **Shrink + ripple animation** — plays on every click
+- **Transparent click-blocker** — prevents accidental human interference during automation
+- **"⏸ Take Over" button** — bottom-center, appears on mouse-enter, auto-hides after 5s idle
+
+**Human Takeover Active**
+- Glow off, cursor hidden, click-blocker removed
+- **"▶ Resume Agent" button** — always visible in amber
+- Human browses freely — right-click context menu (annotations) still works
+- Timer countdown if `humanTakeoverTimeoutMs > 0`
+- On resume: cursor sweeps in from nearest screen edge with trail
+
+### Technical Details
+
+- All overlay elements carry `aria-hidden="true"` — invisible to agent's AX-tree perception
+- Overlay bundle is pure JavaScript, injected via `page.addInitScript()` which persists across all navigations (unlike `page.evaluate()` which resets)
+- Node.js → browser: `page.evaluate()` for cursor position updates
+- Browser → Node.js: `page.exposeFunction('__taloxAgentBridge__', handler)`
+- **OS cursor only moves at the final click target** — NOT during Bezier path traversal
+- Intermediate mouse movements render on the fake cursor only, providing full visual feedback without exposing the path to detection tools
