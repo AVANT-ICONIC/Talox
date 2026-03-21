@@ -3,6 +3,156 @@
  * @description TaloxSettings - the full settings surface, and DEFAULT_SETTINGS
  */
 
+// ─── Legacy Mode Compatibility (v1 → v2) ───────────────────────────────────────
+
+/**
+ * @deprecated Legacy modes are deprecated in v2. Use `TaloxSettings` directly.
+ * Kept for backwards compatibility - these map to the new agent-first control model.
+ *
+ * Deprecated aliases (map to 'smart'):
+ * - 'stealth' — was alias for adaptive (max stealth)
+ * - 'balanced' — was alias for adaptive (balanced settings)
+ * - 'qa' — was alias for adaptive (full perception + debugging)
+ */
+export type LegacyTaloxMode = 'smart' | 'debug' | 'speed' | 'observe' | 'browse' | 'adaptive' | 'stealth' | 'balanced' | 'qa';
+
+/**
+ * All valid legacy mode values.
+ * @deprecated Legacy modes are deprecated in v2.
+ * 'stealth', 'balanced', 'qa' are deprecated aliases for 'smart'.
+ */
+export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = ['smart', 'debug', 'speed', 'observe', 'browse', 'adaptive', 'stealth', 'balanced', 'qa'];
+
+/**
+ * Check if a value is a valid legacy mode.
+ * @deprecated Legacy modes are deprecated in v2.
+ * @param value - The value to check
+ * @returns True if the value is a valid LegacyTaloxMode
+ * 
+ * @example
+ * ```typescript
+ * import { isLegacyMode } from 'talox';
+ * 
+ * if (isLegacyMode(userInput)) {
+ *   // TypeScript now knows userInput is LegacyTaloxMode
+ *   const settings = resolveLegacyMode(userInput);
+ * }
+ * ```
+ */
+export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
+  return typeof value === 'string' && LEGACY_MODE_VALUES.includes(value as LegacyTaloxMode);
+}
+
+/**
+ * Maps a legacy mode to the new agent-first settings.
+ * 
+ * @deprecated Use `TaloxSettings` directly instead of modes.
+ * @param mode - The legacy mode to convert
+ * @returns Partial TaloxSettings that reflect the mode's intent
+ * 
+ * Mapping design (exposes tradeoffs explicitly):
+ * - 'smart': High stealth, full perception, adaptive behavior enabled. Best for general automation.
+ * - 'adaptive': Same as 'smart' - emphasizes the self-healing nature.
+ * - 'debug': Maximum verbosity, headed mode, human takeover enabled. For troubleshooting.
+ * - 'speed': Low stealth, no fidget, fast mouse. Fastest but most detectable.
+ * - 'browse': Headed mode with human takeover for interactive browsing.
+ * - 'observe': Headed mode with full perception for observation sessions.
+ * 
+ * Migration guide:
+ * ```typescript
+ * // v1 (legacy)
+ * const talox = new TaloxController('./profiles', { mode: 'debug' });
+ * 
+ * // v2 (explicit settings - recommended)
+ * const talox = new TaloxController('./profiles', {
+ *   settings: {
+ *     verbosity: 3,
+ *     headed: true,
+ *     humanTakeoverEnabled: true
+ *   }
+ * });
+ * 
+ * // v2 (backwards compatible - mode still works)
+ * const talox = new TaloxController('./profiles', {
+ *   mode: 'debug',              // Legacy mode maps to settings
+ *   settings: { mouseSpeed: 1.5 } // Additional overrides
+ * });
+ * 
+ * // Inspect what a mode maps to
+ * console.log(resolveLegacyMode('speed'));
+ * // { mouseSpeed: 2.0, typingDelayMin: 20, ... }
+ * ```
+ */
+export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings> {
+  switch (mode) {
+    case 'smart':
+    case 'adaptive':
+    case 'stealth':
+    case 'balanced':
+    case 'qa':
+      // High stealth, adaptive behavior, full perception - the "works everywhere" default
+      // Tradeoff: Uses bot-detection warmup delays and stealth randomness that may distort results.
+      // For testing your own app, prefer explicit settings with debug mode.
+      return {
+        mouseSpeed: 0.7,
+        stealthLevel: 'high',
+        adaptiveStealthEnabled: true,
+        humanStealth: 1.0,
+        fidgetEnabled: true,
+        verbosity: 0,
+      };
+
+    case 'debug':
+      // Maximum visibility for troubleshooting - explicit tradeoff: slower, headed
+      return {
+        verbosity: 3,
+        headed: true,
+        humanTakeoverEnabled: true,
+        humanTakeoverTimeoutMs: 0, // Wait forever - debugging shouldn't auto-resume
+        stealthLevel: 'low',        // Less stealth = more visibility into issues
+        mouseSpeed: 1.0,            // Faster for debugging
+      };
+
+    case 'speed':
+      // Fastest execution - explicit tradeoff: more detectable
+      return {
+        mouseSpeed: 2.0,
+        typingDelayMin: 20,
+        typingDelayMax: 50,
+        typoProbability: 0,
+        fidgetEnabled: false,
+        humanStealth: 0.0,
+        stealthLevel: 'low',
+        adaptiveStealthEnabled: false,
+        verbosity: 0,
+      };
+
+    case 'browse':
+      // Interactive browsing - headed with human control
+      return {
+        headed: true,
+        humanTakeoverEnabled: true,
+        humanTakeoverTimeoutMs: 0,
+        mouseSpeed: 0.8,
+        verbosity: 1,
+      };
+
+    case 'observe':
+      // Observation session - headed, full perception, medium verbosity
+      return {
+        headed: true,
+        verbosity: 2,
+        stealthLevel: 'medium',
+        mouseSpeed: 0.5, // Slower for careful observation
+      };
+
+    default:
+      // Exhaustive check - should never reach here
+      const _exhaustive: never = mode;
+      return {};
+  }
+}
+
 // ─── TaloxSettings ─────────────────────────────────────────────────────────────
 
 export interface TaloxSettings {
