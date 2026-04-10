@@ -52,11 +52,31 @@ jobs:
 
       - run: npm run build
 
+      - name: Run unit tests
+        run: npm test
+
+  # ─── Browser integration tests — runs on every push / PR ──────────────────────
+  browser:
+    name: Browser Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run unit tests
-        run: npm test
+      - name: Run browser integration tests
+        run: npm run test:browser
 
   # ─── Real-world tests — nightly + manual only ────────────────────────────────
   real-world:

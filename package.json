@@ -24,9 +24,10 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "test": "vitest",
+    "test": "vitest --config vitest.config.unit.ts",
     "test:unit": "vitest --config vitest.config.unit.ts",
     "test:browser": "vitest --config vitest.config.browser.ts",
+    "test:all": "vitest",
     "observe": "node ./dist/cli/talox.js observe",
     "prepublishOnly": "npm run build",
     "smoke": "npm run build && node -e \"console.log('Talox smoke test OK')\"",
