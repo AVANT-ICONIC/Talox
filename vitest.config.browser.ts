@@ -6,8 +6,8 @@ export default defineConfig({
     include: [
       'tests/core/**/*.test.ts',
     ],
-    testTimeout: 120_000,
-    hookTimeout: 120_000,
+    testTimeout: 180_000, // 3 min — CI Chromium launch is slow
+    hookTimeout: 180_000,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

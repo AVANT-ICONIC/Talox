@@ -28,5 +28,5 @@ describe('PageStateCollector', () => {
     expect(state.url).toBe('about:blank');
     expect(state.console.errors).toEqual([]);
     await manager.close();
-  }, 30000);
+  });
 });

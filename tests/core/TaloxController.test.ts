@@ -18,5 +18,5 @@ describe('TaloxController', () => {
     const state = await controller.navigate('about:blank');
     expect(state.url).toBe('about:blank');
     await controller.stop();
-  }, 30000);
+  });
 });

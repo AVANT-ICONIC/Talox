@@ -47,7 +47,7 @@ describe('VisionGate & Deterministic Verification', () => {
     const res2 = await controller.verifyVisual('blank-page');
     expect(res2.isMatch).toBe(true);
     expect(res2.ssimScore).toBeGreaterThan(0.99);
-  }, 30000);
+  });
 
   it('should detect structural changes', async () => {
     try {
@@ -72,7 +72,7 @@ describe('VisionGate & Deterministic Verification', () => {
     const state3 = await controller.navigate('about:blank');
     const structuralBugsDiff = state3.bugs.filter(b => b.type === 'STRUCTURAL_CHANGE' || b.type === 'STRUCTURAL_REGRESSION');
     expect(structuralBugsDiff.length).toBeGreaterThan(0);
-  }, 60000);
+  });
 
   it('should extract text via OCR', async () => {
     try {
@@ -86,5 +86,5 @@ describe('VisionGate & Deterministic Verification', () => {
     await controller.verifyVisual('example-home', true);
     const result = await controller.verifyVisual('example-home');
     expect(result.ocrText?.toLowerCase()).toContain('example domain');
-  }, 60000);
+  });
 });
