@@ -106,4 +106,133 @@ describe('BotDetector', () => {
     });
     expect(detector.detect(state)).toBe('bot_detection_hard');
   });
+
+  // ─── Additional coverage for missing lines ────────────────────────────────
+
+  it('detects CAPTCHA via title "Verify you are human"', () => {
+    const state = makeState({ title: 'Verify you are human' });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via title "Bot Check"', () => {
+    const state = makeState({ title: 'Bot Check Page' });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via title "Human Verification"', () => {
+    const state = makeState({ title: 'Human Verification Required' });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via URL /verify', () => {
+    const state = makeState({ url: 'https://example.com/verify?token=abc' });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via recaptcha.net URL', () => {
+    const state = makeState({ url: 'https://recaptcha.net/recaptcha/api2/anchor' });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via node text containing captcha pattern', () => {
+    const state = makeState({
+      nodes: [{ id: 'n1', role: 'text', name: 'Please verify you are human to continue', description: '' }],
+    });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects CAPTCHA via console log text', () => {
+    const state = makeState({
+      console: { errors: [], logs: ['Security check required before proceeding'] },
+    });
+    expect(detector.detect(state)).toBe('captcha_detected');
+  });
+
+  it('detects hard block via /denied URL', () => {
+    const state = makeState({ url: 'https://example.com/denied' });
+    expect(detector.detect(state)).toBe('bot_detection_hard');
+  });
+
+  it('detects hard block via /sorry URL', () => {
+    const state = makeState({ url: 'https://example.com/sorry' });
+    expect(detector.detect(state)).toBe('bot_detection_hard');
+  });
+
+  it('detects hard block via /403 URL', () => {
+    const state = makeState({ url: 'https://example.com/403' });
+    expect(detector.detect(state)).toBe('bot_detection_hard');
+  });
+
+  it('detects fingerprinting script via fingerprintjs in network URL', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [{ url: 'https://cdn.example.com/fingerprintjs/v3.js', status: 200 }],
+      },
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('detects fingerprinting script via creepjs in network URL', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [{ url: 'https://cdn.example.com/creepjs/main.js', status: 200 }],
+      },
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('detects fingerprinting script via perimeterx in network URL', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [{ url: 'https://cdn.perimeterx.net/px.js', status: 200 }],
+      },
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('detects fingerprinting via network exceptions', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [],
+        exceptions: [{ url: 'https://cdn.imperva.com/f.js' }],
+      },
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('detects soft bot signal via challenge-platform node text', () => {
+    const state = makeState({
+      nodes: [{ id: 'ax-0', role: 'text', name: 'challenge-platform', description: '' }],
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('detects soft bot signal via cf_chl_opt node text', () => {
+    const state = makeState({
+      nodes: [{ id: 'ax-0', role: 'text', name: 'cf_chl_opt value', description: '' }],
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
+
+  it('rate limit has higher priority than fingerprinting', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [
+          { url: '/api', status: 429 },
+          { url: 'https://js.datadome.co/tags.js', status: 200 },
+        ],
+      },
+    });
+    expect(detector.detect(state)).toBe('rate_limit');
+  });
+
+  it('fingerprinting has higher priority than soft bot signals', () => {
+    const state = makeState({
+      network: {
+        failedRequests: [{ url: 'https://js.datadome.co/tags.js', status: 200 }],
+      },
+      nodes: [{ id: 'ax-0', role: 'text', name: 'cf-browser-verification', description: '' }],
+    });
+    expect(detector.detect(state)).toBe('bot_detection_soft');
+  });
 });
