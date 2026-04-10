@@ -192,6 +192,14 @@ export interface TaloxSettings {
   // Adaptive stealth
   adaptiveStealthSensitivity: number;  // Default: 0.5
   adaptiveStealthRadius: number;      // Default: 100
+
+  /**
+   * Deterministic safe mode — disables all human simulation (no jitter, no delays,
+   * no typos, raw direct clicks). Use when testing your own application and you
+   * want fast, predictable, deterministic interactions. Opposite of biomechanical mode.
+   * @default false
+   */
+  safeMode: boolean;
 }
 
 // ─── DEFAULT_SETTINGS ─────────────────────────────────────────────────────────
@@ -216,4 +224,5 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
   precisionDecay: 0.1,
   adaptiveStealthSensitivity: 0.5,
   adaptiveStealthRadius: 100,
+  safeMode: false,
 };

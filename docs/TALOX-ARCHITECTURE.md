@@ -80,10 +80,8 @@ graph TD
 ### 2.6 Verbosity System (v2)
 - **Role:** Perception depth control — all features always on, control what you receive.
 - **Verbosity levels:** `shallow` | `medium` | `full`
-- **Deprecated:** `ModeManager` — removed in v2. Use launch options instead:
-  - `verbosity: 'shallow' | 'medium' | 'full'` for perception depth
-  - `headed: true | false | 'auto'` for browser display mode
-  - Human Takeover Layer for human intervention
+- **ModeManager removed:** v2 relies entirely on `TaloxSettings` (`verbosity`, `headed`, `humanTakeoverEnabled`, etc.) instead of legacy mode presets. Use `setVerbosity(level)`, `setHeaded(headed)`, and `requestHumanTakeover(reason)` to adjust behavior at runtime.
+- **Launch-time knobs:** Configure perception depth (`verbosity`), browser display (`headed` / `'auto'`), and takeover timeouts before launching; runtime APIs and events (`verbosityChanged`, `stateChanged`) keep agents informed.
 
 ### 2.7 Bug / Artifact Engine
 - **Role:** Generates evidence-rich bug reports and replay traces.
@@ -116,7 +114,7 @@ graph TD
 
 ### 2.14 TaloxTools
 - **Role:** LLM function calling schema for AI agents.
-- **Functionality:** Exports 14 ready-to-use tool definitions compatible with OpenAI function calling, Claude tools, and other LLM APIs. Tools include: navigate, click, type, get_state, describe_page, get_intent_state, screenshot, scroll_to, extract_table, wait_for_load_state, set_mode, verify_visual, find_element, evaluate.
+- **Functionality:** Exports 14 ready-to-use tool definitions compatible with OpenAI function calling, Claude tools, and other LLM APIs. Tools cover navigation, clicking, typing, state capture, page description, intent recognition, screenshots, scrolling, table extraction, waiting for load states, visual verification, element search, and script evaluation.
 
 ### 2.15 EventEmitter
 - **Role:** Real-time event notifications for agents.
@@ -128,15 +126,15 @@ graph TD
 - **Events:** `adapted`, `sessionEnd`, `annotationAdded`, `annotationUndone`, `bugDetected`, `consoleError`, `networkError`, `navigation`, `modeChanged`, `stateChanged`
 
 ### 2.17 TakeoverBridge
-- **Role:** Human Takeover Layer — pauses agent execution for human intervention and manages the agent overlay (headed mode).
+- **Role:** Human Takeover Layer — freezes the agent, displays the overlay, and hands control back when the human resumes.
 - **Responsibilities:**
-  - Manages takeover states (`idle`, `pending`, `active`)
-  - Exposes `requestTakeover()`, `getTakeoverStatus()`, `resumeAgent()`
-  - Injects self-contained overlay via `page.addInitScript()` (persists across navigations)
-  - Manages overlay state machine (AGENT_RUNNING ↔ WAITING_FOR_HUMAN)
-  - Emits `takeoverRequested`, `takeoverStarted`, `takeoverEnded` events
-  - `getCursorStepCallback()` returns per-step update function for HumanMouse (keeps OS cursor still while fake cursor animates)
-- **Architecture:** No esbuild required — pure JavaScript bundle. Uses correct Playwright APIs (`addInitScript` + `exposeFunction`), not legacy `evaluate()` which resets on navigation.
+  - Maintains takeover states (`AGENT_RUNNING` ↔ `WAITING_FOR_HUMAN`).
+  - Provides `requestTakeover()`, `resumeAgent()`, and `getTakeoverHistory()` APIs.
+  - Emits rich events: `humanTakeoverRequested` (reason + timestamp), `agentResumed` (includes `TakeoverSummary`), plus `headedEscalation`/`headlessRestored` when the browser display changes.
+  - Injects the overlay via `page.addInitScript()` and wires `page.exposeFunction('__taloxBridge__')`, so the UI survives navigations without `page.evaluate()` calls.
+  - Records every request/resume in `ArtifactBuilder` and exposes summaries for reporting (duration, timeout, reason).
+  - Visuals are lightweight: cyan glow, takeover/resume buttons, no fake cursor or click blocker.
+- **Architecture:** Pure JavaScript bundle — no esbuild, no fake cursor. Uses the correct Playwright APIs so the overlay persists across navigations and human handoffs.
 
 ### 2.18 ActionExecutor
 - **Role:** All browser interaction logic extracted from TaloxController.

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TaloxController } from '../../../src/core/controller/TaloxController';
-import { DEFAULT_SETTINGS } from '../../../src/types/settings';
+import { DEFAULT_SETTINGS, resolveLegacyMode } from '../../../src/types/settings';
 
 describe('TaloxController (v2)', () => {
   let talox: TaloxController;
@@ -67,22 +67,27 @@ describe('TaloxController (v2)', () => {
 
     it('should transition to WAITING_FOR_HUMAN on requestHumanTakeover', async () => {
       talox = new TaloxController('.');
-      await talox.requestHumanTakeover('Test reason');
+      const takeover = talox.requestHumanTakeover('Test reason');
       expect(talox.getTakeoverState()).toBe('WAITING_FOR_HUMAN');
+      talox.resumeAgent();
+      await takeover;
     });
 
     it('should emit humanTakeoverRequested event', async () => {
       talox = new TaloxController('.');
       const handler = vi.fn();
       talox.on('humanTakeoverRequested', handler);
-      await talox.requestHumanTakeover('Test');
+      const takeover = talox.requestHumanTakeover('Test');
       expect(handler).toHaveBeenCalled();
+      talox.resumeAgent();
+      await takeover;
     });
 
     it('should resume to AGENT_RUNNING on resumeAgent', async () => {
       talox = new TaloxController('.');
-      await talox.requestHumanTakeover();
+      const takeover = talox.requestHumanTakeover();
       talox.resumeAgent();
+      await takeover;
       expect(talox.getTakeoverState()).toBe('AGENT_RUNNING');
     });
   });

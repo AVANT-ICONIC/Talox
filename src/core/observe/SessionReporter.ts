@@ -15,12 +15,28 @@ import type {
 } from '../../types/session.js';
 import type { AnnotationEntry } from '../../types/annotation.js';
 import { getLabelEmoji }        from '../../types/annotation.js';
+import type {
+  SessionReportExtras,
+  FailureEntry,
+  InteractionDiff,
+  BugSummaryEntry,
+  ScreenshotDescriptor,
+} from '../../types/session-report.js';
 
 // ─── Output Paths ─────────────────────────────────────────────────────────────
 
 export interface ReportPaths {
-  json?:     string;
-  markdown?: string;
+  json?:         string | undefined;
+  markdown?:     string | undefined;
+  html?:         string | undefined;
+  timeline?:     string | undefined;
+  eventLog?:     string | undefined;
+  failures?:     string | undefined;
+  annotations?:  string | undefined;
+  diffs?:        string | undefined;
+  bugs?:         string | undefined;
+  trace?:        string | undefined;
+  screenshotsDir?: string | undefined;
 }
 
 // ─── SessionReporter ─────────────────────────────────────────────────────────
@@ -49,6 +65,7 @@ export class SessionReporter {
   async write(
     report: TaloxSessionReport,
     format: SessionOutputFormat = 'both',
+    extras: SessionReportExtras = {},
   ): Promise<ReportPaths> {
     await fs.mkdir(this.outputDir, { recursive: true });
 
@@ -58,22 +75,109 @@ export class SessionReporter {
       .slice(0, 19);
 
     const baseName = `session-${report.id}-${timestamp}`;
-    const paths: ReportPaths = {};
+    const sessionDir = path.join(this.outputDir, baseName);
+    await fs.mkdir(sessionDir, { recursive: true });
 
-    if (format === 'json' || format === 'both') {
-      const jsonPath = path.join(this.outputDir, `${baseName}.json`);
-      await fs.writeFile(jsonPath, JSON.stringify(report, null, 2), 'utf-8');
-      paths.json = jsonPath;
-    }
+    const screenshotDescriptors = await this.persistScreenshots(sessionDir, report.interactions);
+    const mergedExtras = this.mergeExtras(extras, screenshotDescriptors);
+
+    const paths: ReportPaths = {
+      screenshotsDir: path.join(sessionDir, 'screenshots'),
+    };
+
+    const jsonPath = path.join(sessionDir, 'report.json');
+    await fs.writeFile(jsonPath, JSON.stringify(report, null, 2), 'utf-8');
+    paths.json = jsonPath;
 
     if (format === 'markdown' || format === 'both') {
-      const mdPath = path.join(this.outputDir, `${baseName}.md`);
-      await fs.writeFile(mdPath, this.toMarkdown(report), 'utf-8');
+      const mdPath = path.join(sessionDir, 'report.md');
+      await fs.writeFile(mdPath, this.toMarkdown(report, mergedExtras), 'utf-8');
       paths.markdown = mdPath;
     }
 
-    console.info(`[Talox] Session report written to: ${this.outputDir}`);
+    const htmlPath = path.join(sessionDir, 'report.html');
+    await fs.writeFile(htmlPath, this.toHTML(report, mergedExtras), 'utf-8');
+    paths.html = htmlPath;
+
+    const timelinePath = path.join(sessionDir, 'timeline.json');
+    await fs.writeFile(timelinePath, JSON.stringify(report.interactions, null, 2), 'utf-8');
+    paths.timeline = timelinePath;
+
+    const annotationPath = path.join(sessionDir, 'annotations.json');
+    await fs.writeFile(annotationPath, JSON.stringify(report.annotations, null, 2), 'utf-8');
+    paths.annotations = annotationPath;
+
+    paths.eventLog = await this.writeJsonIfPresent(sessionDir, 'event-log.json', mergedExtras.eventLog);
+    paths.failures = await this.writeJsonIfPresent(sessionDir, 'failures.json', mergedExtras.failures);
+    paths.diffs = await this.writeJsonIfPresent(sessionDir, 'diffs.json', mergedExtras.diffs);
+    paths.bugs = await this.writeJsonIfPresent(sessionDir, 'bugs.json', mergedExtras.bugs);
+    paths.trace = await this.writeJsonIfPresent(sessionDir, 'trace.json', mergedExtras.trace);
+
+    console.info(`[Talox] Session report written to: ${sessionDir}`);
     return paths;
+  }
+
+  private mergeExtras(
+    extras: SessionReportExtras,
+    screenshots: ScreenshotDescriptor[],
+  ): SessionReportExtras {
+    const merged: SessionReportExtras = { ...extras };
+    const combined = [...(extras.screenshots ?? []), ...screenshots];
+    if (combined.length > 0) {
+      merged.screenshots = combined;
+    }
+    return merged;
+  }
+
+  private async persistScreenshots(
+    sessionDir: string,
+    interactions: TaloxInteraction[],
+  ): Promise<ScreenshotDescriptor[]> {
+    const screenshotDir = path.join(sessionDir, 'screenshots');
+    await fs.mkdir(screenshotDir, { recursive: true });
+    const descriptors: ScreenshotDescriptor[] = [];
+
+    for (const interaction of interactions) {
+      for (const when of ['before', 'after'] as const) {
+        const captured = when === 'before' ? interaction.screenshotBefore : interaction.screenshotAfter;
+        if (typeof captured !== 'string' || !this.isBase64(captured)) continue;
+        const fileName = `interaction-${interaction.index}-${when}.png`;
+        const fullPath = path.join(screenshotDir, fileName);
+        await fs.writeFile(fullPath, Buffer.from(captured, 'base64'));
+        const relativePath = path.join('screenshots', fileName);
+        if (when === 'before') {
+          interaction.screenshotBefore = relativePath;
+        } else {
+          interaction.screenshotAfter = relativePath;
+        }
+        descriptors.push({
+          interactionIndex: interaction.index,
+          when,
+          path: relativePath,
+        });
+      }
+    }
+
+    return descriptors;
+  }
+
+  private async writeJsonIfPresent(
+    sessionDir: string,
+    fileName: string,
+    payload?: any,
+  ): Promise<string | undefined> {
+    if (!payload || (Array.isArray(payload) && payload.length === 0)) {
+      return undefined;
+    }
+    const target = path.join(sessionDir, fileName);
+    await fs.writeFile(target, JSON.stringify(payload, null, 2), 'utf-8');
+    return target;
+  }
+
+  private isBase64(value: string): boolean {
+    if (!value) return false;
+    const normalized = value.trim().replace(/\\s+/g, '');
+    return /^[A-Za-z0-9+/=]+$/.test(normalized) && normalized.length % 4 === 0;
   }
 
   // ─── Markdown Generation ─────────────────────────────────────────────────────
@@ -82,7 +186,7 @@ export class SessionReporter {
    * Renders a `TaloxSessionReport` as Markdown.
    * Designed to be pasted directly into agent chat or a PR comment.
    */
-  toMarkdown(report: TaloxSessionReport): string {
+  toMarkdown(report: TaloxSessionReport, extras: SessionReportExtras = {}): string {
     const duration = this.formatDuration(report.durationMs);
     const sections: string[] = [];
 
@@ -130,6 +234,57 @@ export class SessionReporter {
 
     for (const interaction of report.interactions) {
       sections.push(this.renderInteraction(interaction, report.annotations));
+    }
+
+    if (extras.eventLog?.length) {
+      sections.push('');
+      sections.push('---');
+      sections.push('');
+      sections.push('## Event Log');
+      sections.push('');
+      for (const entry of extras.eventLog) {
+        const payload = entry.payload ? ` — ${JSON.stringify(entry.payload)}` : '';
+        sections.push(`- **${entry.event}** @ ${entry.timestamp}${payload}`);
+      }
+    }
+
+    if (extras.failures?.length) {
+      sections.push('');
+      sections.push('---');
+      sections.push('');
+      sections.push('## Failure Highlights');
+      sections.push('');
+      for (const failure of extras.failures) {
+        const ctx = failure.interactionIndex ? ` (interaction ${failure.interactionIndex})` : '';
+        const urlInfo = failure.url ? ` at ${failure.url}` : '';
+        const status = typeof failure.status === 'number' ? ` [${failure.status}]` : '';
+        sections.push(`- \`${failure.type}\`${ctx}${urlInfo}${status} — ${failure.message}`);
+      }
+    }
+
+    if (extras.diffs?.length) {
+      sections.push('');
+      sections.push('---');
+      sections.push('');
+      sections.push('## Interaction Diffs');
+      sections.push('');
+      for (const diff of extras.diffs) {
+        const note = diff.notes ? ` — ${diff.notes}` : '';
+        const element = diff.element ? ` element: ${diff.element}` : '';
+        sections.push(`- Interaction ${diff.interactionIndex}: ${diff.url} (changed: ${diff.urlChanged})${element}${note}`);
+      }
+    }
+
+    if (extras.bugs?.length) {
+      sections.push('');
+      sections.push('---');
+      sections.push('');
+      sections.push('## Bug Summaries');
+      sections.push('');
+      for (const bug of extras.bugs) {
+        const ctx = bug.interactionIndex ? ` (interaction ${bug.interactionIndex})` : '';
+        sections.push(`- [${bug.severity}] ${bug.type}${ctx}: ${bug.description}`);
+      }
     }
 
     // ── Annotations Table ─────────────────────────────────────────────────────
@@ -182,9 +337,128 @@ export class SessionReporter {
     sections.push('');
     sections.push('---');
     sections.push('');
+    const traceFrames = extras.trace ?? [];
+    if (traceFrames.length > 0) {
+      sections.push('## Action Trace');
+      sections.push('');
+      sections.push('| Frame | Type | Action | Detail |');
+      sections.push('|---|---|---|---|');
+      for (let i = 0; i < Math.min(traceFrames.length, 10); i += 1) {
+        const frame = traceFrames[i]!;
+        const detail = JSON.stringify(frame.details);
+        sections.push(`| ${i} | ${frame.type} | ${frame.action} | ${detail} |`);
+      }
+      sections.push('');
+      sections.push(`_Trace captured · ${traceFrames.length} frames · first 10 shown._`);
+      sections.push('');
+      sections.push('---');
+      sections.push('');
+    }
     sections.push(`*Generated by Talox observe mode · ${new Date().toISOString()}*`);
 
     return sections.join('\n');
+  }
+
+  toHTML(report: TaloxSessionReport, extras: SessionReportExtras = {}): string {
+    const summaryRows = `
+      <tr><td>Interactions</td><td>${report.summary.totalInteractions}</td></tr>
+      <tr><td>Annotations</td><td>${report.summary.totalAnnotations}</td></tr>
+      <tr><td>Console Errors</td><td>${report.summary.totalConsoleErrors}</td></tr>
+      <tr><td>Network Failures</td><td>${report.summary.totalNetworkFailures}</td></tr>
+    `;
+
+    const timelineItems = report.interactions
+      .map(i => `<li>${this.renderInteractionHtml(i, report.annotations)}</li>`)
+      .join('');
+
+    const eventLogHtml = extras.eventLog?.map(entry => `<tr><td>${this.escapeHtml(entry.event)}</td><td>${this.escapeHtml(entry.timestamp)}</td><td>${this.escapeHtml(JSON.stringify(entry.payload ?? {}))}</td></tr>`).join('') ?? '';
+    const failuresHtml = extras.failures?.map(failure => `<li>${this.escapeHtml(failure.message)} (${this.escapeHtml(failure.type)})</li>`).join('') ?? '';
+    const diffsHtml = extras.diffs?.map(diff => `<li>${this.escapeHtml(diff.url)} changed: ${diff.urlChanged}</li>`).join('') ?? '';
+    const bugsHtml = extras.bugs?.map(bug => `<li>[${this.escapeHtml(bug.severity)}] ${this.escapeHtml(bug.type)}: ${this.escapeHtml(bug.description)}</li>`).join('') ?? '';
+    const traceFrames = extras.trace ?? [];
+    const traceHtml = traceFrames.slice(0, 10).map((frame, index) => `<tr><td>${index}</td><td>${this.escapeHtml(frame.type)}</td><td>${this.escapeHtml(frame.action)}</td><td>${this.escapeHtml(JSON.stringify(frame.details ?? {}))}</td></tr>`).join('');
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Talox Session ${report.id}</title>
+          <style>
+            body { font-family: system-ui, sans-serif; background: #111; color: #f5f5f5; padding: 24px; }
+            h1, h2 { color: #9f7aea; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            td, th { border: 1px solid #2c2c2c; padding: 8px; }
+            ul { padding-left: 20px; }
+            section { margin-bottom: 24px; }
+            .timestamp { font-family: monospace; color: #a3e635; }
+          </style>
+        </head>
+        <body>
+          <header>
+            <h1>Talox Session Report · ${this.escapeHtml(report.id)}</h1>
+            <p>Started ${this.escapeHtml(report.startedAt)} · Duration ${this.escapeHtml(this.formatDuration(report.durationMs))} · URL ${this.escapeHtml(report.startUrl)}</p>
+          </header>
+
+          <section>
+            <h2>Summary</h2>
+            <table>${summaryRows}</table>
+          </section>
+
+          <section>
+            <h2>Timeline</h2>
+            <ul>${timelineItems}</ul>
+          </section>
+
+          ${eventLogHtml ? `<section><h2>Event Log</h2><table><tr><th>Event</th><th>Timestamp</th><th>Payload</th></tr>${eventLogHtml}</table></section>` : ''}
+          ${failuresHtml ? `<section><h2>Failures</h2><ul>${failuresHtml}</ul></section>` : ''}
+          ${diffsHtml ? `<section><h2>Diffs</h2><ul>${diffsHtml}</ul></section>` : ''}
+          ${bugsHtml ? `<section><h2>Bug Summaries</h2><ul>${bugsHtml}</ul></section>` : ''}
+          ${traceHtml ? `<section><h2>Action Trace</h2><table><tr><th>#</th><th>Type</th><th>Action</th><th>Details</th></tr>${traceHtml}</table><p>Showing ${Math.min(traceFrames.length, 10)} of ${traceFrames.length} frames.</p></section>` : ''}
+
+          <section>
+            <h2>Notes</h2>
+            <p>Generated by Talox observe mode on ${new Date().toISOString()}.</p>
+          </section>
+        </body>
+    </html>
+  `.trim();
+  }
+
+  private renderInteractionHtml(
+    interaction: TaloxInteraction,
+    annotations: AnnotationEntry[],
+  ): string {
+    const time = new Date(interaction.timestamp).toLocaleTimeString();
+    const element = interaction.element
+      ? `<strong>${this.escapeHtml(interaction.element.tag)}</strong> ${this.escapeHtml(interaction.element.text ?? '')}`
+      : this.capitalise(interaction.type);
+    const errorBadge = interaction.consoleErrors.length ? ' ⚠️ console errors recorded' : '';
+    const screenshotLinks = [interaction.screenshotBefore, interaction.screenshotAfter]
+      .filter(Boolean)
+      .map(path => `<a href="${this.escapeHtml(path!)}">${this.escapeHtml(path!)}</a>`)
+      .join(', ');
+    const annotationNotes = annotations
+      .filter(a => a.interactionIndex === interaction.index)
+      .map(a => `${a.labels.map(l => this.escapeHtml(l)).join(', ')}: ${this.escapeHtml(a.comment)}`)
+      .join('; ');
+    return `
+      <div>
+        <span class="timestamp">${this.escapeHtml(time)}</span> — ${element}${errorBadge ? `<span> ${errorBadge}</span>` : ''}
+        ${screenshotLinks ? `<div>Screenshots: ${screenshotLinks}</div>` : ''}
+        ${annotationNotes ? `<div class="annotation-note">${annotationNotes}</div>` : ''}
+      </div>
+    `;
+  }
+
+  private escapeHtml(value: string | undefined): string {
+    if (!value) return '';
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────────

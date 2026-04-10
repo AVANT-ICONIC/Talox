@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { TaloxProfile, TaloxSettings } from '../types/index.js';
-/** @deprecated Modes are deprecated. Use `headed` option instead. Kept for backwards compatibility. */
-export type TaloxMode = 'smart' | 'debug' | 'speed' | 'observe' | 'browse' | 'adaptive';
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
@@ -69,6 +67,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
     verbosity: 0,
     humanTakeoverEnabled: false,
     humanTakeoverTimeoutMs: 120000,
+    safeMode: false,
   },
 };
 
@@ -291,7 +290,7 @@ export class BrowserManager {
     }
 
     // Use Patchright for stealth mode (adaptive behavior)
-    const isAdaptive = true;
+    const isAdaptive = false;
     
     let launcher: any;
     if (isAdaptive) {
@@ -332,19 +331,18 @@ export class BrowserManager {
       launchOptions.proxy = this.config.browser.proxy;
     }
 
-    // Use real Chrome channel for adaptive mode on macOS/desktop only
-    if (isAdaptive && process.platform === 'darwin') {
-      launchOptions.channel = 'chrome';
-    }
+    // Do not force chrome channel, as it conflicts if the user has Chrome open.
+    // Use Playwright's bundled Chromium instead.
 
     try {
       this.context = await launcher.launchPersistentContext(profile.userDataDir, launchOptions) as BrowserContext;
       this.contexts.add(this.context!);
       
       // Remove from registry when closed
-      this.context!.on('close', () => {
-        this.contexts.delete(this.context!);
-        if (this.context === this.context) this.context = null;
+      const ctx = this.context!;
+      ctx.on('close', () => {
+        this.contexts.delete(ctx);
+        if (this.context === ctx) this.context = null;
       });
     } catch (error: any) {
       // Fallback: try without channel if it failed
@@ -353,10 +351,18 @@ export class BrowserManager {
         try {
           this.context = await launcher.launchPersistentContext(profile.userDataDir, launchOptions) as BrowserContext;
           this.contexts.add(this.context!);
+          // Attach close handler for fallback context too
+          const fallbackCtx = this.context!;
+          fallbackCtx.on('close', () => {
+            this.contexts.delete(fallbackCtx);
+            if (this.context === fallbackCtx) this.context = null;
+          });
         } catch (fallbackError: any) {
+          console.error('[DEBUG] Playwright Headed Error:', fallbackError);
           throw new Error(`Browser launch failed for ${actualBrowserType}. Please ensure Chrome is installed.`);
         }
       } else if (error.message?.includes('browser')) {
+        console.error('[DEBUG] Raw Error:', error);
         throw new Error(`Browser launch failed for ${actualBrowserType}. Please ensure the browser is installed.`);
       } else {
         throw error;

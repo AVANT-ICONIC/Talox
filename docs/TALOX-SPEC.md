@@ -2,6 +2,20 @@
 
 > **v2.0.0** — No more modes. Everything is always on. Human Takeover Layer, verbosity control, and auto headed/headless switching.
 
+Talox is a local-first browser runtime for AI agents. Every action runs inside a real Chromium instance, returns a structured `TaloxPageState`, and carries enough observability (AX, console, network, bugs, visual diffs) for agents to reason without parsing HTML or screenshots.
+
+## No execution modes
+
+- Talox no longer exposes legacy mode presets (`smart`, `debug`, `speed`, etc.). The runtime merges `DEFAULT_SETTINGS` with explicit overrides (`TaloxController` config + `settings` object) so every call uses the same dependable state machine.
+- Runtime controls now come from explicit APIs: `setVerbosity(level: 0|1|2|3)`, `setHeaded(headed: boolean)`, `requestHumanTakeover(reason?)`, and `resumeAgent()` — not from a separate `ModeManager`.
+- Observe mode simply flips `headed` + overlay/record flags and bypasses smart-mode escalations when the human is in charge. The `AdaptationEngine` still runs, but it skips headed escalations when `observe: true`.
+- Additive schema changes still go through the `TaloxPageState` compatibility policy (see `docs/TALOX-CONTRACTS.md`). Compact variants (`full`, `agent`, `debug`) stay aligned via `compactState()`.
+
+## Category focus
+
+- **Talox = browser runtime** — Local-first, structured state, resilient interaction, and takeover-grade observability make Talox the obvious runtime for real UI work.
+- **Not Talox** = cloud search, hosted scraping, or a generic workflow platform.
+
 ## 1. Goal
 Talox provides a persistent, stateful browser runtime for AI agents. In v2, there are no execution modes — all capabilities are always enabled. You control behavior through launch options:
 - **Verbosity** — Choose how much perception and simulation you want (`debug` is now a verbosity level, not a mode)
@@ -74,6 +88,8 @@ await talox.launch('id', 'sandbox', { verbosity: 'medium' });
 await talox.launch('id', 'qa', { verbosity: 'full' });
 ```
 
+Talox also exposes `setVerbosity(level)` for runtime adjustments and `getDebugSnapshot()` for helpers that need the latest state + event history without rerunning a navigation. Verbosity levels gate how much telemetry is emitted via `stateChanged`, `consoleError`, and `bugDetected` events.
+
 ## 9. Auto Headed/Headless Switching
 
 Talox v2 can automatically switch between headed and headless based on bot detection.
@@ -108,7 +124,7 @@ The Human Takeover Layer allows AI agents to pause execution and hand control to
 
 ```typescript
 // Request human takeover
-await talox.requestTakeover('Click the CAPTCHA to continue');
+await talox.requestHumanTakeover('Click the CAPTCHA to continue');
 
 // Agent pauses here until human completes the task
 // When human clicks "Resume" in the overlay, agent continues
@@ -119,9 +135,13 @@ const status = talox.getTakeoverStatus();
 ```
 
 **Events:**
-- `takeoverRequested` — Agent requested human intervention
-- `takeoverStarted` — Human has taken control
-- `takeoverEnded` — Human released control, agent resumes
+- `takeoverRequested` — Agent requested human intervention, payload includes `reason` & timestamp
+- `agentResumed` — Agent resumed control (reason: `'manual'` or `'timeout'`, summary: `TakeoverSummary`)
+- `headedEscalation` / `headlessRestored` — Fired whenever Talox auto-switches between headless/headed
+
+**Takeover summaries & artifacts:**
+- `TakeoverSummary` includes `reason`, `startedAt`, `resumedAt`, `durationMs`, and whether the takeover timed out.
+- `TaloxController` stores summaries in `artifactBuilder` and exposes `getTakeoverHistory()` for replay/reporting.
 
 **Use cases:**
 - CAPTCHA solving
@@ -177,6 +197,13 @@ const status = talox.getTakeoverStatus();
 - **Page Summaries:** `describePage()` generates human-readable page descriptions.
 - **Intent State:** `getIntentState()` provides compact page type, primary action, inputs, and errors.
 - **Element Discovery:** `findElement()` locates elements by text or accessible name.
+
+## 21. CLI Packaging & Browser Lab
+
+- **Talox CLI** ships with `talox observe` (headed observe mode with overlay, annotation modal, and Markdown/HTML reports) and `talox init` (aka `create-talox-app`) for scaffolding a clean browser lab workspace.
+- **Presets** (`ops`, `qa`, `observe`, `research`, `login-heavy`) live in `src/presets.ts` so packaging consumers can spread the curated settings directly into their `TaloxController` config.
+- **Practical tooling** is delivered by `getPracticalTools(talox)` and exposes helpers for background tabs, API captures, Markdown snapshot exports, site search, and visible structured content extraction so packaged projects ship with operator-ready capabilities.
+- **Browser lab demo** in `examples/browser-lab.ts` launches a sandbox profile, uses the practical tools, and writes Markdown/JSON report artifacts into `talox-sessions/` for fast sanity checks after `npm install` + `npx playwright install chromium`.
 
 ## 21. Utility Methods
 - **Screenshot:** `screenshot()` captures full page or specific elements.

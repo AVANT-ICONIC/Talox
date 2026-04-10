@@ -74,3 +74,13 @@ harbor-*/
 
 # Leftover demo/scratch scripts
 *.mjs
+
+# SonarQube scan artifacts
+.scannerwork/
+.avant-radar/
+
+# Demo assets (generated locally)
+demo-assets/
+
+# Internal planning docs
+docs/IMPLEMENTATION_*.json

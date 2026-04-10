@@ -19,6 +19,8 @@
   <a href="#agent-overlay"><img src="https://img.shields.io/badge/overlay-0d9488?style=for-the-badge&logo=eye&logoColor=white" alt="Agent Overlay" /></a>
   <a href="#architecture"><img src="https://img.shields.io/badge/architecture-0d9488?style=for-the-badge&logo=gitbook&logoColor=white" alt="Architecture" /></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/quick%20start-134e4a?style=for-the-badge&logo=rocket&logoColor=white" alt="Quick Start" /></a>
+  <a href="#talox-cli"><img src="https://img.shields.io/badge/Talox%20CLI-0a5b86?style=for-the-badge&logo=terminal&logoColor=white" alt="Talox CLI" /></a>
+  <a href="#browser-lab"><img src="https://img.shields.io/badge/browser%20lab-0a5b86?style=for-the-badge&logo=experiment&logoColor=white" alt="Browser Lab" /></a>
   <a href="#contributing"><img src="https://img.shields.io/badge/contributing-115e59?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Contributing" /></a>
 </p>
 
@@ -31,8 +33,8 @@
 </p>
 
 <p align="center">
-  <strong>Talox</strong> is a stateful browser runtime for AI agents, built on Playwright.<br />
-  Persistent profiles. Deep observability. Structured state contracts. Resilient interaction for real-world web UIs.
+  <strong>Local browser runtime for agents.</strong><br />
+  Stealth interaction layer. Structured page state. Resilient automation. Deep observability for real-world UIs.
 </p>
 
 <p align="center">
@@ -42,18 +44,21 @@
   ·
   <a href="./docs/TALOX-ROADMAP.md">Roadmap</a>
   ·
-  <a href="./docs/HARBOR-BOUNDARY.md">Harbor Boundary</a>
-  ·
   <a href="./CHANGELOG.md">Changelog</a>
 </p>
 
 </div>
 
+## Category focus
+
+- **Talox = browser runtime** — Local-first, structured state, resilient interaction, and takeover-ready observability are what Talox delivers.
+- **Not Talox** = cloud search, hosted scraping, or any generic automation platform that tries to be everything.
+
 ---
 
 ## Overview
 
-Talox is an **agent-first browser** — AI agents use it to do all browser work with maximum stealth and human-like behavior. Everything is always on: HumanMouse (Bezier paths, Fitts's Law), BotDetector, AdaptationEngine, full AX-tree perception — no modes, no toggling. Every action returns a structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume.
+Talox is a **local browser runtime** — agents work inside a real browser with maximum stealth and human-like behavior. Everything is always on: HumanMouse (Bezier paths, Fitts's Law), BotDetector, AdaptationEngine, full AX-tree perception — no modes, no toggling. Every action returns a structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume directly, without parsing HTML or interpreting screenshots.
 
 ```typescript
 import { TaloxController } from 'talox';
@@ -85,16 +90,233 @@ talox.resumeAgent();  // or auto-resumes after timeout
 
 ---
 
+## Why Not Plain Playwright?
+
+| Capability | Plain Playwright | Talox |
+| :--- | :---: | :---: |
+| Basic browser automation | ✓ | ✓ |
+| Stealth / human-like interaction layer | — | ✓ Biomechanical Ghost Engine |
+| Structured agent-readable page state | — | ✓ Single JSON contract |
+| Resilient interaction defaults | — | ✓ Self-healing selectors, semantic resolution |
+| Deep observability in one contract | — | ✓ AX-Tree, console, network, bugs |
+| Human takeover / debug visibility | — | ✓ Agent overlay, takeover bridge |
+| Real-world UI workflows | Fragile | ✓ Human-paced, adaptive timing |
+
+---
+
+## Talox vs other runner stories
+
+Talox's mission is to be the obvious local-first browser runtime. The table below contrasts that focus with other well-known agent/browser automation options so the positioning stays sharp.
+
+| Experience | Category | Why Talox wins |
+| :--- | :--- | :--- |
+| **Talox** | Local browser runtime for agents | Structured state contract, resilience-first interaction, takeover-ready observability, and optional headed overlay keep Talox grounded in real-world UI work. |
+| **Webclaw** | Cloud automation + scraping | Heavy remote tooling; Talox keeps the browser local so agents control data, sessions, and human takeover without third-party lock-in. |
+| **Crawl4AI** | Hosted crawling + QA bots | Built for fleets and scale; Talox trades scale for fidelity with persistent local sessions, biomechanical interactions, and deep debug artifacts. |
+| **browser-use** | Playwright + heuristics | Useful for scripted flows but lacks Talox’s takeover hooks, verbose telemetry, and structured JSON contract — Talox is designed as an agent runtime, not just UI scripting. |
+| **pebkac** | Operator cockpit | Inspires the operator mindset, but Talox keeps the runtime disciplined: optional tools/overlays, no hosted chaos. |
+
+---
+
+## Quick Start
+
+```bash
+npm install talox
+# Install Playwright Chromium system dependencies (first time or on a new server)
+npx playwright install chromium --with-deps
+```
+
+### Dependencies explained
+
+Talox ships two browser automation packages:
+
+| Package | Role | When it's used |
+| :--- | :--- | :--- |
+| **playwright** | Standard Chromium automation API | All core automation: navigating, clicking, typing, AX-tree collection, console/network interception |
+| **patchright** | Stealth Chromium fork (Playwright-compatible API) | Anti-bot resilience — patchright is a patched Playwright build that removes WebDriver fingerprints, automation markers, and other bot-detection signals. Used when stealth interaction is needed on hostile sites |
+
+Both share the same API surface — Talox uses Playwright by default and falls back to patchright when the `AdaptationEngine` detects bot countermeasures. If patchright is not installed, Talox degrades gracefully to plain Playwright without stealth features.
+
+```typescript
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+
+await talox.launch('my-agent', 'ops');
+
+const state = await talox.navigate('https://example.com');
+
+// Talox returns structured JSON — no HTML parsing needed
+console.log('Title:', state.title);
+console.log('Interactive elements:', state.interactiveElements.length);
+console.log('Layout bugs detected:', state.bugs.length);
+
+await talox.stop();
+```
+
+See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste starting point.
+
+## Talox CLI & Packaging
+
+- `npx talox observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
+- `npx talox init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
+- Exported presets (`ops`, `qa`, `observe`, `research`, `login-heavy`) live in `src/presets.ts` so you can reuse curated verbosity, headedness, and human-takeover posture with a single spread or merge.
+- The practical tools from `getPracticalTools(talox)` demonstrate background tabs, API response capture, Markdown snapshot export, on-site search, and visible structured content extraction, so your packaged profiles already include actionable browser lab helpers.
+
+## Browser Lab Demo
+
+`examples/browser-lab.ts` walks through a sandbox profile that:
+
+- launches `PRESETS.observe` with headed overlay/recording enabled,
+- exercises every practical tool (background tab, API capture, Markdown snapshot, search, structured content), and
+- writes the generated Markdown/JSON report artifacts into `talox-sessions/` (useful as a sanity check after `npm install` + `npx playwright install chromium`).
+
+Run the demo to validate the packaged presets, tools, and reporting output in one headed experiment.
+
+---
+
+## Integrations
+
+Talox ships as a flexible Node package with a CLI-first philosophy. The most efficient way to use Talox is through the CLI or direct Node.js scripting — no context-window bloat from MCP servers. For the community, an MCP server is also available for agents that prefer tool-use protocols.
+
+### CLI-first (recommended)
+
+The `talox` CLI provides direct, efficient access to the runtime. No MCP server startup, no context pollution — just shell commands:
+
+```bash
+# Launch an observe session with human overlay
+talox observe --profile my-session --format both
+
+# Scaffold a new project
+talox init my-agent-project
+
+# Pipe structured state to any tool
+talox state --url https://example.com --compact agent | jq '.interactiveElements'
+```
+
+For more complex workflows, write a small script and run it with `npx tsx`:
+
+```typescript
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+await talox.launch('my-agent', 'ops');
+const state = await talox.navigate('https://example.com');
+console.log(JSON.stringify(state, null, 2));
+await talox.stop();
+```
+
+### Using with `mcp2cli`
+
+If an MCP server is your only option, use `mcp2cli` to bridge it to the CLI — keeping your agent context clean:
+
+```bash
+mcp2cli run talox-mcp -- talox_navigate --url https://example.com
+```
+
+### OpenAI function calling
+
+Talox can act as the backend for an OpenAI function-calling loop: the model decides when to ask Talox to navigate, click, or read state, and you just forward the structured result back into the prompt.
+
+```typescript
+import OpenAI from 'openai';
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+await talox.launch('openai-agent', 'ops');
+
+const completion = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: 'Visit https://example.com and tell me the hero heading.' }],
+  functions: [{
+    name: 'taloxNavigate',
+    description: 'Ask Talox to open a page and return the structured state',
+    parameters: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'Target URL' } },
+      required: ['url']
+    }
+  }],
+  function_call: { name: 'taloxNavigate' }
+});
+
+const args = JSON.parse(completion.choices?.[0].message?.function_call?.arguments ?? '{}');
+const state = await talox.navigate(args.url);
+console.log('OpenAI saw', state.title);
+await talox.stop();
+```
+
+Return the JSON blob directly to the model or feed slices (like `state.interactiveElements`) into observability prompts for iterative reasoning.
+
+### Claude / Anthropic prompts
+
+Anthropic-style prompts can read structured state just like a browser log. Capture Talox's contract, interpolate it into the natural-language prompt, and let Claude summarize the UI or choose the next step.
+
+```typescript
+import { Anthropic, HUMAN_PROMPT, AI_PROMPT } from '@anthropic-ai/sdk';
+import { TaloxController } from 'talox';
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const talox = new TaloxController('./profiles');
+await talox.launch('claude-agent', 'ops');
+
+const state = await talox.navigate('https://example.com');
+const prompt = `${HUMAN_PROMPT}Summarize the main heading and next action from this structured page state:${JSON.stringify(state, null, 2)}${AI_PROMPT}`;
+const response = await anthropic.responses.create({ model: 'claude-3.2', input: prompt });
+console.log('Claude answered', response.output[0].content[0].text);
+await talox.stop();
+```
+
+Claude can also choose when to request a takeover or escalate to headed mode by inspecting the same state blob.
+
+### Codex CLI wrapper
+
+Write a small script that uses `TaloxController`, then execute it with `npx codex run scripts/codex-talox.mjs` so Codex orchestrates Talox like any other skill.
+
+```typescript
+import { TaloxController } from 'talox';
+
+const talox = new TaloxController('./profiles');
+await talox.launch('codex-agent', 'ops');
+const state = await talox.navigate('https://example.com');
+console.log(JSON.stringify(state, null, 2));
+await talox.stop();
+```
+
+Codex can read the printed JSON, pass it into its function-calling loop, or pipe it into another skill for further analysis.
+
+### Local scripts & sidecars
+
+Talox profiles can hand off state to any local script, so you can shape the observability contract in Python, Rust, or whatever language your ops team prefers.
+
+```typescript
+import { TaloxController } from 'talox';
+import { spawn } from 'node:child_process';
+
+const talox = new TaloxController('./profiles');
+await talox.launch('local-agent', 'ops');
+const state = await talox.navigate('https://example.com');
+
+const exporter = spawn('python3', ['scripts/consume-state.py'], { stdio: ['pipe', 'inherit', 'inherit'] });
+exporter.stdin.write(JSON.stringify(state));
+exporter.stdin.end();
+await talox.stop();
+```
+
+Any local script that reads from stdin or a temporary file can pick apart `state.interactiveElements`, `state.bugs`, or `state.timings` before feeding the result back to another automation layer.
+
+---
+
 ## Key Capabilities
 
 - **Persistent browser profiles** — each agent gets its own isolated browser context with session continuity across runs
 - **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, full AX-tree perception active by default, no mode required
-- **Agent overlay with human takeover** — visual layer shows agent working (cyan glow, fake cursor trail, spinner), human can pause and take control anytime
-- **Synthetic mouse events** — OS cursor stays still during automation; Bezier paths render visually via fake cursor, only final click moves the real cursor
+- **Agent overlay with human takeover** — visual layer shows agent working (cyan glow), human can pause and take control anytime
+- **Human-paced mouse movement** — HumanMouse generates Bezier curves with Fitts's Law timing, jitter, and biomechanical easing for realistic interaction
 - **Structured state contract** — every action returns a single JSON object: AX-Tree, interactive elements, console, network, bugs, screenshots
 - **Deep observability** — full AX-Tree snapshots, console capture, network failure tracking, layout bug detection, visual regression
-- **Resilient interaction** — human-paced timing, self-healing selectors, semantic element resolution
-- **Session replay** — GhostVisualizer overlays interaction paths on screenshots for debugging
+- **Resilient interaction** — self-healing selectors, semantic element resolution, challenge detection and adaptation
+- **Session artifacts** — interaction timeline, screenshots, event log, annotations, and bug summaries for debugging
 - **Policy-as-code** — YAML-based action restrictions per profile
 - **LLM-native API** — 14 function-calling tools compatible with OpenAI, Claude, and other LLM APIs
 
@@ -108,25 +330,19 @@ When `settings.headed === true`, Talox automatically injects a visual overlay in
 
 **Agent Running (default)**
 - **Cyan pulsing glow** — 3px inset border with 2s breathing pulse animation around the viewport
-- **Fake cyan arrow cursor** — follows agent mouse path with a 12-point comet trail (fading points)
-- **Spinner ring** — orbits the cursor during `think()` or `fidget()` states
-- **Click animation** — cursor shrinks + ripple expands on every click
-- **Click blocker** — transparent overlay prevents accidental human interference
 - **"⏸ Take Over" button** — appears at bottom-center on mouse-enter, auto-hides after 5s idle
 
 **Human Takeover Active**
-- Glow off, cursor hidden, click-blocker removed
+- Glow off
 - **"▶ Resume Agent" button** — always visible in amber
-- Human browses freely — right-click context menu still available
+- Human browses freely
 - Optional timer countdown if `humanTakeoverTimeoutMs > 0`
-- On resume: cursor sweeps in from nearest screen edge with trail
 
 ### Technical Details
 
 - All overlay elements carry `aria-hidden="true"` — invisible to agent's AX-tree
 - Overlay is pure JavaScript, injected via `page.addInitScript()` (persists across navigations)
-- OS cursor only moves at the final click target — NOT during Bezier path traversal
-- Node.js ↔ browser communication via `page.exposeFunction('__taloxAgentBridge__', handler)`
+- Node.js ↔ browser communication via `page.exposeFunction('__taloxBridge__', handler)` and `__taloxCmd__` dispatcher
 
 ---
 
@@ -325,43 +541,6 @@ If you're on a low-memory VPS (< 1GB), set `PLAYWRIGHT_CHROMIUM_SANDBOX=0` as an
 
 ---
 
-## Quick Start
-
-```bash
-npm install talox
-```
-
-Or from source:
-
-```bash
-git clone https://github.com/AVANT-ICONIC/Talox.git
-cd Talox
-npm install   # automatically builds dist/
-```
-
-```typescript
-import { TaloxController } from 'talox';
-
-const talox = new TaloxController('./profiles', {
-  settings: { verbosity: 0 }  // silent by default
-});
-
-// Agent does everything with full stealth
-await talox.launch('agent-1', 'ops');
-const state = await talox.navigate('https://example.com');
-console.log(state.axTree);
-
-// Pull debug snapshot on demand
-talox.setVerbosity(2);
-const debugState = await talox.getDebugSnapshot();
-console.log(debugState.bugs);
-talox.setVerbosity(0);
-
-await talox.stop();
-```
-
----
-
 ## Observation Sessions
 
 Talox supports structured observation sessions where an AI agent or human can annotate issues in real-time as they explore:
@@ -417,6 +596,16 @@ if (checkoutState.console.errors.length > 0) {
 await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
 ```
 
+If you just want to launch an ad-hoc observe session, the bundled CLI makes it one command:
+
+```bash
+npx talox observe --profile my-observe-run --class qa --browser chromium --output-dir ./talox-sessions --format both
+```
+
+That command opens a headed Chromium session with the overlay + annotation buffer already armed, logs console/network errors, and writes JSON/Markdown reports. Run `talox observe --help` to tune the profile class, browser, verbosity, or report directory without touching code.
+
+Each session now lives inside its own subfolder under the configured output directory (default `talox-sessions/session-{id}-{timestamp}`). The folder contains `report.json`, `report.md`, `report.html`, `timeline.json`, `event-log.json`, `failures.json`, `diffs.json`, `bugs.json`, and `trace.json`, along with a `screenshots/` directory for before/after snapshots. The HTML report surfaces the timeline, event log, diffs, bug summaries, and artifact trace so you can understand why clicks, selectors, or adaptations behaved the way they did.
+
 This produces a Markdown report with every issue attached to the specific element where it was found — something impossible with traditional assertion-based tests.
 
 ---
@@ -425,10 +614,6 @@ This produces a Markdown report with every issue attached to the specific elemen
 
 - **AI agent browsing** — give your agent a persistent, stateful browser with structured output
 - **QA automation** — detect layout bugs, JS errors, and visual regressions automatically
-- **Debugging** — full observability into what the browser sees, with replay support
-- **Research workflows** — stateful sessions with session continuity and network recording
-- **Fragile UI automation** — human-paced interaction reduces flakiness on complex real-world interfaces
-- **Agent development** — structured JSON state makes it easy to build and test agent decision logic
 - **Observe-driven testing** — AI agent explores UI, annotates issues, generates PR-ready reports
 
 ---
@@ -449,25 +634,11 @@ This produces a Markdown report with every issue attached to the specific elemen
 
 ---
 
-## Harbor Integration
-
-Talox is the browser runtime layer. [Harbor](https://github.com/AVANT-ICONIC/Harbor) is the commercial control plane built on top of it.
-
-Talox Core handles: browser lifecycle, profile persistence, state collection, observability, and local agent interaction.
-
-Harbor handles: multi-agent orchestration, approvals, budgets, team governance, secrets management, and managed cloud operations.
-
-See [`docs/HARBOR-BOUNDARY.md`](./docs/HARBOR-BOUNDARY.md) for the full boundary definition.
-
----
-
 ## Licensing
 
 Talox Core is licensed under **AGPL-3.0-only**.
 
 This means: if you run a modified version of Talox as a networked service, you must make the source of your modifications available under the same license.
-
-Harbor and any other commercial layers built by AVANT ICONIC are separate products and are not part of this repository.
 
 If you need a commercial license for embedding Talox in a proprietary product, contact [office@avant-iconic.com](mailto:office@avant-iconic.com).
 

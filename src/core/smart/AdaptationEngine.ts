@@ -11,11 +11,12 @@
  */
 
 import type { TaloxPageState }         from '../../types/index.js';
-import type { TaloxEventMap }          from '../../types/events.js';
+import type { TaloxEventMap, AdaptationReason } from '../../types/events.js';
 import type { TaloxSettings }          from '../../types/settings.js';
 import type { EventBus }               from '../controller/EventBus.js';
 import { BotDetector }                 from './BotDetector.js';
 import { STRATEGIES, type AdaptationSideEffect } from './strategies.js';
+import { DomainMemory }               from './DomainMemory.js';
 
 // ─── AdaptationEngine ────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ export class AdaptationEngine {
   private settings:              TaloxSettings;
   private readonly eventBus:      EventBus<TaloxEventMap>;
   private readonly onEscalation: (() => Promise<void>) | undefined;
+  private readonly bypassEscalation: boolean;
 
   /** Tracks whether semantic self-healing is currently forced on. */
   private semanticHealingActive: boolean = false;
@@ -51,6 +53,9 @@ export class AdaptationEngine {
 
   private lastAdaptation: any = null;
 
+  /** Per-domain strategy outcome memory — shared across evaluate() calls. */
+  readonly domainMemory = new DomainMemory();
+
   private readonly userAgents: readonly string[] = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -63,11 +68,13 @@ export class AdaptationEngine {
     settings:      TaloxSettings,
     eventBus:      EventBus<TaloxEventMap>,
     onEscalation?: () => Promise<void>,
+    bypassEscalation = false,
   ) {
     this.detector     = new BotDetector();
     this.settings     = settings;
     this.eventBus     = eventBus;
     this.onEscalation = onEscalation;
+    this.bypassEscalation = bypassEscalation;
   }
 
   getLastAdaptation(): any {
@@ -83,12 +90,17 @@ export class AdaptationEngine {
    *
    * @param state - The `TaloxPageState` returned by the last interaction.
    */
-  async evaluate(state: TaloxPageState): Promise<void> {
+  async evaluate(state: TaloxPageState): Promise<boolean> {
     const reason = this.detector.detect(state);
-    if (!reason) return;
+    if (!reason) return false;
 
     const strategy = STRATEGIES[reason];
-    if (!strategy) return;
+    if (!strategy) return false;
+
+    if (this.shouldBypassEscalation(reason)) {
+      console.info(`[Talox Smart] Skipping auto escalation (${reason}) because bypass is enabled.`);
+      return false;
+    }
 
     const before = { ...this.settings };
 
@@ -126,10 +138,26 @@ export class AdaptationEngine {
       `[Talox Smart] Adapted: ${strategy.name} (${strategy.description})`,
     );
 
+    // Record outcome in domain memory (initial record = strategy fired, success TBD on next eval)
+    // A second evaluate() with no detection signal on the same URL = implicit success
+    this.domainMemory.record(state.url, strategy.name, false /* pending — updated on next clean eval */);
+
     // Handle side effects
     if (strategy.sideEffect) {
       await this.handleSideEffect(strategy.sideEffect);
     }
+
+    return true;
+  }
+
+  /**
+   * Record that the last applied strategy succeeded on `url`.
+   * Call this when an action completes without triggering a new bot-detection
+   * signal — it updates the domain memory EWMA for the previously fired strategy.
+   */
+  recordStrategySuccess(url: string): void {
+    if (!this.lastAdaptation?.strategy) return;
+    this.domainMemory.record(url, this.lastAdaptation.strategy, true);
   }
 
   /**
@@ -194,5 +222,9 @@ export class AdaptationEngine {
         console.warn('[Talox Smart] CAPTCHA detected — human intervention or solver required.');
         break;
     }
+  }
+
+  private shouldBypassEscalation(reason: AdaptationReason): boolean {
+    return this.bypassEscalation && (reason === 'blocker_unresolvable_headless' || reason === 'blocker_resolved');
   }
 }

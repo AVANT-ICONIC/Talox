@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-04-10
+
+### Breaking Changes
+
+- **Version bumped from 2.0.0** — major version signals significant architectural additions and public API surface changes since v2.
+
+### Added
+
+- **State Contract v1** — `TaloxPageState` frozen as a versioned public contract with compatibility policy. Every core action returns the full contract: AX tree, interactive elements, console errors, failed requests, visual artifacts, bug findings, and timing metadata.
+- **Compact state variants** — `getState('full')`, `getState('agent')`, `getState('debug')` for token-efficient LLM context. The `agent` variant targets >5x token reduction.
+- **Challenge Detection Engine** — `ChallengeDetector` classifies 10 challenge types: cloudflare, captcha, verification, login-wall, consent-wall, age-gate, maintenance, geo-block, rate-limited, empty-shell-spa.
+- **Challenge Resolver** — Local-only fallback flows: wait-and-settle, backoff-retry, auto-click-accept, wait-hydration per challenge type.
+- **Human takeover system** — Typed `TakeoverReason` union (`login-required`, `2fa-required`, `captcha-present`, `agent-uncertain`, `policy-blocked`, `challenge-unsolved`), timeout policies (wait forever, auto-resume, abort), and instant resume via `SessionSnapshot` capture/restore across browser restarts.
+- **Interaction reliability engine** — 9 failure-pattern recovery strategies (sticky headers, animated menus, delayed hydration, shifting buttons, modal stacks, nested scroll containers, iframe login boxes, React portals, virtualized lists).
+- **Perception layer** — `PerceptionStack` with cheap/medium/heavy presets and session-level caching.
+- **Observation mode** — One-command `talox observe` CLI. Generates per-session reports with timeline, screenshots, event log, console/network failures, annotations, DOM/AX diffs, and bug summaries in JSON/MD/HTML.
+- **Adaptation engine with domain memory** — `DomainMemory` with EWMA per-hostname strategy scoring. `AdaptationEngine` learns which interaction strategies work per domain.
+- **Self-healing selectors** — `SelfHealingSelector` tracks selector success rates and adapts broken selectors automatically.
+- **Vision gate** — `VisionGate` for visual regression baselines, structural change detection, and OCR text extraction.
+- **Session snapshot** — `SessionSnapshot` captures full browser state (cookies, localStorage, sessionStorage, scroll position, viewport) for instant state restore.
+- **Policy engine** — Allowlist/blocklist URL guard with `PolicyEngine`.
+- **Profile vault** — Persistent browser profiles via `ProfileVault`.
+- **CLI** — `npx talox` CLI with `observe` command, preset selection, and browser lab mode.
+- **Practical tools** — Download, wait, text extraction utilities in `src/tools/practical-tools.ts`.
+- **Built-in presets** — `research`, `qa`, `gaming`, `browser-lab` profiles.
+- **Semantic mapper** — AX-tree to structured semantic output via `SemanticMapper`.
+- **Rules engine** — Per-domain interaction rules via `RulesEngine`.
+- **Network mocker** — Request interception for testing via `NetworkMocker`.
+- **Ghost visualizer** — Debug PNG overlay generator for forensic analysis.
+- **Artifact builder** — Session artifact assembly with trace capture.
+- **State diffs** — `TaloxStateDiff` type and `diffPageState()` pure function attached as `state.diff` on every action.
+- **Compatibility policy** — `docs/TALOX-CONTRACTS.md` defines rules for `TaloxPageState` schema evolution.
+- **AGENTS.md** — Agent-friendly project guide with structure, key concepts, and code health commands.
+- **243 unit tests** across 14 test files, plus 94 browser integration tests across 16 files.
+
+### Changed
+
+- **CI modernized** — Node 22, separate lint+typecheck job, Playwright browsers installed for integration tests, 120s timeout for browser tests.
+- **Test infrastructure** — Vitest workspace with separate configs for fast unit tests (5s timeout) and browser integration tests (120s timeout).
+- **Build** — Zero TypeScript errors on strict mode.
+
+### Fixed
+
+- **`BrowserManager.ts` context tracking bug** — Close event handler had `this.context === this.context` (always true). Now correctly uses captured context reference to detect stale handles.
+- **`BrowserManager.ts` fallback launch resource leak** — Fallback browser launch path never attached close handler, causing context registry leaks.
+- **Dead import `ModeManager`** — Removed all references to deleted `ModeManager` module in test files.
+- **Stale CI branches** — Removed `experimental/real-world-tests` and `talox-harbor` from workflow triggers, added `v3`.
+
+---
+
 ## [2.0.0] - 2026-03-20
 
 ### Breaking Changes
@@ -222,6 +272,5 @@ src/
 - Adaptive density awareness based on UI element density
 - `src/schema/TaloxPageState.schema.json` — machine-readable JSON Schema
 - `llms.txt` — flat file for LLM/agent consumption of the full API
-- `docs/HARBOR-BOUNDARY.md` — defines Talox Core vs Harbor commercial split
 - `.github/` — issue templates, PR template, CI workflow
 - `CODE_OF_CONDUCT.md` — Contributor Covenant

@@ -30,14 +30,14 @@ test.describe('Scenario 4 — X.com bot-detection stress test', () => {
 
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-x-'));
-    talox = new TaloxController(profileDir);
+    talox = new TaloxController(profileDir, { mode: 'smart' });
 
     talox.on('adapted', (e) => {
       console.log(`[adapted] reason=${e.reason} strategy=${e.strategy}`);
       adaptedEvents.push(e);
     });
 
-    await talox.launch('x-stress', 'sandbox', 'smart', 'chromium', { headed: true });
+    await talox.launch('x-stress', 'sandbox', 'chromium');
   });
 
   test.afterAll(async () => {

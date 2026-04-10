@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, experimental/real-world-tests, talox-harbor]
+    branches: [main, v3]
   pull_request:
-    branches: [main, talox-harbor]
+    branches: [main, v3]
   # Real-world tests run nightly to avoid rate limits on every push.
   # They can also be triggered manually via workflow_dispatch.
   schedule:
@@ -17,21 +17,43 @@ on:
         default: ''
 
 jobs:
-  # ─── Unit tests — runs on every push / PR ────────────────────────────────────
-  unit:
-    name: Unit Tests
+  # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
+  lint-typecheck:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  # ─── Unit tests — runs on every push / PR ────────────────────────────────────
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
           cache: npm
 
       - run: npm ci
 
       - run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
       - name: Run unit tests
         run: npm test
@@ -50,7 +72,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci

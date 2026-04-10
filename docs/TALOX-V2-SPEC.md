@@ -269,7 +269,7 @@ const DEFAULT_SETTINGS: TaloxSettings = {
 | `ModeManager` class | Folds into constructor defaults. |
 | `CANONICAL_MODES`, `DEPRECATED_MODE_MAP`, `resolveMode()` | Gone with modes. |
 | `MODE_PRESETS` | Gone with modes. |
-| Agent-First 6-dimension model (WIP on `talox-harbor`) | Right problem, wrong solution. Defaults fix it instead. |
+| Agent-First 6-dimension model (WIP) | Right problem, wrong solution. Defaults fix it instead. |
 | `speed` mode | If you want raw Playwright, use Playwright. Talox is always full-human. |
 | `perceptionDepth: 'shallow'` | Was only for speed mode. Gone. |
 | `shouldEmitBugDetected()`, `isSpeedMode()`, etc. | Mode-query methods. Gone. |
@@ -305,23 +305,19 @@ TaloxController (public API + takeover state machine)
 
 ## Branch Unification Strategy
 
-### Cherry-picks into `v2` (base: `main`)
+### Commits integrated into `main`
 
-| Commit | From branch | What it fixes |
-|---|---|---|
-| `5b34212` | `bug-investigation/talox-tests` | Stealth browser + mouse movement in smart mode |
-| `d6df906` | `talox-harbor` | Observe overlay session controls |
-| `1accc29` | `talox-harbor` | Overlay injection idempotent |
-| `9807f88` or `88d57f3` | `talox-harbor` | Overlay end events (pick one — they diverged) |
-| `3b51b76`, `cced2c6` | `talox-harbor` | CI configs |
-| TBD | `experimental/real-world-tests` | Headed mode support, auto-escalation logic, Cloudflare bypass patterns |
+| What it fixes |
+|---|
+| Stealth browser + mouse movement in smart mode |
+| Observe overlay session controls |
+| Overlay injection idempotent |
+| Overlay end events routing |
+| CI configs |
+| Headed mode support, auto-escalation logic, Cloudflare bypass patterns |
 
-### Read first, decide
-- `test-extension` — unknown, read before deciding
-- `automation/overnight-audit-*` — read, likely discard
-
-### Discard
-- All uncommitted Agent-First changes on `talox-harbor` (the WIP on ModeManager/TaloxController/types)
+### Discarded
+- Agent-First 6-dimension model (ModeManager/TaloxController rewrite) — right problem, wrong solution
 - `speed` mode concept
 
 ---

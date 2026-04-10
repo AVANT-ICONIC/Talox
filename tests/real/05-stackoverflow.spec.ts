@@ -3,14 +3,11 @@
  * @description Scenario 5 — Stack Overflow: Known bot-detection + real content navigation.
  *
  * Stack Overflow uses Cloudflare Turnstile and aggressive bot detection.
- * We launch in **headed smart mode** with full ghost interaction to pass the
- * Cloudflare JS challenge. This is the exact use case for:
+ * We launch in smart mode with full ghost interaction.
  *   - `smart` mode: stealth UA, WebGL spoofing, fingerprint noise
- *   - `headed: true`: real visible browser (Cloudflare checks for this)
  *   - `talox.think()`: ghost mouse movements that prove human interaction
  *
- * Navigate calls are still wrapped in try/catch — some environments
- * (e.g. CI without Xvfb) can't run headed mode and will soft-fail.
+ * Navigate calls are wrapped in try/catch — CF blocks are soft-fails.
  *
  * Tests:
  * - Navigate a Stack Overflow question page with headed ghost interaction
@@ -18,7 +15,7 @@
  * - findElement() locates the answer input or vote buttons
  * - Adapted events documented
  *
- * Mode: smart + headed
+ * Mode: smart (headless)
  */
 
 import { test, expect } from '@playwright/test';
@@ -40,16 +37,14 @@ test.describe('Scenario 5 — Stack Overflow real content extraction', () => {
 
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-so-'));
-    talox = new TaloxController(profileDir);
+    talox = new TaloxController(profileDir, { mode: 'smart' });
 
     talox.on('adapted', (e) => {
       console.log(`[adapted] reason=${e.reason} strategy=${e.strategy}`);
       adaptedEvents.push(e);
     });
 
-    // headed: true — Cloudflare's JS challenge requires a real visible browser.
-    // Ghost mouse movements (talox.think()) prove human interaction to CF Turnstile.
-    await talox.launch('stackoverflow', 'sandbox', 'smart', 'chromium', { headed: true });
+    await talox.launch('stackoverflow', 'sandbox', 'chromium');
   });
 
   test.afterAll(async () => {

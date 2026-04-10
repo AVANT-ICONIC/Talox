@@ -40,6 +40,7 @@ export class OverlayInjector {
   private readonly eventBus:     EventBus<TaloxEventMap>;
   private readonly interactions: TaloxInteraction[];
   private readonly onSessionEndRequest: (() => Promise<void>) | undefined;
+  private readonly onInteraction: ((interaction: TaloxInteraction) => Promise<void>) | undefined;
   private readonly bridgeInstalledPages = new WeakSet<object>();
   private readonly injectedPages = new WeakSet<object>();
 
@@ -49,6 +50,7 @@ export class OverlayInjector {
     annotBuffer:  AnnotationBuffer,
     eventBus:     EventBus<TaloxEventMap>,
     interactions: TaloxInteraction[],
+    onInteraction?: (interaction: TaloxInteraction) => Promise<void>,
     onSessionEndRequest?: () => Promise<void>,
   ) {
     this.sessionId    = sessionId;
@@ -56,6 +58,7 @@ export class OverlayInjector {
     this.annotBuffer  = annotBuffer;
     this.eventBus     = eventBus;
     this.interactions = interactions;
+    this.onInteraction = onInteraction;
     this.onSessionEndRequest = onSessionEndRequest;
   }
 
@@ -125,7 +128,7 @@ export class OverlayInjector {
    * Routes events received from the browser overlay to the appropriate
    * session handlers and emits typed events on the shared EventBus.
    */
-  private handleBridgeEvent(type: string, payload: unknown): void {
+  private async handleBridgeEvent(type: string, payload: unknown): Promise<void> {
     switch (type) {
 
       case 'annotation:add': {
@@ -150,12 +153,16 @@ export class OverlayInjector {
       }
 
       case 'interaction:click': {
-        const interaction = payload as TaloxInteraction;
-        this.interactions.push({
-          ...interaction,
+        const interaction = {
+          ...(payload as TaloxInteraction),
           consoleErrors:   [],
           networkFailures: [],
-        });
+        };
+        if (this.onInteraction) {
+          await this.onInteraction(interaction);
+        } else {
+          this.interactions.push(interaction);
+        }
         break;
       }
 

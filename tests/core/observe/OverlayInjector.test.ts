@@ -12,10 +12,11 @@ describe('OverlayInjector', () => {
       new AnnotationBuffer(),
       new EventBus(),
       [],
+      undefined,
       onSessionEndRequest,
     );
 
-    (injector as any).handleBridgeEvent('session:end', {});
+    await (injector as any).handleBridgeEvent('session:end', {});
     await Promise.resolve();
     await Promise.resolve();
 
@@ -29,6 +30,7 @@ describe('OverlayInjector', () => {
       new AnnotationBuffer(),
       new EventBus(),
       [],
+      undefined,
     );
 
     const page = {

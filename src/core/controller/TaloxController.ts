@@ -41,12 +41,16 @@ import type {
   VisualDiffResult,
   TaloxNode,
   TaloxBug,
+  CompactVariant,
+  AgentPageState,
+  DebugPageState,
 } from '../../types/index.js';
-import type { TaloxEventMap, TaloxEventType, TaloxEvent } from '../../types/events.js';
+import { compactState } from '../../types/index.js';
+import type { TaloxEventMap, TaloxEventType, TaloxEvent, TakeoverSummary } from '../../types/events.js';
 import type { ObserveSessionOptions }     from '../../types/session.js';
 import type { BrowserType }              from '../BrowserManager.js';
 import type { TaloxConfig }              from '../../types/config.js';
-import type { TaloxSettings }            from '../../types/settings.js';
+import type { TaloxSettings, LegacyTaloxMode } from '../../types/settings.js';
 
 import { EventBus }                      from './EventBus.js';
 import { ActionExecutor }                from './ActionExecutor.js';
@@ -55,7 +59,9 @@ import { TakeoverBridge }               from './TakeoverBridge.js';
 import { AdaptationEngine }              from '../smart/AdaptationEngine.js';
 import { PageStateCollector }           from '../PageStateCollector.js';
 import { SemanticMapper }                from '../SemanticMapper.js';
-import { DEFAULT_SETTINGS }              from '../../types/settings.js';
+import { ChallengeDetector }            from '../ChallengeDetector.js';
+import type { ChallengeState }          from '../ChallengeDetector.js';
+import { DEFAULT_SETTINGS, resolveLegacyMode } from '../../types/settings.js';
 
 export type { AttentionFrame }           from './SessionManager.js';
 export type { MovementStyle, TypingRhythm, AccelerationCurve } from './ActionExecutor.js';
@@ -80,11 +86,12 @@ export interface DebugSnapshot {
  * is a thin coordination layer with no embedded logic.
  */
 export class TaloxController {
-  readonly _events:  EventBus<TaloxEventMap>;
-  readonly _actions: ActionExecutor;
-  readonly _session: SessionManager;
-  readonly _adapt:   AdaptationEngine;
-  readonly _takeover: TakeoverBridge;
+  readonly _events:    EventBus<TaloxEventMap>;
+  readonly _actions:   ActionExecutor;
+  readonly _session:   SessionManager;
+  readonly _adapt:     AdaptationEngine;
+  readonly _takeover:  TakeoverBridge;
+  readonly _challenge: ChallengeDetector;
 
   settings: TaloxSettings;
 
@@ -98,9 +105,25 @@ export class TaloxController {
 
   private takeoverState: 'AGENT_RUNNING' | 'WAITING_FOR_HUMAN' = 'AGENT_RUNNING';
   private autoResumeTimer: NodeJS.Timeout | null = null;
+  private takeoverHistory: TakeoverSummary[] = [];
+  private observing: boolean;
 
   constructor(baseDir: string = '.', config: TaloxConfig = {}) {
-    this.settings = { ...DEFAULT_SETTINGS, ...config.settings };
+    // Start with defaults, then apply legacy mode if specified, then apply explicit settings
+    let mergedSettings: TaloxSettings = { ...DEFAULT_SETTINGS };
+    
+    // Handle legacy mode mapping (v1 → v2 compatibility layer)
+    if (config.mode) {
+      const legacySettings = resolveLegacyMode(config.mode);
+      mergedSettings = { ...mergedSettings, ...legacySettings };
+    }
+    
+    // Apply explicit settings overrides
+    if (config.settings) {
+      mergedSettings = { ...mergedSettings, ...config.settings };
+    }
+    
+    this.settings = mergedSettings;
 
     if (config.humanTakeover !== undefined) {
       if (typeof config.humanTakeover === 'boolean') {
@@ -123,18 +146,21 @@ export class TaloxController {
       this.settings.headed = true;
     }
 
-    this._events   = new EventBus<TaloxEventMap>();
+    this._events     = new EventBus<TaloxEventMap>();
+    this._challenge  = new ChallengeDetector();
     this._session = new SessionManager(this.settings, this._events, baseDir);
     this._takeover = new TakeoverBridge(
       this._events,
       this.settings.humanTakeoverTimeoutMs,
     );
+    this.observing = Boolean(config.observe);
     this._adapt   = new AdaptationEngine(this.settings, this._events, async () => {
       const page = this._session.getPlaywrightPage();
       if (page) {
         await this._session.injectStealthScripts(page);
       }
-    });
+    }, this.observing);
+    this.attachTakeoverListeners();
 
     this._actions = new ActionExecutor(
       this.settings,
@@ -152,7 +178,7 @@ export class TaloxController {
       (sel) => this.findElementInFrame(sel),
       undefined,
       () => this._session.recordActivity(),
-      () => this._takeover.getCursorStepCallback(),
+      undefined, // fake cursor removed
     );
   }
 
@@ -206,6 +232,13 @@ export class TaloxController {
    * Close the browser and finalise any active observe session.
    */
   async stop(): Promise<void> {
+    // Persist accumulated takeover history as a final artifact entry
+    if (this.takeoverHistory.length > 0) {
+      this._session.artifactBuilder.addAction('takeoverHistorySummary', {
+        count: this.takeoverHistory.length,
+        history: this.takeoverHistory,
+      });
+    }
     await this._session.stop();
   }
 
@@ -227,26 +260,58 @@ export class TaloxController {
       this._session.rulesEngine,
     );
     this._session.lastState = state;
-    await this._adapt.evaluate(state);
+    const adapted = await this._adapt.evaluate(state);
+    if (!adapted) this._adapt.recordStrategySuccess(state.url);
     return state;
   }
 
   /**
    * Collect and return the current page state without navigating.
    * Runs the rules engine over the result so `state.bugs` is populated.
-   * Use this after `navigate()` when you need a fresh snapshot mid-test.
+   *
+   * Pass an optional `variant` to get a compact representation:
+   * - `'full'`  — full `TaloxPageState` (default)
+   * - `'agent'` — minimal LLM-friendly view (url, title, interactiveElements, consoleErrors, bugs)
+   * - `'debug'` — forensics view (url, title, full nodes, console, network, bugs)
    */
-  async getState(): Promise<TaloxPageState> {
+  async getState(): Promise<TaloxPageState>;
+  async getState(variant: 'full'): Promise<TaloxPageState>;
+  async getState(variant: 'agent'): Promise<AgentPageState>;
+  async getState(variant: 'debug'): Promise<DebugPageState>;
+  async getState(variant?: CompactVariant): Promise<TaloxPageState | AgentPageState | DebugPageState> {
     const state = await this._session.getActiveStateCollector().collect();
     state.bugs.push(...this._session.rulesEngine.analyze(state));
     this._session.lastState = state;
-    return state;
+    if (!variant || variant === 'full') return state;
+    return compactState(state, variant as any);
+  }
+
+  /**
+   * Analyze the current page for human-meaningful obstacles (CAPTCHA, login wall,
+   * Cloudflare challenge, consent wall, etc.) and return a structured `ChallengeState`.
+   *
+   * Unlike `BotDetector` (which drives internal stealth adaptation), this method
+   * surfaces challenge types that the *agent* needs to act on — e.g. request human
+   * takeover, click "Accept cookies", or wait for SPA hydration.
+   *
+   * @example
+   * ```ts
+   * const challenge = await talox.getChallengeState();
+   * if (challenge.primaryChallenge?.requiresHuman) {
+   *   await talox.requestHumanTakeover(challenge.primaryChallenge.suggestedTakeoverReason);
+   * }
+   * ```
+   */
+  async getChallengeState(): Promise<ChallengeState> {
+    const state = this._session.lastState ?? await this.getState();
+    return this._challenge.analyze(state);
   }
 
   /** Click an element by CSS selector. Self-heals on failure. */
   async click(selector: string): Promise<TaloxPageState> {
     const state = await this._actions.click(selector);
-    await this._adapt.evaluate(state);
+    const adapted = await this._adapt.evaluate(state);
+    if (!adapted) this._adapt.recordStrategySuccess(state.url);
     return state;
   }
 
@@ -367,6 +432,28 @@ export class TaloxController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SAFE MODE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Enable or disable deterministic safe mode.
+   *
+   * Safe mode disables all human simulation — no jitter, no random delays,
+   * no typos, raw direct Playwright clicks. Use it when testing your own
+   * application and you want fast, predictable, bit-identical interactions.
+   * Opposite of biomechanical mode.
+   *
+   * @param enabled  - `true` to enable safe mode, `false` to restore normal mode.
+   */
+  setSafeMode(enabled: boolean): void {
+    this.settings.safeMode = enabled;
+  }
+
+  isSafeMode(): boolean {
+    return this.settings.safeMode;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // HUMAN TAKEOVER STATE MACHINE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -412,6 +499,28 @@ export class TaloxController {
 
   getTakeoverState(): 'AGENT_RUNNING' | 'WAITING_FOR_HUMAN' {
     return this.takeoverState;
+  }
+
+  getTakeoverHistory(): TakeoverSummary[] {
+    return [...this.takeoverHistory];
+  }
+
+  private attachTakeoverListeners(): void {
+    this._events.on('humanTakeoverRequested', (payload) => this.recordTakeoverRequest(payload));
+    this._events.on('agentResumed', (payload) => this.recordTakeoverResume(payload));
+  }
+
+  private recordTakeoverRequest(payload: TaloxEventMap['humanTakeoverRequested']): void {
+    this._session.artifactBuilder.addAction('takeoverRequested', payload);
+  }
+
+  private recordTakeoverResume(payload: TaloxEventMap['agentResumed']): void {
+    if (payload.summary) {
+      this.takeoverHistory.push(payload.summary);
+      this._session.artifactBuilder.addAction('takeoverResumed', payload.summary);
+    } else {
+      this._session.artifactBuilder.addAction('takeoverResumed', payload);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

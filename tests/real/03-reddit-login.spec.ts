@@ -33,8 +33,8 @@ test.describe('Scenario 3 — Reddit authenticated session', () => {
   test.beforeAll(async () => {
     if (!creds) return;
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-reddit-login-'));
-    talox = new TaloxController(profileDir);
-    await talox.launch('reddit-login', 'ops', 'smart', 'chromium', { headed: true });
+    talox = new TaloxController(profileDir, { mode: 'smart' });
+    await talox.launch('reddit-login', 'ops', 'chromium');
   });
 
   test.afterAll(async () => {

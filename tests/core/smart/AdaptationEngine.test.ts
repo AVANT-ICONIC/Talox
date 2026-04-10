@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { EventBus }          from '../../../src/core/controller/EventBus';
-import { ModeManager }       from '../../../src/core/controller/ModeManager';
-import { AdaptationEngine }  from '../../../src/core/smart/AdaptationEngine';
+import { EventBus } from '../../../src/core/controller/EventBus';
+import { AdaptationEngine } from '../../../src/core/smart/AdaptationEngine';
+import { DEFAULT_SETTINGS, resolveLegacyMode } from '../../../src/types/settings';
 
 function makePageState(overrides: Partial<any> = {}): any {
   return {
@@ -19,10 +19,13 @@ function makePageState(overrides: Partial<any> = {}): any {
 }
 
 function makeEngine(mode: string = 'smart') {
-  const bus  = new EventBus();
-  const mgr  = new ModeManager(bus as any, mode as any);
-  const eng  = new AdaptationEngine(mgr, bus as any);
-  return { bus, mgr, eng };
+  const bus = new EventBus();
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...resolveLegacyMode(mode as any),
+  };
+  const eng = new AdaptationEngine(settings, bus as any);
+  return { bus, settings, eng };
 }
 
 describe('AdaptationEngine', () => {
@@ -36,23 +39,22 @@ describe('AdaptationEngine', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('auto-escalates to smart mode in debug mode when hard block detected', async () => {
-    const { bus, eng } = makeEngine('debug');
+  it('emits the captcha adaptation in debug mode without the old mode escalation path', async () => {
+    const { bus, settings, eng } = makeEngine('debug');
     const handler = vi.fn();
     bus.on('adapted' as any, handler);
 
-    // CAPTCHA in title triggers auto-escalation
     await eng.evaluate(makePageState({ title: 'Just a moment...' }));
 
     expect(handler).toHaveBeenCalledOnce();
     const payload = handler.mock.calls[0][0];
     expect(payload.reason).toBe('captcha_detected');
-    expect(payload.strategy).toBe('auto_escalated_to_smart');
-    expect(eng.wasEscalated()).toBe(true);  // first read: escalation happened
-    expect(eng.wasEscalated()).toBe(false); // second read: flag was reset
+    expect(payload.strategy).toBe('captcha_pause');
+    expect(settings.automaticThinkingEnabled).toBe(false);
+    expect(eng.wasEscalated()).toBe(false);
   });
 
-  it('auto-escalates to smart mode in speed mode when hard block detected', async () => {
+  it('emits the captcha adaptation in speed mode without the old mode escalation path', async () => {
     const { bus, eng } = makeEngine('speed');
     const handler = vi.fn();
     bus.on('adapted' as any, handler);
@@ -60,7 +62,7 @@ describe('AdaptationEngine', () => {
     await eng.evaluate(makePageState({ title: 'Just a moment...' }));
     expect(handler).toHaveBeenCalledOnce();
     const payload = handler.mock.calls[0][0];
-    expect(payload.strategy).toBe('auto_escalated_to_smart');
+    expect(payload.strategy).toBe('captcha_pause');
   });
 
   it('emits "adapted" event in smart mode when CAPTCHA detected', async () => {
@@ -91,18 +93,14 @@ describe('AdaptationEngine', () => {
     expect(handler.mock.calls[0][0].reason).toBe('rate_limit');
   });
 
-  it('patches ModeManager settings when adapting', async () => {
-    const { mgr, eng } = makeEngine('smart');
-    const before = mgr.getSettings().mouseSpeed;
+  it('patches settings directly when adapting', async () => {
+    const { settings, eng } = makeEngine('smart');
+    const before = settings.automaticThinkingEnabled;
 
     await eng.evaluate(makePageState({ title: 'Just a moment...' }));
 
-    // captcha_detected strategy should apply a settings patch
-    const after = mgr.getSettings();
-    // Settings object should be different from raw defaults
-    expect(after).toBeDefined();
-    // The engine should have called updateSettings — at minimum it ran without error
-    expect(typeof after.mouseSpeed).toBe('number');
+    expect(before).toBe(true);
+    expect(settings.automaticThinkingEnabled).toBe(false);
   });
 
   it('isSemanticHealingActive() starts false', () => {
@@ -124,5 +122,15 @@ describe('AdaptationEngine', () => {
     expect(typeof ua1).toBe('string');
     expect(ua1.includes('Mozilla')).toBe(true);
     expect(ua1).not.toBe(ua2); // rotation advances
+  });
+
+  it('patches rate-limit settings directly', async () => {
+    const { settings, eng } = makeEngine('smart');
+    await eng.evaluate(makePageState({
+      network: { failedRequests: [{ url: '/api', status: 429 }] },
+    }));
+
+    expect(settings.mouseSpeed).toBe(0.4);
+    expect(settings.idleTimeout).toBe(15000);
   });
 });

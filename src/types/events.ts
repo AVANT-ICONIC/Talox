@@ -4,27 +4,6 @@
  *
  * Each key in `TaloxEventMap` is an event name; its value is the exact payload
  * type for that event. This gives TypeScript full inference through `EventBus<TaloxEventMap>`.
- *
- * ### Event emission rules by mode
- *
- * | Event              | smart | speed | debug | observe |
- * |--------------------|-------|-------|-------|---------|
- * | `navigation`       |   ✅  |  ✅   |  ✅   |   ✅    |
- * | `stateChanged`     |   ✅  |  ✅   |  ✅   |   —     |
- * | `modeChanged`      |   ✅  |  ✅   |  ✅   |   ✅    |
- * | `error`            |   ✅  |  ✅   |  ✅   |   ✅    |
- * | `consoleError`     |   —   |  —    |  ✅   |   ✅    |
- * | `consoleWarning`   |   —   |  —    |  ✅   |   —     |
- * | `consoleLog`       |   —   |  —    |  ✅   |   —     |
- * | `networkError`     |   —   |  —    |  ✅   |   ✅    |
- * | `bugDetected`      |   —   |  —    |  ✅   |   —     |
- * | `adapted`          |   ✅  |  —    |  —    |   —     |
- * | `annotationAdded`  |   —   |  —    |  —    |   ✅    |
- * | `annotationUndone` |   —   |  —    |  —    |   ✅    |
- * | `sessionEnd`       |   —   |  —    |  —    |   ✅    |
- *
- * Events not listed as emitted in a given mode are still **collected** into
- * `TaloxPageState` — they are simply not broadcast as events.
  */
 
 import type { TaloxSettings } from './settings.js';
@@ -107,6 +86,38 @@ export interface AnnotationUndoneEvent {
   bufferSize: number;
 }
 
+// ─── Human Takeover ──────────────────────────────────────────────────────────
+
+/**
+ * Semantic reason why agent control was handed to a human.
+ * Use these instead of raw strings so callers can switch/match exhaustively.
+ */
+export type TakeoverReason =
+  | 'login-required'     // Page requires credentials the agent doesn't have
+  | '2fa-required'       // Two-factor / OTP step reached
+  | 'captcha-present'    // Unsolved CAPTCHA blocking progress
+  | 'agent-uncertain'    // Agent confidence too low to proceed safely
+  | 'policy-blocked'     // Action blocked by session policy
+  | 'challenge-unsolved' // Bot-detection challenge the agent cannot handle
+  | 'manual';            // Developer or test explicitly requested takeover
+
+/**
+ * Summary generated after a human takeover completes.
+ * Attached to the `agentResumed` event so the agent can orient itself.
+ */
+export interface TakeoverSummary {
+  /** Why the takeover was triggered. */
+  reason: TakeoverReason | string;
+  /** ISO timestamp when takeover was requested. */
+  startedAt: string;
+  /** ISO timestamp when agent resumed. */
+  resumedAt: string;
+  /** Duration of the takeover in milliseconds. */
+  durationMs: number;
+  /** Whether the takeover ended via timeout (true) or human action (false). */
+  timedOut: boolean;
+}
+
 // ─── Talox Event Map ─────────────────────────────────────────────────────────
 
 /**
@@ -173,9 +184,9 @@ export interface TaloxEventMap {
   /** Fired when verbosity level is changed via `setVerbosity()`. */
   verbosityChanged: { level: 0 | 1 | 2 | 3 };
   /** Fired when human takeover is requested. */
-  humanTakeoverRequested: { reason?: string; timestamp: string };
+  humanTakeoverRequested: { reason?: TakeoverReason | string; timestamp: string };
   /** Fired when agent resumes after human takeover. */
-  agentResumed: { reason: 'timeout' | 'manual' };
+  agentResumed: { reason: 'timeout' | 'manual'; summary?: TakeoverSummary };
   /** Fired when Talox auto-escalates from headless to headed mode. */
   headedEscalation: { reason: string; previousMode: 'headless' | 'headed' };
   /** Fired when Talox returns to headless mode after headed escalation. */

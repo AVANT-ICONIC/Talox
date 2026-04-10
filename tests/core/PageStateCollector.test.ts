@@ -4,12 +4,22 @@ import { BrowserManager } from '../../src/core/BrowserManager';
 import { ProfileVault } from '../../src/core/ProfileVault';
 import path from 'path';
 
+function isMissingBrowserError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Browser launch failed');
+}
+
 describe('PageStateCollector', () => {
   it('should collect basic page state', async () => {
     const vault = new ProfileVault(path.join(__dirname, '../temp-profiles'));
     const profile = await vault.createProfile('test-state', 'sandbox', 'State test');
     const manager = new BrowserManager();
-    const context = await manager.launch(profile);
+    let context;
+    try {
+      context = await manager.launch(profile);
+    } catch (error) {
+      if (isMissingBrowserError(error)) return;
+      throw error;
+    }
     const page = await context.newPage();
     await page.goto('about:blank');
     

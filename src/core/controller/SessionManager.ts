@@ -28,6 +28,7 @@ import { VisionGate } from '../VisionGate.js';
 import { PolicyEngine } from '../PolicyEngine.js';
 import { HumanMouse } from '../HumanMouse.js';
 import { ObserveSession } from '../observe/ObserveSession.js';
+import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from '../SessionSnapshot.js';
 
 export class SessionManager {
   readonly browserManager: BrowserManager;
@@ -50,6 +51,8 @@ export class SessionManager {
   private lastActivityTimestamp: number = 0;
   private isAutoThinkingActive: boolean = false;
 
+  /** Saved before a headed/headless browser restart so the new session can restore it. */
+  private pendingSnapshot: SessionSnapshot | null = null;
   private selectedUserAgent: string | null = null;
   private webglInfo: { vendor: string; renderer: string } | null = null;
 
@@ -121,6 +124,11 @@ export class SessionManager {
     }
 
     launchOptions.viewport = { width, height };
+    
+    // Support native video recording
+    if ((resolvedOpts as any).recordVideo) {
+      launchOptions.recordVideo = (resolvedOpts as any).recordVideo;
+    }
 
     const context = await this.browserManager.launch(this.profile, this.settings.headed, browserType, launchOptions);
     const page = await context.newPage();
@@ -138,7 +146,7 @@ export class SessionManager {
     const needsSession = resolvedOpts.overlay === true || resolvedOpts.record === true;
 
     if (needsSession) {
-      this.observeSession = new ObserveSession(page, context, this.events, resolvedOpts);
+      this.observeSession = new ObserveSession(page, context, this.events, resolvedOpts, this.artifactBuilder);
       await this.observeSession.start();
     }
 
@@ -157,22 +165,82 @@ export class SessionManager {
     }
   }
 
-  // ─── Headed Mode ─────────────────────────────────────────────────────────────
+  // ─── Headed Mode Escalation ───────────────────────────────────────────────────
 
+  /**
+   * Switch between headless and headed mode with full session preservation.
+   *
+   * Flow:
+   * 1. Capture cookies, localStorage, sessionStorage, URL, and scroll position
+   *    from the current page before the browser is closed.
+   * 2. Close the current browser context.
+   * 3. Relaunch with the new `headed` setting (using the same profile).
+   * 4. Restore the captured session snapshot onto the fresh page.
+   *
+   * Observe-mode bypass: if `this.settings.observeBypass` is true the escalation
+   * is skipped (handled by AdaptationEngine before this point).
+   */
   async setHeadedMode(headed: boolean): Promise<void> {
     const context = this.browserManager.getContext();
-    if (!context) return;
-    
-    const page = this.getPage();
-    if (!page) return;
+    const page    = this.getPage();
+    const profile = this.profile;
 
-    if (headed) {
-      await page.evaluate(() => {
-        const style = document.createElement('style');
-        style.textContent = 'body { background: #1a1a2e; }';
-        document.head.appendChild(style);
-      });
+    // Nothing to do if browser isn't running or headed state is unchanged
+    if (!context || !page || !profile) return;
+    if (this.settings.headed === headed) return;
+
+    // 1. Capture session before teardown
+    let snapshot: SessionSnapshot | null = null;
+    try {
+      snapshot = await captureSessionSnapshot(page, context);
+      this.pendingSnapshot = snapshot;
+    } catch {
+      // Snapshot failure is non-fatal — we'll lose state but the browser will restart
     }
+
+    this.artifactBuilder.addAction('headedModeChange', {
+      from: this.settings.headed ? 'headed' : 'headless',
+      to:   headed ? 'headed' : 'headless',
+      url:  snapshot?.url ?? 'unknown',
+      timestamp: new Date().toISOString(),
+    });
+
+    // 2. Close the current browser
+    this.stopAutoThinking();
+    await this.browserManager.close();
+    this.pages = [];
+    this.activePageIndex = -1;
+
+    // 3. Update the settings reference (shared object — mutation propagates)
+    (this.settings as any).headed = headed;
+
+    // 4. Relaunch with new headed setting
+    const launchOptions: any = { headless: !headed };
+    if (this.selectedUserAgent) launchOptions.userAgent = this.selectedUserAgent;
+
+    const newContext = await this.browserManager.launch(profile, headed, 'chromium', launchOptions);
+    const newPage    = await newContext.newPage();
+
+    await this.injectStealthScripts(newPage);
+    await this.attachSecurityHooks(newPage);
+
+    const stateCollector = new PageStateCollector(newPage);
+    this.activePageIndex = 0;
+    this.pages = [stateCollector];
+    this.pageMousePositions.set(0, { x: 0, y: 0 });
+
+    // 5. Restore session snapshot
+    if (snapshot) {
+      try {
+        await restoreSessionSnapshot(newPage, newContext, snapshot);
+        this.pendingSnapshot = null;
+      } catch {
+        // Non-fatal — agent will see a fresh page at the last URL
+      }
+    }
+
+    const behavioralDNA = this.generateBehavioralDNA(profile.id);
+    this.startAutoThinking(behavioralDNA);
   }
 
   // ─── Freeze/Unfreeze for Human Takeover ───────────────────────────────────────

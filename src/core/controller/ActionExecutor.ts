@@ -11,6 +11,7 @@ export type TypingRhythm      = 'fast' | 'medium' | 'slow' | 'variable';
 export type AccelerationCurve = 'linear' | 'ease-out' | 'ease-in-out' | 'bezier';
 
 import type { TaloxPageState, TaloxNode, Point } from '../../types/index.js';
+import { diffPageState } from '../../types/index.js';
 import type { TaloxSettings } from '../../types/settings.js';
 import type { TaloxEventMap } from '../../types/events.js';
 import type { EventBus } from './EventBus.js';
@@ -19,9 +20,11 @@ import { SemanticMapper } from '../SemanticMapper.js';
 import { PolicyEngine } from '../PolicyEngine.js';
 import { ArtifactBuilder } from '../ArtifactBuilder.js';
 import { PageStateCollector } from '../PageStateCollector.js';
+import { InteractionReliability } from '../InteractionReliability.js';
 
 export class ActionExecutor {
   private densityCache: Map<string, number> = new Map();
+  private readonly reliability = new InteractionReliability();
 
   private readonly keyboardNeighbors: Map<string, string[]> = new Map([
     ['q', ['w', 'a', 's']], ['w', ['q', 'e', 'a', 's', 'd']], ['e', ['w', 'r', 's', 'd', 'f']], ['r', ['e', 't', 'd', 'f', 'g']], ['t', ['r', 'y', 'f', 'g', 'h']], ['y', ['t', 'u', 'g', 'h', 'j']], ['u', ['y', 'i', 'h', 'j', 'k']], ['i', ['u', 'o', 'j', 'k', 'l']], ['o', ['i', 'p', 'k', 'l']], ['p', ['o', 'l']],
@@ -99,6 +102,7 @@ export class ActionExecutor {
     }
 
     state.bugs.push(...rulesEngine.analyze(state));
+    this.attachDiff(lastState, state);
 
     this.events.emit('navigation', { url: state.url, title: state.title });
 
@@ -124,27 +128,52 @@ export class ActionExecutor {
   // ─── Click ──────────────────────────────────────────────────────────────────
 
   async click(selector: string): Promise<TaloxPageState> {
+    const page = this.getPage();
+    const prevState = await this.getActiveStateCollector().collect();
+
+    // Pre-flight: scroll into view + resolve duplicate labels
+    const pre = await this.reliability.resolveBeforeClick(page, selector, prevState.nodes);
+    const effectiveSelector = pre.resolvedSelector;
+
+    if (pre.attempts.length > 0) {
+      this.artifactBuilder.addAction('reliabilityPreflight', {
+        originalSelector: selector,
+        resolvedSelector: effectiveSelector,
+        attempts: pre.attempts,
+        notes: pre.recoveryNotes,
+      });
+    }
+
     try {
-      return await this._clickInternal(selector);
+      const state = await this._clickInternal(effectiveSelector);
+      return this.attachDiff(prevState, state);
     } catch (error: any) {
-      console.warn(`Click failed for ${selector}, attempting self-healing recovery...`);
-      const recoveredNode = await this.recoverNodeBySelector(selector);
-      if (recoveredNode && recoveredNode.boundingBox) {
-        const { x, y, width, height } = recoveredNode.boundingBox;
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
+      console.warn(`[Talox Reliability] Click failed for "${effectiveSelector}": ${error?.message}`);
 
-        this.artifactBuilder.addAction('selfHealClick', {
-          originalSelector: selector,
-          recoveredNodeId: recoveredNode.id,
-          coords: { x: centerX, y: centerY }
-        });
+      const context = page.context?.();
+      const recovery = await this.reliability.recoverAfterFailure(
+        page, context, error, effectiveSelector, prevState.nodes,
+      );
 
-        const page = this.getPage();
-        await page.mouse.click(centerX, centerY);
+      this.artifactBuilder.addAction('reliabilityRecovery', {
+        originalSelector: selector,
+        mode: recovery.mode,
+        resolved: recovery.resolved,
+        attempts: recovery.attempts,
+        notes: recovery.recoveryNotes,
+      });
+
+      if (recovery.resolved) {
+        if (recovery.resolvedElement) {
+          await recovery.resolvedElement.click();
+        } else {
+          await this._clickInternal(recovery.resolvedSelector);
+        }
         await new Promise(r => setTimeout(r, 500));
-        return await this.getActiveStateCollector().collect();
+        const state = await this.getActiveStateCollector().collect();
+        return this.attachDiff(prevState, state);
       }
+
       throw error;
     }
   }
@@ -163,7 +192,7 @@ export class ActionExecutor {
     const attentionFrame = this.getAttentionFrame();
     this.artifactBuilder.addAction('click', { selector, hasAttentionFrame: !!attentionFrame });
 
-    const useRawMode = settings.humanStealth === 0;
+    const useRawMode = settings.humanStealth === 0 || settings.safeMode;
     let effectiveMouseSpeed = settings.mouseSpeed;
     let targetBox: { x: number; y: number; width: number; height: number } | null = null;
 
@@ -228,27 +257,46 @@ export class ActionExecutor {
   // ─── Type ────────────────────────────────────────────────────────────────────
 
   async type(selector: string, text: string): Promise<TaloxPageState> {
+    const page = this.getPage();
+    const prevState = await this.getActiveStateCollector().collect();
+
+    // Pre-flight: scroll into view + resolve duplicate labels
+    const pre = await this.reliability.resolveBeforeClick(page, selector, prevState.nodes);
+    const effectiveSelector = pre.resolvedSelector;
+
     try {
-      return await this._typeInternal(selector, text);
+      const state = await this._typeInternal(effectiveSelector, text);
+      return this.attachDiff(prevState, state);
     } catch (error: any) {
-      console.warn(`Type failed for ${selector}, attempting self-healing recovery...`);
-      const recoveredNode = await this.recoverNodeBySelector(selector);
-      if (recoveredNode && recoveredNode.boundingBox) {
-        const { x, y, width, height } = recoveredNode.boundingBox;
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
+      console.warn(`[Talox Reliability] Type failed for "${effectiveSelector}": ${error?.message}`);
 
-        this.artifactBuilder.addAction('selfHealType', {
-          originalSelector: selector,
-          recoveredNodeId: recoveredNode.id,
-          coords: { x: centerX, y: centerY }
-        });
+      const context = page.context?.();
+      const recovery = await this.reliability.recoverAfterFailure(
+        page, context, error, effectiveSelector, prevState.nodes,
+      );
 
-        const page = this.getPage();
-        await page.mouse.click(centerX, centerY);
-        await page.keyboard.type(text);
-        return await this.getActiveStateCollector().collect();
+      this.artifactBuilder.addAction('reliabilityRecovery', {
+        originalSelector: selector,
+        mode: recovery.mode,
+        resolved: recovery.resolved,
+        attempts: recovery.attempts,
+        notes: recovery.recoveryNotes,
+      });
+
+      if (recovery.resolved) {
+        if (recovery.resolvedElement) {
+          const box = await recovery.resolvedElement.boundingBox();
+          if (box) {
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            await page.keyboard.type(text);
+          }
+        } else {
+          await this._typeInternal(recovery.resolvedSelector, text);
+        }
+        const state = await this.getActiveStateCollector().collect();
+        return this.attachDiff(prevState, state);
       }
+
       throw error;
     }
   }
@@ -267,7 +315,7 @@ export class ActionExecutor {
     const attentionFrame = this.getAttentionFrame();
     this.artifactBuilder.addAction('type', { selector, text, hasAttentionFrame: !!attentionFrame });
 
-    const useRawMode = settings.humanStealth === 0;
+    const useRawMode = settings.humanStealth === 0 || settings.safeMode;
 
     let targetBox: { x: number; y: number; width: number; height: number } | null = null;
     if (attentionFrame) {
@@ -803,5 +851,17 @@ export class ActionExecutor {
 
   clearDensityCache(): void {
     this.densityCache.clear();
+  }
+
+  // ─── Diff Attachment ─────────────────────────────────────────────────────────
+
+  /**
+   * Attach a `TaloxStateDiff` to `curr` relative to `prev`.
+   * No-op when `prev` is null (first action in a session).
+   */
+  attachDiff(prev: TaloxPageState | null, curr: TaloxPageState): TaloxPageState {
+    if (!prev) return curr;
+    curr.diff = diffPageState(prev, curr);
+    return curr;
   }
 }

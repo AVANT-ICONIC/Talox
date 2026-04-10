@@ -10,7 +10,7 @@
  * - state.bugs is empty (no layout issues detected)
  * - Console errors do not include critical errors
  *
- * Mode: debug (headless) — we own nothing here but it's a public utility site.
+ * Mode: smart (headless) — we own nothing here but it's a public utility site.
  * The goal is proving Talox can navigate, read, and extract data from a real SPA.
  */
 
@@ -32,8 +32,8 @@ test.describe('Scenario 1 — Gorilla Mail (disposable email)', () => {
 
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-real-'));
-    talox = new TaloxController(profileDir);
-    await talox.launch('gorilla-mail', 'sandbox', 'smart', 'chromium');
+    talox = new TaloxController(profileDir, { mode: 'smart' });
+    await talox.launch('gorilla-mail', 'sandbox', 'chromium');
   });
 
   test.afterAll(async () => {

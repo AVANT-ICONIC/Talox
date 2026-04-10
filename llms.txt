@@ -147,7 +147,6 @@ Load with: `await talox.loadPolicy('./policies/ops.yaml')`
 - `docs/TALOX-CONTRACTS.md` — Full data model documentation
 - `docs/TALOX-SPEC.md` — Technical specification
 - `docs/TALOX-ARCHITECTURE.md` — System design with Mermaid diagrams
-- `docs/HARBOR-BOUNDARY.md` — Talox Core vs Harbor commercial boundary
 - `examples/adaptive-controller.ts` — Adaptive session example
 - `examples/debug-controller.ts` — Debug/observability example
 - `examples/qa-flow.test.ts` — QA bug detection example

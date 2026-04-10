@@ -27,6 +27,14 @@ import type { EventBus }            from '../controller/EventBus.js';
 import { AnnotationBuffer }         from './AnnotationBuffer.js';
 import { OverlayInjector }          from './OverlayInjector.js';
 import { SessionReporter }          from './SessionReporter.js';
+import type { ArtifactBuilder }      from '../ArtifactBuilder.js';
+import type {
+  SessionReportExtras,
+  EventLogEntry,
+  FailureEntry,
+  InteractionDiff,
+  BugSummaryEntry,
+}                                    from '../../types/session-report.js';
 
 // ─── ObserveSession ───────────────────────────────────────────────────────────
 
@@ -58,12 +66,19 @@ export class ObserveSession {
 
   private startUrl:    string  = '';
   private finalised:  boolean  = false;
+  private readonly eventLog: EventLogEntry[]     = [];
+  private readonly failureLog: FailureEntry[]   = [];
+  private readonly diffLog: InteractionDiff[]   = [];
+  private readonly bugSummaries: BugSummaryEntry[] = [];
+  private lastUrl: string | null = null;
+  private readonly artifactBuilder: ArtifactBuilder;
 
   constructor(
     private readonly page:    any,  // Playwright Page
     private readonly context: any,  // Playwright BrowserContext
     eventBus:                 EventBus<TaloxEventMap>,
     options:                  ObserveSessionOptions = {},
+    artifactBuilder:          ArtifactBuilder,
   ) {
     this.sessionId    = randomUUID();
     this.startedAt    = new Date().toISOString();
@@ -88,6 +103,7 @@ export class ObserveSession {
       this.buffer,
       this.eventBus,
       this.interactions,
+      this.handleOverlayInteraction.bind(this),
       async () => {
         await this.finalize();
         await this.context.close();
@@ -95,6 +111,7 @@ export class ObserveSession {
     );
 
     this.reporter = new SessionReporter(this.options.outputDir);
+    this.artifactBuilder = artifactBuilder;
   }
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
@@ -163,6 +180,50 @@ export class ObserveSession {
       this.eventBus.emit('navigation', { url, title: '' });
     });
 
+    const logEvent = <K extends keyof TaloxEventMap>(event: K, payload?: TaloxEventMap[K]) => {
+      this.eventLog.push({
+        event: String(event),
+        timestamp: new Date().toISOString(),
+        payload: payload ? { ...payload } as Record<string, unknown> : undefined,
+      });
+    };
+
+    this.eventBus.on('navigation', payload => logEvent('navigation', payload));
+    this.eventBus.on('consoleError', payload => {
+      logEvent('consoleError', payload);
+      this.recordFailure({
+        type: 'console',
+        message: payload.error,
+        url: payload.url,
+        interactionIndex: this.interactions.length,
+      });
+    });
+    this.eventBus.on('networkError', payload => {
+      logEvent('networkError', payload);
+      this.recordFailure({
+        type: 'network',
+        message: `${payload.status}`,
+        url: payload.url,
+        status: payload.status,
+        interactionIndex: this.interactions.length,
+      });
+    });
+    this.eventBus.on('annotationAdded', payload => logEvent('annotationAdded', payload));
+    this.eventBus.on('annotationUndone', payload => logEvent('annotationUndone', payload));
+    this.eventBus.on('stateChanged', payload => logEvent('stateChanged', payload));
+    this.eventBus.on('bugDetected', payload => {
+      logEvent('bugDetected', payload);
+      this.bugSummaries.push({
+        id: payload.id,
+        type: payload.type,
+        severity: payload.severity,
+        description: payload.description,
+        interactionIndex: this.interactions.length,
+        evidence: payload.evidence?.screenshotRef,
+      });
+    });
+    this.eventBus.on('adapted', payload => logEvent('adapted', payload));
+
     // Auto-finalize on browser close
     this.context.on('close', () => {
       this.finalize().catch((err: unknown) => {
@@ -223,19 +284,34 @@ export class ObserveSession {
 
     const report = this.buildReport();
     let reportPath: string = this.options.outputDir;
+    const extras: SessionReportExtras = {
+      eventLog: this.eventLog,
+      failures: this.failureLog,
+      diffs: this.diffLog,
+      bugs: this.bugSummaries,
+      trace: this.artifactBuilder.toActionFrames(),
+    };
 
     if (this.options.record) {
-      const paths = await this.reporter.write(report, this.options.output);
-      reportPath  = paths.json ?? paths.markdown ?? this.options.outputDir;
+      const paths = await this.reporter.write(report, this.options.output, extras);
+      reportPath  = paths.json ?? paths.markdown ?? paths.html ?? this.options.outputDir;
     }
 
-    this.eventBus.emit('sessionEnd', {
-      sessionId:         this.sessionId,
+    const sessionEndPayload = {
+      sessionId:        this.sessionId,
       reportPath,
-      durationMs:        report.durationMs,
-      interactionCount:  report.summary.totalInteractions,
-      annotationCount:   report.summary.totalAnnotations,
+      durationMs:       report.durationMs,
+      interactionCount: report.summary.totalInteractions,
+      annotationCount:  report.summary.totalAnnotations,
+    };
+
+    this.eventLog.push({
+      event:     'sessionEnd',
+      timestamp: new Date().toISOString(),
+      payload:   sessionEndPayload,
     });
+
+    this.eventBus.emit('sessionEnd', sessionEndPayload);
 
     this.buffer.clear();
 
@@ -243,6 +319,57 @@ export class ObserveSession {
       `[Talox] Observe session ended · ${report.summary.totalInteractions} interactions · ` +
       `${report.summary.totalAnnotations} annotations · ${Math.round(report.durationMs / 1000)}s`,
     );
+  }
+
+  private recordFailure(entry: FailureEntry): void {
+    this.failureLog.push(entry);
+  }
+
+  private async captureScreenshot(): Promise<string | undefined> {
+    try {
+      const buffer = await this.page.screenshot({ fullPage: true });
+      return buffer.toString('base64');
+    } catch (_err) {
+      return undefined;
+    }
+  }
+
+  private scheduleAfterScreenshot(interaction: TaloxInteraction): void {
+    void (async () => {
+      await new Promise(r => setTimeout(r, 700));
+      const after = await this.captureScreenshot();
+      if (after) {
+        interaction.screenshotAfter = after;
+      }
+    })();
+  }
+
+  private logDiff(interaction: TaloxInteraction): void {
+    const urlChanged = this.lastUrl !== null && this.lastUrl !== interaction.url;
+    const diff: InteractionDiff = {
+      interactionIndex: interaction.index,
+      url: interaction.url,
+      urlChanged,
+      element: interaction.element?.selector ?? interaction.element?.role ?? interaction.element?.tag ?? '',
+      notes: urlChanged ? 'URL changed' : 'Same page interaction',
+    };
+    this.diffLog.push(diff);
+    this.lastUrl = interaction.url;
+  }
+
+  private async handleOverlayInteraction(interaction: TaloxInteraction): Promise<void> {
+    const sanitized: TaloxInteraction = {
+      ...interaction,
+      consoleErrors: interaction.consoleErrors ?? [],
+      networkFailures: interaction.networkFailures ?? [],
+    };
+    const before = await this.captureScreenshot();
+    if (before) {
+      sanitized.screenshotBefore = before;
+    }
+    this.interactions.push(sanitized);
+    this.logDiff(sanitized);
+    this.scheduleAfterScreenshot(sanitized);
   }
 
   private buildLabelCounts(annotations: AnnotationEntry[]): Record<string, number> {

@@ -2,6 +2,21 @@
 
 > **Source of truth:** `src/types/index.ts` and `src/schema/TaloxPageState.schema.json`
 
+## Compatibility policy
+
+Talox keeps the `TaloxPageState` v1 contract stable because agents rely on it for structured reasoning. Follow these rules whenever the schema needs to change:
+
+1. **Freeze the contract.** Treat the current `TaloxPageState` shape as version 1. Only additive (optional) fields are allowed unless you handle migration explicitly.
+2. **Update the canonical schema.** Any change must land in `src/schema/TaloxPageState.schema.json` and the TypeScript types in `src/types/index.ts`.
+3. **Document the change.** Note the change in `CHANGELOG.md` and, if necessary, add a `docs/TALOX-CONTRACTS.md` section describing the impact.
+4. **Add schema validation tests.** Every action output must still pass the updated schema (`tests/unit/pageState.schema.test.ts` covers this).
+5. **Signal breaking changes clearly.** If a mandatory field is renamed/removed, increment the contract version in the schema `$id` or `title` and explain migration steps in the docs and changelog.
+6. **Keep compact variants aligned.** When adding new data, ensure the `compactState()` variants (`'full'`, `'agent'`, `'debug'`) still filter correctly before exposing them to agents.
+
+The JSON schema is the authoritative machine-readable contract, so tooling and tests should always consume it for validation.
+
+## 1. Page State Object (`TaloxPageState`)
+
 ## 1. Page State Object (`TaloxPageState`)
 
 The primary object returned to agents after every `navigate()` or `getState()` call.

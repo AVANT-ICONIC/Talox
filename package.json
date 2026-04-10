@@ -1,10 +1,13 @@
 {
   "name": "talox",
-  "version": "2.0.0",
-  "description": "Stateful browser runtime for AI agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
+  "version": "3.0.0",
+  "description": "Local browser runtime for agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "talox": "./dist/cli/talox.js"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -15,28 +18,39 @@
     "dist/",
     "src/schema/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
     "test": "vitest",
+    "test:unit": "vitest --config vitest.config.unit.ts",
+    "test:browser": "vitest --config vitest.config.browser.ts",
+    "observe": "node ./dist/cli/talox.js observe",
     "prepublishOnly": "npm run build",
+    "smoke": "npm run build && node -e \"console.log('Talox smoke test OK')\"",
     "test:real": "npm run build && playwright test",
     "test:real:single": "npm run build && playwright test --grep",
+    "test:e2e": "npm run build && playwright test",
     "test:publish": "tsc --noEmit && npm test && npm run build"
   },
   "keywords": [
     "browser-runtime",
     "agent-browser",
     "browser-automation",
-    "persistent-sessions",
-    "observability",
-    "replay",
+    "browser-controller",
+    "ai-agent",
     "playwright",
-    "accessibility-tree",
-    "web-debugging",
-    "ai-agent"
+    "stealth-automation",
+    "web-automation",
+    "observability",
+    "debugging",
+    "typescript",
+    "chromium",
+    "structured-json",
+    "human-like-interaction",
+    "persistent-sessions"
   ],
   "author": "AVANT ICONIC",
   "license": "AGPL-3.0-only",

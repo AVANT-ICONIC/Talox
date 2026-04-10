@@ -50,15 +50,19 @@ export class PageStateCollector {
     };
 
     this.page.on('console', msg => {
-      if (msg.type() === 'error') this.consoleErrors.push(msg.text());
+      try {
+        if (msg.type() === 'error') this.consoleErrors.push(msg.text());
+      } catch { /* page may be closing */ }
     });
 
     // Track HTTP error responses (4xx / 5xx) for bot-detection heuristics
     this.page.on('response', (response: Response) => {
-      const status: number = response.status();
-      if (status >= 400) {
-        this.failedRequests.push({ url: response.url(), status, type: response.request().resourceType() });
-      }
+      try {
+        const status: number = response.status();
+        if (status >= 400) {
+          this.failedRequests.push({ url: response.url(), status, type: response.request().resourceType() });
+        }
+      } catch { /* page may be closing */ }
     });
   }
 
@@ -294,6 +298,19 @@ export class PageStateCollector {
   }
 
   async collect(): Promise<TaloxPageState> {
+    // Guard against calling collect() on a page that has already been closed
+    // (e.g. during browser teardown or headed/headless restart races).
+    if ((this.page as any).isClosed?.()) {
+      const fallbackTs = new Date().toISOString();
+      return {
+        url: 'about:blank', title: '', timestamp: fallbackTs,
+        console: { errors: [] }, network: { failedRequests: [] },
+        nodes: [], interactiveElements: [], bugs: [],
+        timing: { totalMs: 0, collectedAt: fallbackTs },
+      };
+    }
+
+    const collectStart = Date.now();
     const url = this.page.url();
     const title = await this.page.title();
     
@@ -368,29 +385,40 @@ export class PageStateCollector {
       collectionAttempts++;
     }
 
-    const interactiveElements = shouldUseFallback
-      ? nodes.map((n, i) => ({
-          id: `dom-${i}`,
-          tagName: (n.attributes?.tag as string) || 'unknown',
-          boundingBox: n.boundingBox
-        }))
-      : await this.collectInteractiveElementsViaDom();
+    let interactiveElements: Array<{ id: string; tagName: string; boundingBox: any }> = [];
+    let shadowDomElements: TaloxNode[] = [];
+    try {
+      interactiveElements = shouldUseFallback
+        ? nodes.map((n, i) => ({
+            id: `dom-${i}`,
+            tagName: (n.attributes?.tag as string) || 'unknown',
+            boundingBox: n.boundingBox
+          }))
+        : await this.collectInteractiveElementsViaDom();
 
-    const shadowDomElements = await this.collectFromShadowDom();
+      shadowDomElements = await this.collectFromShadowDom();
+    } catch {
+      // Page may have closed mid-collection; return what we have
+    }
     const mergedInteractiveElements = this.mergeInteractiveElements(
       interactiveElements,
       shadowDomElements
     );
     
+    const collectedAt = new Date().toISOString();
     return {
       url,
       title,
-      timestamp: new Date().toISOString(),
+      timestamp: collectedAt,
       console: { errors: [...this.consoleErrors] },
       network: { failedRequests: [...this.failedRequests] },
       nodes,
       interactiveElements: mergedInteractiveElements,
       bugs: [],
+      timing: {
+        totalMs: Date.now() - collectStart,
+        collectedAt,
+      },
     };
   }
 }

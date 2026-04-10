@@ -33,14 +33,14 @@ test.describe('Scenario 2 — Reddit signup via Gorilla Mail', () => {
 
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-reddit-signup-'));
-    talox = new TaloxController(profileDir);
+    talox = new TaloxController(profileDir, { mode: 'smart' });
 
     talox.on('adapted', (e) => {
       console.log(`[adapted] reason=${e.reason} strategy=${e.strategy}`);
       adaptedEvents.push(e);
     });
 
-    await talox.launch('reddit-signup', 'sandbox', 'smart', 'chromium', { headed: true });
+    await talox.launch('reddit-signup', 'sandbox', 'chromium');
   });
 
   test.afterAll(async () => {

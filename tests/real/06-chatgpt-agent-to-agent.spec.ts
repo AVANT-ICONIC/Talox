@@ -28,14 +28,14 @@ test.describe('Scenario 6 — ChatGPT agent-to-agent (guest mode)', () => {
 
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-chatgpt-'));
-    talox = new TaloxController(profileDir);
+    talox = new TaloxController(profileDir, { mode: 'smart' });
 
     talox.on('adapted', (e) => {
       console.log(`[adapted] reason=${e.reason} strategy=${e.strategy}`);
       adaptedEvents.push(e);
     });
 
-    await talox.launch('chatgpt-agent', 'sandbox', 'smart', 'chromium');
+    await talox.launch('chatgpt-agent', 'sandbox', 'chromium');
   });
 
   test.afterAll(async () => {

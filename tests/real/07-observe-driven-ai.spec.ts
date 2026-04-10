@@ -43,15 +43,14 @@ test.describe('Scenario 7 — AI-driven observe session (debug + overlay + recor
   test.beforeAll(async () => {
     profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-observe-ai-'));
     outputDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'talox-reports-'));
-    talox = new TaloxController(profileDir);
+    talox = new TaloxController(profileDir, { mode: 'debug' });
 
     talox.on('sessionEnd', (e) => {
       console.log('[sessionEnd]', e);
       sessionEndEvents.push(e);
     });
 
-    // NEW: debug mode with overlay + record — no headed browser needed
-    await talox.launch('ai-observe', 'qa', 'debug', 'chromium', {
+    await talox.launch('ai-observe', 'qa', 'chromium', {
       overlay:   true,
       record:    true,
       output:    'both',
