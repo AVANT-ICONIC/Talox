@@ -22,6 +22,11 @@ export interface DiffRegion {
   pixelCount: number;
 }
 
+/**
+ * Visual comparison and verification engine. Manages golden-master baseline
+ * screenshots, computes pixel-level and structural (SSIM) diffs, generates
+ * diff heatmaps, and extracts on-screen text via OCR.
+ */
 export class VisionGate {
   private baselineDir: string;
 

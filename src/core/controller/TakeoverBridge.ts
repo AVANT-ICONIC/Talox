@@ -180,6 +180,12 @@ const AGENT_OVERLAY_SCRIPT = /* js */ `
 
 // ─── TakeoverBridge ──────────────────────────────────────────────────────────
 
+/**
+ * Manages the bidirectional bridge between the agent and a human operator
+ * in headed mode. Injects a persistent browser overlay (cyan glow border,
+ * Take Over / Resume button) and coordinates state transitions between
+ * `AGENT_RUNNING` and `WAITING_FOR_HUMAN` via EventBus and exposed functions.
+ */
 export class TakeoverBridge {
   private state: TakeoverState = 'AGENT_RUNNING';
   private readonly eventBus: EventBus<TaloxEventMap>;

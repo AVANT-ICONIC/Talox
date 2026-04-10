@@ -31,6 +31,12 @@ interface StoredAction {
   visualContext?: VisualContext;
 }
 
+/**
+ * Records and exports a chronological trace of all agent actions performed
+ * during a session. Each entry captures the action type, payload (with
+ * sensitive fields redacted), visual context (mouse position, viewport, scroll),
+ * and relative timing — exportable as JSON, ActionFrames, or a formatted text log.
+ */
 export class ArtifactBuilder {
   private actions: StoredAction[] = [];
   private startTime: number = Date.now();

@@ -22,6 +22,12 @@ import { ArtifactBuilder } from '../ArtifactBuilder.js';
 import { PageStateCollector } from '../PageStateCollector.js';
 import { InteractionReliability } from '../InteractionReliability.js';
 
+/**
+ * Executes browser interactions (navigate, click, type, scroll, etc.) on behalf
+ * of TaloxController. Applies human-stealth simulation, adaptive mouse speeds,
+ * typo injection, policy checks, reliability pre-flight/recovery, and tracks
+ * page-state diffs after each action.
+ */
 export class ActionExecutor {
   private densityCache: Map<string, number> = new Map();
   private readonly reliability = new InteractionReliability();
@@ -68,7 +74,6 @@ export class ActionExecutor {
 
     // Session Warmup: navigate to a neutral page first
     if (isFirstNavigation && url !== 'about:blank' && !url.includes('google.com')) {
-      console.log('Session Warmup: Navigating to about:blank before target...');
       try {
         await page.goto('about:blank');
         await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));

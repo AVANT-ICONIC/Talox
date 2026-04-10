@@ -19,6 +19,11 @@ export interface AXTreeDiffResult {
   summary: string;
 }
 
+/**
+ * Computes structured diffs between two accessibility-tree snapshots, detecting
+ * nodes that were added, removed, moved, or had their text/attributes changed.
+ * Produces a human-readable summary of all detected changes.
+ */
 export class AXTreeDiffer {
   private computeDistance(
     pos1: { x: number; y: number },

@@ -30,6 +30,12 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
 };
 
+/**
+ * Collects the full state of a Playwright page: URL, title, accessibility-tree
+ * nodes (with retry and DOM-based fallback), interactive elements (including
+ * shadow-DOM traversal), console errors, and failed network requests.
+ * Progressive retries handle SPA hydration timing gaps.
+ */
 export class PageStateCollector {
   private consoleErrors: string[] = [];
   private failedRequests: Array<{ url: string; status: number; type?: string }> = [];

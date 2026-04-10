@@ -36,6 +36,12 @@ const DEFAULT_OPTIONS: SelectorHealingOptions = {
   positionTolerance: 50,
 };
 
+/**
+ * Recovers from broken selectors by matching previously recorded success
+ * states against the current page snapshot. Uses multiple fallback strategies
+ * — role match, name similarity (Levenshtein), positional proximity, and
+ * parent-context matching — then combines results with weighted scoring.
+ */
 export class SelfHealingSelector {
   private successStates: Map<string, SuccessState[]> = new Map();
   private historicalSnapshots: TaloxNode[][] = [];

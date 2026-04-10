@@ -30,6 +30,12 @@ import { HumanMouse } from '../HumanMouse.js';
 import { ObserveSession } from '../observe/ObserveSession.js';
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from '../SessionSnapshot.js';
 
+/**
+ * Orchestrates the full browser session lifecycle: launching browsers (with
+ * stealth injection, fingerprint randomization, and behavioral DNA), managing
+ * multiple pages/tabs, handling headed/headless mode switching with session
+ * snapshot preservation, and driving automatic idle "thinking" behaviors.
+ */
 export class SessionManager {
   readonly browserManager: BrowserManager;
   readonly profileVault: ProfileVault;
@@ -120,7 +126,6 @@ export class SessionManager {
 
     if (this.selectedUserAgent) {
       launchOptions.userAgent = this.selectedUserAgent;
-      console.log(`Launch: UA=${this.selectedUserAgent.slice(0, 30)}..., Viewport=${width}x${height}`);
     }
 
     launchOptions.viewport = { width, height };
@@ -540,7 +545,8 @@ export class SessionManager {
 
       if ((method === 'POST' || method === 'PUT') && this.profile?.class === 'ops') {
         const postData = request.postData() || '';
-        const credentialRegex = /(eyJhbGciOiJIUzI1Ni|sk_live_|ghp_)/i;
+        // Match JWT tokens (eyJ...), API keys, bearer tokens, and common secret patterns
+        const credentialRegex = /(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w\-]{8,})/i;
 
         if (credentialRegex.test(postData) || credentialRegex.test(url)) {
           console.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);

@@ -1,5 +1,11 @@
 import type { TaloxPageState, TaloxBug, TaloxNode } from '../types/index.js';
 
+/**
+ * Analyzes page states for quality-assurance bugs. Detects structural
+ * regressions (missing AX-tree nodes or interactive elements between two
+ * states), JavaScript console errors, overlapping UI elements, and viewport
+ * clipping issues.
+ */
 export class RulesEngine {
   /**
    * 🔍 STRUCTURAL DIFFING: Detect changes in AX-Tree or DOM between two states.

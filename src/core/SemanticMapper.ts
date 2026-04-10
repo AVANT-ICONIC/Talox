@@ -123,6 +123,12 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
   },
 ];
 
+/**
+ * Maps raw accessibility-tree nodes into semantically typed entities using
+ * knowledge profiles (domain-specific selector mappings) and heuristic analysis.
+ * Produces labeled, confidence-scored `SemanticEntity` objects for downstream
+ * action planning and element lookup.
+ */
 export class SemanticMapper {
   private options: SemanticMapperOptions;
   private knowledgeProfiles: KnowledgeProfile[];

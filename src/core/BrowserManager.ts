@@ -85,6 +85,12 @@ export function resolveConfigDir(): string {
   return process.cwd();
 }
 
+/**
+ * Manages browser lifecycle and context creation. Handles browser auto-detection
+ * across platforms, launches persistent Playwright contexts (with optional
+ * Patchright stealth driver), supports proxy configuration, and tracks all
+ * open contexts for clean teardown on exit.
+ */
 export class BrowserManager {
   private context: BrowserContext | null = null;
   private config: TaloxConfig;

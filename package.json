@@ -26,6 +26,7 @@
     "prepare": "npm run build",
     "test": "vitest --config vitest.config.unit.ts",
     "test:unit": "vitest --config vitest.config.unit.ts",
+    "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
     "test:browser": "vitest --config vitest.config.browser.ts",
     "test:all": "vitest",
     "observe": "node ./dist/cli/talox.js observe",
@@ -66,8 +67,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "sideEffects": false,
   "peerDependencies": {
-    "esbuild": "^0.27.4"
+    "esbuild": ">=0.20.0"
   },
   "peerDependenciesMeta": {
     "esbuild": {
@@ -81,6 +83,7 @@
     "@types/node": "^25.5.0",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"

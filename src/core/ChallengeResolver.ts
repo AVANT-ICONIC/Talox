@@ -113,6 +113,12 @@ const ACCEPT_SELECTORS = [
 
 // ─── ChallengeResolver ────────────────────────────────────────────────────────
 
+/**
+ * Attempts to automatically resolve web challenges detected by
+ * `ChallengeDetector`. Dispatches per-type strategies (wait-and-settle,
+ * backoff-retry, auto-click-accept, wait-hydration) and escalates to a human
+ * handoff when local resolution is not possible (e.g. CAPTCHAs, login walls).
+ */
 export class ChallengeResolver {
   private readonly maxRetries: number;
   private readonly baseDelayMs: number;

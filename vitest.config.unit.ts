@@ -8,6 +8,13 @@ export default defineConfig({
     ],
     testTimeout: 5_000,
     hookTimeout: 10_000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.ts'],
+      exclude: ['src/types/**', 'src/cli/**'],
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

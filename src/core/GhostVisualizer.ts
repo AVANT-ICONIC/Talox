@@ -55,6 +55,12 @@ const DEFAULT_OPTIONS: VisualizationOptions = {
   heatmapOpacity: 0.6,
 };
 
+/**
+ * Renders mouse-movement visualizations onto PNG images. Supports path-line,
+ * heatmap, and dot styles with direction arrows and timestamp annotations.
+ * Computes path statistics (distance, speed, duration) and can compare two
+ * action traces for similarity analysis.
+ */
 export class GhostVisualizer {
   private options: VisualizationOptions;
   private canvas: PNG | null = null;

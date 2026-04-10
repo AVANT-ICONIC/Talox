@@ -25,6 +25,12 @@ export interface NetworkMockerOptions {
   page: Page;
 }
 
+/**
+ * Records and replays network traffic for testing and replay scenarios.
+ * Captures full request/response pairs (headers, bodies), replays saved
+ * recordings by intercepting and fulfilling matching requests, and supports
+ * adding individual mock responses with configurable URL patterns and delays.
+ */
 export class NetworkMocker {
   private context: BrowserContext;
   private page: Page;

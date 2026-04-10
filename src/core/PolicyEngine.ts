@@ -26,6 +26,12 @@ export interface YAMLPolicy {
     profiles: Record<ProfileClass, ProfilePolicy>;
 }
 
+/**
+ * Enforces per-profile allow/deny policies for navigation URLs and browser
+ * actions. Supports simple domain allowlists and fully-configurable YAML-based
+ * rule sets with conditions (URL matching, domain filters, amount thresholds)
+ * and destructive-action blocking.
+ */
 export class PolicyEngine {
     private allowlists: Record<ProfileClass, string[]> = {
         'qa': ['*'],

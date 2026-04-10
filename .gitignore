@@ -84,3 +84,6 @@ demo-assets/
 
 # Internal planning docs
 docs/IMPLEMENTATION_*.json
+
+# Coverage reports
+coverage/

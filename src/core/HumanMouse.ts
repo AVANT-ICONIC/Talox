@@ -20,6 +20,12 @@ const getOptimizedSteps = (dist: number, targetWidth: number, speedMultiplier: n
  */
 export type CursorStepCallback = (x: number, y: number) => Promise<void>;
 
+/**
+ * Simulates human-like mouse movements and clicks using Fitts's Law-derived
+ * Bezier curves with quintic easing, jitter, and micro-drag. Supports both
+ * headless mode (real Playwright moves) and headed mode (overlay-driven
+ * fake cursor via an optional `onStep` callback).
+ */
 export class HumanMouse {
     /**
      * 🧬 THE GENERATOR
