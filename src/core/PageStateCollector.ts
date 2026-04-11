@@ -113,6 +113,15 @@ export class PageStateCollector {
       const el = elements[i];
       if (!el) continue;
       try {
+        // Skip Talox-injected overlay elements
+        const elId = await el.evaluate(e => e.id || '');
+        if (elId.startsWith('__talox')) continue;
+        // Skip aria-hidden/presentation elements
+        const shouldSkip = await el.evaluate(e =>
+          e.getAttribute('aria-hidden') === 'true' || e.getAttribute('role') === 'presentation'
+        );
+        if (shouldSkip) continue;
+
         const isVisible = await el.isVisible();
         if (!isVisible) continue;
         
@@ -277,7 +286,16 @@ export class PageStateCollector {
 
   private async collectInteractiveElementsViaDom(): Promise<any[]> {
     return this.page.$$eval('a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"]', elements => {
-      return elements.map((el, i) => {
+      return elements
+        .filter(el => {
+          // Skip Talox-injected overlay elements
+          if (el.id?.startsWith('__talox')) return false;
+          // Skip aria-hidden / presentation elements
+          if (el.getAttribute('aria-hidden') === 'true') return false;
+          if (el.getAttribute('role') === 'presentation') return false;
+          return true;
+        })
+        .map((el, i) => {
         const rect = el.getBoundingClientRect();
         // Derive semantic role from explicit attribute or tagName
         const explicitRole = el.getAttribute('role');

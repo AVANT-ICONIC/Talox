@@ -243,6 +243,13 @@ export class ActionExecutor {
     await new Promise(r => setTimeout(r, 500));
     this.recordActivity();
 
+    // Wait for any navigation triggered by the click to settle
+    try {
+      await page.waitForLoadState('domcontentloaded', { timeout: 3000 });
+    } catch {
+      // Not all clicks trigger navigation; timeout is expected
+    }
+
     try {
       return await this.getActiveStateCollector().collect();
     } catch (_e) {
