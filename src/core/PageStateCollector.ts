@@ -122,7 +122,11 @@ export class PageStateCollector {
         const tagName = await el.evaluate(e => e.tagName.toLowerCase());
         const text = await el.evaluate(e => {
           if (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) {
-            return (e as HTMLInputElement).placeholder || (e as HTMLInputElement).value || '';
+            return (e as HTMLInputElement).labels?.[0]?.textContent?.trim()
+              || (e as HTMLInputElement).placeholder
+              || e.getAttribute('aria-label')?.trim()
+              || (e as HTMLInputElement).value
+              || '';
           }
           return e.textContent?.trim().slice(0, 100) || '';
         });
@@ -136,11 +140,29 @@ export class PageStateCollector {
           if (e.tagName === 'TEXTAREA') return 'textbox';
           return 'unknown';
         });
-        
+
+        // Build a usable CSS selector for agent interaction
+        const selector = await el.evaluate(e => {
+          if (e.id) return `#${CSS.escape(e.id)}`;
+          if (e.getAttribute('name')) return `${e.tagName.toLowerCase()}[name="${e.getAttribute('name')}"]`;
+          if (e.getAttribute('aria-label')) return `${e.tagName.toLowerCase()}[aria-label="${CSS.escape(e.getAttribute('aria-label')!)}"]`;
+          if (e.getAttribute('placeholder')) return `${e.tagName.toLowerCase()}[placeholder="${CSS.escape(e.getAttribute('placeholder')!)}"]`;
+          if (e.getAttribute('type')) return `${e.tagName.toLowerCase()}[type="${e.getAttribute('type')}"]`;
+          // Fallback: tag with :nth-child among siblings of same tag
+          const parent = e.parentElement;
+          if (parent) {
+            const siblings = Array.from(parent.children).filter(c => c.tagName === e.tagName);
+            if (siblings.length === 1) return e.tagName.toLowerCase();
+            const idx = siblings.indexOf(e) + 1;
+            return `${e.tagName.toLowerCase()}:nth-of-type(${idx})`;
+          }
+          return e.tagName.toLowerCase();
+        });
+
         const isDisabled = await el.isDisabled();
-        
+
         nodes.push({
-          id: `dom-fallback-${i}`,
+          id: selector || `dom-fallback-${i}`,
           role: role || 'unknown',
           name: text,
           description: isDisabled ? 'disabled' : '',
@@ -254,18 +276,54 @@ export class PageStateCollector {
   }
 
   private async collectInteractiveElementsViaDom(): Promise<any[]> {
-    return this.page.$$eval('a, button, input, select, textarea, [role="button"]', elements => {
+    return this.page.$$eval('a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"]', elements => {
       return elements.map((el, i) => {
         const rect = el.getBoundingClientRect();
+        // Derive semantic role from explicit attribute or tagName
+        const explicitRole = el.getAttribute('role');
+        let role: string | undefined = explicitRole || undefined;
+        if (!role) {
+          const tag = el.tagName.toLowerCase();
+          if (tag === 'a') role = 'link';
+          else if (tag === 'button') role = 'button';
+          else if (tag === 'input') role = 'textbox';
+          else if (tag === 'select') role = 'combobox';
+          else if (tag === 'textarea') role = 'textbox';
+        }
+        // Get visible text: prefer label association, fallback to textContent
+        const label = (el as HTMLInputElement).labels?.[0]?.textContent?.trim()
+          || el.getAttribute('aria-label')?.trim()
+          || el.getAttribute('placeholder')?.trim()
+          || el.textContent?.trim().slice(0, 120)
+          || '';
+        // Build a usable CSS selector for agent interaction
+        let selector = '';
+        if (el.id) selector = `#${CSS.escape(el.id)}`;
+        else if (el.getAttribute('name')) selector = `${el.tagName.toLowerCase()}[name="${el.getAttribute('name')}"]`;
+        else if (el.getAttribute('aria-label')) selector = `${el.tagName.toLowerCase()}[aria-label="${CSS.escape(el.getAttribute('aria-label')!)}"]`;
+        else if (el.getAttribute('placeholder')) selector = `${el.tagName.toLowerCase()}[placeholder="${CSS.escape(el.getAttribute('placeholder')!)}"]`;
+        else if (el.getAttribute('type')) selector = `${el.tagName.toLowerCase()}[type="${el.getAttribute('type')}"]`;
+        else {
+          const parent = el.parentElement;
+          if (parent) {
+            const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName);
+            if (siblings.length === 1) selector = el.tagName.toLowerCase();
+            else selector = `${el.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(el) + 1})`;
+          }
+          if (!selector) selector = el.tagName.toLowerCase();
+        }
         return {
-          id: `dom-${i}`,
+          id: selector || `dom-${i}`,
           tagName: el.tagName.toLowerCase(),
+          role,
+          text: label,
           boundingBox: {
             x: rect.x,
             y: rect.y,
             width: rect.width,
-            height: rect.height
-          }
+            height: rect.height,
+          },
+          isActionable: !((el as HTMLInputElement).disabled),
         };
       });
     });
@@ -396,9 +454,12 @@ export class PageStateCollector {
     try {
       interactiveElements = shouldUseFallback
         ? nodes.map((n, i) => ({
-            id: `dom-${i}`,
+            id: n.id || `dom-${i}`,
             tagName: (n.attributes?.tag as string) || 'unknown',
-            boundingBox: n.boundingBox
+            role: n.role || undefined,
+            text: n.name || n.description || '',
+            boundingBox: n.boundingBox,
+            isActionable: n.attributes?.disabled !== 'true',
           }))
         : await this.collectInteractiveElementsViaDom();
 

@@ -190,9 +190,11 @@ export interface TaloxPageState {
   /** Flat ordered list of all AX tree nodes with bounding boxes. */
   nodes: TaloxNode[];
   interactiveElements: Array<{
+    /** CSS selector usable with click()/type(). Derived from id, name, aria-label, or nth-of-type. */
     id: string;
     tagName: string;
     role?: string;
+    /** Label text from <label>, aria-label, placeholder, or textContent. */
     text?: string;
     boundingBox: { x: number; y: number; width: number; height: number };
     isActionable?: boolean;
