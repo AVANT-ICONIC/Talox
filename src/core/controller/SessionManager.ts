@@ -219,8 +219,11 @@ export class SessionManager {
 			try {
 				await restoreSessionSnapshot(newPage, newContext, snapshot);
 				this.pendingSnapshot = null;
-			} catch {
+			} catch (e) {
 				// Non-fatal — agent will see a fresh page at the last URL
+				if (snapshot?.url) {
+					await newPage.goto(snapshot.url).catch(() => {});
+				}
 			}
 		}
 
@@ -380,7 +383,9 @@ export class SessionManager {
 		this.autoThinkingCheckInterval = setInterval(() => {
 			const lastPos = this.getCurrentMousePos();
 			const attentionFrame = null; // resolved externally when needed
-			this.checkIdleAndThink(lastPos, attentionFrame, (x, y) => ({ x, y }));
+			this.checkIdleAndThink(lastPos, attentionFrame, (x, y) => ({ x, y })).catch(() => {
+				// Auto-thinking failures are non-fatal — suppress to avoid crashing the process
+			});
 		}, 1000);
 
 		this.artifactBuilder.addAction("startAutoThinking", {
@@ -603,7 +608,7 @@ export class SessionManager {
 			});
 
 			// 2. Chrome Runtime Spoofing
-			// @ts-ignore
+			// @ts-expect-error
 			window.chrome = {
 				runtime: {},
 				loadTimes: () => {},
@@ -651,7 +656,7 @@ export class SessionManager {
 				if (context) {
 					try {
 						const imageData = context.getImageData(0, 0, this.width, this.height);
-						if (imageData && imageData.data && imageData.data.length > 0) {
+						if (imageData?.data && imageData.data.length > 0) {
 							const lastIdx = imageData.data.length - 1;
 							const val = imageData.data[lastIdx];
 							if (val !== undefined) {
@@ -686,8 +691,8 @@ export class SessionManager {
 			// 9. AudioContext Spoofing (consistent with OS)
 			if (typeof AudioContext !== "undefined") {
 				const OrigAudioContext = AudioContext;
-				// @ts-ignore
-				window.AudioContext = function (opts: any) {
+				// @ts-expect-error
+				window.AudioContext = (opts: any) => {
 					const ctx = new OrigAudioContext(opts);
 					Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
 					Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
@@ -697,9 +702,9 @@ export class SessionManager {
 			}
 
 			// 10. Battery API Spoofing
-			// @ts-ignore — browser context, getBattery exists at runtime
+			// @ts-expect-error — browser context, getBattery exists at runtime
 			if (typeof navigator.getBattery === "function") {
-				// @ts-ignore
+				// @ts-expect-error
 				navigator.getBattery = async () => ({
 					charging: data.battery.charging,
 					chargingTime: data.battery.chargingTime,
@@ -714,14 +719,14 @@ export class SessionManager {
 			// 11. WebRTC Leak Prevention
 			if (typeof RTCPeerConnection !== "undefined") {
 				const OrigRTCPeerConnection = RTCPeerConnection;
-				// @ts-ignore
-				window.RTCPeerConnection = function (config: any, constraints: any) {
+				// @ts-expect-error
+				window.RTCPeerConnection = (config: any, constraints: any) => {
 					// Force ICE candidate filtering to prevent local IP leaks
 					const filteredConfig = {
 						...config,
 						iceServers: config?.iceServers || [],
 					};
-					// @ts-ignore
+					// @ts-expect-error
 					return new OrigRTCPeerConnection(filteredConfig, constraints);
 				};
 			}
@@ -733,8 +738,8 @@ export class SessionManager {
 				CanvasRenderingContext2D.prototype.measureText = function (text: string) {
 					const result = origMeasureText.apply(this, [text]);
 					// Add subtle random offset to defeat font metric fingerprinting
-					const offset = data.fontLetterSpacingMin +
-						Math.random() * (data.fontLetterSpacingMax - data.fontLetterSpacingMin);
+					const offset =
+						data.fontLetterSpacingMin + Math.random() * (data.fontLetterSpacingMax - data.fontLetterSpacingMin);
 					return {
 						...result,
 						width: result.width + offset,
@@ -745,11 +750,9 @@ export class SessionManager {
 			// 13. Timezone Consistency
 			if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
 				const OrigDateTimeFormat = Intl.DateTimeFormat;
-				// @ts-ignore
-				Intl.DateTimeFormat = function (locales: any, opts: any) {
-					return new OrigDateTimeFormat(data.locale, opts);
-				};
-				// @ts-ignore
+				// @ts-expect-error
+				Intl.DateTimeFormat = (locales: any, opts: any) => new OrigDateTimeFormat(data.locale, opts);
+				// @ts-expect-error
 				Intl.DateTimeFormat.prototype = OrigDateTimeFormat.prototype;
 				Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
 			}

@@ -1,12 +1,12 @@
 /**
  * @file index.ts
- * @description Public exports for the Talox package (v2.0).
+ * @description Public exports for the Talox package (v4.0).
  *
  * All public APIs are re-exported from this file.
  */
 
 // ─── Core Modules ─────────────────────────────────────────────────────────────
-export * from "./core/BrowserManager.js";
+export { BrowserManager, type BrowserType } from "./core/BrowserManager.js";
 export * from "./core/BugEngine.js";
 export type { ChallengeState, ChallengeType, DetectedChallenge } from "./core/ChallengeDetector.js";
 export { ChallengeDetector } from "./core/ChallengeDetector.js";
@@ -18,12 +18,14 @@ export type {
 } from "./core/ChallengeResolver.js";
 export { ChallengeResolver } from "./core/ChallengeResolver.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./core/controller/ActionExecutor.js";
+export { EventBus } from "./core/controller/EventBus.js";
 export type { TakeoverReason, TakeoverState, TakeoverSummary } from "./core/controller/TakeoverBridge.js";
 // ─── Takeover Bridge (v2) ───────────────────────────────────────────────────
 export { TakeoverBridge } from "./core/controller/TakeoverBridge.js";
 export type { AttentionFrame, DebugSnapshot } from "./core/controller/TaloxController.js";
 // ─── Core Controller ────────────────────────────────────────────────────────────
 export { TaloxController } from "./core/controller/TaloxController.js";
+export * from "./core/FingerprintGenerator.js";
 export * from "./core/HumanMouse.js";
 export type { InteractionAttempt, InteractionFailureMode, ReliabilityOutcome } from "./core/InteractionReliability.js";
 export { InteractionReliability } from "./core/InteractionReliability.js";
@@ -51,7 +53,6 @@ export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/s
 export { DomainMemory } from "./core/smart/DomainMemory.js";
 export { STRATEGIES } from "./core/smart/strategies.js";
 export * from "./core/TaloxTools.js";
-export * from "./core/FingerprintGenerator.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
 

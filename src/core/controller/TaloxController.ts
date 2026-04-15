@@ -107,36 +107,39 @@ export class TaloxController {
 	private takeoverHistory: TakeoverSummary[] = [];
 	private observing: boolean;
 
-	constructor(baseDir: string = ".", config: TaloxConfig = {}) {
+	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
+		// Support TaloxController(config) shorthand when first arg is an object
+		const baseDir = typeof baseDirOrConfig === "string" ? baseDirOrConfig : ".";
+		const mergedConfig = typeof baseDirOrConfig === "object" ? baseDirOrConfig : config;
 		// Start with defaults, then apply legacy mode if specified, then apply explicit settings
 		let mergedSettings: TaloxSettings = { ...DEFAULT_SETTINGS };
 
 		// Handle legacy mode mapping (v1 → v2 compatibility layer)
-		if (config.mode) {
-			const legacySettings = resolveLegacyMode(config.mode);
+		if (mergedConfig.mode) {
+			const legacySettings = resolveLegacyMode(mergedConfig.mode);
 			mergedSettings = { ...mergedSettings, ...legacySettings };
 		}
 
 		// Apply explicit settings overrides
-		if (config.settings) {
-			mergedSettings = { ...mergedSettings, ...config.settings };
+		if (mergedConfig.settings) {
+			mergedSettings = { ...mergedSettings, ...mergedConfig.settings };
 		}
 
 		this.settings = mergedSettings;
 
-		if (config.humanTakeover !== undefined) {
-			if (typeof config.humanTakeover === "boolean") {
-				this.settings.humanTakeoverEnabled = config.humanTakeover;
+		if (mergedConfig.humanTakeover !== undefined) {
+			if (typeof mergedConfig.humanTakeover === "boolean") {
+				this.settings.humanTakeoverEnabled = mergedConfig.humanTakeover;
 			} else {
 				this.settings.humanTakeoverEnabled = true;
-				if (config.humanTakeover.timeoutMs !== undefined) {
-					this.settings.humanTakeoverTimeoutMs = config.humanTakeover.timeoutMs;
+				if (mergedConfig.humanTakeover.timeoutMs !== undefined) {
+					this.settings.humanTakeoverTimeoutMs = mergedConfig.humanTakeover.timeoutMs;
 				}
 			}
 		}
 
 		// humanTakeover or observe both need headed mode for UI
-		if (config.observe) {
+		if (mergedConfig.observe) {
 			this.settings.headed = true;
 		}
 
@@ -149,7 +152,7 @@ export class TaloxController {
 		this._challenge = new ChallengeDetector();
 		this._session = new SessionManager(this.settings, this._events, baseDir);
 		this._takeover = new TakeoverBridge(this._events, this.settings.humanTakeoverTimeoutMs);
-		this.observing = Boolean(config.observe);
+		this.observing = Boolean(mergedConfig.observe);
 		this._adapt = new AdaptationEngine(
 			this.settings,
 			this._events,
@@ -225,7 +228,12 @@ export class TaloxController {
 		const page = this._session.getPlaywrightPage();
 		if (page) {
 			// headed:true activates the full agent overlay (cursor + glow + takeover button)
-			await this._takeover.initialize(page as any, this.settings.headed);
+			try {
+				await this._takeover.initialize(page as any, this.settings.headed);
+			} catch (e) {
+				await this._session.stop();
+				throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
+			}
 		}
 	}
 
@@ -240,7 +248,11 @@ export class TaloxController {
 				history: this.takeoverHistory,
 			});
 		}
-		await this._session.stop();
+		try {
+			await this._session.stop();
+		} catch (e) {
+			console.error(`[Talox] Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
+		}
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -473,7 +485,9 @@ export class TaloxController {
 
 			this.takeoverState = "WAITING_FOR_HUMAN";
 			// TakeoverBridge listens to this event to update the overlay
-			void this._takeover.requestTakeover(reason);
+			this._takeover.requestTakeover(reason).catch((e) => {
+				console.error(`[Talox] Takeover request failed: ${e instanceof Error ? e.message : String(e)}`);
+			});
 
 			if (this.settings.humanTakeoverTimeoutMs > 0) {
 				this.autoResumeTimer = setTimeout(() => {

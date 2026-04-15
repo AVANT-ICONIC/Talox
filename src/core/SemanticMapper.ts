@@ -230,7 +230,7 @@ export class SemanticMapper {
 
 		if (selector.startsWith("[role=")) {
 			const roleMatch = selector.match(/\[role="([^"]+)"\]/);
-			if (roleMatch && roleMatch[1]) {
+			if (roleMatch?.[1]) {
 				return node.role.toLowerCase() === roleMatch[1].toLowerCase();
 			}
 		}

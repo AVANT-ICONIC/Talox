@@ -598,11 +598,13 @@ export class ActionExecutor {
 
 	async waitForSelector(selector: string, timeout: number = 30000): Promise<void> {
 		const page = this.getPage();
+		if (!page) throw new Error("No active page. Use launch() or openPage() first.");
 		await page.waitForSelector(selector, { timeout });
 	}
 
 	async waitForNavigation(timeout: number = 30000): Promise<void> {
 		const page = this.getPage();
+		if (!page) throw new Error("No active page. Use launch() or openPage() first.");
 		await page.waitForNavigation({ timeout });
 	}
 

@@ -254,7 +254,7 @@ export class TakeoverBridge {
 		const timestamp = new Date().toISOString();
 		this.takeoverReason = reason;
 		this.takeoverStartedAt = timestamp;
-		this.takeoverStartedUrl = (typeof this.currentPage?.url === "function") ? this.currentPage.url() : null;
+		this.takeoverStartedUrl = typeof this.currentPage?.url === "function" ? this.currentPage.url() : null;
 		const payload: { timestamp: string; reason?: TakeoverReason | string } = { timestamp };
 		if (reason !== undefined) payload.reason = reason;
 		this.eventBus.emit("humanTakeoverRequested", payload);

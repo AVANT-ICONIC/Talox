@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-04-15
+
+### Breaking Changes
+
+- **Constructor signature change** — `TaloxController` now accepts `(baseDirOrConfig, config?)`. The first argument can be either a `string` (base directory) or a `TaloxConfig` object. This means `new TaloxController({ headless: true })` now works as expected.
+- **Wildcard export removed** — `BrowserManager` internal symbols (`DEFAULT_CONFIG`, `getDefaultConfig`, `resolveConfigDir`, `createLiveBootManager`, `printBrowserInstallGuide`) are no longer exported. Import `BrowserManager` and `BrowserType` explicitly.
+
+### Added
+
+- **FingerprintGenerator** — Deterministic, OS-consistent browser fingerprint profiles:
+  - Market-share-weighted OS selection (Windows 72%, macOS 17%, Linux 4%)
+  - All attributes (UA, platform, WebGL, audio, fonts, hardware, battery, timezone) consistent per OS
+  - Deterministic generation from seed for replayable sessions
+  - Cross-validator that detects OS/UA, OS/GPU, hardware inconsistencies
+- **13-layer stealth injection** (upgraded from 6):
+  - Platform, `hardwareConcurrency`, `deviceMemory` spoofing (consistent with OS)
+  - AudioContext `sampleRate`/`maxChannelCount`/`outputLatency` (OS-consistent)
+  - Battery API spoofing, WebRTC leak prevention
+  - Font metrics fingerprint defense (letter-spacing noise)
+  - Timezone consistency via `Intl.DateTimeFormat` override
+  - All values sourced from unified `FingerprintProfile` (no random drift between attributes)
+- **`EventBus` exported** — Advanced consumers can now use typed event subscriptions
+- **15 new unit tests** for FingerprintGenerator (generation, determinism, consistency, validation)
+
+### Fixed
+
+- **CRITICAL: Duplicate `TaloxConfig` leak** — Wildcard export from `BrowserManager` leaked an internal `TaloxConfig` that conflicted with the public `TaloxConfig` from `types/config.ts`. Replaced with selective exports.
+- **HIGH: `launch()` partial failure leak** — If takeover initialization failed after browser launch, the browser was left running. Now properly cleaned up.
+- **HIGH: Auto-thinking process crash** — Unhandled rejection in `setInterval` could crash the process. Now caught with `.catch()`.
+- **HIGH: `requestTakeover` unhandled rejection** — `void` on async call discarded the Promise. Now uses `.catch()`.
+- **MEDIUM: Snapshot restore fallback** — After a failed snapshot restore during headed/headless switch, now navigates to the last-known URL instead of leaving the page on `about:blank`.
+- **MEDIUM: `stop()` safety** — Wrapped in try/catch for safe cleanup in finally blocks.
+- **MEDIUM: Null page checks** — `waitForSelector`/`waitForNavigation` now throw descriptive errors when no page is active.
+- **Constructor flexibility** — `new TaloxController({ headless: true })` now works (previously required `new TaloxController(".", { headless: true })`).
+- **Removed dead legacy shim** (`src/core/TaloxController.ts`) that said "will be removed in v2.0".
+- **Biome lint fixes** across 6 files.
+
+### Removed
+
+- Internal `DEFAULT_CONFIG`, `getDefaultConfig()`, `resolveConfigDir()`, `createLiveBootManager()`, `printBrowserInstallGuide()` from public exports.
+- Legacy shim `src/core/TaloxController.ts`.
+
 ## [3.0.0] - 2026-04-10
 
 ### Breaking Changes
