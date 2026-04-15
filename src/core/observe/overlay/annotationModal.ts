@@ -14,25 +14,25 @@
  * This file runs inside the browser page context (injected via addInitScript).
  */
 
-import { taloxEmit }            from './bridge.js';
-import type { CapturedElement } from './elementInspector.js';
+import { taloxEmit } from "./bridge.js";
+import type { CapturedElement } from "./elementInspector.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface AnnotationSubmission {
-  labels:      string[];
-  comment:     string;
-  element:     CapturedElement;
-  timestamp:   string;
+	labels: string[];
+	comment: string;
+	element: CapturedElement;
+	timestamp: string;
 }
 
 // ─── Preset Tags ─────────────────────────────────────────────────────────────
 
 const PRESET_TAGS = [
-  { label: 'bug',         emoji: '🐛' },
-  { label: 'note',        emoji: '📝' },
-  { label: 'question',    emoji: '❓' },
-  { label: 'improvement', emoji: '✨' },
+	{ label: "bug", emoji: "🐛" },
+	{ label: "note", emoji: "📝" },
+	{ label: "question", emoji: "❓" },
+	{ label: "improvement", emoji: "✨" },
 ] as const;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -346,27 +346,24 @@ const MODAL_STYLES = `
  * @param element           - The element captured by the inspector.
  * @param interactionIndex  - Current interaction counter (links annotation to timeline).
  */
-export function showAnnotationModal(
-  element:          CapturedElement,
-  interactionIndex: number,
-): void {
-  injectStyles();
-  cleanup();
+export function showAnnotationModal(element: CapturedElement, interactionIndex: number): void {
+	injectStyles();
+	cleanup();
 
-  const activeTags = new Set<string>();
+	const activeTags = new Set<string>();
 
-  // ── Build DOM ────────────────────────────────────────────────────────────
-  const backdrop = document.createElement('div');
-  backdrop.id = 'talox-modal-backdrop';
+	// ── Build DOM ────────────────────────────────────────────────────────────
+	const backdrop = document.createElement("div");
+	backdrop.id = "talox-modal-backdrop";
 
-  const modal = document.createElement('div');
-  modal.id = 'talox-annotation-modal';
+	const modal = document.createElement("div");
+	modal.id = "talox-annotation-modal";
 
-  const elementLabel = element.text
-    ? `<${element.tag}> "${element.text.slice(0, 50)}"`
-    : `<${element.tag}> [${element.role ?? element.tag}]`;
+	const elementLabel = element.text
+		? `<${element.tag}> "${element.text.slice(0, 50)}"`
+		: `<${element.tag}> [${element.role ?? element.tag}]`;
 
-  modal.innerHTML = `
+	modal.innerHTML = `
     <div class="talox-modal-header">
       <span class="talox-modal-header-pin">📍</span>
       <code class="talox-modal-header-label" title="${elementLabel}">${elementLabel}</code>
@@ -376,13 +373,15 @@ export function showAnnotationModal(
       <div class="talox-modal-section">
         <span class="talox-section-label">Tags</span>
         <div class="talox-tags-container" id="talox-tags-container">
-          ${PRESET_TAGS.map(t => `
+          ${PRESET_TAGS.map(
+						(t) => `
             <button
               class="talox-tag-chip"
               data-label="${t.label}"
               type="button"
             >${t.emoji} ${t.label.charAt(0).toUpperCase() + t.label.slice(1)}</button>
-          `).join('')}
+          `,
+					).join("")}
         </div>
         <div class="talox-custom-tag-row">
           <span class="talox-custom-tag-prefix">+ custom tag</span>
@@ -421,92 +420,92 @@ export function showAnnotationModal(
     </div>
   `;
 
-  document.body.appendChild(backdrop);
-  document.body.appendChild(modal);
+	document.body.appendChild(backdrop);
+	document.body.appendChild(modal);
 
-  // Position modal near element, clamped to viewport
-  positionModal(modal, element.boundingBox);
+	// Position modal near element, clamped to viewport
+	positionModal(modal, element.boundingBox);
 
-  // ── Preset tag chips ────────────────────────────────────────────────────
-  const tagsContainer = document.getElementById('talox-tags-container')!;
-  tagsContainer.querySelectorAll<HTMLButtonElement>('.talox-tag-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const label = chip.dataset['label']!;
-      if (activeTags.has(label)) {
-        activeTags.delete(label);
-        chip.classList.remove('talox-tag-chip--active');
-      } else {
-        activeTags.add(label);
-        chip.classList.add('talox-tag-chip--active');
-      }
-    });
-  });
+	// ── Preset tag chips ────────────────────────────────────────────────────
+	const tagsContainer = document.getElementById("talox-tags-container")!;
+	tagsContainer.querySelectorAll<HTMLButtonElement>(".talox-tag-chip").forEach((chip) => {
+		chip.addEventListener("click", () => {
+			const label = chip.dataset["label"]!;
+			if (activeTags.has(label)) {
+				activeTags.delete(label);
+				chip.classList.remove("talox-tag-chip--active");
+			} else {
+				activeTags.add(label);
+				chip.classList.add("talox-tag-chip--active");
+			}
+		});
+	});
 
-  // ── Custom tag input ────────────────────────────────────────────────────
-  const customInput = document.getElementById('talox-custom-tag-input') as HTMLInputElement;
-  customInput.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const value = customInput.value.trim();
-      if (value && !activeTags.has(value)) {
-        activeTags.add(value);
-        addCustomChip(tagsContainer, value, activeTags);
-        customInput.value = '';
-      }
-    }
-  });
+	// ── Custom tag input ────────────────────────────────────────────────────
+	const customInput = document.getElementById("talox-custom-tag-input") as HTMLInputElement;
+	customInput.addEventListener("keydown", (e: KeyboardEvent) => {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			const value = customInput.value.trim();
+			if (value && !activeTags.has(value)) {
+				activeTags.add(value);
+				addCustomChip(tagsContainer, value, activeTags);
+				customInput.value = "";
+			}
+		}
+	});
 
-  // ── Buttons ────────────────────────────────────────────────────────────
-  document.getElementById('talox-modal-cancel')?.addEventListener('click', cleanup);
+	// ── Buttons ────────────────────────────────────────────────────────────
+	document.getElementById("talox-modal-cancel")?.addEventListener("click", cleanup);
 
-  document.getElementById('talox-modal-save')?.addEventListener('click', () => {
-    const comment = (document.getElementById('talox-comment-input') as HTMLTextAreaElement).value.trim();
-    const labels  = Array.from(activeTags);
+	document.getElementById("talox-modal-save")?.addEventListener("click", () => {
+		const comment = (document.getElementById("talox-comment-input") as HTMLTextAreaElement).value.trim();
+		const labels = Array.from(activeTags);
 
-    const submission: AnnotationSubmission = {
-      labels,
-      comment,
-      element,
-      timestamp: new Date().toISOString(),
-    };
+		const submission: AnnotationSubmission = {
+			labels,
+			comment,
+			element,
+			timestamp: new Date().toISOString(),
+		};
 
-    taloxEmit('annotation:add', {
-      ...submission,
-      interactionIndex,
-    });
+		taloxEmit("annotation:add", {
+			...submission,
+			interactionIndex,
+		});
 
-    cleanup();
-  });
+		cleanup();
+	});
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────
-  const keyHandler = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      cleanup();
-      document.removeEventListener('keydown', keyHandler, true);
-    }
+	// ── Keyboard shortcuts ────────────────────────────────────────────────
+	const keyHandler = (e: KeyboardEvent): void => {
+		if (e.key === "Escape") {
+			cleanup();
+			document.removeEventListener("keydown", keyHandler, true);
+		}
 
-    // Ctrl/Cmd+Z — undo last submitted annotation
-    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      taloxEmit('annotation:undo', {});
-      showUndoToast();
-    }
-  };
-  document.addEventListener('keydown', keyHandler, true);
+		// Ctrl/Cmd+Z — undo last submitted annotation
+		if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+			e.preventDefault();
+			taloxEmit("annotation:undo", {});
+			showUndoToast();
+		}
+	};
+	document.addEventListener("keydown", keyHandler, true);
 
-  // ── Outside-click dismiss (backdrop has pointer-events:none so we use document) ──
-  const outsideClickHandler = (e: MouseEvent): void => {
-    if (!(e.target as Element).closest?.('#talox-annotation-modal')) {
-      cleanup();
-      document.removeEventListener('mousedown', outsideClickHandler, true);
-    }
-  };
-  document.addEventListener('mousedown', outsideClickHandler, true);
+	// ── Outside-click dismiss (backdrop has pointer-events:none so we use document) ──
+	const outsideClickHandler = (e: MouseEvent): void => {
+		if (!(e.target as Element).closest?.("#talox-annotation-modal")) {
+			cleanup();
+			document.removeEventListener("mousedown", outsideClickHandler, true);
+		}
+	};
+	document.addEventListener("mousedown", outsideClickHandler, true);
 
-  // Focus comment textarea
-  setTimeout(() => {
-    (document.getElementById('talox-comment-input') as HTMLTextAreaElement)?.focus();
-  }, 50);
+	// Focus comment textarea
+	setTimeout(() => {
+		(document.getElementById("talox-comment-input") as HTMLTextAreaElement)?.focus();
+	}, 50);
 }
 
 // ─── Global Undo Listener ────────────────────────────────────────────────────
@@ -516,86 +515,83 @@ export function showAnnotationModal(
  * is closed. This lets the human undo annotations at any point during the session.
  */
 export function installGlobalUndoListener(): void {
-  document.addEventListener('keydown', (e: KeyboardEvent) => {
-    // Only intercept when modal is NOT open (modal has its own handler)
-    if (document.getElementById('talox-annotation-modal')) return;
+	document.addEventListener(
+		"keydown",
+		(e: KeyboardEvent) => {
+			// Only intercept when modal is NOT open (modal has its own handler)
+			if (document.getElementById("talox-annotation-modal")) return;
 
-    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      taloxEmit('annotation:undo', {});
-      showUndoToast();
-    }
-  }, true);
+			if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				taloxEmit("annotation:undo", {});
+				showUndoToast();
+			}
+		},
+		true,
+	);
 }
 
 // ─── Private Helpers ─────────────────────────────────────────────────────────
 
-function addCustomChip(
-  container:   HTMLElement,
-  label:       string,
-  activeTags:  Set<string>,
-): void {
-  const chip = document.createElement('button');
-  chip.className = 'talox-tag-chip talox-tag-chip--active';
-  chip.dataset['label']  = label;
-  chip.dataset['custom'] = 'true';
-  chip.type = 'button';
+function addCustomChip(container: HTMLElement, label: string, activeTags: Set<string>): void {
+	const chip = document.createElement("button");
+	chip.className = "talox-tag-chip talox-tag-chip--active";
+	chip.dataset["label"] = label;
+	chip.dataset["custom"] = "true";
+	chip.type = "button";
 
-  const labelSpan = document.createElement('span');
-  labelSpan.textContent = `🏷️ ${label}`;
+	const labelSpan = document.createElement("span");
+	labelSpan.textContent = `🏷️ ${label}`;
 
-  const removeSpan = document.createElement('span');
-  removeSpan.className = 'talox-tag-chip-remove';
-  removeSpan.textContent = '×';
-  removeSpan.addEventListener('click', (e) => {
-    e.stopPropagation();
-    activeTags.delete(label);
-    chip.remove();
-  });
+	const removeSpan = document.createElement("span");
+	removeSpan.className = "talox-tag-chip-remove";
+	removeSpan.textContent = "×";
+	removeSpan.addEventListener("click", (e) => {
+		e.stopPropagation();
+		activeTags.delete(label);
+		chip.remove();
+	});
 
-  chip.appendChild(labelSpan);
-  chip.appendChild(removeSpan);
+	chip.appendChild(labelSpan);
+	chip.appendChild(removeSpan);
 
-  container.appendChild(chip);
+	container.appendChild(chip);
 }
 
-function positionModal(
-  modal:       HTMLElement,
-  _elementBox: { x: number; y: number; width: number; height: number },
-): void {
-  const modalRect   = modal.getBoundingClientRect();
-  const modalWidth  = modalRect.width;
-  const modalHeight = modalRect.height;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+function positionModal(modal: HTMLElement, _elementBox: { x: number; y: number; width: number; height: number }): void {
+	const modalRect = modal.getBoundingClientRect();
+	const modalWidth = modalRect.width;
+	const modalHeight = modalRect.height;
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
 
-  const top = Math.max(16, Math.round((vh - modalHeight) / 2));
-  const left = Math.max(16, Math.round((vw - modalWidth) / 2));
+	const top = Math.max(16, Math.round((vh - modalHeight) / 2));
+	const left = Math.max(16, Math.round((vw - modalWidth) / 2));
 
-  modal.style.top  = `${top}px`;
-  modal.style.left = `${left}px`;
+	modal.style.top = `${top}px`;
+	modal.style.left = `${left}px`;
 }
 
 function cleanup(): void {
-  document.getElementById('talox-modal-backdrop')?.remove();
-  document.getElementById('talox-annotation-modal')?.remove();
+	document.getElementById("talox-modal-backdrop")?.remove();
+	document.getElementById("talox-annotation-modal")?.remove();
 }
 
 function showUndoToast(): void {
-  const existing = document.getElementById('talox-undo-toast');
-  existing?.remove();
+	const existing = document.getElementById("talox-undo-toast");
+	existing?.remove();
 
-  const toast = document.createElement('div');
-  toast.id = 'talox-undo-toast';
-  toast.textContent = '↩ Annotation removed';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2200);
+	const toast = document.createElement("div");
+	toast.id = "talox-undo-toast";
+	toast.textContent = "↩ Annotation removed";
+	document.body.appendChild(toast);
+	setTimeout(() => toast.remove(), 2200);
 }
 
 function injectStyles(): void {
-  if (document.getElementById('talox-modal-styles')) return;
-  const style = document.createElement('style');
-  style.id = 'talox-modal-styles';
-  style.textContent = MODAL_STYLES;
-  document.head.appendChild(style);
+	if (document.getElementById("talox-modal-styles")) return;
+	const style = document.createElement("style");
+	style.id = "talox-modal-styles";
+	style.textContent = MODAL_STYLES;
+	document.head.appendChild(style);
 }

@@ -1,44 +1,43 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
-import { promises as fsPromises } from 'node:fs';
-import path from 'node:path';
-import { TaloxController } from '../core/controller/TaloxController.js';
-import type { BrowserType } from '../core/BrowserManager.js';
-import type { ProfileClass } from '../types/index.js';
+import fs, { promises as fsPromises } from "node:fs";
+import path from "node:path";
+import type { BrowserType } from "../core/BrowserManager.js";
+import { TaloxController } from "../core/controller/TaloxController.js";
+import type { ProfileClass } from "../types/index.js";
 
-const PROFILE_CLASSES: ProfileClass[] = ['ops', 'qa', 'sandbox'];
-const OUTPUT_FORMATS = ['json', 'markdown', 'both'] as const;
-const DEFAULT_INIT_DIR = 'talox-app';
+const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
+const OUTPUT_FORMATS = ["json", "markdown", "both"] as const;
+const DEFAULT_INIT_DIR = "talox-app";
 
 interface ObserveCommandOptions {
-  profileId: string;
-  profileClass: ProfileClass;
-  browser: BrowserType;
-  outputDir: string;
-  outputFormat: (typeof OUTPUT_FORMATS)[number];
-  verbosity: 2 | 3;
+	profileId: string;
+	profileClass: ProfileClass;
+	browser: BrowserType;
+	outputDir: string;
+	outputFormat: (typeof OUTPUT_FORMATS)[number];
+	verbosity: 2 | 3;
 }
 
 interface ParsedArgs {
-  command: string | undefined;
-  args: string[];
+	command: string | undefined;
+	args: string[];
 }
 
 interface InitCommandOptions {
-  targetDir: string;
+	targetDir: string;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  if (argv.length === 0) {
-    return { command: undefined, args: [] };
-  }
-  const [command, ...rest] = argv;
-  return { command, args: rest };
+	if (argv.length === 0) {
+		return { command: undefined, args: [] };
+	}
+	const [command, ...rest] = argv;
+	return { command, args: rest };
 }
 
 function usage(): void {
-  console.log(`
+	console.log(`
 Usage:
   talox observe [options]
   talox init [directory]
@@ -58,154 +57,149 @@ Commands:
 }
 
 function parseObserveOptions(args: string[]): ObserveCommandOptions {
-  const opts: ObserveCommandOptions = {
-    profileId: 'observe',
-    profileClass: 'ops',
-    browser: 'chromium',
-    outputDir: path.join(process.cwd(), 'talox-sessions'),
-    outputFormat: 'both',
-    verbosity: 2,
-  };
+	const opts: ObserveCommandOptions = {
+		profileId: "observe",
+		profileClass: "ops",
+		browser: "chromium",
+		outputDir: path.join(process.cwd(), "talox-sessions"),
+		outputFormat: "both",
+		verbosity: 2,
+	};
 
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    switch (arg) {
-      case '--profile':
-      case '-p':
-        opts.profileId = args[++i] ?? opts.profileId;
-        break;
-      case '--class':
-      case '-c':
-        opts.profileClass = (args[++i] as ProfileClass) ?? opts.profileClass;
-        break;
-      case '--browser':
-      case '-b':
-        opts.browser = (args[++i] as BrowserType) ?? opts.browser;
-        break;
-      case '--output-dir':
-        opts.outputDir = path.resolve(args[++i] ?? opts.outputDir);
-        break;
-      case '--format':
-        opts.outputFormat = (args[++i] as ObserveCommandOptions['outputFormat']) ?? opts.outputFormat;
-        break;
-      case '--verbosity':
-        opts.verbosity = (Number(args[++i]) as ObserveCommandOptions['verbosity']) ?? opts.verbosity;
-        break;
-      case '--help':
-        usage();
-        process.exit(0);
-      default:
-        console.warn(`[Talox CLI] Unknown option ${arg}`);
-        usage();
-        process.exit(1);
-    }
-  }
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i];
+		switch (arg) {
+			case "--profile":
+			case "-p":
+				opts.profileId = args[++i] ?? opts.profileId;
+				break;
+			case "--class":
+			case "-c":
+				opts.profileClass = (args[++i] as ProfileClass) ?? opts.profileClass;
+				break;
+			case "--browser":
+			case "-b":
+				opts.browser = (args[++i] as BrowserType) ?? opts.browser;
+				break;
+			case "--output-dir":
+				opts.outputDir = path.resolve(args[++i] ?? opts.outputDir);
+				break;
+			case "--format":
+				opts.outputFormat = (args[++i] as ObserveCommandOptions["outputFormat"]) ?? opts.outputFormat;
+				break;
+			case "--verbosity":
+				opts.verbosity = (Number(args[++i]) as ObserveCommandOptions["verbosity"]) ?? opts.verbosity;
+				break;
+			case "--help":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				console.warn(`[Talox CLI] Unknown option ${arg}`);
+				usage();
+				process.exit(1);
+		}
+	}
 
-  if (!PROFILE_CLASSES.includes(opts.profileClass)) {
-    console.warn(`[Talox CLI] Invalid profile class: ${opts.profileClass}`);
-    usage();
-    process.exit(1);
-  }
+	if (!PROFILE_CLASSES.includes(opts.profileClass)) {
+		console.warn(`[Talox CLI] Invalid profile class: ${opts.profileClass}`);
+		usage();
+		process.exit(1);
+	}
 
-  if (!OUTPUT_FORMATS.includes(opts.outputFormat)) {
-    console.warn(`[Talox CLI] Invalid format: ${opts.outputFormat}`);
-    usage();
-    process.exit(1);
-  }
+	if (!OUTPUT_FORMATS.includes(opts.outputFormat)) {
+		console.warn(`[Talox CLI] Invalid format: ${opts.outputFormat}`);
+		usage();
+		process.exit(1);
+	}
 
-  return opts;
+	return opts;
 }
 
 function parseInitOptions(args: string[]): InitCommandOptions {
-  if (args.includes('--help') || args.includes('-h')) {
-    usage();
-    process.exit(0);
-  }
-  const explicitDir = args.find((arg) => !arg.startsWith('-'));
-  const targetDir = explicitDir ? path.resolve(process.cwd(), explicitDir) : path.join(process.cwd(), DEFAULT_INIT_DIR);
-  return { targetDir };
+	if (args.includes("--help") || args.includes("-h")) {
+		usage();
+		process.exit(0);
+	}
+	const explicitDir = args.find((arg) => !arg.startsWith("-"));
+	const targetDir = explicitDir ? path.resolve(process.cwd(), explicitDir) : path.join(process.cwd(), DEFAULT_INIT_DIR);
+	return { targetDir };
 }
 
 async function readTaloxVersion(): Promise<string> {
-  const pkgPath = path.resolve(__dirname, '..', '..', 'package.json');
-  const raw = await fsPromises.readFile(pkgPath, 'utf-8');
-  try {
-    const pkg = JSON.parse(raw);
-    return String(pkg.version ?? '0.0.0');
-  } catch (error) {
-    return '0.0.0';
-  }
+	const pkgPath = path.resolve(__dirname, "..", "..", "package.json");
+	const raw = await fsPromises.readFile(pkgPath, "utf-8");
+	try {
+		const pkg = JSON.parse(raw);
+		return String(pkg.version ?? "0.0.0");
+	} catch (_error) {
+		return "0.0.0";
+	}
 }
 
 async function runObserve(args: string[]): Promise<void> {
-  const opts = parseObserveOptions(args);
-  const talox = new TaloxController(process.cwd(), {
-    observe: true,
-    settings: {
-      headed: true,
-      verbosity: opts.verbosity,
-      mouseSpeed: 0.5,
-      typingDelayMin: 80,
-      typingDelayMax: 180,
-      typoProbability: 0.02,
-      fidgetEnabled: true,
-      humanStealth: 1,
-      stealthLevel: 'medium',
-      adaptiveStealthEnabled: true,
-      automaticThinkingEnabled: true,
-      perceptionDepth: 'full',
-      autoHeadedEscalation: true,
-      humanTakeoverEnabled: false,
-      humanTakeoverTimeoutMs: 0,
-      idleTimeout: 5000,
-      precisionDecay: 0.1,
-      adaptiveStealthSensitivity: 0.5,
-      adaptiveStealthRadius: 100,
-    },
-  });
+	const opts = parseObserveOptions(args);
+	const talox = new TaloxController(process.cwd(), {
+		observe: true,
+		settings: {
+			headed: true,
+			verbosity: opts.verbosity,
+			mouseSpeed: 0.5,
+			typingDelayMin: 80,
+			typingDelayMax: 180,
+			typoProbability: 0.02,
+			fidgetEnabled: true,
+			humanStealth: 1,
+			stealthLevel: "medium",
+			adaptiveStealthEnabled: true,
+			automaticThinkingEnabled: true,
+			perceptionDepth: "full",
+			autoHeadedEscalation: true,
+			humanTakeoverEnabled: false,
+			humanTakeoverTimeoutMs: 0,
+			idleTimeout: 5000,
+			precisionDecay: 0.1,
+			adaptiveStealthSensitivity: 0.5,
+			adaptiveStealthRadius: 100,
+		},
+	});
 
-  const sessionEnded = new Promise<void>((resolve) => {
-    const handler = async (event: { reportPath: string; sessionId: string; durationMs: number }) => {
-      console.log(
-        `[Talox] Observe session ${event.sessionId} completed · duration ${Math.round(event.durationMs / 1000)}s · report ${event.reportPath}`,
-      );
-      talox.off('sessionEnd', handler);
-      await talox.stop();
-      resolve();
-    };
-    talox.on('sessionEnd', handler);
-  });
+	const sessionEnded = new Promise<void>((resolve) => {
+		const handler = async (event: { reportPath: string; sessionId: string; durationMs: number }) => {
+			console.log(
+				`[Talox] Observe session ${event.sessionId} completed · duration ${Math.round(event.durationMs / 1000)}s · report ${event.reportPath}`,
+			);
+			talox.off("sessionEnd", handler);
+			await talox.stop();
+			resolve();
+		};
+		talox.on("sessionEnd", handler);
+	});
 
-  talox.on('error', (payload) => {
-    console.error('[Talox CLI] Error event:', payload);
-  });
+	talox.on("error", (payload) => {
+		console.error("[Talox CLI] Error event:", payload);
+	});
 
-  const interrupt = async () => {
-    console.log('[Talox CLI] Interrupt received — stopping the observe session...');
-    await talox.stop();
-    process.exit(0);
-  };
-  process.on('SIGINT', interrupt);
+	const interrupt = async () => {
+		console.log("[Talox CLI] Interrupt received — stopping the observe session...");
+		await talox.stop();
+		process.exit(0);
+	};
+	process.on("SIGINT", interrupt);
 
-  await talox.launch(opts.profileId, opts.profileClass, opts.browser, {
-    headed: true,
-    overlay: true,
-    record: true,
-    output: opts.outputFormat,
-    outputDir: opts.outputDir,
-  });
+	await talox.launch(opts.profileId, opts.profileClass, opts.browser, {
+		headed: true,
+		overlay: true,
+		record: true,
+		output: opts.outputFormat,
+		outputDir: opts.outputDir,
+	});
 
-  await sessionEnded;
-  process.off('SIGINT', interrupt);
+	await sessionEnded;
+	process.off("SIGINT", interrupt);
 }
 
-const PACKAGE_TEMPLATE = ({
-  name,
-  version,
-}: {
-  name: string;
-  version: string;
-}) => `{
+const PACKAGE_TEMPLATE = ({ name, version }: { name: string; version: string }) => `{
   "name": "${name}",
   "version": "0.1.0",
   "private": true,
@@ -331,53 +325,57 @@ This repository demonstrates a **browser lab** profile built on Talox v2.
 `;
 
 async function runInit(args: string[]): Promise<void> {
-  const { targetDir } = parseInitOptions(args);
-  if (fs.existsSync(targetDir)) {
-    const existing = fs.readdirSync(targetDir);
-    if (existing.length > 0) {
-      console.error('[Talox CLI] Target directory is not empty. Aborting.');
-      process.exit(1);
-    }
-  }
+	const { targetDir } = parseInitOptions(args);
+	if (fs.existsSync(targetDir)) {
+		const existing = fs.readdirSync(targetDir);
+		if (existing.length > 0) {
+			console.error("[Talox CLI] Target directory is not empty. Aborting.");
+			process.exit(1);
+		}
+	}
 
-  await fsPromises.mkdir(targetDir, { recursive: true });
-  const scriptsDir = path.join(targetDir, 'src');
-  await fsPromises.mkdir(scriptsDir, { recursive: true });
+	await fsPromises.mkdir(targetDir, { recursive: true });
+	const scriptsDir = path.join(targetDir, "src");
+	await fsPromises.mkdir(scriptsDir, { recursive: true });
 
-  const version = await readTaloxVersion();
-  const pkgContent = PACKAGE_TEMPLATE({ name: path.basename(targetDir) || 'talox-app', version });
+	const version = await readTaloxVersion();
+	const pkgContent = PACKAGE_TEMPLATE({ name: path.basename(targetDir) || "talox-app", version });
 
-  await Promise.all([
-    fsPromises.writeFile(path.join(targetDir, 'package.json'), pkgContent, 'utf-8'),
-    fsPromises.writeFile(path.join(targetDir, 'tsconfig.json'), TSCONFIG_TEMPLATE, 'utf-8'),
-    fsPromises.writeFile(path.join(scriptsDir, 'browser-lab.ts'), BROWSER_LAB_SCRIPT, 'utf-8'),
-    fsPromises.writeFile(path.join(targetDir, 'README.md'), README_TEMPLATE(path.basename(targetDir) || 'Browser Lab Starter'), 'utf-8'),
-  ]);
+	await Promise.all([
+		fsPromises.writeFile(path.join(targetDir, "package.json"), pkgContent, "utf-8"),
+		fsPromises.writeFile(path.join(targetDir, "tsconfig.json"), TSCONFIG_TEMPLATE, "utf-8"),
+		fsPromises.writeFile(path.join(scriptsDir, "browser-lab.ts"), BROWSER_LAB_SCRIPT, "utf-8"),
+		fsPromises.writeFile(
+			path.join(targetDir, "README.md"),
+			README_TEMPLATE(path.basename(targetDir) || "Browser Lab Starter"),
+			"utf-8",
+		),
+	]);
 
-  console.log('[Talox CLI] Browser lab starter created at', targetDir);
-  console.log('[Talox CLI] Next steps:');
-  console.log(`  cd ${path.relative(process.cwd(), targetDir) || '.'}`);
-  console.log('  npm install');
-  console.log('  npm run playwright:install');
-  console.log('  npm run start');
+	console.log("[Talox CLI] Browser lab starter created at", targetDir);
+	console.log("[Talox CLI] Next steps:");
+	console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);
+	console.log("  npm install");
+	console.log("  npm run playwright:install");
+	console.log("  npm run start");
 }
 
 async function main(): Promise<void> {
-  const { command, args } = parseArgs(process.argv.slice(2));
-  switch (command) {
-    case 'observe':
-      await runObserve(args);
-      break;
-    case 'init':
-      await runInit(args);
-      break;
-    default:
-      usage();
-      process.exit(1);
-  }
+	const { command, args } = parseArgs(process.argv.slice(2));
+	switch (command) {
+		case "observe":
+			await runObserve(args);
+			break;
+		case "init":
+			await runInit(args);
+			break;
+		default:
+			usage();
+			process.exit(1);
+	}
 }
 
 main().catch((error) => {
-  console.error('[Talox CLI] Failed', error);
-  process.exit(1);
+	console.error("[Talox CLI] Failed", error);
+	process.exit(1);
 });

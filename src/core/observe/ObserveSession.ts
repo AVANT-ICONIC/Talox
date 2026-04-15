@@ -13,28 +13,28 @@
  * 6. Writes the session report and fires the `sessionEnd` event
  */
 
-import { randomUUID }               from 'crypto';
-import path                         from 'path';
-import type { TaloxEventMap }       from '../../types/events.js';
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import type { AnnotationEntry } from "../../types/annotation.js";
+import type { TaloxEventMap } from "../../types/events.js";
 import type {
-  TaloxSessionReport,
-  TaloxInteraction,
-  TaloxSessionSummary,
-  ObserveSessionOptions,
-}                                   from '../../types/session.js';
-import type { AnnotationEntry }     from '../../types/annotation.js';
-import type { EventBus }            from '../controller/EventBus.js';
-import { AnnotationBuffer }         from './AnnotationBuffer.js';
-import { OverlayInjector }          from './OverlayInjector.js';
-import { SessionReporter }          from './SessionReporter.js';
-import type { ArtifactBuilder }      from '../ArtifactBuilder.js';
+	ObserveSessionOptions,
+	TaloxInteraction,
+	TaloxSessionReport,
+	TaloxSessionSummary,
+} from "../../types/session.js";
 import type {
-  SessionReportExtras,
-  EventLogEntry,
-  FailureEntry,
-  InteractionDiff,
-  BugSummaryEntry,
-}                                    from '../../types/session-report.js';
+	BugSummaryEntry,
+	EventLogEntry,
+	FailureEntry,
+	InteractionDiff,
+	SessionReportExtras,
+} from "../../types/session-report.js";
+import type { ArtifactBuilder } from "../ArtifactBuilder.js";
+import type { EventBus } from "../controller/EventBus.js";
+import { AnnotationBuffer } from "./AnnotationBuffer.js";
+import { OverlayInjector } from "./OverlayInjector.js";
+import { SessionReporter } from "./SessionReporter.js";
 
 // ─── ObserveSession ───────────────────────────────────────────────────────────
 
@@ -54,331 +54,333 @@ import type {
  * ```
  */
 export class ObserveSession {
-  readonly sessionId:   string;
-  readonly startedAt:   string;
+	readonly sessionId: string;
+	readonly startedAt: string;
 
-  private readonly buffer:       AnnotationBuffer;
-  private readonly interactions: TaloxInteraction[];
-  private readonly injector:     OverlayInjector;
-  private readonly reporter:     SessionReporter;
-  private readonly eventBus:     EventBus<TaloxEventMap>;
-  private readonly options:      Required<ObserveSessionOptions>;
+	private readonly buffer: AnnotationBuffer;
+	private readonly interactions: TaloxInteraction[];
+	private readonly injector: OverlayInjector;
+	private readonly reporter: SessionReporter;
+	private readonly eventBus: EventBus<TaloxEventMap>;
+	private readonly options: Required<ObserveSessionOptions>;
 
-  private startUrl:    string  = '';
-  private finalised:  boolean  = false;
-  private readonly eventLog: EventLogEntry[]     = [];
-  private readonly failureLog: FailureEntry[]   = [];
-  private readonly diffLog: InteractionDiff[]   = [];
-  private readonly bugSummaries: BugSummaryEntry[] = [];
-  private lastUrl: string | null = null;
-  private readonly artifactBuilder: ArtifactBuilder;
+	private startUrl: string = "";
+	private finalised: boolean = false;
+	private readonly eventLog: EventLogEntry[] = [];
+	private readonly failureLog: FailureEntry[] = [];
+	private readonly diffLog: InteractionDiff[] = [];
+	private readonly bugSummaries: BugSummaryEntry[] = [];
+	private lastUrl: string | null = null;
+	private readonly artifactBuilder: ArtifactBuilder;
 
-  constructor(
-    private readonly page:    any,  // Playwright Page
-    private readonly context: any,  // Playwright BrowserContext
-    eventBus:                 EventBus<TaloxEventMap>,
-    options:                  ObserveSessionOptions = {},
-    artifactBuilder:          ArtifactBuilder,
-  ) {
-    this.sessionId    = randomUUID();
-    this.startedAt    = new Date().toISOString();
-    this.buffer       = new AnnotationBuffer();
-    this.interactions = [];
-    this.eventBus     = eventBus;
+	constructor(
+		private readonly page: any, // Playwright Page
+		private readonly context: any, // Playwright BrowserContext
+		eventBus: EventBus<TaloxEventMap>,
+		options: ObserveSessionOptions = {},
+		artifactBuilder: ArtifactBuilder,
+	) {
+		this.sessionId = randomUUID();
+		this.startedAt = new Date().toISOString();
+		this.buffer = new AnnotationBuffer();
+		this.interactions = [];
+		this.eventBus = eventBus;
 
-    const wantsOverlay = options.overlay ?? true;
-    const wantsRecord  = options.record  ?? wantsOverlay; // record defaults on if overlay is on
+		const wantsOverlay = options.overlay ?? true;
+		const wantsRecord = options.record ?? wantsOverlay; // record defaults on if overlay is on
 
-    this.options = {
-      output:    options.output    ?? 'both',
-      outputDir: options.outputDir ?? path.join(process.cwd(), 'talox-sessions'),
-      headed:    options.headed    ?? true,
-      overlay:   wantsOverlay,
-      record:    wantsRecord,
-    };
+		this.options = {
+			output: options.output ?? "both",
+			outputDir: options.outputDir ?? path.join(process.cwd(), "talox-sessions"),
+			headed: options.headed ?? true,
+			overlay: wantsOverlay,
+			record: wantsRecord,
+		};
 
-    this.injector = new OverlayInjector(
-      this.sessionId,
-      this.startedAt,
-      this.buffer,
-      this.eventBus,
-      this.interactions,
-      this.handleOverlayInteraction.bind(this),
-      async () => {
-        await this.finalize();
-        await this.context.close();
-      },
-    );
+		this.injector = new OverlayInjector(
+			this.sessionId,
+			this.startedAt,
+			this.buffer,
+			this.eventBus,
+			this.interactions,
+			this.handleOverlayInteraction.bind(this),
+			async () => {
+				await this.finalize();
+				await this.context.close();
+			},
+		);
 
-    this.reporter = new SessionReporter(this.options.outputDir);
-    this.artifactBuilder = artifactBuilder;
-  }
+		this.reporter = new SessionReporter(this.options.outputDir);
+		this.artifactBuilder = artifactBuilder;
+	}
 
-  // ─── Lifecycle ───────────────────────────────────────────────────────────────
+	// ─── Lifecycle ───────────────────────────────────────────────────────────────
 
-  /**
-   * Start the observe session.
-   * - Injects the overlay into the current page
-   * - Wires navigation tracking
-   * - Hooks browser close → auto-finalize
-   */
-  async start(): Promise<void> {
-    this.startUrl = this.page.url?.() ?? '';
+	/**
+	 * Start the observe session.
+	 * - Injects the overlay into the current page
+	 * - Wires navigation tracking
+	 * - Hooks browser close → auto-finalize
+	 */
+	async start(): Promise<void> {
+		this.startUrl = this.page.url?.() ?? "";
 
-    // Inject overlay only if the overlay flag is enabled
-    if (this.options.overlay) {
-      await this.injector.inject(this.page);
-    }
+		// Inject overlay only if the overlay flag is enabled
+		if (this.options.overlay) {
+			await this.injector.inject(this.page);
+		}
 
-    // Track console errors
-    this.page.on('console', (msg: any) => {
-      if (msg.type() === 'error') {
-        const last = this.interactions[this.interactions.length - 1];
-        if (last) {
-          last.consoleErrors.push(msg.text());
-        }
-        this.eventBus.emit('consoleError', {
-          error: msg.text(),
-          url:   this.page.url?.() ?? '',
-        });
-      }
-    });
+		// Track console errors
+		this.page.on("console", (msg: any) => {
+			if (msg.type() === "error") {
+				const last = this.interactions[this.interactions.length - 1];
+				if (last) {
+					last.consoleErrors.push(msg.text());
+				}
+				this.eventBus.emit("consoleError", {
+					error: msg.text(),
+					url: this.page.url?.() ?? "",
+				});
+			}
+		});
 
-    // Track network failures
-    this.page.on('requestfailed', (request: any) => {
-      const failure = {
-        url:    request.url(),
-        status: request.failure()?.errorText ? -1 : 0,
-        type:   request.resourceType(),
-      };
-      const last = this.interactions[this.interactions.length - 1];
-      if (last) {
-        last.networkFailures.push(failure);
-      }
-      this.eventBus.emit('networkError', {
-        url:    failure.url,
-        status: failure.status,
-        type:   failure.type,
-      });
-    });
+		// Track network failures
+		this.page.on("requestfailed", (request: any) => {
+			const failure = {
+				url: request.url(),
+				status: request.failure()?.errorText ? -1 : 0,
+				type: request.resourceType(),
+			};
+			const last = this.interactions[this.interactions.length - 1];
+			if (last) {
+				last.networkFailures.push(failure);
+			}
+			this.eventBus.emit("networkError", {
+				url: failure.url,
+				status: failure.status,
+				type: failure.type,
+			});
+		});
 
-    // Track page navigations
-    this.page.on('framenavigated', (frame: any) => {
-      if (frame !== this.page.mainFrame?.()) return;
-      const url = frame.url();
-      if (!url || url === 'about:blank') return;
+		// Track page navigations
+		this.page.on("framenavigated", (frame: any) => {
+			if (frame !== this.page.mainFrame?.()) return;
+			const url = frame.url();
+			if (!url || url === "about:blank") return;
 
-      const interaction: TaloxInteraction = {
-        index:           this.interactions.length + 1,
-        type:            'navigation',
-        timestamp:       new Date().toISOString(),
-        url,
-        consoleErrors:   [],
-        networkFailures: [],
-      };
-      this.interactions.push(interaction);
-      this.eventBus.emit('navigation', { url, title: '' });
-    });
+			const interaction: TaloxInteraction = {
+				index: this.interactions.length + 1,
+				type: "navigation",
+				timestamp: new Date().toISOString(),
+				url,
+				consoleErrors: [],
+				networkFailures: [],
+			};
+			this.interactions.push(interaction);
+			this.eventBus.emit("navigation", { url, title: "" });
+		});
 
-    const logEvent = <K extends keyof TaloxEventMap>(event: K, payload?: TaloxEventMap[K]) => {
-      this.eventLog.push({
-        event: String(event),
-        timestamp: new Date().toISOString(),
-        payload: payload ? { ...payload } as Record<string, unknown> : undefined,
-      });
-    };
+		const logEvent = <K extends keyof TaloxEventMap>(event: K, payload?: TaloxEventMap[K]) => {
+			this.eventLog.push({
+				event: String(event),
+				timestamp: new Date().toISOString(),
+				payload: payload ? ({ ...payload } as Record<string, unknown>) : undefined,
+			});
+		};
 
-    this.eventBus.on('navigation', payload => logEvent('navigation', payload));
-    this.eventBus.on('consoleError', payload => {
-      logEvent('consoleError', payload);
-      this.recordFailure({
-        type: 'console',
-        message: payload.error,
-        url: payload.url,
-        interactionIndex: this.interactions.length,
-      });
-    });
-    this.eventBus.on('networkError', payload => {
-      logEvent('networkError', payload);
-      this.recordFailure({
-        type: 'network',
-        message: `${payload.status}`,
-        url: payload.url,
-        status: payload.status,
-        interactionIndex: this.interactions.length,
-      });
-    });
-    this.eventBus.on('annotationAdded', payload => logEvent('annotationAdded', payload));
-    this.eventBus.on('annotationUndone', payload => logEvent('annotationUndone', payload));
-    this.eventBus.on('stateChanged', payload => logEvent('stateChanged', payload));
-    this.eventBus.on('bugDetected', payload => {
-      logEvent('bugDetected', payload);
-      this.bugSummaries.push({
-        id: payload.id,
-        type: payload.type,
-        severity: payload.severity,
-        description: payload.description,
-        interactionIndex: this.interactions.length,
-        evidence: payload.evidence?.screenshotRef,
-      });
-    });
-    this.eventBus.on('adapted', payload => logEvent('adapted', payload));
+		this.eventBus.on("navigation", (payload) => logEvent("navigation", payload));
+		this.eventBus.on("consoleError", (payload) => {
+			logEvent("consoleError", payload);
+			this.recordFailure({
+				type: "console",
+				message: payload.error,
+				url: payload.url,
+				interactionIndex: this.interactions.length,
+			});
+		});
+		this.eventBus.on("networkError", (payload) => {
+			logEvent("networkError", payload);
+			this.recordFailure({
+				type: "network",
+				message: `${payload.status}`,
+				url: payload.url,
+				status: payload.status,
+				interactionIndex: this.interactions.length,
+			});
+		});
+		this.eventBus.on("annotationAdded", (payload) => logEvent("annotationAdded", payload));
+		this.eventBus.on("annotationUndone", (payload) => logEvent("annotationUndone", payload));
+		this.eventBus.on("stateChanged", (payload) => logEvent("stateChanged", payload));
+		this.eventBus.on("bugDetected", (payload) => {
+			logEvent("bugDetected", payload);
+			this.bugSummaries.push({
+				id: payload.id,
+				type: payload.type,
+				severity: payload.severity,
+				description: payload.description,
+				interactionIndex: this.interactions.length,
+				evidence: payload.evidence?.screenshotRef,
+			});
+		});
+		this.eventBus.on("adapted", (payload) => logEvent("adapted", payload));
 
-    // Auto-finalize on browser close
-    this.context.on('close', () => {
-      this.finalize().catch((err: unknown) => {
-        console.error('[Talox] Failed to finalize observe session:', err);
-      });
-    });
+		// Auto-finalize on browser close
+		this.context.on("close", () => {
+			this.finalize().catch((err: unknown) => {
+				console.error("[Talox] Failed to finalize observe session:", err);
+			});
+		});
 
-    console.info(`[Talox] Session started · ID: ${this.sessionId} · overlay=${this.options.overlay} · record=${this.options.record}`);
-    if (this.options.overlay) {
-      console.info('[Talox] Right-click anywhere in the browser to access the Talox overlay.');
-    }
-  }
+		console.info(
+			`[Talox] Session started · ID: ${this.sessionId} · overlay=${this.options.overlay} · record=${this.options.record}`,
+		);
+		if (this.options.overlay) {
+			console.info("[Talox] Right-click anywhere in the browser to access the Talox overlay.");
+		}
+	}
 
-  /**
-   * Explicitly end the session and write the report.
-   * Safe to call multiple times — subsequent calls are no-ops.
-   */
-  async endSession(): Promise<void> {
-    await this.finalize();
-  }
+	/**
+	 * Explicitly end the session and write the report.
+	 * Safe to call multiple times — subsequent calls are no-ops.
+	 */
+	async endSession(): Promise<void> {
+		await this.finalize();
+	}
 
-  // ─── Report ──────────────────────────────────────────────────────────────────
+	// ─── Report ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Build and return the current session report without writing to disk.
-   * Useful for testing or in-memory access before session end.
-   */
-  buildReport(): TaloxSessionReport {
-    const endedAt    = new Date().toISOString();
-    const durationMs = Date.now() - new Date(this.startedAt).getTime();
-    const annotations: AnnotationEntry[] = [...this.buffer.getAll()];
+	/**
+	 * Build and return the current session report without writing to disk.
+	 * Useful for testing or in-memory access before session end.
+	 */
+	buildReport(): TaloxSessionReport {
+		const endedAt = new Date().toISOString();
+		const durationMs = Date.now() - new Date(this.startedAt).getTime();
+		const annotations: AnnotationEntry[] = [...this.buffer.getAll()];
 
-    const summary: TaloxSessionSummary = {
-      totalInteractions:   this.interactions.length,
-      totalAnnotations:    annotations.length,
-      totalConsoleErrors:  this.interactions.reduce((n, i) => n + i.consoleErrors.length, 0),
-      totalNetworkFailures: this.interactions.reduce((n, i) => n + i.networkFailures.length, 0),
-      annotationsByLabel:  this.buildLabelCounts(annotations),
-    };
+		const summary: TaloxSessionSummary = {
+			totalInteractions: this.interactions.length,
+			totalAnnotations: annotations.length,
+			totalConsoleErrors: this.interactions.reduce((n, i) => n + i.consoleErrors.length, 0),
+			totalNetworkFailures: this.interactions.reduce((n, i) => n + i.networkFailures.length, 0),
+			annotationsByLabel: this.buildLabelCounts(annotations),
+		};
 
-    return {
-      id:           this.sessionId,
-      startedAt:    this.startedAt,
-      endedAt,
-      durationMs,
-      startUrl:     this.startUrl,
-      interactions: [...this.interactions],
-      annotations,
-      summary,
-    };
-  }
+		return {
+			id: this.sessionId,
+			startedAt: this.startedAt,
+			endedAt,
+			durationMs,
+			startUrl: this.startUrl,
+			interactions: [...this.interactions],
+			annotations,
+			summary,
+		};
+	}
 
-  // ─── Private ─────────────────────────────────────────────────────────────────
+	// ─── Private ─────────────────────────────────────────────────────────────────
 
-  private async finalize(): Promise<void> {
-    if (this.finalised) return;
-    this.finalised = true;
+	private async finalize(): Promise<void> {
+		if (this.finalised) return;
+		this.finalised = true;
 
-    const report = this.buildReport();
-    let reportPath: string = this.options.outputDir;
-    const extras: SessionReportExtras = {
-      eventLog: this.eventLog,
-      failures: this.failureLog,
-      diffs: this.diffLog,
-      bugs: this.bugSummaries,
-      trace: this.artifactBuilder.toActionFrames(),
-    };
+		const report = this.buildReport();
+		let reportPath: string = this.options.outputDir;
+		const extras: SessionReportExtras = {
+			eventLog: this.eventLog,
+			failures: this.failureLog,
+			diffs: this.diffLog,
+			bugs: this.bugSummaries,
+			trace: this.artifactBuilder.toActionFrames(),
+		};
 
-    if (this.options.record) {
-      const paths = await this.reporter.write(report, this.options.output, extras);
-      reportPath  = paths.json ?? paths.markdown ?? paths.html ?? this.options.outputDir;
-    }
+		if (this.options.record) {
+			const paths = await this.reporter.write(report, this.options.output, extras);
+			reportPath = paths.json ?? paths.markdown ?? paths.html ?? this.options.outputDir;
+		}
 
-    const sessionEndPayload = {
-      sessionId:        this.sessionId,
-      reportPath,
-      durationMs:       report.durationMs,
-      interactionCount: report.summary.totalInteractions,
-      annotationCount:  report.summary.totalAnnotations,
-    };
+		const sessionEndPayload = {
+			sessionId: this.sessionId,
+			reportPath,
+			durationMs: report.durationMs,
+			interactionCount: report.summary.totalInteractions,
+			annotationCount: report.summary.totalAnnotations,
+		};
 
-    this.eventLog.push({
-      event:     'sessionEnd',
-      timestamp: new Date().toISOString(),
-      payload:   sessionEndPayload,
-    });
+		this.eventLog.push({
+			event: "sessionEnd",
+			timestamp: new Date().toISOString(),
+			payload: sessionEndPayload,
+		});
 
-    this.eventBus.emit('sessionEnd', sessionEndPayload);
+		this.eventBus.emit("sessionEnd", sessionEndPayload);
 
-    this.buffer.clear();
+		this.buffer.clear();
 
-    console.info(
-      `[Talox] Observe session ended · ${report.summary.totalInteractions} interactions · ` +
-      `${report.summary.totalAnnotations} annotations · ${Math.round(report.durationMs / 1000)}s`,
-    );
-  }
+		console.info(
+			`[Talox] Observe session ended · ${report.summary.totalInteractions} interactions · ` +
+				`${report.summary.totalAnnotations} annotations · ${Math.round(report.durationMs / 1000)}s`,
+		);
+	}
 
-  private recordFailure(entry: FailureEntry): void {
-    this.failureLog.push(entry);
-  }
+	private recordFailure(entry: FailureEntry): void {
+		this.failureLog.push(entry);
+	}
 
-  private async captureScreenshot(): Promise<string | undefined> {
-    try {
-      const buffer = await this.page.screenshot({ fullPage: true });
-      return buffer.toString('base64');
-    } catch (_err) {
-      return undefined;
-    }
-  }
+	private async captureScreenshot(): Promise<string | undefined> {
+		try {
+			const buffer = await this.page.screenshot({ fullPage: true });
+			return buffer.toString("base64");
+		} catch (_err) {
+			return undefined;
+		}
+	}
 
-  private scheduleAfterScreenshot(interaction: TaloxInteraction): void {
-    void (async () => {
-      await new Promise(r => setTimeout(r, 700));
-      const after = await this.captureScreenshot();
-      if (after) {
-        interaction.screenshotAfter = after;
-      }
-    })();
-  }
+	private scheduleAfterScreenshot(interaction: TaloxInteraction): void {
+		void (async () => {
+			await new Promise((r) => setTimeout(r, 700));
+			const after = await this.captureScreenshot();
+			if (after) {
+				interaction.screenshotAfter = after;
+			}
+		})();
+	}
 
-  private logDiff(interaction: TaloxInteraction): void {
-    const urlChanged = this.lastUrl !== null && this.lastUrl !== interaction.url;
-    const diff: InteractionDiff = {
-      interactionIndex: interaction.index,
-      url: interaction.url,
-      urlChanged,
-      element: interaction.element?.selector ?? interaction.element?.role ?? interaction.element?.tag ?? '',
-      notes: urlChanged ? 'URL changed' : 'Same page interaction',
-    };
-    this.diffLog.push(diff);
-    this.lastUrl = interaction.url;
-  }
+	private logDiff(interaction: TaloxInteraction): void {
+		const urlChanged = this.lastUrl !== null && this.lastUrl !== interaction.url;
+		const diff: InteractionDiff = {
+			interactionIndex: interaction.index,
+			url: interaction.url,
+			urlChanged,
+			element: interaction.element?.selector ?? interaction.element?.role ?? interaction.element?.tag ?? "",
+			notes: urlChanged ? "URL changed" : "Same page interaction",
+		};
+		this.diffLog.push(diff);
+		this.lastUrl = interaction.url;
+	}
 
-  private async handleOverlayInteraction(interaction: TaloxInteraction): Promise<void> {
-    const sanitized: TaloxInteraction = {
-      ...interaction,
-      consoleErrors: interaction.consoleErrors ?? [],
-      networkFailures: interaction.networkFailures ?? [],
-    };
-    const before = await this.captureScreenshot();
-    if (before) {
-      sanitized.screenshotBefore = before;
-    }
-    this.interactions.push(sanitized);
-    this.logDiff(sanitized);
-    this.scheduleAfterScreenshot(sanitized);
-  }
+	private async handleOverlayInteraction(interaction: TaloxInteraction): Promise<void> {
+		const sanitized: TaloxInteraction = {
+			...interaction,
+			consoleErrors: interaction.consoleErrors ?? [],
+			networkFailures: interaction.networkFailures ?? [],
+		};
+		const before = await this.captureScreenshot();
+		if (before) {
+			sanitized.screenshotBefore = before;
+		}
+		this.interactions.push(sanitized);
+		this.logDiff(sanitized);
+		this.scheduleAfterScreenshot(sanitized);
+	}
 
-  private buildLabelCounts(annotations: AnnotationEntry[]): Record<string, number> {
-    const counts: Record<string, number> = {};
-    for (const annotation of annotations) {
-      for (const label of annotation.labels) {
-        counts[label] = (counts[label] ?? 0) + 1;
-      }
-    }
-    return counts;
-  }
+	private buildLabelCounts(annotations: AnnotationEntry[]): Record<string, number> {
+		const counts: Record<string, number> = {};
+		for (const annotation of annotations) {
+			for (const label of annotation.labels) {
+				counts[label] = (counts[label] ?? 0) + 1;
+			}
+		}
+		return counts;
+	}
 }

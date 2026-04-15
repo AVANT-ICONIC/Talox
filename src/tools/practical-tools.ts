@@ -1,51 +1,55 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-import type { TaloxController } from '../core/controller/TaloxController.js';
-import type { TaloxPageState } from '../types/index.js';
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import type { TaloxController } from "../core/controller/TaloxController.js";
+import type { TaloxPageState } from "../types/index.js";
 
 export interface BackgroundTabResult {
-  state: TaloxPageState;
-  message: string;
+	state: TaloxPageState;
+	message: string;
 }
 
 export interface ApiCaptureResult {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
+	status: number;
+	headers: Record<string, string>;
+	body: string;
 }
 
 export interface SearchResult {
-  selector: string;
-  snippet: string;
-  tag: string;
+	selector: string;
+	snippet: string;
+	tag: string;
 }
 
 export interface StructuredContent {
-  url: string;
-  title: string;
-  sections: Array<{ heading: string; summary: string; selectors: string[] }>;
+	url: string;
+	title: string;
+	sections: Array<{ heading: string; summary: string; selectors: string[] }>;
 }
 
 export function getPracticalTools(talox: TaloxController) {
-  return {
-    openBackgroundTab: (url: string) => openBackgroundTab(talox, url),
-    captureApiResponse: (endpoint: string, init?: RequestInit) => captureApiResponse(talox, endpoint, init),
-    exportMarkdownSnapshot: (dest: string) => exportMarkdownSnapshot(talox, dest),
-    searchOnSite: (query: string, limit?: number) => searchOnSite(talox, query, limit),
-    extractVisibleStructuredContent: () => extractVisibleStructuredContent(talox),
-  };
+	return {
+		openBackgroundTab: (url: string) => openBackgroundTab(talox, url),
+		captureApiResponse: (endpoint: string, init?: RequestInit) => captureApiResponse(talox, endpoint, init),
+		exportMarkdownSnapshot: (dest: string) => exportMarkdownSnapshot(talox, dest),
+		searchOnSite: (query: string, limit?: number) => searchOnSite(talox, query, limit),
+		extractVisibleStructuredContent: () => extractVisibleStructuredContent(talox),
+	};
 }
 
 export async function openBackgroundTab(talox: TaloxController, url: string): Promise<BackgroundTabResult> {
-  const state = await talox.openPage(url);
-  return {
-    state,
-    message: `Opened background page ${state.url} with ${state.nodes.length} nodes`,
-  };
+	const state = await talox.openPage(url);
+	return {
+		state,
+		message: `Opened background page ${state.url} with ${state.nodes.length} nodes`,
+	};
 }
 
-export async function captureApiResponse(talox: TaloxController, endpoint: string, init: RequestInit = {}): Promise<ApiCaptureResult> {
-  const response = await talox.evaluate<ApiCaptureResult>(`
+export async function captureApiResponse(
+	talox: TaloxController,
+	endpoint: string,
+	init: RequestInit = {},
+): Promise<ApiCaptureResult> {
+	const response = await talox.evaluate<ApiCaptureResult>(`
     (async () => {
       const res = await fetch(${JSON.stringify(endpoint)}, ${JSON.stringify(init)});
       const headers: Record<string, string> = {};
@@ -57,33 +61,33 @@ export async function captureApiResponse(talox: TaloxController, endpoint: strin
       };
     })();
   `);
-  return response;
+	return response;
 }
 
 export async function exportMarkdownSnapshot(talox: TaloxController, destPath: string): Promise<string> {
-  const content = await talox.evaluate<string>(`
+	const content = await talox.evaluate<string>(`
     (() => {
       const text = document.body.innerText || document.documentElement.innerText || '';
       return text.trim();
     })();
   `);
-  const markdown = content
-    .split(/\n+/)
-    .map(line => {
-      if (line.startsWith('### ')) return `### ${line.slice(4).trim()}`;
-      if (line.startsWith('## ')) return `## ${line.slice(3).trim()}`;
-      if (line.startsWith('# ')) return `# ${line.slice(2).trim()}`;
-      return line.trim();
-    })
-    .filter(line => line.length > 0)
-    .join('\n\n');
-  const resolved = path.resolve(destPath);
-  await fs.writeFile(resolved, markdown, 'utf-8');
-  return resolved;
+	const markdown = content
+		.split(/\n+/)
+		.map((line) => {
+			if (line.startsWith("### ")) return `### ${line.slice(4).trim()}`;
+			if (line.startsWith("## ")) return `## ${line.slice(3).trim()}`;
+			if (line.startsWith("# ")) return `# ${line.slice(2).trim()}`;
+			return line.trim();
+		})
+		.filter((line) => line.length > 0)
+		.join("\n\n");
+	const resolved = path.resolve(destPath);
+	await fs.writeFile(resolved, markdown, "utf-8");
+	return resolved;
 }
 
 export async function searchOnSite(talox: TaloxController, query: string, limit: number = 5): Promise<SearchResult[]> {
-  const results = await talox.evaluate<SearchResult[]>(`( () => {
+	const results = await talox.evaluate<SearchResult[]>(`( () => {
       const matches: Array<{ selector: string; snippet: string; tag: string }> = [];
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, { acceptNode: () => NodeFilter.FILTER_ACCEPT }, false);
       while (walker.nextNode()) {
@@ -95,7 +99,7 @@ export async function searchOnSite(talox: TaloxController, query: string, limit:
           const selector =
             el.tagName.toLowerCase()
             + (el.id ? '#' + el.id : '')
-            + (el.className ? '.' + el.className.toString().split(/\s+/).join('.') : '');
+            + (el.className ? '.' + el.className.toString().split(/s+/).join('.') : '');
           matches.push({
             selector,
             snippet: snippet.slice(0, 160),
@@ -106,28 +110,28 @@ export async function searchOnSite(talox: TaloxController, query: string, limit:
       }
       return matches.slice(0, ${limit});
     })();`);
-  return results;
+	return results;
 }
 
 export async function extractVisibleStructuredContent(talox: TaloxController): Promise<StructuredContent> {
-  const state = await talox.getState();
-  const sections: StructuredContent['sections'] = [];
-  const used: Set<string> = new Set();
-  for (const node of state.nodes) {
-    if (sections.length >= 6) break;
-    if (!node.name || node.name.trim().length === 0) continue;
-    const selector = `#${node.id}`;
-    if (used.has(selector)) continue;
-    used.add(selector);
-    sections.push({
-      heading: node.role === 'heading' ? node.name : 'Section',
-      summary: node.name,
-      selectors: [selector],
-    });
-  }
-  return {
-    url: state.url,
-    title: state.title,
-    sections,
-  };
+	const state = await talox.getState();
+	const sections: StructuredContent["sections"] = [];
+	const used: Set<string> = new Set();
+	for (const node of state.nodes) {
+		if (sections.length >= 6) break;
+		if (!node.name || node.name.trim().length === 0) continue;
+		const selector = `#${node.id}`;
+		if (used.has(selector)) continue;
+		used.add(selector);
+		sections.push({
+			heading: node.role === "heading" ? node.name : "Section",
+			summary: node.name,
+			selectors: [selector],
+		});
+	}
+	return {
+		url: state.url,
+		title: state.title,
+		sections,
+	};
 }

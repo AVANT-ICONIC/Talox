@@ -7,27 +7,24 @@
  * and optionally trigger a named side effect.
  */
 
-import type { TaloxSettings }    from '../../types/index.js';
-import type { AdaptationReason } from '../../types/events.js';
+import type { AdaptationReason } from "../../types/events.js";
+import type { TaloxSettings } from "../../types/index.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Named side effects that `AdaptationEngine` handles after applying a strategy. */
-export type AdaptationSideEffect =
-  | 'rotate_user_agent'
-  | 'enable_semantic_healing'
-  | 'emit_captcha_event';
+export type AdaptationSideEffect = "rotate_user_agent" | "enable_semantic_healing" | "emit_captcha_event";
 
 /** A named adaptation recipe. */
 export interface AdaptationStrategy {
-  /** Human-readable strategy identifier used in `AdaptedEvent.strategy`. */
-  name: string;
-  /** Short description for logging and telemetry. */
-  description: string;
-  /** Partial settings patch applied by `AdaptationEngine`. */
-  settingsPatch: Partial<TaloxSettings>;
-  /** Optional side effect the engine handles after patching settings. */
-  sideEffect?: AdaptationSideEffect;
+	/** Human-readable strategy identifier used in `AdaptedEvent.strategy`. */
+	name: string;
+	/** Short description for logging and telemetry. */
+	description: string;
+	/** Partial settings patch applied by `AdaptationEngine`. */
+	settingsPatch: Partial<TaloxSettings>;
+	/** Optional side effect the engine handles after patching settings. */
+	sideEffect?: AdaptationSideEffect;
 }
 
 // ─── Strategy Registry ────────────────────────────────────────────────────────
@@ -41,82 +38,80 @@ export interface AdaptationStrategy {
  * - Side effects are explicit and handled in `AdaptationEngine`
  */
 export const STRATEGIES: Record<AdaptationReason, AdaptationStrategy> = {
+	bot_detection_soft: {
+		name: "stealth_nudge",
+		description: "Increase mouse jitter and typing variance to appear more human",
+		settingsPatch: {
+			mouseSpeed: 0.5,
+			humanStealth: 0.95,
+			typoProbability: 0.12,
+		},
+	},
 
-  bot_detection_soft: {
-    name:        'stealth_nudge',
-    description: 'Increase mouse jitter and typing variance to appear more human',
-    settingsPatch: {
-      mouseSpeed:      0.5,
-      humanStealth:    0.95,
-      typoProbability: 0.12,
-    },
-  },
+	bot_detection_hard: {
+		name: "stealth_escalation",
+		description: "Full stealth escalation — maximum biomechanical simulation + UA rotation",
+		settingsPatch: {
+			mouseSpeed: 0.3,
+			humanStealth: 1.0,
+			stealthLevel: "high",
+			typingDelayMin: 150,
+			typingDelayMax: 400,
+			typoProbability: 0.15,
+			adaptiveStealthEnabled: true,
+			automaticThinkingEnabled: true,
+		},
+		sideEffect: "rotate_user_agent",
+	},
 
-  bot_detection_hard: {
-    name:        'stealth_escalation',
-    description: 'Full stealth escalation — maximum biomechanical simulation + UA rotation',
-    settingsPatch: {
-      mouseSpeed:               0.3,
-      humanStealth:             1.0,
-      stealthLevel:             'high',
-      typingDelayMin:           150,
-      typingDelayMax:           400,
-      typoProbability:          0.15,
-      adaptiveStealthEnabled:   true,
-      automaticThinkingEnabled: true,
-    },
-    sideEffect: 'rotate_user_agent',
-  },
+	selector_miss: {
+		name: "semantic_fallback",
+		description: "Selector resolution failed — activate SemanticMapper self-healing on next action",
+		settingsPatch: {},
+		sideEffect: "enable_semantic_healing",
+	},
 
-  selector_miss: {
-    name:        'semantic_fallback',
-    description: 'Selector resolution failed — activate SemanticMapper self-healing on next action',
-    settingsPatch: {},
-    sideEffect: 'enable_semantic_healing',
-  },
+	page_timeout: {
+		name: "pace_reduction",
+		description: "Page response too slow — reduce action pace and increase idle tolerance",
+		settingsPatch: {
+			mouseSpeed: 0.6,
+			idleTimeout: 8000,
+		},
+	},
 
-  page_timeout: {
-    name:        'pace_reduction',
-    description: 'Page response too slow — reduce action pace and increase idle tolerance',
-    settingsPatch: {
-      mouseSpeed:  0.6,
-      idleTimeout: 8000,
-    },
-  },
+	rate_limit: {
+		name: "backoff",
+		description: "HTTP 429 received — back off significantly before next action",
+		settingsPatch: {
+			mouseSpeed: 0.4,
+			idleTimeout: 15000,
+		},
+	},
 
-  rate_limit: {
-    name:        'backoff',
-    description: 'HTTP 429 received — back off significantly before next action',
-    settingsPatch: {
-      mouseSpeed:  0.4,
-      idleTimeout: 15000,
-    },
-  },
+	captcha_detected: {
+		name: "captcha_pause",
+		description: "CAPTCHA detected — pause and notify agent (human or solver required)",
+		settingsPatch: {
+			automaticThinkingEnabled: false,
+		},
+		sideEffect: "emit_captcha_event",
+	},
 
-  captcha_detected: {
-    name:        'captcha_pause',
-    description: 'CAPTCHA detected — pause and notify agent (human or solver required)',
-    settingsPatch: {
-      automaticThinkingEnabled: false,
-    },
-    sideEffect: 'emit_captcha_event',
-  },
+	blocker_unresolvable_headless: {
+		name: "escalate_to_headed",
+		description: "Blocker cannot be resolved headlessly — escalate to headed mode",
+		settingsPatch: {
+			headed: true,
+			autoHeadedEscalation: true,
+		},
+	},
 
-  blocker_unresolvable_headless: {
-    name:        'escalate_to_headed',
-    description: 'Blocker cannot be resolved headlessly — escalate to headed mode',
-    settingsPatch: {
-      headed: true,
-      autoHeadedEscalation: true,
-    },
-  },
-
-  blocker_resolved: {
-    name:        'de_escalate_to_headless',
-    description: 'Blocker resolved — return to headless mode',
-    settingsPatch: {
-      headed: false,
-    },
-  },
-
+	blocker_resolved: {
+		name: "de_escalate_to_headless",
+		description: "Blocker resolved — return to headless mode",
+		settingsPatch: {
+			headed: false,
+		},
+	},
 };

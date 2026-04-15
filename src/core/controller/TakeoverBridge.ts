@@ -18,11 +18,11 @@
  *   Node.js → Browser   → page.exposeFunction() + __talox_cmd__ dispatcher
  */
 
-import type { Page } from 'playwright';
-import type { EventBus } from './EventBus.js';
-import type { TaloxEventMap, TakeoverReason, TakeoverSummary } from '../../types/events.js';
+import type { Page } from "playwright";
+import type { TakeoverReason, TakeoverSummary, TaloxEventMap } from "../../types/events.js";
+import type { EventBus } from "./EventBus.js";
 
-export type TakeoverState = 'AGENT_RUNNING' | 'WAITING_FOR_HUMAN';
+export type TakeoverState = "AGENT_RUNNING" | "WAITING_FOR_HUMAN";
 export type { TakeoverReason, TakeoverSummary };
 
 // ─── Agent Overlay Bundle (injected into every page) ─────────────────────────
@@ -187,152 +187,156 @@ const AGENT_OVERLAY_SCRIPT = /* js */ `
  * `AGENT_RUNNING` and `WAITING_FOR_HUMAN` via EventBus and exposed functions.
  */
 export class TakeoverBridge {
-  private state: TakeoverState = 'AGENT_RUNNING';
-  private readonly eventBus: EventBus<TaloxEventMap>;
-  private readonly timeoutMs: number;
-  private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
-  private headed = false;
-  private currentPage: Page | null = null;
-  private takeoverStartedAt: string | null = null;
-  private takeoverReason: TakeoverReason | string | undefined = undefined;
+	private state: TakeoverState = "AGENT_RUNNING";
+	private readonly eventBus: EventBus<TaloxEventMap>;
+	private readonly timeoutMs: number;
+	private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+	private headed = false;
+	private currentPage: Page | null = null;
+	private takeoverStartedAt: string | null = null;
+	private takeoverReason: TakeoverReason | string | undefined = undefined;
 
-  constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
-    this.eventBus = eventBus;
-    this.timeoutMs = timeoutMs;
-  }
+	constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
+		this.eventBus = eventBus;
+		this.timeoutMs = timeoutMs;
+	}
 
-  // ─── Public API ────────────────────────────────────────────────────────────
+	// ─── Public API ────────────────────────────────────────────────────────────
 
-  /**
-   * Initialize the agent overlay for a given page.
-   * Only injects when headed=true. Safe to re-call with a new page (SessionManager swaps).
-   */
-  async initialize(page: Page, headed: boolean): Promise<void> {
-    this.headed = headed;
-    this.currentPage = page;
+	/**
+	 * Initialize the agent overlay for a given page.
+	 * Only injects when headed=true. Safe to re-call with a new page (SessionManager swaps).
+	 */
+	async initialize(page: Page, headed: boolean): Promise<void> {
+		this.headed = headed;
+		this.currentPage = page;
 
-    if (!headed) return; // headless: no overlay
+		if (!headed) return; // headless: no overlay
 
-    // 1. Inject overlay bundle — persists across ALL navigations
-    await page.addInitScript(AGENT_OVERLAY_SCRIPT);
+		// 1. Inject overlay bundle — persists across ALL navigations
+		await page.addInitScript(AGENT_OVERLAY_SCRIPT);
 
-    // 2. Wire browser → Node.js bridge (persists across navigations)
-    try {
-      await page.exposeFunction('__taloxBridge__', this.handleBridgeEvent.bind(this));
-    } catch {
-      // Already exposed on this page object — safe to ignore
-    }
+		// 2. Wire browser → Node.js bridge (persists across navigations)
+		try {
+			await page.exposeFunction("__taloxBridge__", this.handleBridgeEvent.bind(this));
+		} catch {
+			// Already exposed on this page object — safe to ignore
+		}
 
-    // 3. Wire Node.js → Browser command channel
-    //    The overlay already defined window.__taloxDispatch__ in its init script.
-    //    We re-expose it here so we can call it from Node.js via the function handle.
-    try {
-      // Expose a no-op placeholder so exposeFunction registers the name;
-      // actual dispatch is handled by window.__taloxDispatch__ in the overlay.
-      await page.exposeFunction('__taloxCmd__', (_cmd: string) => {
-        // no-op: used only as the bridge target name
-      });
-    } catch {
-      // Already registered
-    }
+		// 3. Wire Node.js → Browser command channel
+		//    The overlay already defined window.__taloxDispatch__ in its init script.
+		//    We re-expose it here so we can call it from Node.js via the function handle.
+		try {
+			// Expose a no-op placeholder so exposeFunction registers the name;
+			// actual dispatch is handled by window.__taloxDispatch__ in the overlay.
+			await page.exposeFunction("__taloxCmd__", (_cmd: string) => {
+				// no-op: used only as the bridge target name
+			});
+		} catch {
+			// Already registered
+		}
 
-    // 4. Subscribe to EventBus events
-    this.eventBus.on('humanTakeoverRequested', () => void this.onTakeoverRequested());
-    this.eventBus.on('agentResumed',           (e) => void this.onAgentResumed(e.reason));
-  }
+		// 4. Subscribe to EventBus events
+		this.eventBus.on("humanTakeoverRequested", () => void this.onTakeoverRequested());
+		this.eventBus.on("agentResumed", (e) => void this.onAgentResumed(e.reason));
+	}
 
-  /**
-   * Re-initialize overlay bindings for a new page (called when SessionManager swaps pages).
-   */
-  async reinitialize(page: Page): Promise<void> {
-    return this.initialize(page, this.headed);
-  }
+	/**
+	 * Re-initialize overlay bindings for a new page (called when SessionManager swaps pages).
+	 */
+	async reinitialize(page: Page): Promise<void> {
+		return this.initialize(page, this.headed);
+	}
 
-  /** Signal agent is paused (human has control). */
-  async requestTakeover(reason?: TakeoverReason | string): Promise<void> {
-    const timestamp = new Date().toISOString();
-    this.takeoverReason = reason;
-    this.takeoverStartedAt = timestamp;
-    const payload: { timestamp: string; reason?: TakeoverReason | string } = { timestamp };
-    if (reason !== undefined) payload.reason = reason;
-    this.eventBus.emit('humanTakeoverRequested', payload);
-  }
+	/** Signal agent is paused (human has control). */
+	async requestTakeover(reason?: TakeoverReason | string): Promise<void> {
+		const timestamp = new Date().toISOString();
+		this.takeoverReason = reason;
+		this.takeoverStartedAt = timestamp;
+		const payload: { timestamp: string; reason?: TakeoverReason | string } = { timestamp };
+		if (reason !== undefined) payload.reason = reason;
+		this.eventBus.emit("humanTakeoverRequested", payload);
+	}
 
-  /** Signal agent is resuming after human takeover. */
-  resumeAgent(): void {
-    const summary = this.buildSummary('manual');
-    const payload: { reason: 'manual'; summary?: TakeoverSummary } = { reason: 'manual' };
-    if (summary) payload.summary = summary;
-    this.eventBus.emit('agentResumed', payload);
-  }
+	/** Signal agent is resuming after human takeover. */
+	resumeAgent(): void {
+		const summary = this.buildSummary("manual");
+		const payload: { reason: "manual"; summary?: TakeoverSummary } = { reason: "manual" };
+		if (summary) payload.summary = summary;
+		this.eventBus.emit("agentResumed", payload);
+	}
 
-  getState(): TakeoverState {
-    return this.state;
-  }
+	getState(): TakeoverState {
+		return this.state;
+	}
 
-  // ─── EventBus handlers ────────────────────────────────────────────────────
+	// ─── EventBus handlers ────────────────────────────────────────────────────
 
-  private async onTakeoverRequested(): Promise<void> {
-    this.state = 'WAITING_FOR_HUMAN';
-    // Register timeout before awaiting overlay update so fake-timer tests work correctly
-    if (this.timeoutMs > 0) {
-      this.timeoutTimer = setTimeout(() => {
-        const summary = this.buildSummary('timeout');
-        const payload: { reason: 'timeout'; summary?: TakeoverSummary } = { reason: 'timeout' };
-        if (summary) payload.summary = summary;
-        this.eventBus.emit('agentResumed', payload);
-      }, this.timeoutMs);
-    }
-    await this.dispatchCmd('agent_paused');
-  }
+	private async onTakeoverRequested(): Promise<void> {
+		this.state = "WAITING_FOR_HUMAN";
+		// Register timeout before awaiting overlay update so fake-timer tests work correctly
+		if (this.timeoutMs > 0) {
+			this.timeoutTimer = setTimeout(() => {
+				const summary = this.buildSummary("timeout");
+				const payload: { reason: "timeout"; summary?: TakeoverSummary } = { reason: "timeout" };
+				if (summary) payload.summary = summary;
+				this.eventBus.emit("agentResumed", payload);
+			}, this.timeoutMs);
+		}
+		await this.dispatchCmd("agent_paused");
+	}
 
-  private async onAgentResumed(_reason: string): Promise<void> {
-    this.state = 'AGENT_RUNNING';
-    if (this.timeoutTimer) { clearTimeout(this.timeoutTimer); this.timeoutTimer = null; }
-    this.takeoverStartedAt = null;
-    this.takeoverReason = undefined;
-    await this.dispatchCmd('agent_running');
-  }
+	private async onAgentResumed(_reason: string): Promise<void> {
+		this.state = "AGENT_RUNNING";
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = null;
+		}
+		this.takeoverStartedAt = null;
+		this.takeoverReason = undefined;
+		await this.dispatchCmd("agent_running");
+	}
 
-  // ─── Browser → Node.js bridge ────────────────────────────────────────────
+	// ─── Browser → Node.js bridge ────────────────────────────────────────────
 
-  private handleBridgeEvent(type: string, _payload: unknown): void {
-    switch (type) {
-      case 'takeover:request':
-        void this.requestTakeover('User clicked Take Over button');
-        break;
-      case 'takeover:resume':
-        this.resumeAgent();
-        break;
-    }
-  }
+	private handleBridgeEvent(type: string, _payload: unknown): void {
+		switch (type) {
+			case "takeover:request":
+				void this.requestTakeover("User clicked Take Over button");
+				break;
+			case "takeover:resume":
+				this.resumeAgent();
+				break;
+		}
+	}
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
+	// ─── Helpers ─────────────────────────────────────────────────────────────
 
-  private buildSummary(endReason: 'manual' | 'timeout'): TakeoverSummary | undefined {
-    if (!this.takeoverStartedAt) return undefined;
-    const resumedAt = new Date().toISOString();
-    return {
-      reason: this.takeoverReason ?? 'manual',
-      startedAt: this.takeoverStartedAt,
-      resumedAt,
-      durationMs: new Date(resumedAt).getTime() - new Date(this.takeoverStartedAt).getTime(),
-      timedOut: endReason === 'timeout',
-    };
-  }
+	private buildSummary(endReason: "manual" | "timeout"): TakeoverSummary | undefined {
+		if (!this.takeoverStartedAt) return undefined;
+		const resumedAt = new Date().toISOString();
+		return {
+			reason: this.takeoverReason ?? "manual",
+			startedAt: this.takeoverStartedAt,
+			resumedAt,
+			durationMs: new Date(resumedAt).getTime() - new Date(this.takeoverStartedAt).getTime(),
+			timedOut: endReason === "timeout",
+		};
+	}
 
-  /**
-   * Dispatch a command to the browser overlay via window.__taloxDispatch__.
-   * Uses page.evaluate only for these rare state-transition calls
-   * (not per-frame, not in hot paths).
-   */
-  private async dispatchCmd(cmd: 'agent_running' | 'agent_paused'): Promise<void> {
-    if (!this.currentPage || !this.headed) return;
-    try {
-      await this.currentPage.evaluate(
-        (c: string) => { (window as any).__taloxDispatch__?.(c); },
-        cmd,
-      );
-    } catch { /* page navigated or closed */ }
-  }
+	/**
+	 * Dispatch a command to the browser overlay via window.__taloxDispatch__.
+	 * Uses page.evaluate only for these rare state-transition calls
+	 * (not per-frame, not in hot paths).
+	 */
+	private async dispatchCmd(cmd: "agent_running" | "agent_paused"): Promise<void> {
+		if (!this.currentPage || !this.headed) return;
+		try {
+			await this.currentPage.evaluate((c: string) => {
+				(window as any).__taloxDispatch__?.(c);
+			}, cmd);
+		} catch {
+			/* page navigated or closed */
+		}
+	}
 }

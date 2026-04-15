@@ -12,7 +12,7 @@
  * This file runs inside the browser page context (injected via addInitScript).
  */
 
-import { taloxEmit } from './bridge.js';
+import { taloxEmit } from "./bridge.js";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -100,31 +100,39 @@ const MENU_STYLES = `
  * @param onCommentMode - Callback invoked when "Comment Mode" is selected.
  */
 export function installContextMenu(onCommentMode: () => void): void {
-  document.addEventListener('contextmenu', (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    showMenu(e.clientX, e.clientY, onCommentMode);
-  }, true);
+	document.addEventListener(
+		"contextmenu",
+		(e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			showMenu(e.clientX, e.clientY, onCommentMode);
+		},
+		true,
+	);
 
-  // Dismiss on click outside the menu
-  document.addEventListener('click', (e: MouseEvent) => {
-    if (!(e.target as Element).closest?.('#talox-context-menu')) dismissMenu();
-  }, true);
-  document.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Escape') dismissMenu();
-  });
+	// Dismiss on click outside the menu
+	document.addEventListener(
+		"click",
+		(e: MouseEvent) => {
+			if (!(e.target as Element).closest?.("#talox-context-menu")) dismissMenu();
+		},
+		true,
+	);
+	document.addEventListener("keydown", (e: KeyboardEvent) => {
+		if (e.key === "Escape") dismissMenu();
+	});
 }
 
 // ─── Private ─────────────────────────────────────────────────────────────────
 
 function showMenu(x: number, y: number, onCommentMode: () => void): void {
-  injectStyles();
-  dismissMenu();
+	injectStyles();
+	dismissMenu();
 
-  const menu = document.createElement('div');
-  menu.id = 'talox-context-menu';
+	const menu = document.createElement("div");
+	menu.id = "talox-context-menu";
 
-  menu.innerHTML = `
+	menu.innerHTML = `
     <div class="talox-menu-item" id="talox-menu-comment">
       <span class="talox-menu-icon">🔍</span>
       <span class="talox-menu-label">Comment Mode</span>
@@ -140,42 +148,42 @@ function showMenu(x: number, y: number, onCommentMode: () => void): void {
     </div>
   `;
 
-  // Position within viewport bounds
-  document.body.appendChild(menu);
-  const rect = menu.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  menu.style.left = `${Math.min(x, vw - rect.width - 8)}px`;
-  menu.style.top  = `${Math.min(y, vh - rect.height - 8)}px`;
+	// Position within viewport bounds
+	document.body.appendChild(menu);
+	const rect = menu.getBoundingClientRect();
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
+	menu.style.left = `${Math.min(x, vw - rect.width - 8)}px`;
+	menu.style.top = `${Math.min(y, vh - rect.height - 8)}px`;
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  document.getElementById('talox-menu-comment')?.addEventListener('click', () => {
-    dismissMenu();
-    onCommentMode();
-  });
+	// ── Handlers ──────────────────────────────────────────────────────────────
+	document.getElementById("talox-menu-comment")?.addEventListener("click", () => {
+		dismissMenu();
+		onCommentMode();
+	});
 
-  document.getElementById('talox-menu-snapshot')?.addEventListener('click', () => {
-    dismissMenu();
-    taloxEmit('snapshot:request', {
-      url:       window.location.href,
-      timestamp: new Date().toISOString(),
-    });
-  });
+	document.getElementById("talox-menu-snapshot")?.addEventListener("click", () => {
+		dismissMenu();
+		taloxEmit("snapshot:request", {
+			url: window.location.href,
+			timestamp: new Date().toISOString(),
+		});
+	});
 
-  document.getElementById('talox-menu-end')?.addEventListener('click', () => {
-    dismissMenu();
-    taloxEmit('session:end', {});
-  });
+	document.getElementById("talox-menu-end")?.addEventListener("click", () => {
+		dismissMenu();
+		taloxEmit("session:end", {});
+	});
 }
 
 function dismissMenu(): void {
-  document.getElementById('talox-context-menu')?.remove();
+	document.getElementById("talox-context-menu")?.remove();
 }
 
 function injectStyles(): void {
-  if (document.getElementById('talox-context-menu-styles')) return;
-  const style = document.createElement('style');
-  style.id = 'talox-context-menu-styles';
-  style.textContent = MENU_STYLES;
-  document.head.appendChild(style);
+	if (document.getElementById("talox-context-menu-styles")) return;
+	const style = document.createElement("style");
+	style.id = "talox-context-menu-styles";
+	style.textContent = MENU_STYLES;
+	document.head.appendChild(style);
 }

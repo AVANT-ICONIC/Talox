@@ -35,7 +35,10 @@
     "test:real": "npm run build && playwright test",
     "test:real:single": "npm run build && playwright test --grep",
     "test:e2e": "npm run build && playwright test",
-    "test:publish": "tsc --noEmit && npm test && npm run build"
+    "test:publish": "tsc --noEmit && npm test && npm run build",
+    "lint": "biome check src tests",
+    "lint:fix": "biome check --fix src tests",
+    "format": "biome format --write src tests"
   },
   "keywords": [
     "browser-runtime",
@@ -77,6 +80,7 @@
     }
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
     "@playwright/test": "^1.58.2",
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",

@@ -10,18 +10,18 @@
  *
  * @deprecated Import from the package root instead: `import { TaloxController } from 'talox'`
  */
-export {
-  TaloxController,
-  type AttentionFrame,
-  type MovementStyle,
-  type TypingRhythm,
-  type AccelerationCurve,
-} from './controller/TaloxController.js';
-
-export type { BehavioralDNA } from '../types/index.js';
 
 // Re-export legacy types that controllers code depended on
 export type {
-  TaloxEventType,
-  TaloxEvent,
-} from '../types/events.js';
+	TaloxEvent,
+	TaloxEventType,
+} from "../types/events.js";
+
+export type { BehavioralDNA } from "../types/index.js";
+export {
+	type AccelerationCurve,
+	type AttentionFrame,
+	type MovementStyle,
+	TaloxController,
+	type TypingRhythm,
+} from "./controller/TaloxController.js";

@@ -41,77 +41,77 @@
  * ```
  */
 
-import type { TaloxPageState } from '../types/index.js';
-import type { PageStateCollector } from './PageStateCollector.js';
-import type { ChallengeDetector, ChallengeState } from './ChallengeDetector.js';
+import type { TaloxPageState } from "../types/index.js";
+import type { ChallengeDetector, ChallengeState } from "./ChallengeDetector.js";
+import type { PageStateCollector } from "./PageStateCollector.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PerceptionPreset = 'cheap' | 'medium' | 'heavy';
+export type PerceptionPreset = "cheap" | "medium" | "heavy";
 
 export interface PerceptionLayerFlags {
-  /** Collect AX tree + interactive elements. Always true — required for all presets. */
-  structural: boolean;
-  /** Collect console errors + failed network requests. */
-  network: boolean;
-  /** Run RulesEngine structural diff + layout bug analysis. */
-  bugs: boolean;
-  /** Run ChallengeDetector scan. */
-  challenge: boolean;
-  /** Capture full-page screenshot PNG. */
-  screenshot: boolean;
+	/** Collect AX tree + interactive elements. Always true — required for all presets. */
+	structural: boolean;
+	/** Collect console errors + failed network requests. */
+	network: boolean;
+	/** Run RulesEngine structural diff + layout bug analysis. */
+	bugs: boolean;
+	/** Run ChallengeDetector scan. */
+	challenge: boolean;
+	/** Capture full-page screenshot PNG. */
+	screenshot: boolean;
 }
 
 /** A `TaloxPageState` annotated with perception metadata. */
 export interface PerceivedState extends TaloxPageState {
-  /** Which preset was used to collect this state. */
-  perceptionPreset: PerceptionPreset;
-  /** Which layers were active. */
-  perceptionLayers: PerceptionLayerFlags;
-  /** ChallengeDetector result, present if `challenge` layer was active. */
-  challengeState?: ChallengeState;
-  /** Base64-encoded full-page PNG, present if `screenshot` layer was active. */
-  screenshotBase64?: string;
-  /** ISO timestamp of when this perception was collected. */
-  perceivedAt: string;
+	/** Which preset was used to collect this state. */
+	perceptionPreset: PerceptionPreset;
+	/** Which layers were active. */
+	perceptionLayers: PerceptionLayerFlags;
+	/** ChallengeDetector result, present if `challenge` layer was active. */
+	challengeState?: ChallengeState;
+	/** Base64-encoded full-page PNG, present if `screenshot` layer was active. */
+	screenshotBase64?: string;
+	/** ISO timestamp of when this perception was collected. */
+	perceivedAt: string;
 }
 
 export interface PerceptionCollectOptions {
-  /**
-   * Optional RulesEngine for bug detection (needed when `bugs` layer is active).
-   * If not provided and preset is `heavy`, bug layer is skipped silently.
-   */
-  rulesEngine?: { analyze(state: TaloxPageState): any[]; diffStructural?(a: TaloxPageState, b: TaloxPageState): any[] };
-  /** Last state for structural diff (passed to `rulesEngine.diffStructural` if provided). */
-  previousState?: TaloxPageState | null;
-  /** Override which layers to run, ignoring the preset defaults. */
-  layers?: Partial<PerceptionLayerFlags>;
+	/**
+	 * Optional RulesEngine for bug detection (needed when `bugs` layer is active).
+	 * If not provided and preset is `heavy`, bug layer is skipped silently.
+	 */
+	rulesEngine?: { analyze(state: TaloxPageState): any[]; diffStructural?(a: TaloxPageState, b: TaloxPageState): any[] };
+	/** Last state for structural diff (passed to `rulesEngine.diffStructural` if provided). */
+	previousState?: TaloxPageState | null;
+	/** Override which layers to run, ignoring the preset defaults. */
+	layers?: Partial<PerceptionLayerFlags>;
 }
 
 // ─── Preset Definitions ───────────────────────────────────────────────────────
 
 export const PERCEPTION_PRESETS: Record<PerceptionPreset, PerceptionLayerFlags> = {
-  cheap: {
-    structural: true,
-    network: false,
-    bugs: false,
-    challenge: false,
-    screenshot: false,
-  },
-  medium: {
-    structural: true,
-    network: true,
-    bugs: false,
-    challenge: true,
-    screenshot: false,
-  },
-  heavy: {
-    structural: true,
-    network: true,
-    bugs: true,
-    challenge: true,
-    screenshot: true,
-  },
+	cheap: {
+		structural: true,
+		network: false,
+		bugs: false,
+		challenge: false,
+		screenshot: false,
+	},
+	medium: {
+		structural: true,
+		network: true,
+		bugs: false,
+		challenge: true,
+		screenshot: false,
+	},
+	heavy: {
+		structural: true,
+		network: true,
+		bugs: true,
+		challenge: true,
+		screenshot: true,
+	},
 };
 
 // ─── PerceptionStack ──────────────────────────────────────────────────────────
@@ -124,126 +124,121 @@ export const PERCEPTION_PRESETS: Record<PerceptionPreset, PerceptionLayerFlags> 
  * `invalidate()`, which should happen after every action that changes page state.
  */
 export class PerceptionStack {
-  /**
-   * Monotonically increasing counter. Incremented on every `invalidate()`.
-   * Used as the cache scope — all cache keys include this tick, so a single
-   * `invalidate()` effectively invalidates all entries without clearing the map.
-   */
-  private sessionTick = 0;
-  private cache = new Map<string, PerceivedState>();
+	/**
+	 * Monotonically increasing counter. Incremented on every `invalidate()`.
+	 * Used as the cache scope — all cache keys include this tick, so a single
+	 * `invalidate()` effectively invalidates all entries without clearing the map.
+	 */
+	private sessionTick = 0;
+	private cache = new Map<string, PerceivedState>();
 
-  constructor(
-    private readonly collector: PageStateCollector,
-    private readonly challengeDetector: ChallengeDetector | null = null,
-  ) {}
+	constructor(
+		private readonly collector: PageStateCollector,
+		private readonly challengeDetector: ChallengeDetector | null = null,
+	) {}
 
-  // ─── Public API ─────────────────────────────────────────────────────────────
+	// ─── Public API ─────────────────────────────────────────────────────────────
 
-  /**
-   * Collect a perception snapshot at the given preset level.
-   *
-   * Returns a cached result if this preset was already collected since the
-   * last `invalidate()` call — without calling the underlying collector again.
-   */
-  async collect(
-    preset: PerceptionPreset,
-    options: PerceptionCollectOptions = {},
-  ): Promise<PerceivedState> {
-    const cacheKey = `${this.sessionTick}::${preset}`;
+	/**
+	 * Collect a perception snapshot at the given preset level.
+	 *
+	 * Returns a cached result if this preset was already collected since the
+	 * last `invalidate()` call — without calling the underlying collector again.
+	 */
+	async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
+		const cacheKey = `${this.sessionTick}::${preset}`;
 
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
-    }
+		if (this.cache.has(cacheKey)) {
+			return this.cache.get(cacheKey)!;
+		}
 
-    const baseState = await this.collector.collect();
+		const baseState = await this.collector.collect();
 
-    const layers = this.resolveLayerFlags(preset, options.layers);
-    const perceivedAt = new Date().toISOString();
+		const layers = this.resolveLayerFlags(preset, options.layers);
+		const perceivedAt = new Date().toISOString();
 
-    // Start from the base state (structural + network already collected by collector)
-    const state: PerceivedState = {
-      ...baseState,
-      perceptionPreset: preset,
-      perceptionLayers: layers,
-      perceivedAt,
-    };
+		// Start from the base state (structural + network already collected by collector)
+		const state: PerceivedState = {
+			...baseState,
+			perceptionPreset: preset,
+			perceptionLayers: layers,
+			perceivedAt,
+		};
 
-    // If network layer is off, strip network data (cheap preset)
-    if (!layers.network) {
-      state.console = { errors: [] };
-      state.network = { failedRequests: [] };
-    }
+		// If network layer is off, strip network data (cheap preset)
+		if (!layers.network) {
+			state.console = { errors: [] };
+			state.network = { failedRequests: [] };
+		}
 
-    // Bug layer
-    if (layers.bugs && options.rulesEngine) {
-      const ruleBugs = options.rulesEngine.analyze(baseState);
-      const diffBugs = options.previousState && options.rulesEngine.diffStructural
-        ? options.rulesEngine.diffStructural(options.previousState, baseState)
-        : [];
-      state.bugs = [...(state.bugs ?? []), ...ruleBugs, ...diffBugs];
-    } else {
-      // Clear bugs when the layer is off OR when engine is unavailable —
-      // stale bugs from a prior collect cycle should not bleed through.
-      state.bugs = [];
-    }
+		// Bug layer
+		if (layers.bugs && options.rulesEngine) {
+			const ruleBugs = options.rulesEngine.analyze(baseState);
+			const diffBugs =
+				options.previousState && options.rulesEngine.diffStructural
+					? options.rulesEngine.diffStructural(options.previousState, baseState)
+					: [];
+			state.bugs = [...(state.bugs ?? []), ...ruleBugs, ...diffBugs];
+		} else {
+			// Clear bugs when the layer is off OR when engine is unavailable —
+			// stale bugs from a prior collect cycle should not bleed through.
+			state.bugs = [];
+		}
 
-    // Challenge layer
-    if (layers.challenge && this.challengeDetector) {
-      state.challengeState = this.challengeDetector.analyze(baseState);
-    }
+		// Challenge layer
+		if (layers.challenge && this.challengeDetector) {
+			state.challengeState = this.challengeDetector.analyze(baseState);
+		}
 
-    // Screenshot layer
-    if (layers.screenshot) {
-      try {
-        const page = (this.collector as any).page;
-        if (page && typeof page.screenshot === 'function') {
-          const buf: Buffer = await page.screenshot({ type: 'png', fullPage: true });
-          state.screenshotBase64 = buf.toString('base64');
-        }
-      } catch {
-        // Non-fatal — screenshot unavailable
-      }
-    }
+		// Screenshot layer
+		if (layers.screenshot) {
+			try {
+				const page = (this.collector as any).page;
+				if (page && typeof page.screenshot === "function") {
+					const buf: Buffer = await page.screenshot({ type: "png", fullPage: true });
+					state.screenshotBase64 = buf.toString("base64");
+				}
+			} catch {
+				// Non-fatal — screenshot unavailable
+			}
+		}
 
-    this.cache.set(cacheKey, state);
-    return state;
-  }
+		this.cache.set(cacheKey, state);
+		return state;
+	}
 
-  /**
-   * Invalidate the cache. Call after any action that changes page state
-   * (click, type, navigate, etc.).
-   */
-  invalidate(): void {
-    this.sessionTick++;
-    this.cache.clear();
-  }
+	/**
+	 * Invalidate the cache. Call after any action that changes page state
+	 * (click, type, navigate, etc.).
+	 */
+	invalidate(): void {
+		this.sessionTick++;
+		this.cache.clear();
+	}
 
-  /**
-   * Return true if a cached result exists for the given preset in the current
-   * session tick. The `url` parameter is accepted for API symmetry but the
-   * cache is tick-scoped, not URL-scoped.
-   */
-  isCached(_url: string, preset: PerceptionPreset): boolean {
-    return this.cache.has(`${this.sessionTick}::${preset}`);
-  }
+	/**
+	 * Return true if a cached result exists for the given preset in the current
+	 * session tick. The `url` parameter is accepted for API symmetry but the
+	 * cache is tick-scoped, not URL-scoped.
+	 */
+	isCached(_url: string, preset: PerceptionPreset): boolean {
+		return this.cache.has(`${this.sessionTick}::${preset}`);
+	}
 
-  /**
-   * Return the number of cached entries.
-   */
-  get cacheSize(): number {
-    return this.cache.size;
-  }
+	/**
+	 * Return the number of cached entries.
+	 */
+	get cacheSize(): number {
+		return this.cache.size;
+	}
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+	// ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private resolveLayerFlags(
-    preset: PerceptionPreset,
-    overrides?: Partial<PerceptionLayerFlags>,
-  ): PerceptionLayerFlags {
-    const base = { ...PERCEPTION_PRESETS[preset] };
-    if (overrides) {
-      return { ...base, ...overrides };
-    }
-    return base;
-  }
+	private resolveLayerFlags(preset: PerceptionPreset, overrides?: Partial<PerceptionLayerFlags>): PerceptionLayerFlags {
+		const base = { ...PERCEPTION_PRESETS[preset] };
+		if (overrides) {
+			return { ...base, ...overrides };
+		}
+		return base;
+	}
 }

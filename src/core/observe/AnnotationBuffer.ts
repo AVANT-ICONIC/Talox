@@ -10,7 +10,7 @@
  * the buffer into the `TaloxSessionReport`.
  */
 
-import type { AnnotationEntry } from '../../types/annotation.js';
+import type { AnnotationEntry } from "../../types/annotation.js";
 
 // ─── AnnotationBuffer ────────────────────────────────────────────────────────
 
@@ -28,72 +28,72 @@ import type { AnnotationEntry } from '../../types/annotation.js';
  * ```
  */
 export class AnnotationBuffer {
-  private readonly stack: AnnotationEntry[] = [];
+	private readonly stack: AnnotationEntry[] = [];
 
-  // ─── Write ──────────────────────────────────────────────────────────────────
+	// ─── Write ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Append an annotation to the buffer.
-   */
-  push(entry: AnnotationEntry): void {
-    this.stack.push(entry);
-  }
+	/**
+	 * Append an annotation to the buffer.
+	 */
+	push(entry: AnnotationEntry): void {
+		this.stack.push(entry);
+	}
 
-  /**
-   * Remove and return the most recently added annotation (Ctrl/Cmd+Z undo).
-   * Returns `undefined` if the buffer is empty.
-   */
-  undo(): AnnotationEntry | undefined {
-    return this.stack.pop();
-  }
+	/**
+	 * Remove and return the most recently added annotation (Ctrl/Cmd+Z undo).
+	 * Returns `undefined` if the buffer is empty.
+	 */
+	undo(): AnnotationEntry | undefined {
+		return this.stack.pop();
+	}
 
-  // ─── Read ───────────────────────────────────────────────────────────────────
+	// ─── Read ───────────────────────────────────────────────────────────────────
 
-  /**
-   * Returns a frozen snapshot of all current annotations.
-   * The returned array is a copy — mutations have no effect on internal state.
-   */
-  getAll(): ReadonlyArray<AnnotationEntry> {
-    return Object.freeze([...this.stack]);
-  }
+	/**
+	 * Returns a frozen snapshot of all current annotations.
+	 * The returned array is a copy — mutations have no effect on internal state.
+	 */
+	getAll(): ReadonlyArray<AnnotationEntry> {
+		return Object.freeze([...this.stack]);
+	}
 
-  /**
-   * Returns the annotation at the given zero-based index, or `undefined`.
-   */
-  get(index: number): AnnotationEntry | undefined {
-    return this.stack[index];
-  }
+	/**
+	 * Returns the annotation at the given zero-based index, or `undefined`.
+	 */
+	get(index: number): AnnotationEntry | undefined {
+		return this.stack[index];
+	}
 
-  /**
-   * Returns the most recently added annotation without removing it.
-   */
-  peek(): AnnotationEntry | undefined {
-    return this.stack[this.stack.length - 1];
-  }
+	/**
+	 * Returns the most recently added annotation without removing it.
+	 */
+	peek(): AnnotationEntry | undefined {
+		return this.stack[this.stack.length - 1];
+	}
 
-  // ─── State ──────────────────────────────────────────────────────────────────
+	// ─── State ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Current number of annotations in the buffer.
-   */
-  get size(): number {
-    return this.stack.length;
-  }
+	/**
+	 * Current number of annotations in the buffer.
+	 */
+	get size(): number {
+		return this.stack.length;
+	}
 
-  /**
-   * `true` if the buffer contains no annotations.
-   */
-  get isEmpty(): boolean {
-    return this.stack.length === 0;
-  }
+	/**
+	 * `true` if the buffer contains no annotations.
+	 */
+	get isEmpty(): boolean {
+		return this.stack.length === 0;
+	}
 
-  // ─── Lifecycle ──────────────────────────────────────────────────────────────
+	// ─── Lifecycle ──────────────────────────────────────────────────────────────
 
-  /**
-   * Remove all annotations from the buffer.
-   * Called internally after the report has been written.
-   */
-  clear(): void {
-    this.stack.length = 0;
-  }
+	/**
+	 * Remove all annotations from the buffer.
+	 * Called internally after the report has been written.
+	 */
+	clear(): void {
+		this.stack.length = 0;
+	}
 }

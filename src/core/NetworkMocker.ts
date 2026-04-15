@@ -1,28 +1,28 @@
-import type { Page, Route, Request, BrowserContext, Response } from 'playwright-core';
+import type { BrowserContext, Page, Request, Response, Route } from "playwright-core";
 
 export interface NetworkRecording {
-  id: string;
-  url: string;
-  method: string;
-  status: number;
-  requestHeaders: Record<string, string>;
-  responseHeaders: Record<string, string>;
-  requestBody?: string;
-  responseBody?: string;
-  timestamp: number;
+	id: string;
+	url: string;
+	method: string;
+	status: number;
+	requestHeaders: Record<string, string>;
+	responseHeaders: Record<string, string>;
+	requestBody?: string;
+	responseBody?: string;
+	timestamp: number;
 }
 
 export interface MockResponse {
-  urlPattern: string | RegExp;
-  status?: number;
-  headers?: Record<string, string>;
-  body?: string;
-  delay?: number;
+	urlPattern: string | RegExp;
+	status?: number;
+	headers?: Record<string, string>;
+	body?: string;
+	delay?: number;
 }
 
 export interface NetworkMockerOptions {
-  context: BrowserContext;
-  page: Page;
+	context: BrowserContext;
+	page: Page;
 }
 
 /**
@@ -32,220 +32,218 @@ export interface NetworkMockerOptions {
  * adding individual mock responses with configurable URL patterns and delays.
  */
 export class NetworkMocker {
-  private context: BrowserContext;
-  private page: Page;
-  private isRecording: boolean = false;
-  private isReplaying: boolean = false;
-  private recordings: NetworkRecording[] = [];
-  private mocks: MockResponse[] = [];
-  private recordingHandler: ((recording: NetworkRecording) => void) | null = null;
-  private savedRoutes: Map<string, () => Promise<void>> = new Map();
+	private context: BrowserContext;
+	private page: Page;
+	private isRecording: boolean = false;
+	private isReplaying: boolean = false;
+	private recordings: NetworkRecording[] = [];
+	private mocks: MockResponse[] = [];
+	private recordingHandler: ((recording: NetworkRecording) => void) | null = null;
+	private savedRoutes: Map<string, () => Promise<void>> = new Map();
 
-  constructor(options: NetworkMockerOptions) {
-    this.context = options.context;
-    this.page = options.page;
-  }
+	constructor(options: NetworkMockerOptions) {
+		this.context = options.context;
+		this.page = options.page;
+	}
 
-  private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-  }
+	private generateId(): string {
+		return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+	}
 
-  private matchesPattern(url: string, pattern: string | RegExp): boolean {
-    if (typeof pattern === 'string') {
-      return url.includes(pattern);
-    }
-    return pattern.test(url);
-  }
+	private matchesPattern(url: string, pattern: string | RegExp): boolean {
+		if (typeof pattern === "string") {
+			return url.includes(pattern);
+		}
+		return pattern.test(url);
+	}
 
-  async startRecording(onRecording?: (recording: NetworkRecording) => void): Promise<void> {
-    if (this.isRecording) return;
-    
-    this.isRecording = true;
-    this.recordings = [];
-    this.recordingHandler = onRecording || null;
+	async startRecording(onRecording?: (recording: NetworkRecording) => void): Promise<void> {
+		if (this.isRecording) return;
 
-    await this.page.route('**/*', async (route: Route, request: Request) => {
-      if (!this.isRecording) {
-        await route.continue();
-        return;
-      }
+		this.isRecording = true;
+		this.recordings = [];
+		this.recordingHandler = onRecording || null;
 
-      try {
-        await route.continue();
-        
-        const response: Response | null = await request.response();
-        let responseBody: string | undefined;
-        let responseStatus = 0;
-        let responseHeaders: Record<string, string> = {};
-        
-        if (response) {
-          try {
-            const buffer = await response.body();
-            responseBody = buffer.toString('utf-8');
-          } catch {
-            // response body not available
-          }
-          responseStatus = response.status();
-          responseHeaders = response.headers();
-        }
+		await this.page.route("**/*", async (route: Route, request: Request) => {
+			if (!this.isRecording) {
+				await route.continue();
+				return;
+			}
 
-        const postData = request.postDataBuffer();
-        const requestBody = postData ? postData.toString('utf-8') : undefined;
+			try {
+				await route.continue();
 
-        const recording: NetworkRecording = {
-          id: this.generateId(),
-          url: request.url(),
-          method: request.method(),
-          status: responseStatus,
-          requestHeaders: request.headers(),
-          responseHeaders,
-          timestamp: Date.now(),
-        };
+				const response: Response | null = await request.response();
+				let responseBody: string | undefined;
+				let responseStatus = 0;
+				let responseHeaders: Record<string, string> = {};
 
-        if (requestBody !== undefined) {
-          (recording as Partial<NetworkRecording>).requestBody = requestBody;
-        }
-        if (responseBody !== undefined) {
-          (recording as Partial<NetworkRecording>).responseBody = responseBody;
-        }
+				if (response) {
+					try {
+						const buffer = await response.body();
+						responseBody = buffer.toString("utf-8");
+					} catch {
+						// response body not available
+					}
+					responseStatus = response.status();
+					responseHeaders = response.headers();
+				}
 
-        this.recordings.push(recording);
-        
-        if (this.recordingHandler) {
-          this.recordingHandler(recording);
-        }
-      } catch {
-        await route.continue();
-      }
-    });
-  }
+				const postData = request.postDataBuffer();
+				const requestBody = postData ? postData.toString("utf-8") : undefined;
 
-  async stopRecording(): Promise<NetworkRecording[]> {
-    this.isRecording = false;
-    this.recordingHandler = null;
-    return [...this.recordings];
-  }
+				const recording: NetworkRecording = {
+					id: this.generateId(),
+					url: request.url(),
+					method: request.method(),
+					status: responseStatus,
+					requestHeaders: request.headers(),
+					responseHeaders,
+					timestamp: Date.now(),
+				};
 
-  getRecordings(): NetworkRecording[] {
-    return [...this.recordings];
-  }
+				if (requestBody !== undefined) {
+					(recording as Partial<NetworkRecording>).requestBody = requestBody;
+				}
+				if (responseBody !== undefined) {
+					(recording as Partial<NetworkRecording>).responseBody = responseBody;
+				}
 
-  async startReplaying(recordings?: NetworkRecording[]): Promise<void> {
-    if (this.isReplaying) return;
+				this.recordings.push(recording);
 
-    if (recordings) {
-      this.recordings = recordings;
-    }
+				if (this.recordingHandler) {
+					this.recordingHandler(recording);
+				}
+			} catch {
+				await route.continue();
+			}
+		});
+	}
 
-    this.isReplaying = true;
-    this.savedRoutes.clear();
+	async stopRecording(): Promise<NetworkRecording[]> {
+		this.isRecording = false;
+		this.recordingHandler = null;
+		return [...this.recordings];
+	}
 
-    await this.page.route('**/*', async (route: Route, request: Request) => {
-      if (!this.isReplaying) {
-        await route.continue();
-        return;
-      }
+	getRecordings(): NetworkRecording[] {
+		return [...this.recordings];
+	}
 
-      const matchingRecording = this.recordings.find(r => 
-        r.url === request.url() && r.method === request.method()
-      );
+	async startReplaying(recordings?: NetworkRecording[]): Promise<void> {
+		if (this.isReplaying) return;
 
-      if (matchingRecording) {
-        const fulfillOptions: {
-          status: number;
-          headers: Record<string, string>;
-          body?: string;
-        } = {
-          status: matchingRecording.status,
-          headers: matchingRecording.responseHeaders,
-        };
+		if (recordings) {
+			this.recordings = recordings;
+		}
 
-        if (matchingRecording.responseBody !== undefined) {
-          fulfillOptions.body = matchingRecording.responseBody;
-        }
+		this.isReplaying = true;
+		this.savedRoutes.clear();
 
-        await route.fulfill(fulfillOptions);
-      } else {
-        await route.continue();
-      }
-    });
-  }
+		await this.page.route("**/*", async (route: Route, request: Request) => {
+			if (!this.isReplaying) {
+				await route.continue();
+				return;
+			}
 
-  async stopReplaying(): Promise<void> {
-    this.isReplaying = false;
-    this.savedRoutes.clear();
-    await this.page.unrouteAll({ behavior: 'ignoreErrors' });
-  }
+			const matchingRecording = this.recordings.find((r) => r.url === request.url() && r.method === request.method());
 
-  async addMock(mock: MockResponse): Promise<void> {
-    this.mocks.push(mock);
+			if (matchingRecording) {
+				const fulfillOptions: {
+					status: number;
+					headers: Record<string, string>;
+					body?: string;
+				} = {
+					status: matchingRecording.status,
+					headers: matchingRecording.responseHeaders,
+				};
 
-    await this.page.route(mock.urlPattern, async (route: Route, request: Request) => {
-      if (!this.matchesPattern(request.url(), mock.urlPattern)) {
-        await route.continue();
-        return;
-      }
+				if (matchingRecording.responseBody !== undefined) {
+					fulfillOptions.body = matchingRecording.responseBody;
+				}
 
-      const delay = mock.delay || 0;
-      if (delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+				await route.fulfill(fulfillOptions);
+			} else {
+				await route.continue();
+			}
+		});
+	}
 
-      const fulfillOptions: {
-        status: number;
-        headers: Record<string, string>;
-        body?: string;
-      } = {
-        status: mock.status || 200,
-        headers: mock.headers || { 'content-type': 'application/json' },
-      };
+	async stopReplaying(): Promise<void> {
+		this.isReplaying = false;
+		this.savedRoutes.clear();
+		await this.page.unrouteAll({ behavior: "ignoreErrors" });
+	}
 
-      if (mock.body !== undefined) {
-        fulfillOptions.body = mock.body;
-      }
+	async addMock(mock: MockResponse): Promise<void> {
+		this.mocks.push(mock);
 
-      await route.fulfill(fulfillOptions);
-    });
-  }
+		await this.page.route(mock.urlPattern, async (route: Route, request: Request) => {
+			if (!this.matchesPattern(request.url(), mock.urlPattern)) {
+				await route.continue();
+				return;
+			}
 
-  async clearMocks(): Promise<void> {
-    this.mocks = [];
-    await this.page.unrouteAll({ behavior: 'ignoreErrors' });
-  }
+			const delay = mock.delay || 0;
+			if (delay > 0) {
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
 
-  getMocks(): MockResponse[] {
-    return [...this.mocks];
-  }
+			const fulfillOptions: {
+				status: number;
+				headers: Record<string, string>;
+				body?: string;
+			} = {
+				status: mock.status || 200,
+				headers: mock.headers || { "content-type": "application/json" },
+			};
 
-  async saveToFile(filePath: string): Promise<void> {
-    const fs = await import('fs/promises');
-    const data = JSON.stringify(this.recordings, null, 2);
-    await fs.writeFile(filePath, data, 'utf-8');
-  }
+			if (mock.body !== undefined) {
+				fulfillOptions.body = mock.body;
+			}
 
-  async loadFromFile(filePath: string): Promise<NetworkRecording[]> {
-    const fs = await import('fs/promises');
-    const data = await fs.readFile(filePath, 'utf-8');
-    this.recordings = JSON.parse(data);
-    return [...this.recordings];
-  }
+			await route.fulfill(fulfillOptions);
+		});
+	}
 
-  get isRecordingActive(): boolean {
-    return this.isRecording;
-  }
+	async clearMocks(): Promise<void> {
+		this.mocks = [];
+		await this.page.unrouteAll({ behavior: "ignoreErrors" });
+	}
 
-  get isReplayingActive(): boolean {
-    return this.isReplaying;
-  }
+	getMocks(): MockResponse[] {
+		return [...this.mocks];
+	}
 
-  async destroy(): Promise<void> {
-    await this.stopRecording();
-    await this.stopReplaying();
-    await this.clearMocks();
-    this.recordings = [];
-  }
+	async saveToFile(filePath: string): Promise<void> {
+		const fs = await import("node:fs/promises");
+		const data = JSON.stringify(this.recordings, null, 2);
+		await fs.writeFile(filePath, data, "utf-8");
+	}
+
+	async loadFromFile(filePath: string): Promise<NetworkRecording[]> {
+		const fs = await import("node:fs/promises");
+		const data = await fs.readFile(filePath, "utf-8");
+		this.recordings = JSON.parse(data);
+		return [...this.recordings];
+	}
+
+	get isRecordingActive(): boolean {
+		return this.isRecording;
+	}
+
+	get isReplayingActive(): boolean {
+		return this.isReplaying;
+	}
+
+	async destroy(): Promise<void> {
+		await this.stopRecording();
+		await this.stopReplaying();
+		await this.clearMocks();
+		this.recordings = [];
+	}
 }
 
 export function createNetworkMocker(options: NetworkMockerOptions): NetworkMocker {
-  return new NetworkMocker(options);
+	return new NetworkMocker(options);
 }
