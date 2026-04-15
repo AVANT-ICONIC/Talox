@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-3.0.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-4.0.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -63,9 +63,7 @@ Talox is a **local browser runtime** — agents work inside a real browser with 
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles', {
-  settings: { verbosity: 0 }  // silent by default
-});
+const talox = new TaloxController({ settings: { verbosity: 0 } });  // v4 shorthand
 
 // Agent does everything with full stealth — always on
 await talox.launch('my-agent', 'ops');
@@ -77,9 +75,7 @@ await talox.stop();
 
 ```typescript
 // Headed mode — shows browser with glow frame + fake cursor overlay
-const talox = new TaloxController('./profiles', {
-  settings: { headed: true }  // overlay auto-activates
-});
+const talox = new TaloxController({ headed: true });  // v4 shorthand
 
 // Human Takeover — agent pauses, human does a step (e.g., login, 2FA)
 await talox.requestHumanTakeover('Need 2FA code');
@@ -120,11 +116,24 @@ Talox's mission is to be the obvious local-first browser runtime. The table belo
 
 ## Quick Start
 
+> **npm package coming soon.** For now, install directly from GitHub:
+
+```bash
+git clone https://github.com/AVANT-ICONIC/Talox.git
+cd Talox
+npm install
+npm run build
+# Install Playwright Chromium (first time or on a new server)
+npx playwright install chromium --with-deps
+```
+
+<!-- Once published to npm, replace the block above with:
 ```bash
 npm install talox
 # Install Playwright Chromium system dependencies (first time or on a new server)
 npx playwright install chromium --with-deps
 ```
+-->
 
 ### Dependencies explained
 
@@ -140,7 +149,8 @@ Both share the same API surface — Talox uses Playwright by default and falls b
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
+// v4: config object as first arg
+const talox = new TaloxController({ headless: true });
 
 await talox.launch('my-agent', 'ops');
 
@@ -158,8 +168,11 @@ See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste st
 
 ## Talox CLI & Packaging
 
-- `npx talox observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
-- `npx talox init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
+> **npm package coming soon.** Until then, run the CLI from the repo:
+> `node dist/cli/talox.js observe --help`
+
+- `node dist/cli/talox.js observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
+- `node dist/cli/talox.js init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
 - Exported presets (`ops`, `qa`, `observe`, `research`, `login-heavy`) live in `src/presets.ts` so you can reuse curated verbosity, headedness, and human-takeover posture with a single spread or merge.
 - The practical tools from `getPracticalTools(talox)` demonstrate background tabs, API response capture, Markdown snapshot export, on-site search, and visible structured content extraction, so your packaged profiles already include actionable browser lab helpers.
 
@@ -169,7 +182,7 @@ See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste st
 
 - launches `PRESETS.observe` with headed overlay/recording enabled,
 - exercises every practical tool (background tab, API capture, Markdown snapshot, search, structured content), and
-- writes the generated Markdown/JSON report artifacts into `talox-sessions/` (useful as a sanity check after `npm install` + `npx playwright install chromium`).
+- writes the generated Markdown/JSON report artifacts into `talox-sessions/` (useful as a sanity check after `npm install && npm run build` + `npx playwright install chromium`).
 
 Run the demo to validate the packaged presets, tools, and reporting output in one headed experiment.
 
@@ -599,7 +612,8 @@ await talox.evaluate(`window.__taloxEmit__('session:end', {})`);
 If you just want to launch an ad-hoc observe session, the bundled CLI makes it one command:
 
 ```bash
-npx talox observe --profile my-observe-run --class qa --browser chromium --output-dir ./talox-sessions --format both
+# From the repo (npm package coming soon)
+node dist/cli/talox.js observe --profile my-observe-run --class qa --browser chromium --output-dir ./talox-sessions --format both
 ```
 
 That command opens a headed Chromium session with the overlay + annotation buffer already armed, logs console/network errors, and writes JSON/Markdown reports. Run `talox observe --help` to tune the profile class, browser, verbosity, or report directory without touching code.
