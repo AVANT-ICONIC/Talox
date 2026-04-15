@@ -214,7 +214,7 @@ export class OverlayInjector {
 		try {
 			// Dynamic import so esbuild is only required when observe mode is used
 			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-			// @ts-expect-error — esbuild is an optional peer dependency; graceful fallback below
+			// @ts-ignore — esbuild is an optional peer dependency; graceful fallback below
 			const esbuild = (await import("esbuild")) as any;
 			const result = await esbuild.build({
 				entryPoints: [overlayEntryPath],
