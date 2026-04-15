@@ -80,19 +80,24 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-10)
+### Current Status (2026-04-15) — v4.0.1
 
-- **333 total issues** (323 src + 10 test)
-- 0 blockers in src, 10 in tests (missing assertions)
-- 20 critical (cognitive complexity)
-- 1 actual bug: `BrowserManager.ts:344` NaN===NaN comparison
-- See TODO.md section "L. SonarQube Static Analysis" for full breakdown
+- **333 total issues** (318 src + 15 test)
+- Quality gate: **OK**
+- **15 BLOCKER** — tests missing assertions (S2699)
+- **24 CRITICAL** — cognitive complexity >15 (S3776)
+- **62 MAJOR** — code smells
+- **232 MINOR** — code smells
+- Worst complexity hotspots:
+  - `SessionReporter.ts:175` (57), `VisionGate.ts:206` (54), `GhostVisualizer.ts:240` (34)
+  - `SemanticMapper.ts:241` (32), `ActionExecutor.ts:228` (30), `GhostVisualizer.ts:361` (32)
+  - `FingerprintGenerator.ts:603` (23), `PageStateCollector.ts:417` (23)
 
 ## Build & Test
 
 ```bash
 npm run build          # Compile TypeScript
-npm run test           # Run all unit tests (137 tests across 19 files)
+npm run test           # Run all unit tests (917 tests across 42 files)
 npm run test:e2e       # Run Playwright E2E tests
 npm run test:real      # Run real-world integration tests
 npm run typecheck      # TypeScript strict mode check
