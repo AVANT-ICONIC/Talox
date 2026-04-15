@@ -87,3 +87,7 @@ docs/IMPLEMENTATION_*.json
 
 # Coverage reports
 coverage/
+
+# Smoke test artifacts
+smoke-test-profile/
+smoke-test.mjs

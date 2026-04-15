@@ -1,5 +1,0 @@
-2026/04/15-21:55:43.004 ef98c9 Creating DB /Users/valunex/Desktop/GitHub/talox/smoke-test-profile/Default/Local Storage/leveldb since it was missing.
-2026/04/15-21:55:43.034 ef98c9 Reusing MANIFEST /Users/valunex/Desktop/GitHub/talox/smoke-test-profile/Default/Local Storage/leveldb/MANIFEST-000001
-2026/04/15-21:56:43.038 ef98cb Level-0 table #5: started
-2026/04/15-21:56:43.047 ef98cb Level-0 table #5: 504764 bytes OK
-2026/04/15-21:56:43.052 ef98cb Delete type=0 #3
