@@ -20,6 +20,7 @@ import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
 import { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
+import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
 import { HumanMouse } from "../HumanMouse.js";
 import { ObserveSession } from "../observe/ObserveSession.js";
 import { PageStateCollector } from "../PageStateCollector.js";
@@ -59,30 +60,9 @@ export class SessionManager {
 
 	/** Saved before a headed/headless browser restart so the new session can restore it. */
 	private pendingSnapshot: SessionSnapshot | null = null;
-	private selectedUserAgent: string | null = null;
-	private webglInfo: { vendor: string; renderer: string } | null = null;
-
-	private readonly userAgents: string[] = [
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-	];
-
-	private readonly webglRenderers = [
-		{
-			vendor: "Google Inc. (NVIDIA)",
-			renderer: "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-		},
-		{
-			vendor: "Google Inc. (Intel)",
-			renderer: "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-		},
-		{ vendor: "Google Inc. (AMD)", renderer: "ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)" },
-		{ vendor: "Apple Inc.", renderer: "Apple M1" },
-		{ vendor: "Apple Inc.", renderer: "Apple M2" },
-	];
+	/** The current fingerprint profile used for this session. */
+	private fingerprint: FingerprintProfile | null = null;
+	private readonly fingerprintGen = new FingerprintGenerator();
 
 	constructor(
 		private readonly settings: TaloxSettings,
@@ -121,20 +101,14 @@ export class SessionManager {
 			launchOptions.headless = false;
 		}
 
-		const ua = this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
-		const webgl = this.webglRenderers[Math.floor(Math.random() * this.webglRenderers.length)];
+		// Generate a consistent fingerprint profile for this session
+		this.fingerprint = this.fingerprintGen.generate(profileId);
 
-		this.selectedUserAgent = ua ?? this.userAgents[0] ?? null;
-		this.webglInfo = webgl ?? this.webglRenderers[0] ?? null;
-
-		const width = 1280 + Math.floor(Math.random() * (1920 - 1280));
-		const height = 720 + Math.floor(Math.random() * (1080 - 720));
-
-		if (this.selectedUserAgent) {
-			launchOptions.userAgent = this.selectedUserAgent;
-		}
-
-		launchOptions.viewport = { width, height };
+		launchOptions.userAgent = this.fingerprint.userAgent;
+		launchOptions.viewport = {
+			width: this.fingerprint.screen.width,
+			height: this.fingerprint.screen.height,
+		};
 
 		// Support native video recording
 		if ((resolvedOpts as any).recordVideo) {
@@ -227,7 +201,7 @@ export class SessionManager {
 
 		// 4. Relaunch with new headed setting
 		const launchOptions: any = { headless: !headed };
-		if (this.selectedUserAgent) launchOptions.userAgent = this.selectedUserAgent;
+		if (this.fingerprint) launchOptions.userAgent = this.fingerprint.userAgent;
 
 		const newContext = await this.browserManager.launch(profile, headed, "chromium", launchOptions);
 		const newPage = await newContext.newPage();
@@ -597,7 +571,30 @@ export class SessionManager {
 	}
 
 	async injectStealthScripts(page: any): Promise<void> {
-		const webgl = this.webglInfo || this.webglRenderers[0];
+		// Generate a fingerprint if one doesn't exist yet (e.g. in tests)
+		if (!this.fingerprint) {
+			this.fingerprint = this.fingerprintGen.generate();
+		}
+		const fp = this.fingerprint;
+
+		// Serialize the fingerprint profile for injection into the page.
+		// All values are pre-validated for consistency by FingerprintGenerator.
+		const stealthData = {
+			vendor: fp.webgl.vendor,
+			renderer: fp.webgl.renderer,
+			platform: fp.platform,
+			languages: fp.languages,
+			hardwareConcurrency: fp.hardwareConcurrency,
+			deviceMemory: fp.deviceMemory,
+			timezone: fp.timezone,
+			locale: fp.locale,
+			audioSampleRate: fp.audio.sampleRate,
+			audioMaxChannelCount: fp.audio.maxChannelCount,
+			audioOutputLatency: fp.audio.outputLatency,
+			fontLetterSpacingMin: fp.fonts.letterSpacingOffsetRange[0],
+			fontLetterSpacingMax: fp.fonts.letterSpacingOffsetRange[1],
+			battery: fp.battery,
+		};
 
 		await page.addInitScript((data: any) => {
 			// 1. Navigator Webdriver Evasion
@@ -606,7 +603,7 @@ export class SessionManager {
 			});
 
 			// 2. Chrome Runtime Spoofing
-			// @ts-expect-error
+			// @ts-ignore
 			window.chrome = {
 				runtime: {},
 				loadTimes: () => {},
@@ -629,12 +626,25 @@ export class SessionManager {
 				],
 			});
 
-			// 4. Language Spoofing
+			// 4. Language Spoofing (from fingerprint profile)
 			Object.defineProperty(navigator, "languages", {
-				get: () => ["en-US", "en"],
+				get: () => data.languages,
 			});
 
-			// 5. Canvas Fingerprint Protection (Adds subtle noise)
+			// 5. Platform Spoofing (consistent with UA)
+			Object.defineProperty(navigator, "platform", {
+				get: () => data.platform,
+			});
+
+			// 6. Hardware Spoofing (consistent with OS)
+			Object.defineProperty(navigator, "hardwareConcurrency", {
+				get: () => data.hardwareConcurrency,
+			});
+			Object.defineProperty(navigator, "deviceMemory", {
+				get: () => data.deviceMemory,
+			});
+
+			// 7. Canvas Fingerprint Protection (subtle noise)
 			const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
 			HTMLCanvasElement.prototype.toDataURL = function (type, encoderOptions) {
 				const context = this.getContext("2d");
@@ -656,7 +666,7 @@ export class SessionManager {
 				return originalToDataURL.apply(this, [type, encoderOptions]);
 			};
 
-			// 6. WebGL Vendor/Renderer Spoofing
+			// 8. WebGL Vendor/Renderer Spoofing (consistent with OS)
 			const getParameter = WebGLRenderingContext.prototype.getParameter;
 			WebGLRenderingContext.prototype.getParameter = function (parameter) {
 				// UNMASKED_VENDOR_WEBGL
@@ -672,7 +682,78 @@ export class SessionManager {
 				if (parameter === 37446) return data.renderer;
 				return getParameter2.apply(this, [parameter]);
 			};
-		}, webgl);
+
+			// 9. AudioContext Spoofing (consistent with OS)
+			if (typeof AudioContext !== "undefined") {
+				const OrigAudioContext = AudioContext;
+				// @ts-ignore
+				window.AudioContext = function (opts: any) {
+					const ctx = new OrigAudioContext(opts);
+					Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
+					Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
+					Object.defineProperty(ctx, "outputLatency", { get: () => data.audioOutputLatency });
+					return ctx;
+				};
+			}
+
+			// 10. Battery API Spoofing
+			// @ts-ignore — browser context, getBattery exists at runtime
+			if (typeof navigator.getBattery === "function") {
+				// @ts-ignore
+				navigator.getBattery = async () => ({
+					charging: data.battery.charging,
+					chargingTime: data.battery.chargingTime,
+					dischargingTime: data.battery.dischargingTime,
+					level: data.battery.level,
+					addEventListener: () => {},
+					removeEventListener: () => {},
+					dispatchEvent: () => true,
+				});
+			}
+
+			// 11. WebRTC Leak Prevention
+			if (typeof RTCPeerConnection !== "undefined") {
+				const OrigRTCPeerConnection = RTCPeerConnection;
+				// @ts-ignore
+				window.RTCPeerConnection = function (config: any, constraints: any) {
+					// Force ICE candidate filtering to prevent local IP leaks
+					const filteredConfig = {
+						...config,
+						iceServers: config?.iceServers || [],
+					};
+					// @ts-ignore
+					return new OrigRTCPeerConnection(filteredConfig, constraints);
+				};
+			}
+
+			// 12. Font Metrics Fingerprint Defense
+			// Offset letter-spacing subtly on measured elements
+			if (typeof document !== "undefined") {
+				const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
+				CanvasRenderingContext2D.prototype.measureText = function (text: string) {
+					const result = origMeasureText.apply(this, [text]);
+					// Add subtle random offset to defeat font metric fingerprinting
+					const offset = data.fontLetterSpacingMin +
+						Math.random() * (data.fontLetterSpacingMax - data.fontLetterSpacingMin);
+					return {
+						...result,
+						width: result.width + offset,
+					};
+				};
+			}
+
+			// 13. Timezone Consistency
+			if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+				const OrigDateTimeFormat = Intl.DateTimeFormat;
+				// @ts-ignore
+				Intl.DateTimeFormat = function (locales: any, opts: any) {
+					return new OrigDateTimeFormat(data.locale, opts);
+				};
+				// @ts-ignore
+				Intl.DateTimeFormat.prototype = OrigDateTimeFormat.prototype;
+				Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
+			}
+		}, stealthData);
 	}
 
 	// ─── Behavioral DNA ───────────────────────────────────────────────────────────

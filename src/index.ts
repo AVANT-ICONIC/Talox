@@ -51,6 +51,7 @@ export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/s
 export { DomainMemory } from "./core/smart/DomainMemory.js";
 export { STRATEGIES } from "./core/smart/strategies.js";
 export * from "./core/TaloxTools.js";
+export * from "./core/FingerprintGenerator.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
 
