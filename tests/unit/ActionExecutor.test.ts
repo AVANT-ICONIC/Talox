@@ -1032,14 +1032,15 @@ describe("ActionExecutor", () => {
 
 		it("allows action when riskyActionHook returns true", async () => {
 			const hook = vi.fn().mockResolvedValue(true);
-			const { executor } = makeExecutor({
+			const { executor, mockPage } = makeExecutor({
 				settings: { safeMode: true },
 				getProfile: () => ({ class: "ops" }),
 				riskyActionHook: hook,
 			});
 
 			await executor.click("#btn");
-			// Should not throw
+			expect(hook).toHaveBeenCalled();
+			expect(mockPage.click).toHaveBeenCalled();
 		});
 	});
 });

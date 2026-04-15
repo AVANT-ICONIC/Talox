@@ -24,7 +24,7 @@ import {
 describe("TaloxPageState contract", () => {
 	describe("minimal valid state", () => {
 		it("passes schema validation", () => {
-			assertValidPageState(makeMinimalState());
+			expect(() => assertValidPageState(makeMinimalState())).not.toThrow();
 		});
 
 		it("has correct url", () => {
@@ -49,7 +49,7 @@ describe("TaloxPageState contract", () => {
 
 	describe("rich valid state", () => {
 		it("passes schema validation", () => {
-			assertValidPageState(makeRichState());
+			expect(() => assertValidPageState(makeRichState())).not.toThrow();
 		});
 
 		it("captures console errors as strings", () => {
@@ -124,13 +124,13 @@ describe("compactState() output contract", () => {
 
 	describe("'full' variant", () => {
 		it("output passes TaloxPageState schema", () => {
-			assertValidPageState(compactState(full, "full"));
+			expect(() => assertValidPageState(compactState(full, "full"))).not.toThrow();
 		});
 	});
 
 	describe("'agent' variant", () => {
 		it("output passes AgentPageState schema", () => {
-			assertValidAgentState(compactState(full, "agent"));
+			expect(() => assertValidAgentState(compactState(full, "agent"))).not.toThrow();
 		});
 
 		it("does not include nodes, network, or axTree", () => {
@@ -150,7 +150,7 @@ describe("compactState() output contract", () => {
 
 	describe("'debug' variant", () => {
 		it("output passes DebugPageState schema", () => {
-			assertValidDebugState(compactState(full, "debug"));
+			expect(() => assertValidDebugState(compactState(full, "debug"))).not.toThrow();
 		});
 
 		it("does not include interactiveElements", () => {
@@ -203,7 +203,7 @@ describe("PageStateCollector.collect() schema", () => {
 		const page = makePageMock({ axSnapshot: null });
 		const collector = new PageStateCollector(page, { ...FAST_OPTS, useDomFallback: true });
 		const state = await collector.collect();
-		assertValidPageState(state);
+		expect(() => assertValidPageState(state)).not.toThrow();
 	});
 
 	it("returns correct url and title", async () => {

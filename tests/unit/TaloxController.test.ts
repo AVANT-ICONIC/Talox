@@ -425,9 +425,11 @@ describe("TaloxController", () => {
 	describe("mouse tracking", () => {
 		it("setGlobalMouseTracking toggles", () => {
 			const t = new TaloxController(".");
-			// Default is enabled
+			expect((t as any).useGlobalMousePos).toBe(true);
 			t.setGlobalMouseTracking(false);
-			// No error means success
+			expect((t as any).useGlobalMousePos).toBe(false);
+			t.setGlobalMouseTracking(true);
+			expect((t as any).useGlobalMousePos).toBe(true);
 		});
 	});
 

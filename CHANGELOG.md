@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.2] - 2026-04-15
+
+### Fixed
+
+- **15 BLOCKER test assertions resolved** (SonarQube S2699) — all test cases now have direct `expect()` calls:
+  - `pageState.schema.test.ts` (6): wrapped `assertValid*` helpers in `expect().not.toThrow()`
+  - `TaloxController.actions.schema.test.ts` (4): added URL state assertions
+  - `SessionManager.test.ts` (2): timestamp and spy assertions
+  - `ActionExecutor.test.ts` (1): hook invocation + click assertions
+  - `NetworkMocker.test.ts` (1): loadFromFile return value assertions
+  - `TaloxController.test.ts` (1): mouse tracking toggle assertions
+
 ## [4.0.1] - 2026-04-15
 
 ### Changed

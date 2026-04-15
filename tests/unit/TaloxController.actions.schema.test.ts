@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaloxController } from "../../src/core/controller/TaloxController";
 import { assertValidPageState, makeRichState } from "./helpers/pageStateHelper";
 
@@ -42,20 +42,24 @@ describe("TaloxController action outputs", () => {
 	it("navigate returns a schema-valid state", async () => {
 		const state = await talox.navigate("https://example.com");
 		assertValidPageState(state);
+		expect(state.url).toBe("https://example.com/page");
 	});
 
 	it("getState returns a schema-valid state", async () => {
 		const state = await talox.getState();
 		assertValidPageState(state);
+		expect(state.url).toBe("https://example.com/page");
 	});
 
 	it("click returns a schema-valid state", async () => {
 		const state = await talox.click("#submit");
 		assertValidPageState(state);
+		expect(state.url).toBe("https://example.com/page");
 	});
 
 	it("type returns a schema-valid state", async () => {
 		const state = await talox.type("#input", "hello");
 		assertValidPageState(state);
+		expect(state.url).toBe("https://example.com/page");
 	});
 });

@@ -278,7 +278,11 @@ describe("NetworkMocker", () => {
 			const fs = await import("fs/promises");
 			const data = JSON.stringify([{ id: "1", url: "https://example.com" }]);
 			vi.mocked(fs.readFile).mockResolvedValue(data);
-			// This will fail if recordings shape doesn't match, but tests the load path
+
+			const result = await mocker.loadFromFile("/tmp/test-recordings.json");
+			expect(result).toHaveLength(1);
+			expect(result[0].id).toBe("1");
+			expect(mocker.getRecordings()).toEqual(result);
 		});
 	});
 

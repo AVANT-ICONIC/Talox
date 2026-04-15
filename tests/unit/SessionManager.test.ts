@@ -608,8 +608,7 @@ describe("SessionManager", () => {
 		it("recordActivity updates timestamp", () => {
 			const before = Date.now();
 			sm.recordActivity();
-			// Activity timestamp should be >= before
-			// (in fake timers, Date.now() is controlled)
+			expect((sm as any).lastActivityTimestamp).toBeGreaterThanOrEqual(before);
 		});
 	});
 
@@ -783,8 +782,9 @@ describe("SessionManager", () => {
 	describe("triggerThinkingBehavior", () => {
 		it("does nothing when automatic thinking is disabled", async () => {
 			sm.settings.automaticThinkingEnabled = false;
+			const spy = vi.spyOn(sm.artifactBuilder, "addAction");
 			await sm.triggerThinkingBehavior({ x: 0, y: 0 }, null, (x, y) => ({ x, y }));
-			// Should complete without error or action
+			expect(spy).not.toHaveBeenCalledWith("triggerThinkingBehavior", expect.anything());
 		});
 	});
 
