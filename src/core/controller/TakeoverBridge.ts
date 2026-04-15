@@ -195,6 +195,7 @@ export class TakeoverBridge {
 	private currentPage: Page | null = null;
 	private takeoverStartedAt: string | null = null;
 	private takeoverReason: TakeoverReason | string | undefined = undefined;
+	private takeoverStartedUrl: string | null = null;
 
 	constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
 		this.eventBus = eventBus;
@@ -253,6 +254,7 @@ export class TakeoverBridge {
 		const timestamp = new Date().toISOString();
 		this.takeoverReason = reason;
 		this.takeoverStartedAt = timestamp;
+		this.takeoverStartedUrl = (typeof this.currentPage?.url === "function") ? this.currentPage.url() : null;
 		const payload: { timestamp: string; reason?: TakeoverReason | string } = { timestamp };
 		if (reason !== undefined) payload.reason = reason;
 		this.eventBus.emit("humanTakeoverRequested", payload);
@@ -315,13 +317,61 @@ export class TakeoverBridge {
 	private buildSummary(endReason: "manual" | "timeout"): TakeoverSummary | undefined {
 		if (!this.takeoverStartedAt) return undefined;
 		const resumedAt = new Date().toISOString();
+		const currentUrl = this.currentPage?.url() ?? null;
+
+		// Build resume context
+		const agentIntent = this.inferAgentIntent(this.takeoverReason);
+		const whatChanged = this.inferWhatChanged(this.takeoverStartedUrl, currentUrl);
+		const suggestedNextAction = this.inferSuggestedNextAction(this.takeoverReason, whatChanged);
+
+		// Clean up takeover state
+		const reason = this.takeoverReason ?? "manual";
+		this.takeoverReason = undefined;
+		this.takeoverStartedUrl = null;
+
 		return {
-			reason: this.takeoverReason ?? "manual",
+			reason,
 			startedAt: this.takeoverStartedAt,
 			resumedAt,
 			durationMs: new Date(resumedAt).getTime() - new Date(this.takeoverStartedAt).getTime(),
 			timedOut: endReason === "timeout",
+			agentIntent,
+			whatChanged,
+			suggestedNextAction,
 		};
+	}
+
+	private inferAgentIntent(reason: TakeoverReason | string | undefined): string {
+		if (!reason) return "Agent was performing browser actions autonomously.";
+		const intentMap: Record<string, string> = {
+			"login-required": "Agent needed credentials to proceed past a login page.",
+			"2fa-required": "Agent needed multi-factor authentication to complete login.",
+			"captcha-present": "Agent encountered a CAPTCHA challenge it could not solve locally.",
+			"agent-uncertain": "Agent was uncertain about the correct next action and requested human guidance.",
+			"policy-blocked": "Agent was blocked by a policy rule from performing an action.",
+		};
+		return intentMap[reason] ?? `Agent triggered takeover with reason: ${reason}`;
+	}
+
+	private inferWhatChanged(startUrl: string | null, endUrl: string | null): string {
+		if (!startUrl || !endUrl) return "Page state could not be compared.";
+		if (startUrl === endUrl) return "URL did not change during takeover.";
+		return `URL changed from ${startUrl} to ${endUrl} during takeover.`;
+	}
+
+	private inferSuggestedNextAction(reason: TakeoverReason | string | undefined, whatChanged: string): string {
+		if (!reason) return "Continue with the next planned action.";
+		const actionMap: Record<string, string> = {
+			"login-required": "Re-collect page state and verify login succeeded before continuing.",
+			"2fa-required": "Verify authentication completed and navigate to the target page.",
+			"captcha-present": "Check if the CAPTCHA was solved and re-evaluate the page state.",
+			"agent-uncertain": "Review the current page state and decide the next step carefully.",
+			"policy-blocked": "Review policy constraints and adjust the approach if needed.",
+		};
+		if (whatChanged.includes("did not change")) {
+			return actionMap[reason] ?? "Collect fresh page state and reassess the situation.";
+		}
+		return actionMap[reason] ?? "Collect fresh page state and continue from the new URL.";
 	}
 
 	/**

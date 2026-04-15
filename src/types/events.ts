@@ -116,6 +116,12 @@ export interface TakeoverSummary {
 	durationMs: number;
 	/** Whether the takeover ended via timeout (true) or human action (false). */
 	timedOut: boolean;
+	/** What the agent was trying to do when takeover was requested. */
+	agentIntent?: string;
+	/** What changed during the takeover (URL, visible elements, etc.). */
+	whatChanged?: string;
+	/** Suggested next action for the agent after resume. */
+	suggestedNextAction?: string;
 }
 
 // ─── Talox Event Map ─────────────────────────────────────────────────────────

@@ -3,7 +3,6 @@ import fs from "fs-extra";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import ssim from "ssim.js";
-import { createWorker } from "tesseract.js";
 import type { VisualDiffResult } from "../types/index.js";
 
 export interface HeatmapResult {
@@ -350,9 +349,11 @@ export class VisionGate {
 
 	/**
 	 * 📝 OCR: Extract text from a screenshot.
+	 * Gracefully returns empty string if tesseract.js is not installed.
 	 */
 	async extractText(image: Buffer): Promise<string> {
 		try {
+			const { createWorker } = await import("tesseract.js");
 			const worker = await createWorker("eng");
 			const {
 				data: { text },
