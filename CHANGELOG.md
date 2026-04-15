@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-04-15
+
+### Changed
+
+- **Quick Start**: `git clone` instructions instead of `npm install talox` — npm package coming soon
+- **CLI examples**: `node dist/cli/talox.js` instead of `npx talox` until npm is published
+- **Code examples**: Updated to v4 `TaloxController({ ... })` shorthand syntax
+- **Version badge**: 4.0.0 → 4.0.1
+- **SonarQube scan**: Full scan with tests included (118 src files, 333 issues catalogued)
+
 ## [4.0.0] - 2026-04-15
 
 ### Breaking Changes
