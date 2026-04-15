@@ -107,110 +107,113 @@ export class PageStateCollector {
 		return delay;
 	}
 
-	private async collectDomFallback(): Promise<TaloxNode[]> {
-		const selectors = [
-			"a",
-			"button",
-			"input",
-			"select",
-			"textarea",
-			'[role="button"]',
-			'[role="link"]',
-			'[role="menuitem"]',
-			'[tabindex]:not([tabindex="-1"])',
-			"area",
-		];
+	private static readonly DOM_FALLBACK_SELECTORS = [
+		"a",
+		"button",
+		"input",
+		"select",
+		"textarea",
+		'[role="button"]',
+		'[role="link"]',
+		'[role="menuitem"]',
+		'[tabindex]:not([tabindex="-1"])',
+		"area",
+	];
 
-		const elements = await this.page.$$(selectors.join(", "));
+	private async collectDomFallback(): Promise<TaloxNode[]> {
+		const elements = await this.page.$$(PageStateCollector.DOM_FALLBACK_SELECTORS.join(", "));
 		const nodes: TaloxNode[] = [];
 
 		for (let i = 0; i < elements.length; i++) {
 			const el = elements[i];
 			if (!el) continue;
 			try {
-				// Skip Talox-injected overlay elements
-				const elId = await el.evaluate((e) => e.id || "");
-				if (elId.startsWith("__talox")) continue;
-				// Skip aria-hidden/presentation elements
-				const shouldSkip = await el.evaluate(
-					(e) => e.getAttribute("aria-hidden") === "true" || e.getAttribute("role") === "presentation",
-				);
-				if (shouldSkip) continue;
-
-				const isVisible = await el.isVisible();
-				if (!isVisible) continue;
-
-				const box = await el.boundingBox();
-				if (!box || box.width === 0 || box.height === 0) continue;
-
-				const tagName = await el.evaluate((e) => e.tagName.toLowerCase());
-				const text = await el.evaluate((e) => {
-					if (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) {
-						return (
-							(e as HTMLInputElement).labels?.[0]?.textContent?.trim() ||
-							(e as HTMLInputElement).placeholder ||
-							e.getAttribute("aria-label")?.trim() ||
-							(e as HTMLInputElement).value ||
-							""
-						);
-					}
-					return e.textContent?.trim().slice(0, 100) || "";
-				});
-
-				const role = await el.evaluate((e) => {
-					if (e.getAttribute("role")) return e.getAttribute("role");
-					if (e.tagName === "A") return "link";
-					if (e.tagName === "BUTTON") return "button";
-					if (e.tagName === "INPUT") return "textbox";
-					if (e.tagName === "SELECT") return "combobox";
-					if (e.tagName === "TEXTAREA") return "textbox";
-					return "unknown";
-				});
-
-				// Build a usable CSS selector for agent interaction
-				const selector = await el.evaluate((e) => {
-					if (e.id) return `#${CSS.escape(e.id)}`;
-					if (e.getAttribute("name")) return `${e.tagName.toLowerCase()}[name="${e.getAttribute("name")}"]`;
-					if (e.getAttribute("aria-label"))
-						return `${e.tagName.toLowerCase()}[aria-label="${CSS.escape(e.getAttribute("aria-label")!)}"]`;
-					if (e.getAttribute("placeholder"))
-						return `${e.tagName.toLowerCase()}[placeholder="${CSS.escape(e.getAttribute("placeholder")!)}"]`;
-					if (e.getAttribute("type")) return `${e.tagName.toLowerCase()}[type="${e.getAttribute("type")}"]`;
-					// Fallback: tag with :nth-child among siblings of same tag
-					const parent = e.parentElement;
-					if (parent) {
-						const siblings = Array.from(parent.children).filter((c) => c.tagName === e.tagName);
-						if (siblings.length === 1) return e.tagName.toLowerCase();
-						const idx = siblings.indexOf(e) + 1;
-						return `${e.tagName.toLowerCase()}:nth-of-type(${idx})`;
-					}
-					return e.tagName.toLowerCase();
-				});
-
-				const isDisabled = await el.isDisabled();
-
-				nodes.push({
-					id: selector || `dom-fallback-${i}`,
-					role: role || "unknown",
-					name: text,
-					description: isDisabled ? "disabled" : "",
-					boundingBox: {
-						x: box.x,
-						y: box.y,
-						width: box.width,
-						height: box.height,
-					},
-					attributes: {
-						tag: tagName,
-						...(isDisabled && { disabled: "true" }),
-					},
-				});
+				const node = await this.tryBuildDomFallbackNode(el, i);
+				if (node) nodes.push(node);
 			} catch {
 				// Skip elements that can't be analyzed
 			}
 		}
 
 		return nodes;
+	}
+
+	private async tryBuildDomFallbackNode(el: any, index: number): Promise<TaloxNode | null> {
+		// Skip Talox-injected overlay elements
+		const elId = await el.evaluate((e: any) => e.id || "");
+		if (elId.startsWith("__talox")) return null;
+		// Skip aria-hidden/presentation elements
+		const shouldSkip = await el.evaluate(
+			(e: any) => e.getAttribute("aria-hidden") === "true" || e.getAttribute("role") === "presentation",
+		);
+		if (shouldSkip) return null;
+
+		const isVisible = await el.isVisible();
+		if (!isVisible) return null;
+
+		const box = await el.boundingBox();
+		if (!box || box.width === 0 || box.height === 0) return null;
+
+		const tagName = await el.evaluate((e: any) => e.tagName.toLowerCase());
+		const text = await el.evaluate((e: any) => {
+			if (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) {
+				return (
+					(e as HTMLInputElement).labels?.[0]?.textContent?.trim() ||
+					(e as HTMLInputElement).placeholder ||
+					e.getAttribute("aria-label")?.trim() ||
+					(e as HTMLInputElement).value ||
+					""
+				);
+			}
+			return e.textContent?.trim().slice(0, 100) || "";
+		});
+
+		const role = await el.evaluate((e: any) => {
+			if (e.getAttribute("role")) return e.getAttribute("role");
+			if (e.tagName === "A") return "link";
+			if (e.tagName === "BUTTON") return "button";
+			if (e.tagName === "INPUT") return "textbox";
+			if (e.tagName === "SELECT") return "combobox";
+			if (e.tagName === "TEXTAREA") return "textbox";
+			return "unknown";
+		});
+
+		const selector = await el.evaluate((e: any) => {
+			if (e.id) return `#${CSS.escape(e.id)}`;
+			if (e.getAttribute("name")) return `${e.tagName.toLowerCase()}[name="${e.getAttribute("name")}"]`;
+			if (e.getAttribute("aria-label"))
+				return `${e.tagName.toLowerCase()}[aria-label="${CSS.escape(e.getAttribute("aria-label")!)}"]`;
+			if (e.getAttribute("placeholder"))
+				return `${e.tagName.toLowerCase()}[placeholder="${CSS.escape(e.getAttribute("placeholder")!)}"]`;
+			if (e.getAttribute("type")) return `${e.tagName.toLowerCase()}[type="${e.getAttribute("type")}"]`;
+			const parent = e.parentElement;
+			if (parent) {
+				const siblings = Array.from(parent.children).filter((c: any) => c.tagName === e.tagName);
+				if (siblings.length === 1) return e.tagName.toLowerCase();
+				const idx = siblings.indexOf(e) + 1;
+				return `${e.tagName.toLowerCase()}:nth-of-type(${idx})`;
+			}
+			return e.tagName.toLowerCase();
+		});
+
+		const isDisabled = await el.isDisabled();
+
+		return {
+			id: selector || `dom-fallback-${index}`,
+			role: role || "unknown",
+			name: text,
+			description: isDisabled ? "disabled" : "",
+			boundingBox: {
+				x: box.x,
+				y: box.y,
+				width: box.width,
+				height: box.height,
+			},
+			attributes: {
+				tag: tagName,
+				...(isDisabled && { disabled: "true" }),
+			},
+		};
 	}
 
 	private async collectFromShadowDom(): Promise<any[]> {
@@ -239,40 +242,35 @@ export class PageStateCollector {
 					shadowRootPath: string[];
 				}> = [];
 
+				function collectVisibleElements(shadowRoot: ShadowRoot, currentPath: string[]): void {
+					for (const selector of interactiveSelectors) {
+						try {
+							const elements = Array.from(shadowRoot.querySelectorAll(selector));
+							for (const el of elements) {
+								const rect = el.getBoundingClientRect();
+								if (rect.width > 0 && rect.height > 0) {
+									results.push({
+										id: `shadow-${results.length}`,
+										tagName: el.tagName.toLowerCase(),
+										boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+										inShadowDom: true,
+										shadowRootPath: currentPath,
+									});
+								}
+							}
+						} catch (_e) {
+							// Skip selectors that may not be valid in this context
+						}
+					}
+				}
+
 				function queryShadowHosts(root: Document | ShadowRoot, path: string[] = []): void {
 					const shadowHosts = Array.from(root.querySelectorAll("*"));
-
 					for (const host of shadowHosts) {
 						if (host.shadowRoot) {
 							const currentPath = [...path, host.tagName.toLowerCase()];
-							const shadowRoot = host.shadowRoot;
-
-							for (const selector of interactiveSelectors) {
-								try {
-									const elements = Array.from(shadowRoot.querySelectorAll(selector));
-									for (const el of elements) {
-										const rect = el.getBoundingClientRect();
-										if (rect.width > 0 && rect.height > 0) {
-											results.push({
-												id: `shadow-${results.length}`,
-												tagName: el.tagName.toLowerCase(),
-												boundingBox: {
-													x: rect.x,
-													y: rect.y,
-													width: rect.width,
-													height: rect.height,
-												},
-												inShadowDom: true,
-												shadowRootPath: currentPath,
-											});
-										}
-									}
-								} catch (_e) {
-									// Skip selectors that may not be valid in this context
-								}
-							}
-
-							queryShadowHosts(shadowRoot, currentPath);
+							collectVisibleElements(host.shadowRoot, currentPath);
+							queryShadowHosts(host.shadowRoot, currentPath);
 						}
 					}
 				}

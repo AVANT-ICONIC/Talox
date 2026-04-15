@@ -150,6 +150,30 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
  * 3. Restore localStorage and sessionStorage.
  * 4. Scroll to the captured position.
  */
+async function restoreStorage(
+	page: any,
+	entries: [string, string][],
+	storageType: "localStorage" | "sessionStorage",
+): Promise<void> {
+	try {
+		await page.evaluate(
+			([ents, st]: [Array<[string, string]>, string]) => {
+				const storage = st === "localStorage" ? window.localStorage : window.sessionStorage;
+				for (const [k, v] of ents) {
+					try {
+						storage.setItem(k, v);
+					} catch {
+						/* quota / security */
+					}
+				}
+			},
+			[entries, storageType] as any,
+		);
+	} catch {
+		/* page may have navigated away */
+	}
+}
+
 export async function restoreSessionSnapshot(page: any, context: any, snapshot: SessionSnapshot): Promise<void> {
 	// 1. Inject cookies before navigation so they travel with the first request
 	if (snapshot.cookies.length > 0) {
@@ -175,37 +199,13 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 	// 3. Restore localStorage
 	const lsEntries = Object.entries(snapshot.localStorage);
 	if (lsEntries.length > 0 && snapshot.url.startsWith("http")) {
-		try {
-			await page.evaluate((entries: [string, string][]) => {
-				for (const [k, v] of entries) {
-					try {
-						window.localStorage.setItem(k, v);
-					} catch {
-						/* quota / security */
-					}
-				}
-			}, lsEntries);
-		} catch {
-			/* page may have navigated away */
-		}
+		await restoreStorage(page, lsEntries, "localStorage");
 	}
 
 	// 4. Restore sessionStorage
 	const ssEntries = Object.entries(snapshot.sessionStorage);
 	if (ssEntries.length > 0 && snapshot.url.startsWith("http")) {
-		try {
-			await page.evaluate((entries: [string, string][]) => {
-				for (const [k, v] of entries) {
-					try {
-						window.sessionStorage.setItem(k, v);
-					} catch {
-						/* quota / security */
-					}
-				}
-			}, ssEntries);
-		} catch {
-			/* non-fatal */
-		}
+		await restoreStorage(page, ssEntries, "sessionStorage");
 	}
 
 	// 5. Restore scroll position

@@ -460,24 +460,7 @@ export class InteractionReliability {
 
 	// ─── Strategy: Detached ──────────────────────────────────────────────────
 
-	private async recoverDetached(
-		page: any,
-		selector: string,
-		nodes: TaloxNode[],
-		attempts: InteractionAttempt[],
-		recoveryNotes: string[],
-	): Promise<ReliabilityOutcome> {
-		const t0 = Date.now();
-
-		// Extract label keywords from the selector (strip CSS syntax)
-		const label = selector
-			.replace(/[#.[\]()=:"'*^$|~]/g, " ")
-			.replace(/\s+/g, " ")
-			.trim();
-
-		const keywords = label.split(/[\s_-]+/).filter((k) => k.length > 2);
-
-		// Find the best node match in the current snapshot
+	private findBestNodeMatch(keywords: string[], nodes: TaloxNode[]): { node: TaloxNode | null; score: number } {
 		let bestNode: TaloxNode | null = null;
 		let bestScore = 0;
 
@@ -498,6 +481,28 @@ export class InteractionReliability {
 				bestNode = node;
 			}
 		}
+
+		return { node: bestNode, score: bestScore };
+	}
+
+	private async recoverDetached(
+		page: any,
+		selector: string,
+		nodes: TaloxNode[],
+		attempts: InteractionAttempt[],
+		recoveryNotes: string[],
+	): Promise<ReliabilityOutcome> {
+		const t0 = Date.now();
+
+		// Extract label keywords from the selector (strip CSS syntax)
+		const label = selector
+			.replace(/#.[\]()=:"'*^$|~]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+
+		const keywords = label.split(/[\s_-]+/).filter((k) => k.length > 2);
+
+		const { node: bestNode, score: bestScore } = this.findBestNodeMatch(keywords, nodes);
 
 		if (bestScore >= 10 && bestNode) {
 			const healedSelector = this.buildCoordinateSelector(bestNode);

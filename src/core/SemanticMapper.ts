@@ -238,106 +238,61 @@ export class SemanticMapper {
 		return false;
 	}
 
+	private static readonly ROLE_TYPE_MAP: Record<string, SemanticEntityType> = {
+		navigation: "navigation",
+		menubar: "navigation",
+		tree: "navigation",
+		combobox: "combobox",
+		listbox: "combobox",
+		button: "button",
+		menuitem: "button",
+		tab: "button",
+		link: "link",
+		checkbox: "checkbox",
+		radio: "radio",
+		img: "image",
+		image: "image",
+		heading: "heading",
+		list: "list",
+		listitem: "listItem",
+		dialog: "dialog",
+		alert: "dialog",
+		alertdialog: "dialog",
+		toolbar: "toolbar",
+		menu: "menu",
+		menupopup: "menu",
+		article: "article",
+		document: "article",
+		form: "form",
+	};
+
+	private resolveRegionByName(name: string): SemanticEntityType | null {
+		if (this.matchesHeaderKeywords(name)) return "header";
+		if (this.matchesFooterKeywords(name)) return "footer";
+		if (this.matchesAsideKeywords(name)) return "aside";
+		if (this.matchesMainKeywords(name)) return "main";
+		return null;
+	}
+
+	private resolveTextboxType(name: string, description: string): SemanticEntityType {
+		if (this.matchesSearchKeywords(name) || this.matchesSearchKeywords(description)) return "search";
+		return "input";
+	}
+
 	private applyHeuristics(node: TaloxNode): SemanticEntityType {
 		const role = node.role.toLowerCase();
 		const name = node.name.toLowerCase();
 		const description = node.description?.toLowerCase() || "";
-		const attrs = node.attributes || {};
 
-		if (role === "navigation" || role === "menubar" || role === "tree") {
-			return "navigation";
+		if (role === "region") {
+			return this.resolveRegionByName(name) ?? "section";
 		}
 
 		if (role === "textbox" || role === "searchbox") {
-			if (this.matchesSearchKeywords(name) || this.matchesSearchKeywords(description)) {
-				return "search";
-			}
-			if (this.matchesPasswordKeywords(name) || this.matchesPasswordKeywords(description)) {
-				return "input";
-			}
-			return "input";
+			return this.resolveTextboxType(name, description);
 		}
 
-		if (role === "combobox" || role === "listbox") {
-			return "combobox";
-		}
-
-		if (role === "button" || role === "menuitem" || role === "tab") {
-			if (this.matchesSubmitKeywords(name) || this.matchesSubmitKeywords(description)) {
-				return "button";
-			}
-			return "button";
-		}
-
-		if (role === "link") {
-			return "link";
-		}
-
-		if (role === "checkbox") {
-			return "checkbox";
-		}
-
-		if (role === "radio") {
-			return "radio";
-		}
-
-		if (role === "img" || role === "image") {
-			return "image";
-		}
-
-		if (role === "heading") {
-			return "heading";
-		}
-
-		if (role === "list" || role === "tree") {
-			return "list";
-		}
-
-		if (role === "listitem") {
-			return "listItem";
-		}
-
-		if (role === "dialog" || role === "alert" || role === "alertdialog") {
-			return "dialog";
-		}
-
-		if (role === "toolbar") {
-			return "toolbar";
-		}
-
-		if (role === "menu" || role === "menupopup") {
-			return "menu";
-		}
-
-		if (role === "menuitem") {
-			return "menuItem";
-		}
-
-		if (role === "article" || role === "document") {
-			return "article";
-		}
-
-		if (role === "form") {
-			return "form";
-		}
-
-		if (role === "region") {
-			if (this.matchesHeaderKeywords(name)) {
-				return "header";
-			}
-			if (this.matchesFooterKeywords(name)) {
-				return "footer";
-			}
-			if (this.matchesAsideKeywords(name)) {
-				return "aside";
-			}
-			if (this.matchesMainKeywords(name)) {
-				return "main";
-			}
-			return "section";
-		}
-
-		return "unknown";
+		return SemanticMapper.ROLE_TYPE_MAP[role] ?? "unknown";
 	}
 
 	private roleToSemanticType(role: string): SemanticEntityType {

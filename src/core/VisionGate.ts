@@ -66,7 +66,6 @@ export class VisionGate {
 		const heatmapWidth = Math.ceil(width / blockSize);
 		const heatmapHeight = Math.ceil(height / blockSize);
 		const heatmap = new PNG({ width: heatmapWidth, height: heatmapHeight });
-		const _diffRegions: DiffRegion[] = [];
 		const intensityMap: number[][] = [];
 
 		for (let y = 0; y < heatmapHeight; y++) {
@@ -77,24 +76,7 @@ export class VisionGate {
 				const endX = Math.min(startX + blockSize, width);
 				const endY = Math.min(startY + blockSize, height);
 
-				let totalDiff = 0;
-				let pixelCount = 0;
-
-				for (let py = startY; py < endY; py++) {
-					for (let px = startX; px < endX; px++) {
-						const idx = (py * width + px) * 4;
-						const r1 = png1.data[idx] ?? 0;
-						const g1 = png1.data[idx + 1] ?? 0;
-						const b1 = png1.data[idx + 2] ?? 0;
-						const r2 = png2.data[idx] ?? 0;
-						const g2 = png2.data[idx + 1] ?? 0;
-						const b2 = png2.data[idx + 2] ?? 0;
-
-						const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
-						totalDiff += diff;
-						pixelCount++;
-					}
-				}
+				const { totalDiff, pixelCount } = this.computeBlockDiff(png1, png2, startX, startY, endX, endY, width);
 
 				const avgDiff = pixelCount > 0 ? totalDiff / pixelCount : 0;
 				const normalizedIntensity = Math.min(1, avgDiff / 255);
@@ -213,6 +195,39 @@ export class VisionGate {
 
 		const gridCols = Math.ceil(imageWidth / gridSize);
 		const gridRows = Math.ceil(imageHeight / gridSize);
+		const grid = this.buildRegionGrid(regions, gridSize, gridCols, gridRows);
+		const visited: boolean[][] = Array(gridRows)
+			.fill(null)
+			.map(() => Array(gridCols).fill(false));
+
+		const merged: DiffRegion[] = [];
+		for (let row = 0; row < gridRows; row++) {
+			const gridRow = grid[row];
+			const visitedRow = visited[row];
+			if (!gridRow || !visitedRow) continue;
+			for (let col = 0; col < gridCols; col++) {
+				if (gridRow[col] && !visitedRow[col]) {
+					visitedRow[col] = true;
+					const result = this.floodFillMerge(
+						row,
+						col,
+						grid,
+						visited,
+						gridCols,
+						gridRows,
+						gridSize,
+						regions,
+						merged.length,
+					);
+					merged.push(result);
+				}
+			}
+		}
+
+		return merged.sort((a, b) => b.pixelCount - a.pixelCount);
+	}
+
+	private buildRegionGrid(regions: DiffRegion[], gridSize: number, gridCols: number, gridRows: number): boolean[][] {
 		const grid: boolean[][] = Array(gridRows)
 			.fill(null)
 			.map(() => Array(gridCols).fill(false));
@@ -231,79 +246,115 @@ export class VisionGate {
 				}
 			}
 		}
+		return grid;
+	}
 
-		const merged: DiffRegion[] = [];
-		const visited: boolean[][] = Array(gridRows)
-			.fill(null)
-			.map(() => Array(gridCols).fill(false));
+	private floodFillMerge(
+		startRow: number,
+		startCol: number,
+		grid: boolean[][],
+		visited: boolean[][],
+		gridCols: number,
+		gridRows: number,
+		gridSize: number,
+		regions: DiffRegion[],
+		mergedCount: number,
+	): DiffRegion {
+		let minX = startCol * gridSize;
+		let minY = startRow * gridSize;
+		let maxX = minX + gridSize;
+		let maxY = minY + gridSize;
+		let totalIntensity = 0;
+		let totalPixels = 0;
 
-		for (let row = 0; row < gridRows; row++) {
-			const gridRow = grid[row];
-			const visitedRow = visited[row];
-			if (!gridRow || !visitedRow) continue;
-			for (let col = 0; col < gridCols; col++) {
-				if (gridRow[col] && !visitedRow[col]) {
-					let minX = col * gridSize;
-					let minY = row * gridSize;
-					let maxX = minX + gridSize;
-					let maxY = minY + gridSize;
-					let totalIntensity = 0;
-					let totalPixels = 0;
+		const stack: [number, number][] = [[startRow, startCol]];
 
-					const stack: [number, number][] = [[row, col]];
-					visitedRow[col] = true;
+		while (stack.length > 0) {
+			const [r, c] = stack.pop()!;
+			const region = this.findRegionAtCell(r, c, regions, gridSize);
+			if (region) {
+				totalIntensity += region.intensity;
+				totalPixels += region.pixelCount;
+			}
 
-					while (stack.length > 0) {
-						const [r, c] = stack.pop()!;
-						const region = regions.find(
-							(reg) =>
-								reg.x / gridSize <= c &&
-								reg.y / gridSize <= r &&
-								(reg.x + reg.width) / gridSize > c &&
-								(reg.y + reg.height) / gridSize > r,
-						);
+			const neighbors: [number, number][] = [
+				[r - 1, c],
+				[r + 1, c],
+				[r, c - 1],
+				[r, c + 1],
+			];
+			for (const [nr, nc] of neighbors) {
+				if (!this.isUnvisitedActiveCell(nr, nc, grid, visited, gridRows, gridCols)) continue;
 
-						if (region) {
-							totalIntensity += region.intensity;
-							totalPixels += region.pixelCount;
-						}
-
-						const neighbors: [number, number][] = [
-							[r - 1, c],
-							[r + 1, c],
-							[r, c - 1],
-							[r, c + 1],
-						];
-
-						for (const [nr, nc] of neighbors) {
-							if (nr >= 0 && nr < gridRows && nc >= 0 && nc < gridCols) {
-								const gridNr = grid[nr];
-								const visitedNr = visited[nr];
-								if (gridNr && visitedNr && gridNr[nc] && !visitedNr[nc]) {
-									visitedNr[nc] = true;
-									stack.push([nr, nc]);
-									minX = Math.min(minX, nc * gridSize);
-									minY = Math.min(minY, nr * gridSize);
-									maxX = Math.max(maxX, (nc + 1) * gridSize);
-									maxY = Math.max(maxY, (nr + 1) * gridSize);
-								}
-							}
-						}
-					}
-
-					merged.push({
-						x: minX,
-						y: minY,
-						width: maxX - minX,
-						height: maxY - minY,
-						intensity: totalPixels > 0 ? totalIntensity / Math.max(1, merged.length) : 0,
-						pixelCount: totalPixels,
-					});
-				}
+				visited[nr]![nc] = true;
+				stack.push([nr, nc]);
+				minX = Math.min(minX, nc * gridSize);
+				minY = Math.min(minY, nr * gridSize);
+				maxX = Math.max(maxX, (nc + 1) * gridSize);
+				maxY = Math.max(maxY, (nr + 1) * gridSize);
 			}
 		}
 
-		return merged.sort((a, b) => b.pixelCount - a.pixelCount);
+		return {
+			x: minX,
+			y: minY,
+			width: maxX - minX,
+			height: maxY - minY,
+			intensity: totalPixels > 0 ? totalIntensity / Math.max(1, mergedCount) : 0,
+			pixelCount: totalPixels,
+		};
+	}
+
+	private findRegionAtCell(row: number, col: number, regions: DiffRegion[], gridSize: number): DiffRegion | undefined {
+		return regions.find(
+			(reg) =>
+				reg.x / gridSize <= col &&
+				reg.y / gridSize <= row &&
+				(reg.x + reg.width) / gridSize > col &&
+				(reg.y + reg.height) / gridSize > row,
+		);
+	}
+
+	private isUnvisitedActiveCell(
+		nr: number,
+		nc: number,
+		grid: boolean[][],
+		visited: boolean[][],
+		gridRows: number,
+		gridCols: number,
+	): boolean {
+		if (nr < 0 || nr >= gridRows || nc < 0 || nc >= gridCols) return false;
+		const gridRow = grid[nr];
+		const visitedRow = visited[nr];
+		return !!(gridRow && visitedRow && gridRow[nc] && !visitedRow[nc]);
+	}
+
+	private computeBlockDiff(
+		png1: PNG,
+		png2: PNG,
+		startX: number,
+		startY: number,
+		endX: number,
+		endY: number,
+		width: number,
+	): { totalDiff: number; pixelCount: number } {
+		let totalDiff = 0;
+		let pixelCount = 0;
+		for (let py = startY; py < endY; py++) {
+			for (let px = startX; px < endX; px++) {
+				const idx = (py * width + px) * 4;
+				const r1 = png1.data[idx] ?? 0;
+				const g1 = png1.data[idx + 1] ?? 0;
+				const b1 = png1.data[idx + 2] ?? 0;
+				const r2 = png2.data[idx] ?? 0;
+				const g2 = png2.data[idx + 1] ?? 0;
+				const b2 = png2.data[idx + 2] ?? 0;
+				const diff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+				totalDiff += diff;
+				pixelCount++;
+			}
+		}
+		return { totalDiff, pixelCount };
 	}
 
 	/**

@@ -48,22 +48,7 @@ export class RulesEngine {
 		return bugs;
 	}
 
-	analyze(state: TaloxPageState): TaloxBug[] {
-		const bugs: TaloxBug[] = [];
-
-		// 1. JS Error Rule
-		for (const error of state.console.errors) {
-			bugs.push({
-				id: `js-error-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-				type: "JS_ERROR",
-				severity: "CRITICAL",
-				description: `Console error detected: ${error}`,
-				evidence: { error },
-			});
-		}
-
-		// 2. Overlap Detection (Refined with tolerance)
-		const elements = state.interactiveElements;
+	private detectOverlaps(elements: any[], bugs: TaloxBug[]): void {
 		for (let i = 0; i < elements.length; i++) {
 			const elA = elements[i];
 			if (!elA) continue;
@@ -94,9 +79,9 @@ export class RulesEngine {
 				}
 			}
 		}
+	}
 
-		// 3. Clipping Detection (Dynamic Viewport)
-		// In a real scenario, the viewport should be passed from PageStateCollector
+	private detectClipping(elements: any[], bugs: TaloxBug[]): void {
 		const viewport = { width: 1280, height: 720 };
 		for (const el of elements) {
 			const box = el.boundingBox;
@@ -113,6 +98,27 @@ export class RulesEngine {
 				});
 			}
 		}
+	}
+
+	analyze(state: TaloxPageState): TaloxBug[] {
+		const bugs: TaloxBug[] = [];
+
+		// 1. JS Error Rule
+		for (const error of state.console.errors) {
+			bugs.push({
+				id: `js-error-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+				type: "JS_ERROR",
+				severity: "CRITICAL",
+				description: `Console error detected: ${error}`,
+				evidence: { error },
+			});
+		}
+
+		// 2. Overlap Detection (Refined with tolerance)
+		this.detectOverlaps(state.interactiveElements, bugs);
+
+		// 3. Clipping Detection (Dynamic Viewport)
+		this.detectClipping(state.interactiveElements, bugs);
 
 		return bugs;
 	}

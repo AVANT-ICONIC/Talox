@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-04-15
+
+### Changed
+
+- **24 CRITICAL cognitive complexity issues resolved** (SonarQube S3776) — all functions now under complexity 15:
+  - `SessionReporter.ts` (57→orchestrated helpers): `toMarkdown()` split into 10 focused methods
+  - `VisionGate.ts` (54→9, 17→8): `mergeAdjacentRegions()` extracted to BFS flood-fill helpers, `generateDiffHeatmap()` extracted pixel computation
+  - `GhostVisualizer.ts` (34→helpers, 32→helpers, 19→helpers): heatmap grid, character patterns, thick dot rendering extracted
+  - `SemanticMapper.ts` (32→helpers): role lookup and selector building extracted
+  - `ActionExecutor.ts` (30, 18, 16, 16 → all <15): 4 functions refactored with guard clauses and early returns
+  - `PageStateCollector.ts` (23, 21, 20, 16 → all <15): 4 collection functions decomposed
+  - `FingerprintGenerator.ts` (23→helpers, 16→helpers): validation and weighted pick decomposed
+  - `BrowserManager.ts` (19→helpers): launch logic split into resolve/attach/try helpers
+  - `InteractionReliability.ts` (18→helpers): node matching extracted
+  - `AXTreeDiffer.ts` (17→helpers): change detection extracted
+  - `ArtifactBuilder.ts` (17→helpers): frame formatting extracted
+  - `SessionSnapshot.ts` (17→helpers): storage restoration extracted, type annotation fix
+  - `PerceptionStack.ts` (16→helpers): bug/screenshot layers extracted
+  - `RulesEngine.ts` (16→helpers): overlap/clipping detection extracted
+
+### Fixed
+
+- `SessionSnapshot.ts`: Fixed incorrect type annotation in `restoreStorage()` callback (`string[][]` → `Array<[string, string]>`)
+
 ## [4.0.2] - 2026-04-15
 
 ### Fixed

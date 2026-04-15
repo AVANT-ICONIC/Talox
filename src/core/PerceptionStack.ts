@@ -145,6 +145,36 @@ export class PerceptionStack {
 	 * Returns a cached result if this preset was already collected since the
 	 * last `invalidate()` call — without calling the underlying collector again.
 	 */
+	private applyBugLayer(
+		state: PerceivedState,
+		layers: PerceptionLayerFlags,
+		options: PerceptionCollectOptions,
+		baseState: TaloxPageState,
+	): void {
+		if (!layers.bugs || !options.rulesEngine) {
+			state.bugs = [];
+			return;
+		}
+		const ruleBugs = options.rulesEngine.analyze(baseState);
+		const diffBugs =
+			options.previousState && options.rulesEngine.diffStructural
+				? options.rulesEngine.diffStructural(options.previousState, baseState)
+				: [];
+		state.bugs = [...(state.bugs ?? []), ...ruleBugs, ...diffBugs];
+	}
+
+	private async applyScreenshotLayer(state: PerceivedState): Promise<void> {
+		try {
+			const page = (this.collector as any).page;
+			if (page && typeof page.screenshot === "function") {
+				const buf: Buffer = await page.screenshot({ type: "png", fullPage: true });
+				state.screenshotBase64 = buf.toString("base64");
+			}
+		} catch {
+			// Non-fatal — screenshot unavailable
+		}
+	}
+
 	async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
 		const cacheKey = `${this.sessionTick}::${preset}`;
 
@@ -171,19 +201,7 @@ export class PerceptionStack {
 			state.network = { failedRequests: [] };
 		}
 
-		// Bug layer
-		if (layers.bugs && options.rulesEngine) {
-			const ruleBugs = options.rulesEngine.analyze(baseState);
-			const diffBugs =
-				options.previousState && options.rulesEngine.diffStructural
-					? options.rulesEngine.diffStructural(options.previousState, baseState)
-					: [];
-			state.bugs = [...(state.bugs ?? []), ...ruleBugs, ...diffBugs];
-		} else {
-			// Clear bugs when the layer is off OR when engine is unavailable —
-			// stale bugs from a prior collect cycle should not bleed through.
-			state.bugs = [];
-		}
+		this.applyBugLayer(state, layers, options, baseState);
 
 		// Challenge layer
 		if (layers.challenge && this.challengeDetector) {
@@ -192,15 +210,7 @@ export class PerceptionStack {
 
 		// Screenshot layer
 		if (layers.screenshot) {
-			try {
-				const page = (this.collector as any).page;
-				if (page && typeof page.screenshot === "function") {
-					const buf: Buffer = await page.screenshot({ type: "png", fullPage: true });
-					state.screenshotBase64 = buf.toString("base64");
-				}
-			} catch {
-				// Non-fatal — screenshot unavailable
-			}
+			await this.applyScreenshotLayer(state);
 		}
 
 		this.cache.set(cacheKey, state);

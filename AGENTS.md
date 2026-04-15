@@ -80,18 +80,14 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-15) — v4.0.2
+### Current Status (2026-04-15) — v4.1.0
 
-- **318 total issues** (318 src, 0 test blockers)
+- **~294 total issues** (all src, 0 test blockers)
 - Quality gate: **OK**
 - **0 BLOCKER** — all test assertions fixed
-- **24 CRITICAL** — cognitive complexity >15 (S3776)
-- **62 MAJOR** — code smells
-- **232 MINOR** — code smells
-- Worst complexity hotspots:
-  - `SessionReporter.ts:175` (57), `VisionGate.ts:206` (54), `GhostVisualizer.ts:240` (34)
-  - `SemanticMapper.ts:241` (32), `ActionExecutor.ts:228` (30), `GhostVisualizer.ts:361` (32)
-  - `FingerprintGenerator.ts:603` (23), `PageStateCollector.ts:417` (23)
+- **0 CRITICAL** — all cognitive complexity refactored below 15
+- **~62 MAJOR** — code smells
+- **~232 MINOR** — code smells
 
 ## Build & Test
 

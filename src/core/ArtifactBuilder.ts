@@ -202,6 +202,31 @@ export class ArtifactBuilder {
 		return prettyPrint ? JSON.stringify(exportData, null, 2) : JSON.stringify(exportData);
 	}
 
+	private formatFrameDetails(frame: ActionFrame, lines: string[]): void {
+		if (Object.keys(frame.details).length > 0) {
+			lines.push("  Details:");
+			for (const [key, value] of Object.entries(frame.details)) {
+				lines.push(`    ${key}: ${JSON.stringify(value)}`);
+			}
+		}
+	}
+
+	private formatFrameVisualContext(vc: VisualContext, lines: string[]): void {
+		const posParts: string[] = [];
+		if (vc.mouseX !== undefined && vc.mouseY !== undefined) {
+			posParts.push(`Mouse: (${vc.mouseX}, ${vc.mouseY})`);
+		}
+		if (vc.viewportWidth !== undefined && vc.viewportHeight !== undefined) {
+			posParts.push(`Viewport: ${vc.viewportWidth}x${vc.viewportHeight}`);
+		}
+		if (vc.scrollPosition !== undefined) {
+			posParts.push(`Scroll: ${vc.scrollPosition}`);
+		}
+		if (posParts.length > 0) {
+			lines.push(`  Visual: ${posParts.join(" | ")}`);
+		}
+	}
+
 	exportAsText(options: ExportOptions = {}): string {
 		const { includeVisualContext = true, includePayloads = true } = options;
 		const frames = this.toActionFrames();
@@ -225,28 +250,12 @@ export class ArtifactBuilder {
 			lines.push(`[Frame ${frame.frameIndex}] ${timeStr}${durationStr} | ${frame.action}`);
 			lines.push(`  Type: ${frame.type}`);
 
-			if (includePayloads && Object.keys(frame.details).length > 0) {
-				lines.push("  Details:");
-				for (const [key, value] of Object.entries(frame.details)) {
-					lines.push(`    ${key}: ${JSON.stringify(value)}`);
-				}
+			if (includePayloads) {
+				this.formatFrameDetails(frame, lines);
 			}
 
 			if (includeVisualContext && frame.visualContext) {
-				const vc = frame.visualContext;
-				const posParts: string[] = [];
-				if (vc.mouseX !== undefined && vc.mouseY !== undefined) {
-					posParts.push(`Mouse: (${vc.mouseX}, ${vc.mouseY})`);
-				}
-				if (vc.viewportWidth !== undefined && vc.viewportHeight !== undefined) {
-					posParts.push(`Viewport: ${vc.viewportWidth}x${vc.viewportHeight}`);
-				}
-				if (vc.scrollPosition !== undefined) {
-					posParts.push(`Scroll: ${vc.scrollPosition}`);
-				}
-				if (posParts.length > 0) {
-					lines.push(`  Visual: ${posParts.join(" | ")}`);
-				}
+				this.formatFrameVisualContext(frame.visualContext, lines);
 			}
 
 			lines.push("");

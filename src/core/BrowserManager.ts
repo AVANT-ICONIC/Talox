@@ -292,41 +292,27 @@ export class BrowserManager {
 		this.config = { ...this.config, ...config };
 	}
 
-	async launch(
-		profile: TaloxProfile,
-		_headed?: boolean,
-		browserType?: BrowserType,
-		extraOptions?: any,
-	): Promise<BrowserContext> {
-		let actualBrowserType = browserType || this.config.browser.preferred;
+	private attachCloseHandler(ctx: BrowserContext): void {
+		ctx.on("close", () => {
+			this.contexts.delete(ctx);
+			if (this.context === ctx) this.context = null;
+		});
+	}
 
-		// Skip autoDetect on macOS - just use chrome channel directly
-		if (process.platform !== "darwin") {
-			if (this.config.browser.autoDetect) {
-				actualBrowserType = await this.autoDetectBrowser();
-			}
+	private resolveLauncher(actualBrowserType: BrowserType, _isAdaptive: boolean): any {
+		// Patchright: patched Playwright driver that fixes CDP Runtime.enable leak,
+		// removes --enable-automation flag, and patches other detection vectors at
+		// the driver level — no JS injection needed for these signals.
+		// Only Chromium is supported by Patchright; other browser types fall back to standard.
+		if (_isAdaptive) {
+			return actualBrowserType === "chromium"
+				? patchrightChromium
+				: ({ firefox, webkit }[actualBrowserType] ?? chromium);
 		}
+		return { chromium, firefox, webkit }[actualBrowserType];
+	}
 
-		// Use Patchright for stealth mode (adaptive behavior)
-		const isAdaptive = false;
-
-		let launcher: any;
-		if (isAdaptive) {
-			// Patchright: patched Playwright driver that fixes CDP Runtime.enable leak,
-			// removes --enable-automation flag, and patches other detection vectors at
-			// the driver level — no JS injection needed for these signals.
-			// Only Chromium is supported by Patchright; other browser types fall back to standard.
-			launcher =
-				actualBrowserType === "chromium" ? patchrightChromium : ({ firefox, webkit }[actualBrowserType] ?? chromium);
-		} else {
-			launcher = {
-				chromium: chromium,
-				firefox: firefox,
-				webkit: webkit,
-			}[actualBrowserType];
-		}
-
-		// Resolve effective headless value — extraOptions can override (e.g. observe mode forces false)
+	private buildLaunchOptions(extraOptions: any): any {
 		const effectiveHeadless =
 			extraOptions?.headless !== undefined ? extraOptions.headless : this.config.browser.headless;
 
@@ -342,37 +328,49 @@ export class BrowserManager {
 			...extraOptions,
 		};
 
-		// Proxy support
 		if (this.config.browser.proxy) {
 			launchOptions.proxy = this.config.browser.proxy;
 		}
+
+		return launchOptions;
+	}
+
+	private async tryLaunchContext(launcher: any, userDataDir: string, launchOptions: any): Promise<BrowserContext> {
+		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
+		this.contexts.add(ctx);
+		this.attachCloseHandler(ctx);
+		return ctx;
+	}
+
+	async launch(
+		profile: TaloxProfile,
+		_headed?: boolean,
+		browserType?: BrowserType,
+		extraOptions?: any,
+	): Promise<BrowserContext> {
+		let actualBrowserType = browserType || this.config.browser.preferred;
+
+		// Skip autoDetect on macOS - just use chrome channel directly
+		if (process.platform !== "darwin") {
+			if (this.config.browser.autoDetect) {
+				actualBrowserType = await this.autoDetectBrowser();
+			}
+		}
+
+		const launcher = this.resolveLauncher(actualBrowserType, false);
+		const launchOptions = this.buildLaunchOptions(extraOptions);
 
 		// Do not force chrome channel, as it conflicts if the user has Chrome open.
 		// Use Playwright's bundled Chromium instead.
 
 		try {
-			this.context = (await launcher.launchPersistentContext(profile.userDataDir, launchOptions)) as BrowserContext;
-			this.contexts.add(this.context!);
-
-			// Remove from registry when closed
-			const ctx = this.context!;
-			ctx.on("close", () => {
-				this.contexts.delete(ctx);
-				if (this.context === ctx) this.context = null;
-			});
+			this.context = await this.tryLaunchContext(launcher, profile.userDataDir, launchOptions);
 		} catch (error: any) {
 			// Fallback: try without channel if it failed
 			if (launchOptions.channel === "chrome") {
 				delete launchOptions.channel;
 				try {
-					this.context = (await launcher.launchPersistentContext(profile.userDataDir, launchOptions)) as BrowserContext;
-					this.contexts.add(this.context!);
-					// Attach close handler for fallback context too
-					const fallbackCtx = this.context!;
-					fallbackCtx.on("close", () => {
-						this.contexts.delete(fallbackCtx);
-						if (this.context === fallbackCtx) this.context = null;
-					});
+					this.context = await this.tryLaunchContext(launcher, profile.userDataDir, launchOptions);
 				} catch (fallbackError: any) {
 					console.error("[DEBUG] Playwright Headed Error:", fallbackError);
 					throw new Error(`Browser launch failed for ${actualBrowserType}. Please ensure Chrome is installed.`);

@@ -147,6 +147,12 @@ export class ActionExecutor {
 		state.bugs.push(...rulesEngine.analyze(state));
 		this.attachDiff(lastState, state);
 
+		this.emitNavigationEvents(state);
+
+		return state;
+	}
+
+	private emitNavigationEvents(state: TaloxPageState): void {
 		this.events.emit("navigation", { url: state.url, title: state.title });
 
 		if (this.settings.verbosity > 0) {
@@ -164,8 +170,6 @@ export class ActionExecutor {
 				this.events.emit("bugDetected", bug);
 			}
 		}
-
-		return state;
 	}
 
 	// ─── Click ──────────────────────────────────────────────────────────────────
@@ -228,7 +232,6 @@ export class ActionExecutor {
 	private async _clickInternal(selector: string): Promise<TaloxPageState> {
 		const page = this.getPage();
 		const profile = this.getProfile();
-		const settings = this.settings;
 
 		await this.checkRiskyAction("click", selector);
 
@@ -239,56 +242,82 @@ export class ActionExecutor {
 		const attentionFrame = this.getAttentionFrame();
 		this.artifactBuilder.addAction("click", { selector, hasAttentionFrame: !!attentionFrame });
 
-		const useRawMode = settings.humanStealth === 0 || settings.safeMode;
-		let effectiveMouseSpeed = settings.mouseSpeed;
-		let targetBox: { x: number; y: number; width: number; height: number } | null = null;
+		const targetBox = await this.resolveAttentionFrameBox(selector, attentionFrame);
 
-		if (attentionFrame) {
-			const frameElement = await this.findElementInFrame(selector);
-			if (!frameElement) {
-				throw new Error(`Element '${selector}' not found within attention frame`);
-			}
-			targetBox = frameElement.box;
+		const useRawMode = this.settings.humanStealth === 0 || this.settings.safeMode;
+		if (useRawMode) {
+			await this.performRawClick(page, selector, targetBox, attentionFrame);
+		} else {
+			await this.performHumanClick(page, selector, targetBox);
 		}
 
-		if (useRawMode) {
+		return this.collectStateAfterClick(page);
+	}
+
+	private async resolveAttentionFrameBox(
+		selector: string,
+		attentionFrame: any,
+	): Promise<{ x: number; y: number; width: number; height: number } | null> {
+		if (!attentionFrame) return null;
+		const frameElement = await this.findElementInFrame(selector);
+		if (!frameElement) {
+			throw new Error(`Element '${selector}' not found within attention frame`);
+		}
+		return frameElement.box;
+	}
+
+	private async performRawClick(
+		page: any,
+		selector: string,
+		targetBox: { x: number; y: number; width: number; height: number } | null,
+		attentionFrame: any,
+	): Promise<void> {
+		const element = targetBox ? null : await page.$(selector);
+		const box = targetBox || (element ? await element.boundingBox() : null);
+		if (box) {
+			this.setCurrentLastMousePos({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+		}
+		if (attentionFrame && targetBox) {
+			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
+		} else {
+			await page.click(selector, { timeout: 5000 });
+		}
+	}
+
+	private async performHumanClick(
+		page: any,
+		selector: string,
+		targetBox: { x: number; y: number; width: number; height: number } | null,
+	): Promise<void> {
+		let effectiveMouseSpeed = this.settings.mouseSpeed;
+
+		if (this.settings.adaptiveStealthEnabled) {
 			const element = targetBox ? null : await page.$(selector);
 			const box = targetBox || (element ? await element.boundingBox() : null);
 			if (box) {
-				this.setCurrentLastMousePos({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+				const centerX = box.x + box.width / 2;
+				const centerY = box.y + box.height / 2;
+				effectiveMouseSpeed = await this.getEffectiveMouseSpeed(centerX, centerY);
 			}
-			if (attentionFrame && targetBox) {
-				await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-			} else {
-				await page.click(selector, { timeout: 5000 });
-			}
-		} else {
-			if (settings.adaptiveStealthEnabled) {
-				const element = targetBox ? null : await page.$(selector);
-				const box = targetBox || (element ? await element.boundingBox() : null);
-				if (box) {
-					const centerX = box.x + box.width / 2;
-					const centerY = box.y + box.height / 2;
-					effectiveMouseSpeed = await this.getEffectiveMouseSpeed(centerX, centerY);
-				}
-			}
-
-			effectiveMouseSpeed = effectiveMouseSpeed * this.getDNAMouseSpeed(null);
-
-			this.events.emit("agentActing");
-			const onStep = this.getCursorStepCallback?.();
-			const finalPos = await HumanMouse.click(
-				page,
-				selector,
-				false,
-				this.getCurrentLastMousePos(),
-				effectiveMouseSpeed,
-				onStep,
-			);
-			this.setCurrentLastMousePos(finalPos);
-			this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
 		}
 
+		effectiveMouseSpeed = effectiveMouseSpeed * this.getDNAMouseSpeed(null);
+
+		this.events.emit("agentActing");
+		const onStep = this.getCursorStepCallback?.();
+		const finalPos = await HumanMouse.click(
+			page,
+			selector,
+			false,
+			this.getCurrentLastMousePos(),
+			effectiveMouseSpeed,
+			onStep,
+		);
+		this.setCurrentLastMousePos(finalPos);
+		this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
+	}
+
+	private async collectStateAfterClick(page: any): Promise<TaloxPageState> {
 		await new Promise((r) => setTimeout(r, 500));
 		this.recordActivity();
 
@@ -380,72 +409,98 @@ export class ActionExecutor {
 		const attentionFrame = this.getAttentionFrame();
 		this.artifactBuilder.addAction("type", { selector, text, hasAttentionFrame: !!attentionFrame });
 
+		const targetBox = await this.resolveAttentionFrameBox(selector, attentionFrame);
 		const useRawMode = settings.humanStealth === 0 || settings.safeMode;
 
-		let targetBox: { x: number; y: number; width: number; height: number } | null = null;
-		if (attentionFrame) {
-			const frameElement = await this.findElementInFrame(selector);
-			if (!frameElement) {
-				throw new Error(`Element '${selector}' not found within attention frame`);
-			}
-			targetBox = frameElement.box;
-		}
-
 		if (useRawMode) {
-			if (attentionFrame && targetBox) {
-				await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-				await page.keyboard.type(text);
-			} else {
-				await page.type(selector, text, { timeout: 5000 });
-			}
+			await this.performRawType(page, selector, text, targetBox, attentionFrame);
 		} else {
-			const dnaSpeed = this.getDNAMouseSpeed(null);
-			this.events.emit("agentActing");
-			const onStep = this.getCursorStepCallback?.();
-
-			if (attentionFrame && targetBox) {
-				const centerX = targetBox.x + targetBox.width * (0.2 + Math.random() * 0.6);
-				const centerY = targetBox.y + targetBox.height * (0.2 + Math.random() * 0.6);
-				await HumanMouse.move(
-					page,
-					centerX,
-					centerY,
-					targetBox.width,
-					false,
-					this.getCurrentLastMousePos(),
-					settings.mouseSpeed * dnaSpeed,
-					onStep,
-				);
-				await page.mouse.click(centerX, centerY);
-				this.setCurrentLastMousePos({ x: Math.round(centerX), y: Math.round(centerY) });
-				this.events.emit("cursorClicked", { x: Math.round(centerX), y: Math.round(centerY) });
-			} else {
-				const finalPos = await HumanMouse.click(
-					page,
-					selector,
-					true,
-					this.getCurrentLastMousePos(),
-					settings.mouseSpeed * dnaSpeed,
-					onStep,
-				);
-				this.setCurrentLastMousePos(finalPos);
-				this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
-			}
-
-			const useTypoSimulation = settings.typoProbability > 0;
-			const dnaTypingDelay = this.getDNATypingDelay(null);
-
-			if (useTypoSimulation) {
-				await this.typeWithTypos(page, selector, text);
-			} else {
-				await page.type(selector, text, {
-					delay: (dnaTypingDelay.min + Math.random() * (dnaTypingDelay.max - dnaTypingDelay.min)) / settings.mouseSpeed,
-				});
-			}
+			await this.performHumanType(page, selector, text, targetBox, attentionFrame);
 		}
 
 		this.recordActivity();
 		return this.getActiveStateCollector().collect();
+	}
+
+	private async performRawType(
+		page: any,
+		selector: string,
+		text: string,
+		targetBox: { x: number; y: number; width: number; height: number } | null,
+		attentionFrame: any,
+	): Promise<void> {
+		if (attentionFrame && targetBox) {
+			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
+			await page.keyboard.type(text);
+		} else {
+			await page.type(selector, text, { timeout: 5000 });
+		}
+	}
+
+	private async performHumanType(
+		page: any,
+		selector: string,
+		text: string,
+		targetBox: { x: number; y: number; width: number; height: number } | null,
+		attentionFrame: any,
+	): Promise<void> {
+		const settings = this.settings;
+		const dnaSpeed = this.getDNAMouseSpeed(null);
+		this.events.emit("agentActing");
+		const onStep = this.getCursorStepCallback?.();
+
+		await this.humanMoveToTypeTarget(page, selector, targetBox, attentionFrame, dnaSpeed, onStep);
+
+		const useTypoSimulation = settings.typoProbability > 0;
+		const dnaTypingDelay = this.getDNATypingDelay(null);
+
+		if (useTypoSimulation) {
+			await this.typeWithTypos(page, selector, text);
+		} else {
+			await page.type(selector, text, {
+				delay: (dnaTypingDelay.min + Math.random() * (dnaTypingDelay.max - dnaTypingDelay.min)) / settings.mouseSpeed,
+			});
+		}
+	}
+
+	private async humanMoveToTypeTarget(
+		page: any,
+		selector: string,
+		targetBox: { x: number; y: number; width: number; height: number } | null,
+		attentionFrame: any,
+		dnaSpeed: number,
+		onStep: any,
+	): Promise<void> {
+		const settings = this.settings;
+
+		if (attentionFrame && targetBox) {
+			const centerX = targetBox.x + targetBox.width * (0.2 + Math.random() * 0.6);
+			const centerY = targetBox.y + targetBox.height * (0.2 + Math.random() * 0.6);
+			await HumanMouse.move(
+				page,
+				centerX,
+				centerY,
+				targetBox.width,
+				false,
+				this.getCurrentLastMousePos(),
+				settings.mouseSpeed * dnaSpeed,
+				onStep,
+			);
+			await page.mouse.click(centerX, centerY);
+			this.setCurrentLastMousePos({ x: Math.round(centerX), y: Math.round(centerY) });
+			this.events.emit("cursorClicked", { x: Math.round(centerX), y: Math.round(centerY) });
+		} else {
+			const finalPos = await HumanMouse.click(
+				page,
+				selector,
+				true,
+				this.getCurrentLastMousePos(),
+				settings.mouseSpeed * dnaSpeed,
+				onStep,
+			);
+			this.setCurrentLastMousePos(finalPos);
+			this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
+		}
 	}
 
 	// ─── Mouse Move ──────────────────────────────────────────────────────────────
@@ -672,28 +727,38 @@ export class ActionExecutor {
 
 		if (keywords.length === 0) return null;
 
+		const result = this.findBestMatchingNode(nodes, keywords);
+		return result.score >= 10 ? result.node : null;
+	}
+
+	private findBestMatchingNode(nodes: TaloxNode[], keywords: string[]): { node: TaloxNode | null; score: number } {
 		let bestNode: TaloxNode | null = null;
 		let bestScore = 0;
 
 		for (const node of nodes) {
-			let score = 0;
-			const nodeText = (node.name || "").toLowerCase();
-			const nodeRole = (node.role || "").toLowerCase();
-
-			for (const kw of keywords) {
-				const lowerKw = kw.toLowerCase();
-				if (nodeText.includes(lowerKw)) score += 10;
-				if (nodeRole.includes(lowerKw)) score += 5;
-				if (node.id.toLowerCase().includes(lowerKw)) score += 2;
-			}
-
+			const score = this.scoreNodeKeywords(node, keywords);
 			if (score > bestScore) {
 				bestScore = score;
 				bestNode = node;
 			}
 		}
 
-		return bestScore >= 10 ? bestNode : null;
+		return { node: bestNode, score: bestScore };
+	}
+
+	private scoreNodeKeywords(node: TaloxNode, keywords: string[]): number {
+		let score = 0;
+		const nodeText = (node.name || "").toLowerCase();
+		const nodeRole = (node.role || "").toLowerCase();
+
+		for (const kw of keywords) {
+			const lowerKw = kw.toLowerCase();
+			if (nodeText.includes(lowerKw)) score += 10;
+			if (nodeRole.includes(lowerKw)) score += 5;
+			if (node.id.toLowerCase().includes(lowerKw)) score += 2;
+		}
+
+		return score;
 	}
 
 	// ─── Typing Helpers ──────────────────────────────────────────────────────────

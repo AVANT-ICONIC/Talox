@@ -36,6 +36,57 @@ export class AXTreeDiffer {
 		}
 		return map;
 	}
+	private detectNodeChanges(beforeNode: TaloxNode, afterNode: TaloxNode): AXTreeChange[] {
+		const changes: AXTreeChange[] = [];
+		const beforePos = beforeNode.boundingBox;
+		const afterPos = afterNode.boundingBox;
+		const distance = this.computeDistance({ x: beforePos.x, y: beforePos.y }, { x: afterPos.x, y: afterPos.y });
+
+		if (distance > 30) {
+			const direction = this.getMovementDirection(beforePos, afterPos);
+			changes.push({
+				type: "moved",
+				nodeId: afterNode.id,
+				role: afterNode.role,
+				name: afterNode.name,
+				description: `"${afterNode.name}" moved ${direction}`,
+				previousPosition: beforePos,
+				currentPosition: afterPos,
+			});
+		}
+
+		if (beforeNode.name !== afterNode.name) {
+			changes.push({
+				type: "changed",
+				nodeId: afterNode.id,
+				role: afterNode.role,
+				name: afterNode.name,
+				description: `Text in "${afterNode.role}" changed from "${beforeNode.name}" to "${afterNode.name}"`,
+				previousValue: beforeNode.name,
+				currentValue: afterNode.name,
+			});
+		}
+
+		if (
+			beforeNode.attributes &&
+			afterNode.attributes &&
+			JSON.stringify(beforeNode.attributes) !== JSON.stringify(afterNode.attributes)
+		) {
+			const changedAttrs = this.getChangedAttributes(beforeNode.attributes, afterNode.attributes);
+			if (changedAttrs.length > 0) {
+				changes.push({
+					type: "changed",
+					nodeId: afterNode.id,
+					role: afterNode.role,
+					name: afterNode.name,
+					description: `Attributes of "${afterNode.name}" changed: ${changedAttrs.join(", ")}`,
+				});
+			}
+		}
+
+		return changes;
+	}
+
 	diff(before: TaloxPageState, after: TaloxPageState): AXTreeDiffResult {
 		const changes: AXTreeChange[] = [];
 		const beforeMap = this.getNodeMap(before.nodes);
@@ -58,52 +109,7 @@ export class AXTreeDiffer {
 			}
 
 			matchedIds.add(afterNode.id);
-
-			const beforePos = beforeNode.boundingBox;
-			const afterPos = afterNode.boundingBox;
-			const distance = this.computeDistance({ x: beforePos.x, y: beforePos.y }, { x: afterPos.x, y: afterPos.y });
-
-			if (distance > 30) {
-				const direction = this.getMovementDirection(beforePos, afterPos);
-				changes.push({
-					type: "moved",
-					nodeId: afterNode.id,
-					role: afterNode.role,
-					name: afterNode.name,
-					description: `"${afterNode.name}" moved ${direction}`,
-					previousPosition: beforePos,
-					currentPosition: afterPos,
-				});
-			}
-
-			if (beforeNode.name !== afterNode.name) {
-				changes.push({
-					type: "changed",
-					nodeId: afterNode.id,
-					role: afterNode.role,
-					name: afterNode.name,
-					description: `Text in "${afterNode.role}" changed from "${beforeNode.name}" to "${afterNode.name}"`,
-					previousValue: beforeNode.name,
-					currentValue: afterNode.name,
-				});
-			}
-
-			if (
-				beforeNode.attributes &&
-				afterNode.attributes &&
-				JSON.stringify(beforeNode.attributes) !== JSON.stringify(afterNode.attributes)
-			) {
-				const changedAttrs = this.getChangedAttributes(beforeNode.attributes, afterNode.attributes);
-				if (changedAttrs.length > 0) {
-					changes.push({
-						type: "changed",
-						nodeId: afterNode.id,
-						role: afterNode.role,
-						name: afterNode.name,
-						description: `Attributes of "${afterNode.name}" changed: ${changedAttrs.join(", ")}`,
-					});
-				}
-			}
+			changes.push(...this.detectNodeChanges(beforeNode, afterNode));
 		}
 
 		for (const beforeNode of before.nodes) {

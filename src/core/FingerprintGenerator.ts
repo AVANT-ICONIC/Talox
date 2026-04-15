@@ -600,21 +600,15 @@ export class FingerprintGenerator {
 	 * Validate that a fingerprint profile is internally consistent.
 	 * Returns an array of consistency violations (empty = valid).
 	 */
-	validate(profile: FingerprintProfile): string[] {
-		const violations: string[] = [];
+	private validateUaOs(profile: FingerprintProfile, violations: string[]): void {
+		const uaChecks: Record<FingerprintOS, string> = { windows: "Windows", macos: "Macintosh", linux: "Linux" };
+		const expected = uaChecks[profile.os];
+		if (expected && !profile.userAgent.includes(expected)) {
+			violations.push(`${profile.os} OS but UA doesn't mention ${expected}`);
+		}
+	}
 
-		// UA must match OS
-		if (profile.os === "windows" && !profile.userAgent.includes("Windows")) {
-			violations.push("Windows OS but UA doesn't mention Windows");
-		}
-		if (profile.os === "macos" && !profile.userAgent.includes("Macintosh")) {
-			violations.push("macOS OS but UA doesn't mention Macintosh");
-		}
-		if (profile.os === "linux" && !profile.userAgent.includes("Linux")) {
-			violations.push("Linux OS but UA doesn't mention Linux");
-		}
-
-		// Platform must match OS
+	private validatePlatformOs(profile: FingerprintProfile, violations: string[]): void {
 		if (profile.os === "windows" && profile.platform !== "Win32") {
 			violations.push(`Windows OS but platform is ${profile.platform}`);
 		}
@@ -624,8 +618,9 @@ export class FingerprintGenerator {
 		if (profile.os === "linux" && !profile.platform.startsWith("Linux")) {
 			violations.push(`Linux OS but platform is ${profile.platform}`);
 		}
+	}
 
-		// WebGL vendor must make sense for OS
+	private validateWebglOs(profile: FingerprintProfile, violations: string[]): void {
 		if (profile.os === "macos" && !profile.webgl.vendor.includes("Apple")) {
 			violations.push(`macOS OS but WebGL vendor is ${profile.webgl.vendor}`);
 		}
@@ -635,56 +630,66 @@ export class FingerprintGenerator {
 		if (profile.os === "linux" && profile.webgl.vendor.includes("Apple")) {
 			violations.push(`Linux OS but WebGL vendor is Apple`);
 		}
+	}
 
-		// DPR must make sense for OS
-		if (profile.os === "linux" && profile.screen.dpr > 1.5) {
-			violations.push("Linux rarely has high-DPR displays");
-		}
-
-		// Languages must be a non-empty array
-		if (!profile.languages.length) {
-			violations.push("Languages array is empty");
-		}
-
-		// Hardware must be reasonable
+	private validateHardware(profile: FingerprintProfile, violations: string[]): void {
 		if (profile.hardwareConcurrency < 1 || profile.hardwareConcurrency > 64) {
 			violations.push(`Unreasonable hardwareConcurrency: ${profile.hardwareConcurrency}`);
 		}
 		if (profile.deviceMemory < 1 || profile.deviceMemory > 128) {
 			violations.push(`Unreasonable deviceMemory: ${profile.deviceMemory}`);
 		}
+	}
+
+	validate(profile: FingerprintProfile): string[] {
+		const violations: string[] = [];
+
+		this.validateUaOs(profile, violations);
+		this.validatePlatformOs(profile, violations);
+		this.validateWebglOs(profile, violations);
+
+		if (profile.os === "linux" && profile.screen.dpr > 1.5) {
+			violations.push("Linux rarely has high-DPR displays");
+		}
+		if (!profile.languages.length) {
+			violations.push("Languages array is empty");
+		}
+
+		this.validateHardware(profile, violations);
 
 		return violations;
 	}
 
 	// ─── Internal Helpers ──────────────────────────────────────────────────
 
+	private weightedPickEntries(entries: [any, number][], rng: () => number): any {
+		const total = entries.reduce((sum, e) => sum + e[1], 0);
+		let r = rng() * total;
+		for (const [value, weight] of entries) {
+			r -= weight;
+			if (r <= 0) return value;
+		}
+		return entries[entries.length - 1]![0];
+	}
+
+	private weightedPickObjects(items: { weight: number }[], rng: () => number): any {
+		const total = items.reduce((sum, item) => sum + item.weight, 0);
+		let r = rng() * total;
+		for (const item of items) {
+			r -= item.weight;
+			if (r <= 0) return item;
+		}
+		return items[items.length - 1];
+	}
+
 	private weightedPick<T extends { weight: number }>(items: T[], rng: () => number): T;
 	private weightedPick<T>(entries: [T, number][], rng: () => number): T;
 	private weightedPick(items: any, rng: () => number): any {
-		if (Array.isArray(items) && items.length > 0) {
-			// Check if it's [value, weight][] or {weight}[]
-			if (Array.isArray(items[0])) {
-				// [value, weight][]
-				const entries = items as [any, number][];
-				const total = entries.reduce((sum, e) => sum + e[1], 0);
-				let r = rng() * total;
-				for (const [value, weight] of entries) {
-					r -= weight;
-					if (r <= 0) return value;
-				}
-				return entries[entries.length - 1]![0];
-			}
-			// { weight }[]
-			const total = items.reduce((sum: number, item: any) => sum + item.weight, 0);
-			let r = rng() * total;
-			for (const item of items) {
-				r -= item.weight;
-				if (r <= 0) return item;
-			}
-			return items[items.length - 1];
+		if (!Array.isArray(items) || items.length === 0) return items[0];
+		if (Array.isArray(items[0])) {
+			return this.weightedPickEntries(items as [any, number][], rng);
 		}
-		return items[0];
+		return this.weightedPickObjects(items, rng);
 	}
 
 	private hashSeed(seed: string): number {

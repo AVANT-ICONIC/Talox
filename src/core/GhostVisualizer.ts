@@ -133,6 +133,19 @@ export class GhostVisualizer {
 		data[idx + 3] = Math.round((data[idx + 3] ?? 0) * (1 - alpha) + a);
 	}
 
+	private drawThickDot(cx: number, cy: number, width: number, r: number, g: number, b: number): void {
+		const halfW = width / 2;
+		const floor = Math.floor(halfW);
+		const ceil = Math.ceil(halfW);
+		for (let w = -floor; w <= ceil; w++) {
+			for (let h = -floor; h <= ceil; h++) {
+				if (w * w + h * h <= halfW * halfW) {
+					this.drawPixel(cx + w, cy + h, r, g, b);
+				}
+			}
+		}
+	}
+
 	private drawLine(
 		x0: number,
 		y0: number,
@@ -153,13 +166,7 @@ export class GhostVisualizer {
 		let cy = y0;
 
 		while (true) {
-			for (let w = -Math.floor(width / 2); w <= Math.ceil(width / 2); w++) {
-				for (let h = -Math.floor(width / 2); h <= Math.ceil(width / 2); h++) {
-					if (w * w + h * h <= (width / 2) * (width / 2)) {
-						this.drawPixel(cx + w, cy + h, r, g, b);
-					}
-				}
-			}
+			this.drawThickDot(cx, cy, width, r, g, b);
 
 			if (Math.abs(cx - x1) < 1 && Math.abs(cy - y1) < 1) break;
 
@@ -237,14 +244,11 @@ export class GhostVisualizer {
 		};
 	}
 
-	private drawHeatmapDots(points: PathPoint[]): void {
-		const gridSize = 20;
+	private buildHeatGrid(points: PathPoint[], gridSize: number): number[][] {
 		const heatGrid: number[][] = [];
-
 		for (let y = 0; y < this.height; y += gridSize) {
 			heatGrid.push(new Array(Math.ceil(this.width / gridSize)).fill(0));
 		}
-
 		for (const point of points) {
 			const gx = Math.floor(point.x / gridSize);
 			const gy = Math.floor(point.y / gridSize);
@@ -253,36 +257,49 @@ export class GhostVisualizer {
 				row[gx] = (row[gx] ?? 0) + 1;
 			}
 		}
+		return heatGrid;
+	}
 
+	private getMaxHeat(heatGrid: number[][]): number {
 		let maxHeat = 0;
 		for (const row of heatGrid) {
 			for (const cell of row) {
 				if (cell > maxHeat) maxHeat = cell;
 			}
 		}
+		return maxHeat;
+	}
+
+	private renderHeatCell(gx: number, gy: number, gridSize: number, cellValue: number, maxHeat: number): void {
+		const intensity = cellValue / (maxHeat || 1);
+		const color = this.getHeatColor(intensity);
+		const halfGrid = gridSize / 2;
+		for (let dy = 0; dy < gridSize; dy++) {
+			for (let dx = 0; dx < gridSize; dx++) {
+				const px = gx * gridSize + dx;
+				const py = gy * gridSize + dy;
+				const dist = Math.sqrt((dx - halfGrid) ** 2 + (dy - halfGrid) ** 2);
+				if (dist <= halfGrid) {
+					const alpha = (1 - dist / halfGrid) * intensity * 255 * this.options.heatmapOpacity;
+					this.drawPixel(px, py, color.r, color.g, color.b, Math.round(alpha));
+				}
+			}
+		}
+	}
+
+	private drawHeatmapDots(points: PathPoint[]): void {
+		const gridSize = 20;
+		const heatGrid = this.buildHeatGrid(points, gridSize);
+		const maxHeat = this.getMaxHeat(heatGrid);
 
 		const firstRow = heatGrid[0];
 		if (!firstRow) return;
 
 		for (let gy = 0; gy < heatGrid.length; gy++) {
 			for (let gx = 0; gx < firstRow.length; gx++) {
-				const row = heatGrid[gy];
-				const cellValue = row?.[gx];
+				const cellValue = heatGrid[gy]?.[gx];
 				if (cellValue && cellValue > 0) {
-					const intensity = cellValue / (maxHeat || 1);
-					const color = this.getHeatColor(intensity);
-
-					for (let dy = 0; dy < gridSize; dy++) {
-						for (let dx = 0; dx < gridSize; dx++) {
-							const px = gx * gridSize + dx;
-							const py = gy * gridSize + dy;
-							const dist = Math.sqrt((dx - gridSize / 2) ** 2 + (dy - gridSize / 2) ** 2);
-							if (dist <= gridSize / 2) {
-								const alpha = (1 - dist / (gridSize / 2)) * intensity * 255 * this.options.heatmapOpacity;
-								this.drawPixel(px, py, color.r, color.g, color.b, Math.round(alpha));
-							}
-						}
-					}
+					this.renderHeatCell(gx, gy, gridSize, cellValue, maxHeat);
 				}
 			}
 		}
@@ -358,6 +375,109 @@ export class GhostVisualizer {
 		}
 	}
 
+	private static readonly CHAR_PATTERNS: Record<string, boolean[][]> = {
+		"0": [
+			[true, true, true],
+			[true, false, true],
+			[true, false, true],
+			[true, false, true],
+			[true, true, true],
+		],
+		"1": [
+			[false, true, false],
+			[true, true, false],
+			[false, true, false],
+			[false, true, false],
+			[true, true, true],
+		],
+		"2": [
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+			[true, false, false],
+			[true, true, true],
+		],
+		"3": [
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+		],
+		"4": [
+			[true, false, true],
+			[true, false, true],
+			[true, true, true],
+			[false, false, true],
+			[false, false, true],
+		],
+		"5": [
+			[true, true, true],
+			[true, false, false],
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+		],
+		"6": [
+			[true, true, true],
+			[true, false, false],
+			[true, true, true],
+			[true, false, true],
+			[true, true, true],
+		],
+		"7": [
+			[true, true, true],
+			[false, false, true],
+			[false, false, true],
+			[false, false, true],
+			[false, false, true],
+		],
+		"8": [
+			[true, true, true],
+			[true, false, true],
+			[true, true, true],
+			[true, false, true],
+			[true, true, true],
+		],
+		"9": [
+			[true, true, true],
+			[true, false, true],
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+		],
+		".": [
+			[false, false, false],
+			[false, false, false],
+			[false, false, false],
+			[false, false, false],
+			[true, true, true],
+		],
+		s: [
+			[true, true, true],
+			[true, false, false],
+			[true, true, true],
+			[false, false, true],
+			[true, true, true],
+		],
+	};
+
+	private renderCharPixels(x: number, y: number, pattern: boolean[][], r: number, g: number, b: number): void {
+		for (let cy = 0; cy < pattern.length; cy++) {
+			const row = pattern[cy];
+			if (!row) continue;
+			for (let cx = 0; cx < row.length; cx++) {
+				if (row[cx]) {
+					for (let px = 0; px < 2; px++) {
+						for (let py = 0; py < 2; py++) {
+							this.drawPixel(x + cx * 2 + px, y + cy * 2 + py, r, g, b);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	private drawText(
 		x: number,
 		y: number,
@@ -368,111 +488,11 @@ export class GhostVisualizer {
 		charWidth: number,
 		_charHeight: number,
 	): void {
-		const chars: Record<string, boolean[][]> = {
-			"0": [
-				[true, true, true],
-				[true, false, true],
-				[true, false, true],
-				[true, false, true],
-				[true, true, true],
-			],
-			"1": [
-				[false, true, false],
-				[true, true, false],
-				[false, true, false],
-				[false, true, false],
-				[true, true, true],
-			],
-			"2": [
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-				[true, false, false],
-				[true, true, true],
-			],
-			"3": [
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-			],
-			"4": [
-				[true, false, true],
-				[true, false, true],
-				[true, true, true],
-				[false, false, true],
-				[false, false, true],
-			],
-			"5": [
-				[true, true, true],
-				[true, false, false],
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-			],
-			"6": [
-				[true, true, true],
-				[true, false, false],
-				[true, true, true],
-				[true, false, true],
-				[true, true, true],
-			],
-			"7": [
-				[true, true, true],
-				[false, false, true],
-				[false, false, true],
-				[false, false, true],
-				[false, false, true],
-			],
-			"8": [
-				[true, true, true],
-				[true, false, true],
-				[true, true, true],
-				[true, false, true],
-				[true, true, true],
-			],
-			"9": [
-				[true, true, true],
-				[true, false, true],
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-			],
-			".": [
-				[false, false, false],
-				[false, false, false],
-				[false, false, false],
-				[false, false, false],
-				[true, true, true],
-			],
-			s: [
-				[true, true, true],
-				[true, false, false],
-				[true, true, true],
-				[false, false, true],
-				[true, true, true],
-			],
-		};
-
 		let offsetX = 0;
 		for (const char of text) {
-			const charPattern = chars[char];
+			const charPattern = GhostVisualizer.CHAR_PATTERNS[char];
 			if (charPattern) {
-				for (let cy = 0; cy < charPattern.length; cy++) {
-					const row = charPattern[cy];
-					if (!row) continue;
-					for (let cx = 0; cx < row.length; cx++) {
-						const pixel = row[cx];
-						if (pixel) {
-							for (let px = 0; px < 2; px++) {
-								for (let py = 0; py < 2; py++) {
-									this.drawPixel(x + offsetX + cx * 2 + px, y + cy * 2 + py, r, g, b);
-								}
-							}
-						}
-					}
-				}
+				this.renderCharPixels(x + offsetX, y, charPattern, r, g, b);
 			}
 			offsetX += charWidth;
 		}
