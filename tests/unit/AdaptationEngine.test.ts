@@ -117,7 +117,7 @@ describe("AdaptationEngine", () => {
 		expect(handler.mock.calls[0][0].strategy).toBe("stealth_escalation");
 		// stealth_escalation patches these settings
 		expect(settings.mouseSpeed).toBe(0.3);
-		expect(settings.humanStealth).toBe(1.0);
+		expect(settings.humanStealth).toBe(1);
 		expect(settings.stealthLevel).toBe("high");
 	});
 

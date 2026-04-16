@@ -331,7 +331,8 @@ export class ObserveSession {
 		try {
 			const buffer = await this.page.screenshot({ fullPage: true });
 			return buffer.toString("base64");
-		} catch (_err) {
+		} catch (error_) {
+			// intentionally ignored: screenshot capture failure is non-fatal
 			return undefined;
 		}
 	}

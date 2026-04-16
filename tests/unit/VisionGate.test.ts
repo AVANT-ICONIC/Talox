@@ -44,7 +44,7 @@ vi.mock("pixelmatch", () => ({
 }));
 
 vi.mock("ssim.js", () => ({
-	default: vi.fn().mockReturnValue({ mssim: 1.0 }),
+	default: vi.fn().mockReturnValue({ mssim: 1 }),
 }));
 
 vi.mock("tesseract.js", () => ({
@@ -147,12 +147,12 @@ describe("VisionGate", () => {
 		it("returns mismatchedPixels and ssimScore for identical images", async () => {
 			const img = makeFakeImage();
 			(pixelmatch as ReturnType<typeof vi.fn>).mockReturnValue(0);
-			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1.0 });
+			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1 });
 
 			const result = await gate.compare(img, img);
 
 			expect(result).toHaveProperty("mismatchedPixels", 0);
-			expect(result).toHaveProperty("ssimScore", 1.0);
+			expect(result).toHaveProperty("ssimScore", 1);
 			expect(pixelmatch).toHaveBeenCalled();
 		});
 
@@ -201,12 +201,12 @@ describe("VisionGate", () => {
 
 		it("shows perfect match for zero pixel differences", async () => {
 			(pixelmatch as ReturnType<typeof vi.fn>).mockReturnValue(0);
-			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1.0 });
+			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1 });
 
 			const result = await gate.compare(makeFakeImage(), makeFakeImage());
 
 			expect(result.mismatchedPixels).toBe(0);
-			expect(result.ssimScore).toBe(1.0);
+			expect(result.ssimScore).toBe(1);
 		});
 	});
 
@@ -317,9 +317,9 @@ describe("VisionGate", () => {
 	// ─── Comparison Thresholds ───────────────────────────────────────────────
 
 	describe("comparison thresholds", () => {
-		it("SSIM score of 1.0 indicates identical images", async () => {
+		it("SSIM score of 1 indicates identical images", async () => {
 			(pixelmatch as ReturnType<typeof vi.fn>).mockReturnValue(0);
-			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1.0 });
+			(ssim as ReturnType<typeof vi.fn>).mockReturnValue({ mssim: 1 });
 
 			const result = await gate.compare(makeFakeImage(), makeFakeImage());
 			expect(result.ssimScore).toBeGreaterThanOrEqual(0.99);

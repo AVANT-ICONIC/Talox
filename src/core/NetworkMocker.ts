@@ -32,14 +32,14 @@ export interface NetworkMockerOptions {
  * adding individual mock responses with configurable URL patterns and delays.
  */
 export class NetworkMocker {
-	private context: BrowserContext;
-	private page: Page;
+	private readonly context: BrowserContext;
+	private readonly page: Page;
 	private isRecording: boolean = false;
 	private isReplaying: boolean = false;
 	private recordings: NetworkRecording[] = [];
 	private mocks: MockResponse[] = [];
 	private recordingHandler: ((recording: NetworkRecording) => void) | null = null;
-	private savedRoutes: Map<string, () => Promise<void>> = new Map();
+	private readonly savedRoutes: Map<string, () => Promise<void>> = new Map();
 
 	constructor(options: NetworkMockerOptions) {
 		this.context = options.context;

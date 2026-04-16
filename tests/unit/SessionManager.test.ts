@@ -153,7 +153,7 @@ function createMockPage() {
 }
 
 const defaultSettings = {
-	mouseSpeed: 1.0,
+	mouseSpeed: 1,
 	typingDelayMin: 50,
 	typingDelayMax: 150,
 	typoProbability: 0,

@@ -66,7 +66,7 @@ const DEFAULT_OPTIONS: SemanticMapperOptions = {
 const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
 	{
 		domain: "github.com",
-		version: "1.0.0",
+		version: "1.0",
 		mappings: [
 			{ selector: '[data-testid="login-field"]', semanticType: "input", label: "username-input", priority: 10 },
 			{ selector: "#password", semanticType: "input", label: "password-input", priority: 10 },
@@ -78,7 +78,7 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
 	},
 	{
 		domain: "twitter.com",
-		version: "1.0.0",
+		version: "1.0",
 		mappings: [
 			{ selector: '[data-testid="tweet-text"]', semanticType: "article", label: "tweet-content", priority: 10 },
 			{ selector: '[data-testid="tweetButton"]', semanticType: "button", label: "tweet-button", priority: 10 },
@@ -89,7 +89,7 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
 	},
 	{
 		domain: "wikipedia.org",
-		version: "1.0.0",
+		version: "1.0",
 		mappings: [
 			{ selector: "#searchInput", semanticType: "search", label: "search-input", priority: 10 },
 			{ selector: "#searchButton", semanticType: "button", label: "search-button", priority: 10 },
@@ -101,7 +101,7 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
 	},
 	{
 		domain: "reddit.com",
-		version: "1.0.0",
+		version: "1.0",
 		mappings: [
 			{ selector: '[data-testid="search-input"]', semanticType: "search", label: "search-input", priority: 10 },
 			{ selector: '[data-testid="post-content"]', semanticType: "article", label: "post-content", priority: 10 },
@@ -112,7 +112,7 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
 	},
 	{
 		domain: "amazon.com",
-		version: "1.0.0",
+		version: "1.0",
 		mappings: [
 			{ selector: "#twotabsearchtextbox", semanticType: "search", label: "product-search", priority: 10 },
 			{ selector: "#nav-search-submit-button", semanticType: "button", label: "search-button", priority: 10 },
@@ -135,7 +135,7 @@ const DEFAULT_KNOWLEDGE_PROFILES: KnowledgeProfile[] = [
  * action planning and element lookup.
  */
 export class SemanticMapper {
-	private options: SemanticMapperOptions;
+	private readonly options: SemanticMapperOptions;
 	private knowledgeProfiles: KnowledgeProfile[];
 
 	constructor(options: Partial<SemanticMapperOptions> = {}, knowledgeProfiles: KnowledgeProfile[] = []) {
@@ -365,9 +365,9 @@ export class SemanticMapper {
 	private normalizeLabel(name: string): string {
 		return name
 			.toLowerCase()
-			.replace(/[^a-z0-9\s-]/g, "")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-")
+			.replaceAll(/[^a-z0-9\s-]/g, "")
+			.replaceAll(/\s+/g, "-")
+			.replaceAll(/-+/g, "-")
 			.trim();
 	}
 
@@ -449,12 +449,12 @@ export class SemanticMapper {
 			if (profile) {
 				const mapping = this.findBestMapping(node, profile);
 				if (mapping) {
-					confidence = Math.min(1.0, confidence + 0.2);
+					confidence = Math.min(1, confidence + 0.2);
 				}
 			}
 		}
 
-		return Math.min(1.0, Math.max(0.0, confidence));
+		return Math.min(1, Math.max(0, confidence));
 	}
 
 	private extractMetadata(node: TaloxNode, semanticType: SemanticEntityType): Record<string, unknown> {

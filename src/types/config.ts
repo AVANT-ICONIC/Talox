@@ -3,6 +3,7 @@
  * @description TaloxConfig - what you pass to TaloxController constructor
  */
 
+// noinspection SonarQube S1874 — intentional backward-compat
 import type { LegacyTaloxMode, TaloxSettings } from "./settings.js";
 
 export interface TaloxConfig {
@@ -25,5 +26,6 @@ export interface TaloxConfig {
 	 *
 	 * Use `resolveLegacyMode()` to see the exact mapping.
 	 */
+	// noinspection SonarQube S1874 — intentional backward-compat
 	mode?: LegacyTaloxMode;
 }

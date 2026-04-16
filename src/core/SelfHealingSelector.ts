@@ -43,12 +43,12 @@ const DEFAULT_OPTIONS: SelectorHealingOptions = {
  * parent-context matching — then combines results with weighted scoring.
  */
 export class SelfHealingSelector {
-	private successStates: Map<string, SuccessState[]> = new Map();
+	private readonly successStates: Map<string, SuccessState[]> = new Map();
 	private historicalSnapshots: TaloxNode[][] = [];
-	private maxSnapshots: number = 10;
-	private maxStatesPerSelector: number = 5;
+	private readonly maxSnapshots: number = 10;
+	private readonly maxStatesPerSelector: number = 5;
 
-	constructor(private options: Partial<SelectorHealingOptions> = {}) {
+	constructor(private readonly options: Partial<SelectorHealingOptions> = {}) {
 		this.options = { ...DEFAULT_OPTIONS, ...options };
 	}
 
@@ -186,7 +186,7 @@ export class SelfHealingSelector {
 
 		for (const node of nodes) {
 			const nodeBox = node.boundingBox;
-			const distance = Math.sqrt((nodeBox.x - targetBox.x) ** 2 + (nodeBox.y - targetBox.y) ** 2);
+			const distance = Math.hypot(nodeBox.x - targetBox.x, nodeBox.y - targetBox.y);
 
 			if (distance < bestDistance && distance <= tolerance) {
 				bestDistance = distance;
@@ -277,7 +277,7 @@ export class SelfHealingSelector {
 	private calculateSimilarity(str1: string, str2: string): number {
 		const longer = str1.length > str2.length ? str1 : str2;
 		const shorter = str1.length > str2.length ? str2 : str1;
-		if (longer.length === 0) return 1.0;
+		if (longer.length === 0) return 1;
 
 		const editDistance = this.levenshteinDistance(longer, shorter);
 		return (longer.length - editDistance) / longer.length;

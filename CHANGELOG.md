@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-04-16
+
+### Changed
+
+- **~200 MAJOR/MINOR SonarQube issues resolved** across 35+ rules:
+  - S7748 (79): Removed zero fractions from numeric literals
+  - S7778 (68): Consolidated consecutive `Array.push()` calls
+  - S2933 (34): Added `readonly` to never-reassigned class members
+  - S1128 (22): Removed unused imports
+  - S7764 (19): Replaced `window` with `globalThis` in Node-side code
+  - S7781 (17): Replaced `.replace(/x/g)` with `.replaceAll('x')`
+  - S6571 (15): Extracted repeated union types into type aliases
+  - S1854 (13): Removed useless variable assignments
+  - S1874 (13): Added suppression comments for deprecated backward-compat APIs
+  - S7755 (10): Replaced `arr[length-N]` with `arr.at(-N)`
+  - S4325 (10): Removed unnecessary type assertions
+  - S2486 (10): Added descriptive comments to empty catch blocks
+  - S7769 (8): Replaced `Math.sqrt(x²+y²)` with `Math.hypot(x,y)`
+  - S7718 (7): Renamed catch parameters to `error_`
+  - S7772 (6): Added `node:` prefix to Node.js built-in imports
+  - S2310 (6): Refactored loop variable assignment in CLI
+  - S107 (4): Grouped parameters into objects (GhostVisualizer, HumanMouse)
+  - S7773 (4): `parseInt` → `Number.parseInt`
+  - S7723 (4): `Array(n)` → `new Array(n)`
+  - S7784, S7758, S7747, S7776: structuredClone, codePointAt, Array.from, Set
+  - And 15+ more minor rules
+
+### Fixed
+
+- `GhostVisualizer.ts`: Updated callers after Color refactoring
+- `SessionReporter.ts`: Restored missing `BugSummaryEntry` import
+- `SessionSnapshot.ts`: Fixed type annotation in `restoreStorage()`
+- `bridge.ts/contextMenu.ts/index.ts`: Reverted `globalThis` in browser-injected code
+
 ## [4.1.0] - 2026-04-15
 
 ### Changed

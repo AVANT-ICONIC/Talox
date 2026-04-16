@@ -31,12 +31,12 @@ export type { TakeoverReason, TakeoverSummary };
  * Self-contained JavaScript string injected via page.addInitScript().
  * All elements carry aria-hidden="true" so the agent's AX-tree never sees them.
  *
- * Listens for commands via `window.__taloxCmd__(name)` exposed from Node.js.
+ * Listens for commands via `globalThis.__taloxCmd__(name)` exposed from Node.js.
  */
 const AGENT_OVERLAY_SCRIPT = /* js */ `
 (function() {
-  if (window.__taloxOverlay__) return; // idempotent guard
-  window.__taloxOverlay__ = true;
+  if (globalThis.__taloxOverlay__) return; // idempotent guard
+  globalThis.__taloxOverlay__ = true;
 
   var CYAN      = '#00D4FF';
   var CYAN_GLOW = 'rgba(0, 212, 255, 0.55)';
@@ -142,7 +142,7 @@ const AGENT_OVERLAY_SCRIPT = /* js */ `
   // ─── Command dispatcher (called from Node.js) ───────────────────────────
   // Exposed via page.exposeFunction('__taloxCmd__', ...) from Node.js.
   // This allows Node.js→Browser state updates without page.evaluate().
-  window.__taloxDispatch__ = function(cmd) {
+  globalThis.__taloxDispatch__ = function(cmd) {
     switch (cmd) {
       case 'agent_running':  setAgentRunning();  break;
       case 'agent_paused':   setAgentPaused();   break;
@@ -152,8 +152,8 @@ const AGENT_OVERLAY_SCRIPT = /* js */ `
   // ─── Button click handlers ──────────────────────────────────────────────
   btnEl.addEventListener('click', function(e) {
     e.stopPropagation();
-    if (typeof window.__taloxBridge__ === 'function') {
-      window.__taloxBridge__(isAgentRunning ? 'takeover:request' : 'takeover:resume', {});
+    if (typeof globalThis.__taloxBridge__ === 'function') {
+      globalThis.__taloxBridge__(isAgentRunning ? 'takeover:request' : 'takeover:resume', {});
     }
   });
 
@@ -225,11 +225,11 @@ export class TakeoverBridge {
 		}
 
 		// 3. Wire Node.js → Browser command channel
-		//    The overlay already defined window.__taloxDispatch__ in its init script.
+		//    The overlay already defined globalThis.__taloxDispatch__ in its init script.
 		//    We re-expose it here so we can call it from Node.js via the function handle.
 		try {
 			// Expose a no-op placeholder so exposeFunction registers the name;
-			// actual dispatch is handled by window.__taloxDispatch__ in the overlay.
+			// actual dispatch is handled by globalThis.__taloxDispatch__ in the overlay.
 			await page.exposeFunction("__taloxCmd__", (_cmd: string) => {
 				// no-op: used only as the bridge target name
 			});
@@ -375,7 +375,7 @@ export class TakeoverBridge {
 	}
 
 	/**
-	 * Dispatch a command to the browser overlay via window.__taloxDispatch__.
+	 * Dispatch a command to the browser overlay via globalThis.__taloxDispatch__.
 	 * Uses page.evaluate only for these rare state-transition calls
 	 * (not per-frame, not in hot paths).
 	 */

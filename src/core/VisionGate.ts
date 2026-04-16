@@ -27,7 +27,7 @@ export interface DiffRegion {
  * diff heatmaps, and extracts on-screen text via OCR.
  */
 export class VisionGate {
-	private baselineDir: string;
+	private readonly baselineDir: string;
 
 	constructor(baseDir: string = "./.talox/baselines") {
 		this.baselineDir = baseDir;
@@ -196,9 +196,7 @@ export class VisionGate {
 		const gridCols = Math.ceil(imageWidth / gridSize);
 		const gridRows = Math.ceil(imageHeight / gridSize);
 		const grid = this.buildRegionGrid(regions, gridSize, gridCols, gridRows);
-		const visited: boolean[][] = Array(gridRows)
-			.fill(null)
-			.map(() => Array(gridCols).fill(false));
+		const visited: boolean[][] = new Array(gridRows).fill(null).map(() => new Array(gridCols).fill(false));
 
 		const merged: DiffRegion[] = [];
 		for (let row = 0; row < gridRows; row++) {
@@ -228,9 +226,7 @@ export class VisionGate {
 	}
 
 	private buildRegionGrid(regions: DiffRegion[], gridSize: number, gridCols: number, gridRows: number): boolean[][] {
-		const grid: boolean[][] = Array(gridRows)
-			.fill(null)
-			.map(() => Array(gridCols).fill(false));
+		const grid: boolean[][] = new Array(gridRows).fill(null).map(() => new Array(gridCols).fill(false));
 
 		for (const region of regions) {
 			const startCol = Math.floor(region.x / gridSize);

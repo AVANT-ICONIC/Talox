@@ -130,7 +130,7 @@ export class PerceptionStack {
 	 * `invalidate()` effectively invalidates all entries without clearing the map.
 	 */
 	private sessionTick = 0;
-	private cache = new Map<string, PerceivedState>();
+	private readonly cache = new Map<string, PerceivedState>();
 
 	constructor(
 		private readonly collector: PageStateCollector,

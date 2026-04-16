@@ -33,7 +33,7 @@ export interface YAMLPolicy {
  * and destructive-action blocking.
  */
 export class PolicyEngine {
-	private allowlists: Record<ProfileClass, string[]> = {
+	private readonly allowlists: Record<ProfileClass, string[]> = {
 		qa: ["*"],
 		ops: ["google.com", "github.com", "about:blank", "localhost"],
 		sandbox: ["*"],

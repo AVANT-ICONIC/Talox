@@ -48,7 +48,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		defaultClass: "qa",
 	},
 	settings: {
-		mouseSpeed: 1.0,
+		mouseSpeed: 1,
 		typingDelayMin: 50,
 		typingDelayMax: 150,
 		stealthLevel: "medium",
@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		humanStealth: 0.5,
 		typoProbability: 0.05,
 		adaptiveStealthEnabled: true,
-		adaptiveStealthSensitivity: 1.0,
+		adaptiveStealthSensitivity: 1,
 		adaptiveStealthRadius: 50,
 		precisionDecay: 0.1,
 		automaticThinkingEnabled: true,
@@ -72,7 +72,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 };
 
 export function getDefaultConfig(): TaloxConfig {
-	const cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+	const cfg = structuredClone(DEFAULT_CONFIG);
 	// TALOX_HEADLESS=false is an emergency escape hatch to force headed mode
 	// regardless of mode. Prefer using { headed: true } in launch() options instead.
 	if (process.env.TALOX_HEADLESS === "false") {
@@ -96,7 +96,7 @@ export class BrowserManager {
 	private config: TaloxConfig;
 	private detectedBrowsers: DetectedBrowser[] = [];
 
-	private contexts: Set<BrowserContext> = new Set();
+	private readonly contexts: Set<BrowserContext> = new Set();
 
 	constructor(config?: Partial<TaloxConfig>) {
 		this.config = { ...getDefaultConfig(), ...config };

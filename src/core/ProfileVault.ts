@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ProfileClass, TaloxProfile } from "../types/index.js";
 
 export class ProfileVault {
-	constructor(private baseDir: string) {
+	constructor(private readonly baseDir: string) {
 		if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
 	}
 

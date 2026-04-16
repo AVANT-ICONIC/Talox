@@ -496,8 +496,8 @@ export class InteractionReliability {
 
 		// Extract label keywords from the selector (strip CSS syntax)
 		const label = selector
-			.replace(/#.[\]()=:"'*^$|~]/g, " ")
-			.replace(/\s+/g, " ")
+			.replaceAll(/#.[\]()=:"'*^$|~]/g, " ")
+			.replaceAll(/\s+/g, " ")
 			.trim();
 
 		const keywords = label.split(/[\s_-]+/).filter((k) => k.length > 2);
@@ -630,8 +630,8 @@ export class InteractionReliability {
 	): { isDuplicate: boolean; count: number; bestNode: TaloxNode | null } {
 		// Extract a plain-text label from the selector
 		const label = selector
-			.replace(/[#.[\]()=:"'*^$|~]/g, " ")
-			.replace(/\s+/g, " ")
+			.replaceAll(/[#.[\]()=:"'*^$|~]/g, " ")
+			.replaceAll(/\s+/g, " ")
 			.trim()
 			.toLowerCase();
 
@@ -648,7 +648,7 @@ export class InteractionReliability {
 		const scored = matches.map((n) => {
 			const area = n.boundingBox.width * n.boundingBox.height;
 			// Favour elements in the upper 60% of the page
-			const verticalBonus = n.boundingBox.y < 600 ? 1.2 : 1.0;
+			const verticalBonus = n.boundingBox.y < 600 ? 1.2 : 1;
 			return { node: n, score: area * verticalBonus };
 		});
 

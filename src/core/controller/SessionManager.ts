@@ -21,7 +21,6 @@ import type { TaloxSettings } from "../../types/settings.js";
 import { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
 import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
-import { HumanMouse } from "../HumanMouse.js";
 import { ObserveSession } from "../observe/ObserveSession.js";
 import { PageStateCollector } from "../PageStateCollector.js";
 import { PolicyEngine } from "../PolicyEngine.js";
@@ -609,7 +608,7 @@ export class SessionManager {
 
 			// 2. Chrome Runtime Spoofing
 			// @ts-expect-error
-			window.chrome = {
+			globalThis.chrome = {
 				runtime: {},
 				loadTimes: () => {},
 				csi: () => {},
@@ -692,7 +691,7 @@ export class SessionManager {
 			if (typeof AudioContext !== "undefined") {
 				const OrigAudioContext = AudioContext;
 				// @ts-expect-error
-				window.AudioContext = (opts: any) => {
+				globalThis.AudioContext = (opts: any) => {
 					const ctx = new OrigAudioContext(opts);
 					Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
 					Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
@@ -720,7 +719,7 @@ export class SessionManager {
 			if (typeof RTCPeerConnection !== "undefined") {
 				const OrigRTCPeerConnection = RTCPeerConnection;
 				// @ts-expect-error
-				window.RTCPeerConnection = (config: any, constraints: any) => {
+				globalThis.RTCPeerConnection = (config: any, constraints: any) => {
 					// Force ICE candidate filtering to prevent local IP leaks
 					const filteredConfig = {
 						...config,
@@ -785,7 +784,7 @@ export class SessionManager {
 	private hashString(str: string): number {
 		let hash = 0;
 		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
+			const char = str.codePointAt(i)!;
 			hash = (hash << 5) - hash + char;
 			hash = hash & hash;
 		}

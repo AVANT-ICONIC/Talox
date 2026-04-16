@@ -34,7 +34,7 @@
  */
 
 import type { TaloxConfig } from "../../types/config.js";
-import type { TakeoverSummary, TaloxEvent, TaloxEventMap, TaloxEventType } from "../../types/events.js";
+import type { TakeoverSummary, TaloxEventMap, TaloxEventType } from "../../types/events.js";
 import type {
 	AgentPageState,
 	CompactVariant,
@@ -44,12 +44,12 @@ import type {
 	TaloxBug,
 	TaloxNode,
 	TaloxPageState,
-	TaloxProfile,
 	VisualDiffResult,
 } from "../../types/index.js";
 import { compactState } from "../../types/index.js";
 import type { ObserveSessionOptions } from "../../types/session.js";
-import type { LegacyTaloxMode, TaloxSettings } from "../../types/settings.js";
+import type { TaloxSettings } from "../../types/settings.js";
+// noinspection SonarQube S1874 — intentional backward-compat
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js";
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
@@ -95,7 +95,7 @@ export class TaloxController {
 	settings: TaloxSettings;
 
 	private attentionFrame: { x: number; y: number; width: number; height: number; selector?: string } | null = null;
-	private viewportScale: number = 1.0;
+	private readonly viewportScale: number = 1;
 
 	private globalLastMousePos: Point = { x: 0, y: 0 };
 	private useGlobalMousePos: boolean = true;
@@ -104,8 +104,8 @@ export class TaloxController {
 
 	private takeoverState: "AGENT_RUNNING" | "WAITING_FOR_HUMAN" = "AGENT_RUNNING";
 	private autoResumeTimer: NodeJS.Timeout | null = null;
-	private takeoverHistory: TakeoverSummary[] = [];
-	private observing: boolean;
+	private readonly takeoverHistory: TakeoverSummary[] = [];
+	private readonly observing: boolean;
 
 	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
 		// Support TaloxController(config) shorthand when first arg is an object
@@ -116,6 +116,7 @@ export class TaloxController {
 
 		// Handle legacy mode mapping (v1 → v2 compatibility layer)
 		if (mergedConfig.mode) {
+			// noinspection SonarQube S1874 — intentional backward-compat usage
 			const legacySettings = resolveLegacyMode(mergedConfig.mode);
 			mergedSettings = { ...mergedSettings, ...legacySettings };
 		}
@@ -984,6 +985,6 @@ export class TaloxController {
 	}
 
 	getEventListeners(): Map<TaloxEventType, number> {
-		return this._events.getListenerCounts() as Map<TaloxEventType, number>;
+		return this._events.getListenerCounts();
 	}
 }

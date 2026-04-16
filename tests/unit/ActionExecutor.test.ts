@@ -137,7 +137,7 @@ function makeFakeState(overrides: Record<string, any> = {}): any {
 }
 
 const defaultSettings = {
-	mouseSpeed: 1.0,
+	mouseSpeed: 1,
 	typingDelayMin: 50,
 	typingDelayMax: 150,
 	typoProbability: 0,
@@ -815,20 +815,20 @@ describe("ActionExecutor", () => {
 	// ─── Behavioral DNA Helpers ─────────────────────────────────────────────
 
 	describe("getDNAMouseSpeed", () => {
-		it("returns 1.0 when no behavioral DNA", () => {
+		it("returns 1 when no behavioral DNA", () => {
 			const { executor } = makeExecutor();
-			expect(executor.getDNAMouseSpeed(null)).toBe(1.0);
+			expect(executor.getDNAMouseSpeed(null)).toBe(1);
 		});
 
 		it("applies precise style factor (0.8)", () => {
-			const { executor, settings } = makeExecutor({ settings: { mouseSpeed: 1.0 } });
+			const { executor, settings } = makeExecutor({ settings: { mouseSpeed: 1 } });
 			const dna = { movementStyle: "precise" };
 			const speed = executor.getDNAMouseSpeed(dna);
 			expect(speed).toBeCloseTo(0.8, 5);
 		});
 
 		it("applies relaxed style factor (1.2)", () => {
-			const { executor } = makeExecutor({ settings: { mouseSpeed: 1.0 } });
+			const { executor } = makeExecutor({ settings: { mouseSpeed: 1 } });
 			const dna = { movementStyle: "relaxed" };
 			const speed = executor.getDNAMouseSpeed(dna);
 			expect(speed).toBeCloseTo(1.2, 5);
@@ -910,10 +910,10 @@ describe("ActionExecutor", () => {
 	});
 
 	describe("setAdaptiveStealthSensitivity", () => {
-		it("clamps sensitivity between 0.1 and 2.0", () => {
+		it("clamps sensitivity between 0.1 and 2", () => {
 			const { executor, settings } = makeExecutor();
-			executor.setAdaptiveStealthSensitivity(5.0);
-			expect(settings.adaptiveStealthSensitivity).toBe(2.0);
+			executor.setAdaptiveStealthSensitivity(5);
+			expect(settings.adaptiveStealthSensitivity).toBe(2);
 
 			executor.setAdaptiveStealthSensitivity(-1);
 			expect(settings.adaptiveStealthSensitivity).toBe(0.1);
@@ -935,14 +935,14 @@ describe("ActionExecutor", () => {
 
 	describe("getAdaptiveMouseSpeed", () => {
 		it("returns base mouseSpeed when adaptive stealth is disabled", () => {
-			const { executor, settings } = makeExecutor({ settings: { adaptiveStealthEnabled: false, mouseSpeed: 2.0 } });
-			expect(executor.getAdaptiveMouseSpeed(0.8)).toBe(2.0);
+			const { executor, settings } = makeExecutor({ settings: { adaptiveStealthEnabled: false, mouseSpeed: 2 } });
+			expect(executor.getAdaptiveMouseSpeed(0.8)).toBe(2);
 		});
 
 		it("reduces speed in high-density areas", () => {
-			const { executor } = makeExecutor({ settings: { adaptiveStealthEnabled: true, mouseSpeed: 1.0 } });
-			const speed = executor.getAdaptiveMouseSpeed(1.0);
-			expect(speed).toBeLessThan(1.0);
+			const { executor } = makeExecutor({ settings: { adaptiveStealthEnabled: true, mouseSpeed: 1 } });
+			const speed = executor.getAdaptiveMouseSpeed(1);
+			expect(speed).toBeLessThan(1);
 			expect(speed).toBeGreaterThanOrEqual(0.1);
 		});
 	});

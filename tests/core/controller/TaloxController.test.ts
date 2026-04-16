@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TaloxController } from "../../../src/core/controller/TaloxController";
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../../src/types/settings";
 

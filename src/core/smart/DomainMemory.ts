@@ -23,7 +23,7 @@
  *
  * // Query before selecting a strategy
  * const score = memory.getScore('https://reddit.com/r/all', 'stealth_escalation');
- * // score.successRate → 0.0–1.0
+ * // score.successRate → 0–1
  * // score.attempts   → number of recorded attempts
  * ```
  */
@@ -37,7 +37,7 @@ export interface StrategyScore {
 	attempts: number;
 	/** Number of successes (interaction completed without another detection event). */
 	successes: number;
-	/** Derived success rate 0.0–1.0 (successes / attempts). */
+	/** Derived success rate 0–1 (successes / attempts). */
 	successRate: number;
 	/** Exponentially-weighted moving average of success rate (recency-sensitive). */
 	ewmaSuccessRate: number;
@@ -114,8 +114,8 @@ export class DomainMemory {
 				strategy,
 				attempts: 1,
 				successes: success ? 1 : 0,
-				successRate: success ? 1.0 : 0.0,
-				ewmaSuccessRate: success ? 1.0 : 0.0,
+				successRate: success ? 1 : 0,
+				ewmaSuccessRate: success ? 1 : 0,
 				lastSeen: now,
 			};
 			return;
@@ -125,7 +125,7 @@ export class DomainMemory {
 		if (success) existing.successes++;
 		existing.successRate = existing.successes / existing.attempts;
 		// Exponential moving average — blends historical rate with newest outcome
-		existing.ewmaSuccessRate = this.alpha * (success ? 1.0 : 0.0) + (1 - this.alpha) * existing.ewmaSuccessRate;
+		existing.ewmaSuccessRate = this.alpha * (success ? 1 : 0) + (1 - this.alpha) * existing.ewmaSuccessRate;
 		existing.lastSeen = now;
 	}
 

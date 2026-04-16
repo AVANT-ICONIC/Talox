@@ -26,7 +26,7 @@ export interface AXTreeDiffResult {
  */
 export class AXTreeDiffer {
 	private computeDistance(pos1: { x: number; y: number }, pos2: { x: number; y: number }): number {
-		return Math.sqrt((pos2.x - pos1.x) ** 2 + (pos2.y - pos1.y) ** 2);
+		return Math.hypot(pos2.x - pos1.x, pos2.y - pos1.y);
 	}
 
 	private getNodeMap(nodes: TaloxNode[]): Map<string, TaloxNode> {

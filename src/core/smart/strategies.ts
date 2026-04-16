@@ -53,7 +53,7 @@ export const STRATEGIES: Record<AdaptationReason, AdaptationStrategy> = {
 		description: "Full stealth escalation — maximum biomechanical simulation + UA rotation",
 		settingsPatch: {
 			mouseSpeed: 0.3,
-			humanStealth: 1.0,
+			humanStealth: 1,
 			stealthLevel: "high",
 			typingDelayMin: 150,
 			typingDelayMax: 400,

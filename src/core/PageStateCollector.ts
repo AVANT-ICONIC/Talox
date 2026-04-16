@@ -37,8 +37,8 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
  * Progressive retries handle SPA hydration timing gaps.
  */
 export class PageStateCollector {
-	private consoleErrors: string[] = [];
-	private failedRequests: Array<{ url: string; status: number; type?: string }> = [];
+	private readonly consoleErrors: string[] = [];
+	private readonly failedRequests: Array<{ url: string; status: number; type?: string }> = [];
 	private retryStats: RetryStats = {
 		attempts: 0,
 		axTreeAttempts: 0,
@@ -46,10 +46,10 @@ export class PageStateCollector {
 		fallbackUsed: false,
 		totalDelayMs: 0,
 	};
-	private options: Required<PageStateCollectorOptions>;
+	private readonly options: Required<PageStateCollectorOptions>;
 
 	constructor(
-		private page: Page,
+		private readonly page: Page,
 		options: PageStateCollectorOptions = {},
 	) {
 		this.options = {
@@ -258,8 +258,8 @@ export class PageStateCollector {
 									});
 								}
 							}
-						} catch (_e) {
-							// Skip selectors that may not be valid in this context
+						} catch (error_) {
+							// intentionally ignored: Skip selectors that may not be valid in this context
 						}
 					}
 				}
@@ -278,7 +278,8 @@ export class PageStateCollector {
 				queryShadowHosts(document);
 				return results;
 			});
-		} catch (_e) {
+		} catch (error_) {
+			// intentionally ignored: DOM query failure returns empty result
 			return [];
 		}
 	}
@@ -290,7 +291,7 @@ export class PageStateCollector {
 				? Math.max(
 						...merged.map((el: any) => {
 							const match = el.id.match(/dom-(\d+)/);
-							return match ? parseInt(match[1], 10) : 0;
+							return match ? Number.parseInt(match[1], 10) : 0;
 						}),
 					)
 				: 0;
@@ -465,8 +466,8 @@ export class PageStateCollector {
 					try {
 						// @ts-expect-error - accessibility might not be in types
 						axSnapshot = await this.page.accessibility?.snapshot();
-					} catch (axErr) {
-						axTreeError = axErr as Error;
+					} catch (error_) {
+						axTreeError = error_ as Error;
 						axSnapshot = null;
 					}
 

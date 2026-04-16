@@ -101,9 +101,9 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 		try {
 			localStorage = await page.evaluate(() => {
 				const out: Record<string, string> = {};
-				for (let i = 0; i < window.localStorage.length; i++) {
-					const k = window.localStorage.key(i);
-					if (k !== null) out[k] = window.localStorage.getItem(k) ?? "";
+				for (let i = 0; i < globalThis.localStorage.length; i++) {
+					const k = globalThis.localStorage.key(i);
+					if (k !== null) out[k] = globalThis.localStorage.getItem(k) ?? "";
 				}
 				return out;
 			});
@@ -114,9 +114,9 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 		try {
 			sessionStorage = await page.evaluate(() => {
 				const out: Record<string, string> = {};
-				for (let i = 0; i < window.sessionStorage.length; i++) {
-					const k = window.sessionStorage.key(i);
-					if (k !== null) out[k] = window.sessionStorage.getItem(k) ?? "";
+				for (let i = 0; i < globalThis.sessionStorage.length; i++) {
+					const k = globalThis.sessionStorage.key(i);
+					if (k !== null) out[k] = globalThis.sessionStorage.getItem(k) ?? "";
 				}
 				return out;
 			});
@@ -129,7 +129,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 	let scrollX = 0;
 	let scrollY = 0;
 	try {
-		const pos = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+		const pos = await page.evaluate(() => ({ x: globalThis.scrollX, y: globalThis.scrollY }));
 		scrollX = pos.x;
 		scrollY = pos.y;
 	} catch {
@@ -158,7 +158,7 @@ async function restoreStorage(
 	try {
 		await page.evaluate(
 			([ents, st]: [Array<[string, string]>, string]) => {
-				const storage = st === "localStorage" ? window.localStorage : window.sessionStorage;
+				const storage = st === "localStorage" ? globalThis.localStorage : globalThis.sessionStorage;
 				for (const [k, v] of ents) {
 					try {
 						storage.setItem(k, v);
@@ -211,10 +211,10 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 	// 5. Restore scroll position
 	if (snapshot.scrollX !== 0 || snapshot.scrollY !== 0) {
 		try {
-			await page.evaluate(([x, y]: [number, number]) => window.scrollTo(x, y), [snapshot.scrollX, snapshot.scrollY] as [
-				number,
-				number,
-			]);
+			await page.evaluate(([x, y]: [number, number]) => globalThis.scrollTo(x, y), [
+				snapshot.scrollX,
+				snapshot.scrollY,
+			] as [number, number]);
 		} catch {
 			/* non-fatal */
 		}

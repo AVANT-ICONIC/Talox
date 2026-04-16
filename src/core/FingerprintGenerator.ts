@@ -503,7 +503,7 @@ const HARDWARE: Record<FingerprintOS, HardwareProfile[]> = {
  * ```
  */
 export class FingerprintGenerator {
-	private rng: () => number;
+	private readonly rng: () => number;
 
 	/**
 	 * @param seed Optional seed string for deterministic generation.
@@ -669,7 +669,7 @@ export class FingerprintGenerator {
 			r -= weight;
 			if (r <= 0) return value;
 		}
-		return entries[entries.length - 1]![0];
+		return entries.at(-1)![0];
 	}
 
 	private weightedPickObjects(items: { weight: number }[], rng: () => number): any {
@@ -679,7 +679,7 @@ export class FingerprintGenerator {
 			r -= item.weight;
 			if (r <= 0) return item;
 		}
-		return items[items.length - 1];
+		return items.at(-1);
 	}
 
 	private weightedPick<T extends { weight: number }>(items: T[], rng: () => number): T;
@@ -695,7 +695,7 @@ export class FingerprintGenerator {
 	private hashSeed(seed: string): number {
 		let h = 0x811c9dc5;
 		for (let i = 0; i < seed.length; i++) {
-			h ^= seed.charCodeAt(i);
+			h ^= seed.codePointAt(i)!;
 			h = Math.imul(h, 0x01000193);
 		}
 		return h >>> 0;

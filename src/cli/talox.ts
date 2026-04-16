@@ -66,29 +66,38 @@ function parseObserveOptions(args: string[]): ObserveCommandOptions {
 		verbosity: 2,
 	};
 
-	for (let i = 0; i < args.length; i += 1) {
+	const PROFILE_CLASSES_SET: Set<ProfileClass> = new Set(PROFILE_CLASSES);
+	const OUTPUT_FORMATS_SET: ReadonlySet<string> = new Set(OUTPUT_FORMATS);
+	let i = 0;
+	while (i < args.length) {
 		const arg = args[i];
 		switch (arg) {
 			case "--profile":
 			case "-p":
-				opts.profileId = args[++i] ?? opts.profileId;
+				opts.profileId = args[i + 1] ?? opts.profileId;
+				i += 2;
 				break;
 			case "--class":
 			case "-c":
-				opts.profileClass = (args[++i] as ProfileClass) ?? opts.profileClass;
+				opts.profileClass = (args[i + 1] as ProfileClass) ?? opts.profileClass;
+				i += 2;
 				break;
 			case "--browser":
 			case "-b":
-				opts.browser = (args[++i] as BrowserType) ?? opts.browser;
+				opts.browser = (args[i + 1] as BrowserType) ?? opts.browser;
+				i += 2;
 				break;
 			case "--output-dir":
-				opts.outputDir = path.resolve(args[++i] ?? opts.outputDir);
+				opts.outputDir = path.resolve(args[i + 1] ?? opts.outputDir);
+				i += 2;
 				break;
 			case "--format":
-				opts.outputFormat = (args[++i] as ObserveCommandOptions["outputFormat"]) ?? opts.outputFormat;
+				opts.outputFormat = (args[i + 1] as ObserveCommandOptions["outputFormat"]) ?? opts.outputFormat;
+				i += 2;
 				break;
 			case "--verbosity":
-				opts.verbosity = (Number(args[++i]) as ObserveCommandOptions["verbosity"]) ?? opts.verbosity;
+				opts.verbosity = (Number(args[i + 1]) as ObserveCommandOptions["verbosity"]) ?? opts.verbosity;
+				i += 2;
 				break;
 			case "--help":
 				usage();
@@ -101,13 +110,13 @@ function parseObserveOptions(args: string[]): ObserveCommandOptions {
 		}
 	}
 
-	if (!PROFILE_CLASSES.includes(opts.profileClass)) {
+	if (!PROFILE_CLASSES_SET.has(opts.profileClass)) {
 		console.warn(`[Talox CLI] Invalid profile class: ${opts.profileClass}`);
 		usage();
 		process.exit(1);
 	}
 
-	if (!OUTPUT_FORMATS.includes(opts.outputFormat)) {
+	if (!OUTPUT_FORMATS_SET.has(opts.outputFormat)) {
 		console.warn(`[Talox CLI] Invalid format: ${opts.outputFormat}`);
 		usage();
 		process.exit(1);

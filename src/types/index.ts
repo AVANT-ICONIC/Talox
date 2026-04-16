@@ -1,5 +1,17 @@
 export type ProfileClass = "qa" | "ops" | "sandbox";
 
+/** Bug severity levels detected by the RulesEngine. */
+export type BugSeverity = "CRITICAL" | "MAJOR" | "MINOR";
+/** Built-in bug types detected by the RulesEngine. */
+export type BugType =
+	| "JS_ERROR"
+	| "NETWORK_FAILURE"
+	| "LAYOUT_OVERLAP"
+	| "CLIPPED_ELEMENT"
+	| "INVISIBLE_CTA"
+	| "VISUAL_REGRESSION"
+	| string;
+
 // ─── Annotation Types ─────────────────────────────────────────────────────────
 export type {
 	AnnotationElement,
@@ -93,15 +105,8 @@ export interface TaloxProfile {
 
 export interface TaloxBug {
 	id: string;
-	type:
-		| "JS_ERROR"
-		| "NETWORK_FAILURE"
-		| "LAYOUT_OVERLAP"
-		| "CLIPPED_ELEMENT"
-		| "INVISIBLE_CTA"
-		| "VISUAL_REGRESSION"
-		| string;
-	severity: "CRITICAL" | "MAJOR" | "MINOR";
+	type: BugType;
+	severity: BugSeverity;
 	confidence?: number; // 0.0 - 1.0
 	description: string;
 	reproductionSteps?: string[];
@@ -135,10 +140,10 @@ export interface VisualDiffResult {
 export interface BehavioralDNA {
 	profileId?: string;
 	jitterFrequency: number;
-	accelerationCurve: "linear" | "ease-out" | "ease-in-out" | "bezier";
-	typingRhythm: "fast" | "medium" | "slow" | "variable";
+	accelerationCurve: "linear" | "ease-out" | "ease-in-out" | "bezier"; // AccelerationCurve;
+	typingRhythm: "fast" | "medium" | "slow" | "variable"; // TypingRhythm;
 	clickPrecision: number;
-	movementStyle: "smooth" | "jerky" | "precise" | "relaxed";
+	movementStyle: "smooth" | "jerky" | "precise" | "relaxed"; // MovementStyle;
 	typeBehavior?: {
 		avgTypingSpeed: number; // chars per second
 		errorRate: number;
@@ -306,7 +311,7 @@ export function diffPageState(prev: TaloxPageState, curr: TaloxPageState): Talox
 	const nodesRemoved = prev.nodes.filter((n) => !currNodeIds.has(n.id));
 
 	const nodesChanged: TaloxStateDiff["nodesChanged"] = [];
-	for (const id of prevNodeIds) {
+	for (const id of Array.from(prevNodeIds)) {
 		if (!currNodeIds.has(id)) continue;
 		const p = prevNodeMap.get(id)!;
 		const c = currNodeMap.get(id)!;

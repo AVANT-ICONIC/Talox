@@ -8,7 +8,7 @@
  * All browser dependencies are mocked.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TaloxController } from "../../src/core/controller/TaloxController";
 import type { TaloxPageState } from "../../src/types/index";
 import { DEFAULT_SETTINGS } from "../../src/types/settings";

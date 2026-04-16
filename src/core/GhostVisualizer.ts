@@ -24,6 +24,12 @@ export interface VisualizationOptions {
 
 export type VisualizationStyle = "path" | "heatmap" | "dots";
 
+interface Color {
+	r: number;
+	g: number;
+	b: number;
+}
+
 export interface ActionFrame {
 	frameIndex: number;
 	timestamp: string;
@@ -85,9 +91,9 @@ export class GhostVisualizer {
 			return { r: 255, g: 68, b: 68 };
 		}
 		return {
-			r: parseInt(result[1], 16),
-			g: parseInt(result[2], 16),
-			b: parseInt(result[3], 16),
+			r: Number.parseInt(result[1], 16),
+			g: Number.parseInt(result[2], 16),
+			b: Number.parseInt(result[3], 16),
 		};
 	}
 
@@ -146,16 +152,7 @@ export class GhostVisualizer {
 		}
 	}
 
-	private drawLine(
-		x0: number,
-		y0: number,
-		x1: number,
-		y1: number,
-		r: number,
-		g: number,
-		b: number,
-		width: number,
-	): void {
+	private drawLine(x0: number, y0: number, x1: number, y1: number, color: Color, width: number): void {
 		const dx = Math.abs(x1 - x0);
 		const dy = Math.abs(y1 - y0);
 		const sx = x0 < x1 ? 1 : -1;
@@ -166,7 +163,7 @@ export class GhostVisualizer {
 		let cy = y0;
 
 		while (true) {
-			this.drawThickDot(cx, cy, width, r, g, b);
+			this.drawThickDot(cx, cy, width, color.r, color.g, color.b);
 
 			if (Math.abs(cx - x1) < 1 && Math.abs(cy - y1) < 1) break;
 
@@ -200,16 +197,7 @@ export class GhostVisualizer {
 		}
 	}
 
-	private drawArrow(
-		x0: number,
-		y0: number,
-		x1: number,
-		y1: number,
-		r: number,
-		g: number,
-		b: number,
-		size: number = 10,
-	): void {
+	private drawArrow(x0: number, y0: number, x1: number, y1: number, color: Color, size: number = 10): void {
 		const angle = Math.atan2(y1 - y0, x1 - x0);
 		const endX = x1;
 		const endY = y1;
@@ -219,8 +207,8 @@ export class GhostVisualizer {
 		const rightX = endX - size * Math.cos(angle + Math.PI / 6);
 		const rightY = endY - size * Math.sin(angle + Math.PI / 6);
 
-		this.drawLine(Math.round(leftX), Math.round(leftY), Math.round(endX), Math.round(endY), r, g, b, 2);
-		this.drawLine(Math.round(rightX), Math.round(rightY), Math.round(endX), Math.round(endY), r, g, b, 2);
+		this.drawLine(Math.round(leftX), Math.round(leftY), Math.round(endX), Math.round(endY), color, 2);
+		this.drawLine(Math.round(rightX), Math.round(rightY), Math.round(endX), Math.round(endY), color, 2);
 	}
 
 	private getHeatColor(intensity: number): { r: number; g: number; b: number } {
@@ -278,7 +266,7 @@ export class GhostVisualizer {
 			for (let dx = 0; dx < gridSize; dx++) {
 				const px = gx * gridSize + dx;
 				const py = gy * gridSize + dy;
-				const dist = Math.sqrt((dx - halfGrid) ** 2 + (dy - halfGrid) ** 2);
+				const dist = Math.hypot(dx - halfGrid, dy - halfGrid);
 				if (dist <= halfGrid) {
 					const alpha = (1 - dist / halfGrid) * intensity * 255 * this.options.heatmapOpacity;
 					this.drawPixel(px, py, color.r, color.g, color.b, Math.round(alpha));
@@ -318,9 +306,7 @@ export class GhostVisualizer {
 				Math.round(prev.y),
 				Math.round(curr.x),
 				Math.round(curr.y),
-				color.r,
-				color.g,
-				color.b,
+				color,
 				this.options.pathWidth,
 			);
 		}
@@ -346,7 +332,7 @@ export class GhostVisualizer {
 			if (i > 0 && this.options.showDirectionIndicators) {
 				const prev = points[i - 1];
 				if (prev) {
-					this.drawArrow(prev.x, prev.y, point.x, point.y, color.r, color.g, color.b);
+					this.drawArrow(prev.x, prev.y, point.x, point.y, color);
 				}
 			}
 		}
@@ -362,16 +348,7 @@ export class GhostVisualizer {
 			if (!point || point.relativeTimeMs === undefined) continue;
 			const timeStr = `${(point.relativeTimeMs / 1000).toFixed(1)}s`;
 
-			this.drawText(
-				Math.round(point.x) + 10,
-				Math.round(point.y) - 10,
-				timeStr,
-				color.r,
-				color.g,
-				color.b,
-				fontWidth,
-				fontHeight,
-			);
+			this.drawText(Math.round(point.x) + 10, Math.round(point.y) - 10, timeStr, color, fontWidth, fontHeight);
 		}
 	}
 
@@ -478,21 +455,12 @@ export class GhostVisualizer {
 		}
 	}
 
-	private drawText(
-		x: number,
-		y: number,
-		text: string,
-		r: number,
-		g: number,
-		b: number,
-		charWidth: number,
-		_charHeight: number,
-	): void {
+	private drawText(x: number, y: number, text: string, color: Color, charWidth: number, _charHeight: number): void {
 		let offsetX = 0;
 		for (const char of text) {
 			const charPattern = GhostVisualizer.CHAR_PATTERNS[char];
 			if (charPattern) {
-				this.renderCharPixels(x + offsetX, y, charPattern, r, g, b);
+				this.renderCharPixels(x + offsetX, y, charPattern, color.r, color.g, color.b);
 			}
 			offsetX += charWidth;
 		}
@@ -562,11 +530,11 @@ export class GhostVisualizer {
 			if (!curr || !prev) continue;
 			const dx = curr.x - prev.x;
 			const dy = curr.y - prev.y;
-			totalDistance += Math.sqrt(dx * dx + dy * dy);
+			totalDistance += Math.hypot(dx, dy);
 		}
 
 		const first = points[0];
-		const last = points[points.length - 1];
+		const last = points.at(-1);
 		if (!first || !last || first.relativeTimeMs === undefined || last.relativeTimeMs === undefined) {
 			return {
 				totalPoints: points.length,

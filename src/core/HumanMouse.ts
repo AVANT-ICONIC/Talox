@@ -5,7 +5,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Optimized Fitts's Law: Scales steps but caps them to prevent excessive slowness.
  */
-const getOptimizedSteps = (dist: number, targetWidth: number, speedMultiplier: number = 1.0): number => {
+const getOptimizedSteps = (dist: number, targetWidth: number, speedMultiplier: number = 1): number => {
 	const ID = Math.log2((2 * dist) / Math.max(targetWidth, 1));
 	const baseSteps = 15 + ID * 8 + Math.random() * 10;
 	const steps = baseSteps / speedMultiplier;
@@ -20,6 +20,14 @@ const getOptimizedSteps = (dist: number, targetWidth: number, speedMultiplier: n
  */
 export type CursorStepCallback = (x: number, y: number) => Promise<void>;
 
+export interface MoveOptions {
+	ttargetWidth?: number;
+	tisFlow?: boolean;
+	tcurrentPos?: Point;
+	tspeedMultiplier?: number;
+	tonStep?: CursorStepCallback;
+}
+
 /**
  * Simulates human-like mouse movements and clicks using Fitts's Law-derived
  * Bezier curves with quintic easing, jitter, and micro-drag. Supports both
@@ -31,9 +39,9 @@ export class HumanMouse {
 	 * 🧬 THE GENERATOR
 	 * Focused on high-signal right-handed biomechanics.
 	 */
-	static generatePath(start: Point, end: Point, targetWidth: number = 100, speedMultiplier: number = 1.0): Point[] {
+	static generatePath(start: Point, end: Point, targetWidth: number = 100, speedMultiplier: number = 1): Point[] {
 		const fullPath: Point[] = [];
-		const dist = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
+		const dist = Math.hypot(end.x - start.x, end.y - start.y);
 
 		// 1. PRIMARY MOVEMENT
 		const steps = getOptimizedSteps(dist, targetWidth, speedMultiplier);
@@ -93,7 +101,7 @@ export class HumanMouse {
 		targetWidth: number = 100,
 		isFlow: boolean = false,
 		currentPos?: Point,
-		speedMultiplier: number = 1.0,
+		speedMultiplier: number = 1,
 		onStep?: CursorStepCallback,
 	): Promise<void> {
 		if (!isFlow) {
@@ -140,7 +148,7 @@ export class HumanMouse {
 		selector: string,
 		isFlow: boolean = false,
 		currentPos?: Point,
-		speedMultiplier: number = 1.0,
+		speedMultiplier: number = 1,
 		onStep?: CursorStepCallback,
 	): Promise<Point> {
 		const element = await page.$(selector);

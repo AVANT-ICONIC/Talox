@@ -12,7 +12,7 @@ describe("TaloxSettings (v2)", () => {
 	describe("DEFAULT_SETTINGS", () => {
 		it("should have valid mouseSpeed range", () => {
 			expect(DEFAULT_SETTINGS.mouseSpeed).toBeGreaterThanOrEqual(0.1);
-			expect(DEFAULT_SETTINGS.mouseSpeed).toBeLessThanOrEqual(3.0);
+			expect(DEFAULT_SETTINGS.mouseSpeed).toBeLessThanOrEqual(3);
 		});
 
 		it("should have stealthLevel set to high", () => {
@@ -20,7 +20,7 @@ describe("TaloxSettings (v2)", () => {
 		});
 
 		it("should have humanStealth at full", () => {
-			expect(DEFAULT_SETTINGS.humanStealth).toBe(1.0);
+			expect(DEFAULT_SETTINGS.humanStealth).toBe(1);
 		});
 
 		it("should have adaptiveStealthEnabled true", () => {
@@ -115,7 +115,7 @@ describe("Legacy Mode Compatibility Layer (v1 → v2)", () => {
 				expect(settings.mouseSpeed).toBe(0.7);
 				expect(settings.stealthLevel).toBe("high");
 				expect(settings.adaptiveStealthEnabled).toBe(true);
-				expect(settings.humanStealth).toBe(1.0);
+				expect(settings.humanStealth).toBe(1);
 				expect(settings.fidgetEnabled).toBe(true);
 				expect(settings.verbosity).toBe(0);
 			});
@@ -144,7 +144,7 @@ describe("Legacy Mode Compatibility Layer (v1 → v2)", () => {
 				// These settings add bot-detection warmup delays
 				expect(qaSettings.stealthLevel).toBe("high");
 				expect(qaSettings.adaptiveStealthEnabled).toBe(true);
-				expect(qaSettings.humanStealth).toBe(1.0);
+				expect(qaSettings.humanStealth).toBe(1);
 			});
 		});
 
@@ -156,19 +156,19 @@ describe("Legacy Mode Compatibility Layer (v1 → v2)", () => {
 				expect(settings.humanTakeoverEnabled).toBe(true);
 				expect(settings.humanTakeoverTimeoutMs).toBe(0);
 				expect(settings.stealthLevel).toBe("low");
-				expect(settings.mouseSpeed).toBe(1.0);
+				expect(settings.mouseSpeed).toBe(1);
 			});
 		});
 
 		describe("speed mode", () => {
 			it("should map speed to fast execution settings", () => {
 				const settings = resolveLegacyMode("speed");
-				expect(settings.mouseSpeed).toBe(2.0);
+				expect(settings.mouseSpeed).toBe(2);
 				expect(settings.typingDelayMin).toBe(20);
 				expect(settings.typingDelayMax).toBe(50);
 				expect(settings.typoProbability).toBe(0);
 				expect(settings.fidgetEnabled).toBe(false);
-				expect(settings.humanStealth).toBe(0.0);
+				expect(settings.humanStealth).toBe(0);
 				expect(settings.stealthLevel).toBe("low");
 				expect(settings.adaptiveStealthEnabled).toBe(false);
 			});
@@ -199,7 +199,7 @@ describe("Legacy Mode Compatibility Layer (v1 → v2)", () => {
 			it("should expose speed vs detectability tradeoff for speed mode", () => {
 				const settings = resolveLegacyMode("speed");
 				// Fast but more detectable
-				expect(settings.mouseSpeed).toBeGreaterThan(1.0);
+				expect(settings.mouseSpeed).toBeGreaterThan(1);
 				expect(settings.stealthLevel).toBe("low");
 				expect(settings.humanStealth).toBe(0);
 			});

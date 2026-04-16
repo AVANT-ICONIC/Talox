@@ -33,10 +33,10 @@ export class AnnotationBuffer {
 	// ─── Write ──────────────────────────────────────────────────────────────────
 
 	/**
-	 * Append an annotation to the buffer.
+	 * Append one or more annotations to the buffer.
 	 */
-	push(entry: AnnotationEntry): void {
-		this.stack.push(entry);
+	push(...entries: AnnotationEntry[]): void {
+		this.stack.push(...entries);
 	}
 
 	/**

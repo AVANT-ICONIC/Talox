@@ -167,7 +167,7 @@ describe("BrowserManager", () => {
 			expect(DEFAULT_CONFIG.browser.preferred).toBe("chromium");
 			expect(DEFAULT_CONFIG.browser.headless).toBe(true);
 			expect(DEFAULT_CONFIG.profile.defaultClass).toBe("qa");
-			expect(DEFAULT_CONFIG.settings.mouseSpeed).toBe(1.0);
+			expect(DEFAULT_CONFIG.settings.mouseSpeed).toBe(1);
 			expect(DEFAULT_CONFIG.settings.safeMode).toBe(false);
 		});
 	});
@@ -237,14 +237,14 @@ describe("BrowserManager", () => {
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
 
 			await manager.launch(createTestProfile(), false, "chromium", {
-				userAgent: "TestAgent/1.0",
+				userAgent: "TestAgent/1",
 				viewport: { width: 1920, height: 1080 },
 			});
 
 			expect(chromium.launchPersistentContext).toHaveBeenCalledWith(
 				expect.any(String),
 				expect.objectContaining({
-					userAgent: "TestAgent/1.0",
+					userAgent: "TestAgent/1",
 					viewport: { width: 1920, height: 1080 },
 				}),
 			);

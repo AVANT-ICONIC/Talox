@@ -57,11 +57,11 @@ describe("presets", () => {
 
 	// ─── Preset values are valid ──────────────────────────────────────────────
 
-	it("mouseSpeed is within valid range (0.1 - 3.0)", () => {
+	it("mouseSpeed is within valid range (0.1 - 3)", () => {
 		for (const name of PRESET_NAMES) {
 			const speed = PRESETS[name].mouseSpeed;
 			expect(speed).toBeGreaterThanOrEqual(0.1);
-			expect(speed).toBeLessThanOrEqual(3.0);
+			expect(speed).toBeLessThanOrEqual(3);
 		}
 	});
 

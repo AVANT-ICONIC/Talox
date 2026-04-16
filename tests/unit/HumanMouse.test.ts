@@ -82,8 +82,8 @@ describe("HumanMouse", () => {
 		});
 
 		it("produces fewer steps with higher speedMultiplier", () => {
-			const normal = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 800, y: 800 }, 100, 1.0);
-			const fast = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 800, y: 800 }, 100, 3.0);
+			const normal = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 800, y: 800 }, 100, 1);
+			const fast = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 800, y: 800 }, 100, 3);
 			expect(fast.length).toBeLessThanOrEqual(normal.length);
 		});
 
@@ -106,7 +106,7 @@ describe("HumanMouse", () => {
 		});
 
 		it("step count has a minimum of 10", () => {
-			const path = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 1, y: 1 }, 5000, 5.0);
+			const path = HumanMouse.generatePath({ x: 0, y: 0 }, { x: 1, y: 1 }, 5000, 5);
 			expect(path.length).toBeGreaterThanOrEqual(11); // min steps + 1
 		});
 
@@ -141,7 +141,7 @@ describe("HumanMouse", () => {
 	describe("move", () => {
 		it("calls page.mouse.move for every step in headless mode", async () => {
 			const page = mockPage();
-			const movePromise = HumanMouse.move(page, 200, 200, 100, true, { x: 0, y: 0 }, 5.0);
+			const movePromise = HumanMouse.move(page, 200, 200, 100, true, { x: 0, y: 0 }, 5);
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			expect(page.mouse.move).toHaveBeenCalled();
@@ -150,7 +150,7 @@ describe("HumanMouse", () => {
 
 		it("uses default start position (400,300) when currentPos is not provided", async () => {
 			const page = mockPage();
-			const movePromise = HumanMouse.move(page, 500, 400, 100, true, undefined, 5.0);
+			const movePromise = HumanMouse.move(page, 500, 400, 100, true, undefined, 5);
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			expect(page.mouse.move).toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe("HumanMouse", () => {
 		it("uses onStep callback when provided (headed mode)", async () => {
 			const page = mockPage();
 			const onStep = vi.fn().mockResolvedValue(undefined);
-			const movePromise = HumanMouse.move(page, 100, 100, 100, true, { x: 0, y: 0 }, 5.0, onStep);
+			const movePromise = HumanMouse.move(page, 100, 100, 100, true, { x: 0, y: 0 }, 5, onStep);
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			// onStep should be called for every intermediate step
@@ -172,7 +172,7 @@ describe("HumanMouse", () => {
 			const page = mockPage();
 			const targetX = 250;
 			const targetY = 350;
-			const movePromise = HumanMouse.move(page, targetX, targetY, 100, true, { x: 0, y: 0 }, 5.0);
+			const movePromise = HumanMouse.move(page, targetX, targetY, 100, true, { x: 0, y: 0 }, 5);
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			const lastCall = page.mouse.move.mock.calls.at(-1);
@@ -188,7 +188,7 @@ describe("HumanMouse", () => {
 		it("returns default position when element not found", async () => {
 			const page = mockPage();
 			page.$ = vi.fn().mockResolvedValue(null);
-			const result = await HumanMouse.click(page, "#nonexistent", false, { x: 50, y: 50 }, 5.0);
+			const result = await HumanMouse.click(page, "#nonexistent", false, { x: 50, y: 50 }, 5);
 			expect(result).toEqual({ x: 50, y: 50 });
 		});
 
@@ -203,7 +203,7 @@ describe("HumanMouse", () => {
 			const page = mockPage();
 			const el = { boundingBox: vi.fn().mockResolvedValue(null) };
 			page.$ = vi.fn().mockResolvedValue(el);
-			const result = await HumanMouse.click(page, "#invisible", false, { x: 10, y: 20 }, 5.0);
+			const result = await HumanMouse.click(page, "#invisible", false, { x: 10, y: 20 }, 5);
 			expect(result).toEqual({ x: 10, y: 20 });
 		});
 
@@ -213,7 +213,7 @@ describe("HumanMouse", () => {
 				boundingBox: vi.fn().mockResolvedValue({ x: 100, y: 100, width: 200, height: 50 }),
 			};
 			page.$ = vi.fn().mockResolvedValue(el);
-			const clickPromise = HumanMouse.click(page, "#btn", true, { x: 0, y: 0 }, 5.0);
+			const clickPromise = HumanMouse.click(page, "#btn", true, { x: 0, y: 0 }, 5);
 			await vi.advanceTimersByTimeAsync(5000);
 			await clickPromise;
 			expect(page.mouse.down).toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe("HumanMouse", () => {
 			const box = { x: 100, y: 200, width: 300, height: 100 };
 			const el = { boundingBox: vi.fn().mockResolvedValue(box) };
 			page.$ = vi.fn().mockResolvedValue(el);
-			const clickPromise = HumanMouse.click(page, "#btn", true, { x: 0, y: 0 }, 5.0);
+			const clickPromise = HumanMouse.click(page, "#btn", true, { x: 0, y: 0 }, 5);
 			await vi.advanceTimersByTimeAsync(5000);
 			const result = await clickPromise;
 			// Click should land within the bounding box (with some margin for jitter)

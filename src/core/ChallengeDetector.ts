@@ -41,7 +41,7 @@ export type ChallengeType =
 export interface DetectedChallenge {
 	/** What kind of obstacle this is. */
 	type: ChallengeType;
-	/** Detection confidence 0.0–1.0. */
+	/** Detection confidence 0–1.0. */
 	confidence: number;
 	/** Human-readable evidence that triggered this detection. */
 	evidence: string[];
@@ -210,7 +210,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "cloudflare",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: true,
 			requiresHuman: false,
@@ -245,7 +245,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "captcha",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: false,
 			requiresHuman: true,
@@ -300,7 +300,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "login-wall",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: false,
 			requiresHuman: true,
@@ -330,7 +330,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "consent-wall",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: false,
 			requiresHuman: false, // Agent can usually click "Accept"
@@ -354,7 +354,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "age-gate",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: false,
 			requiresHuman: false, // Agent can usually click through if not DOB-based
@@ -383,7 +383,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "maintenance",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: true,
 			requiresHuman: false,
@@ -411,7 +411,7 @@ export class ChallengeDetector {
 
 		return {
 			type: "geo-block",
-			confidence: Math.min(score, 1.0),
+			confidence: Math.min(score, 1),
 			evidence,
 			canRetry: false,
 			requiresHuman: false,

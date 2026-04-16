@@ -235,7 +235,7 @@ export class OverlayInjector {
 
 			this.bundleCache = outputFile.text;
 			return this.bundleCache!;
-		} catch (_err) {
+		} catch (error_) {
 			console.warn(
 				"[Talox] esbuild not available — overlay using fallback stub. " +
 					"Install esbuild to enable the full overlay UI: `npm install esbuild`",

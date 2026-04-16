@@ -247,8 +247,7 @@ export class ArtifactBuilder {
 			const timeStr = `${(frame.relativeTimeMs / 1000).toFixed(3)}s`;
 			const durationStr = frame.durationMs ? ` [${frame.durationMs}ms]` : "";
 
-			lines.push(`[Frame ${frame.frameIndex}] ${timeStr}${durationStr} | ${frame.action}`);
-			lines.push(`  Type: ${frame.type}`);
+			lines.push(`[Frame ${frame.frameIndex}] ${timeStr}${durationStr} | ${frame.action}`, `  Type: ${frame.type}`);
 
 			if (includePayloads) {
 				this.formatFrameDetails(frame, lines);
@@ -261,10 +260,8 @@ export class ArtifactBuilder {
 			lines.push("");
 		});
 
-		lines.push("─".repeat(80));
 		const totalDuration = ((Date.now() - this.startTime) / 1000).toFixed(3);
-		lines.push(`End of Session | Total Duration: ${totalDuration}s`);
-		lines.push("=".repeat(80));
+		lines.push("─".repeat(80), `End of Session | Total Duration: ${totalDuration}s`, "=".repeat(80));
 
 		return lines.join("\n");
 	}

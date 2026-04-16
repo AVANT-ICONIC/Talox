@@ -29,7 +29,7 @@ import type { EventBus } from "./EventBus.js";
  * page-state diffs after each action.
  */
 export class ActionExecutor {
-	private densityCache: Map<string, number> = new Map();
+	private readonly densityCache: Map<string, number> = new Map();
 	private readonly reliability = new InteractionReliability();
 
 	private readonly keyboardNeighbors: Map<string, string[]> = new Map([
@@ -78,17 +78,17 @@ export class ActionExecutor {
 		private readonly artifactBuilder: ArtifactBuilder,
 		private readonly policyEngine: PolicyEngine,
 		private readonly semanticMapper: SemanticMapper,
-		private getPage: () => any,
-		private getActiveStateCollector: () => PageStateCollector,
-		private getProfile: () => any,
-		private getCurrentLastMousePos: () => Point,
-		private setCurrentLastMousePos: (pos: Point) => void,
-		private getAttentionFrame: () => any,
-		private clampToFrame: (x: number, y: number) => Point,
-		private findElementInFrame: (selector: string) => Promise<any>,
-		private riskyActionHook: (() => Promise<boolean>) | undefined,
-		private recordActivity: () => void,
-		private getCursorStepCallback?: () => CursorStepCallback | undefined,
+		private readonly getPage: () => any,
+		private readonly getActiveStateCollector: () => PageStateCollector,
+		private readonly getProfile: () => any,
+		private readonly getCurrentLastMousePos: () => Point,
+		private readonly setCurrentLastMousePos: (pos: Point) => void,
+		private readonly getAttentionFrame: () => any,
+		private readonly clampToFrame: (x: number, y: number) => Point,
+		private readonly findElementInFrame: (selector: string) => Promise<any>,
+		private readonly riskyActionHook: (() => Promise<boolean>) | undefined,
+		private readonly recordActivity: () => void,
+		private readonly getCursorStepCallback?: () => CursorStepCallback | undefined,
 	) {}
 
 	// ─── Navigation ─────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ export class ActionExecutor {
 			try {
 				await page.goto("about:blank");
 				await new Promise((r) => setTimeout(r, 2000 + Math.random() * 1000));
-			} catch (_e) {
+			} catch (error_) {
 				// Ignore warmup failures
 			}
 			setFirstNavigation(false);
@@ -330,7 +330,8 @@ export class ActionExecutor {
 
 		try {
 			return await this.getActiveStateCollector().collect();
-		} catch (_e) {
+		} catch (error_) {
+			// intentionally ignored: collection failure returns minimal state
 			return {
 				url: page.url(),
 				title: "Navigating...",
@@ -722,7 +723,7 @@ export class ActionExecutor {
 		const state = await this.getActiveStateCollector().collect();
 		const nodes = state.nodes;
 
-		const cleanSelector = selector.replace(/[#.[\]()=]/g, " ").trim();
+		const cleanSelector = selector.replaceAll(/[#.[\]()=]/g, " ").trim();
 		const keywords = cleanSelector.split(/\s+/).filter((k) => k.length > 2);
 
 		if (keywords.length === 0) return null;
@@ -836,10 +837,10 @@ export class ActionExecutor {
 	// ─── Behavioral DNA Helpers ──────────────────────────────────────────────────
 
 	getDNAMouseSpeed(behavioralDNA: any): number {
-		if (!behavioralDNA) return 1.0;
+		if (!behavioralDNA) return 1;
 		const settings = this.settings;
 		const styleFactor =
-			behavioralDNA.movementStyle === "precise" ? 0.8 : behavioralDNA.movementStyle === "relaxed" ? 1.2 : 1.0;
+			behavioralDNA.movementStyle === "precise" ? 0.8 : behavioralDNA.movementStyle === "relaxed" ? 1.2 : 1;
 		return settings.mouseSpeed * styleFactor;
 	}
 
@@ -863,7 +864,7 @@ export class ActionExecutor {
 			case "slow":
 				return { min: baseMin * 1.5, max: baseMax * 1.5 };
 			case "variable":
-				return { min: baseMin * 0.3, max: baseMax * 2.0 };
+				return { min: baseMin * 0.3, max: baseMax * 2 };
 			case "medium":
 			default:
 				return { min: baseMin, max: baseMax };
@@ -909,7 +910,7 @@ export class ActionExecutor {
 	}
 
 	setAdaptiveStealthSensitivity(sensitivity: number): void {
-		const clamped = Math.max(0.1, Math.min(2.0, sensitivity));
+		const clamped = Math.max(0.1, Math.min(2, sensitivity));
 		this.settings.adaptiveStealthSensitivity = clamped;
 		this.artifactBuilder.addAction("setAdaptiveStealthSensitivity", { sensitivity: clamped });
 	}
@@ -954,7 +955,7 @@ export class ActionExecutor {
 						const centerY = rect.top + rect.height / 2;
 
 						if (centerX >= 0 && centerX <= viewportWidth && centerY >= 0 && centerY <= viewportHeight) {
-							const distance = Math.sqrt((centerX - targetX) ** 2 + (centerY - targetY) ** 2);
+							const distance = Math.hypot(centerX - targetX, centerY - targetY);
 							if (distance <= searchRadius) {
 								nearbyCount++;
 							}
@@ -962,7 +963,7 @@ export class ActionExecutor {
 					}
 
 					const maxExpectedElements = 50;
-					const normalizedDensity = Math.min(nearbyCount / maxExpectedElements, 1.0);
+					const normalizedDensity = Math.min(nearbyCount / maxExpectedElements, 1);
 					return normalizedDensity;
 				},
 				x,
@@ -973,7 +974,7 @@ export class ActionExecutor {
 			const finalDensity = density * sensitivity;
 			this.densityCache.set(cacheKey, finalDensity);
 			return finalDensity;
-		} catch (_error) {
+		} catch (error_) {
 			return 0.5;
 		}
 	}

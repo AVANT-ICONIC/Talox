@@ -99,7 +99,7 @@ export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
  *
  * // Inspect what a mode maps to
  * console.log(resolveLegacyMode('speed'));
- * // { mouseSpeed: 2.0, typingDelayMin: 20, ... }
+ * // { mouseSpeed: 2, typingDelayMin: 20, ... }
  * ```
  */
 export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings> {
@@ -116,7 +116,7 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 				mouseSpeed: 0.7,
 				stealthLevel: "high",
 				adaptiveStealthEnabled: true,
-				humanStealth: 1.0,
+				humanStealth: 1,
 				fidgetEnabled: true,
 				verbosity: 0,
 			};
@@ -129,18 +129,18 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 				humanTakeoverEnabled: true,
 				humanTakeoverTimeoutMs: 0, // Wait forever - debugging shouldn't auto-resume
 				stealthLevel: "low", // Less stealth = more visibility into issues
-				mouseSpeed: 1.0, // Faster for debugging
+				mouseSpeed: 1, // Faster for debugging
 			};
 
 		case "speed":
 			// Fastest execution - explicit tradeoff: more detectable
 			return {
-				mouseSpeed: 2.0,
+				mouseSpeed: 2,
 				typingDelayMin: 20,
 				typingDelayMax: 50,
 				typoProbability: 0,
 				fidgetEnabled: false,
-				humanStealth: 0.0,
+				humanStealth: 0,
 				stealthLevel: "low",
 				adaptiveStealthEnabled: false,
 				verbosity: 0,
@@ -177,12 +177,12 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 
 export interface TaloxSettings {
 	// Interaction fidelity
-	mouseSpeed: number; // 0.1 (slowest) – 3.0 (raw). Default: 0.7
+	mouseSpeed: number; // 0.1 (slowest) – 3 (raw). Default: 0.7
 	typingDelayMin: number; // ms. Default: 100
 	typingDelayMax: number; // ms. Default: 300
 	typoProbability: number; // 0–1. Default: 0.03
 	fidgetEnabled: boolean; // micro-movements. Default: true
-	humanStealth: number; // 0 (off) – 1.0 (full). Default: 1.0
+	humanStealth: number; // 0 (off) – 1 (full). Default: 1
 
 	// Stealth & protection
 	stealthLevel: "low" | "medium" | "high"; // Default: 'high'
@@ -230,7 +230,7 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	typingDelayMax: 300,
 	typoProbability: 0.03,
 	fidgetEnabled: true,
-	humanStealth: 1.0,
+	humanStealth: 1,
 	stealthLevel: "high",
 	adaptiveStealthEnabled: true,
 	automaticThinkingEnabled: true,

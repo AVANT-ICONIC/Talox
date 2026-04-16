@@ -34,7 +34,7 @@ import { type AdaptationSideEffect, STRATEGIES } from "./strategies.js";
  */
 export class AdaptationEngine {
 	private readonly detector: BotDetector;
-	private settings: TaloxSettings;
+	private readonly settings: TaloxSettings;
 	private readonly eventBus: EventBus<TaloxEventMap>;
 	private readonly onEscalation: (() => Promise<void>) | undefined;
 	private readonly bypassEscalation: boolean;
