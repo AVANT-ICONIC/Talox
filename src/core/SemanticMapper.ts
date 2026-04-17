@@ -208,7 +208,7 @@ export class SemanticMapper {
 		const attrs = node.attributes || {};
 
 		if (selector.startsWith("[data-testid=")) {
-			const testIdMatch = selector.match(/\[data-testid="([^"]+)"\]/);
+			const testIdMatch = /\[data-testid="([^"]+)"\]/.exec(selector);
 			if (testIdMatch) {
 				return attrs["data-testid"] === testIdMatch[1];
 			}
@@ -229,7 +229,7 @@ export class SemanticMapper {
 		}
 
 		if (selector.startsWith("[role=")) {
-			const roleMatch = selector.match(/\[role="([^"]+)"\]/);
+			const roleMatch = /\[role="([^"]+)"\]/.exec(selector);
 			if (roleMatch?.[1]) {
 				return node.role.toLowerCase() === roleMatch[1].toLowerCase();
 			}

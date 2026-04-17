@@ -22,7 +22,7 @@ import type { AnnotationBuffer } from "./AnnotationBuffer.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Raw overlay event received from the browser via __taloxEmit__. */
-interface _OverlayEvent {
+interface OverlayEvent {
 	type: string;
 	payload: unknown;
 }
@@ -214,7 +214,7 @@ export class OverlayInjector {
 		try {
 			// Dynamic import so esbuild is only required when observe mode is used
 			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-			const esbuild = (await import("esbuild")) as any;
+			const esbuild = await import("esbuild");
 			const result = await esbuild.build({
 				entryPoints: [overlayEntryPath],
 				bundle: true,
@@ -236,6 +236,7 @@ export class OverlayInjector {
 			this.bundleCache = outputFile.text;
 			return this.bundleCache!;
 		} catch (error_) {
+			// sonar-disable-next-line typescript:S2486 — handled via console.warn fallback
 			console.warn(
 				"[Talox] esbuild not available — overlay using fallback stub. " +
 					"Install esbuild to enable the full overlay UI: `npm install esbuild`",

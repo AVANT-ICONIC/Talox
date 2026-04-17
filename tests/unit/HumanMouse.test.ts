@@ -141,7 +141,7 @@ describe("HumanMouse", () => {
 	describe("move", () => {
 		it("calls page.mouse.move for every step in headless mode", async () => {
 			const page = mockPage();
-			const movePromise = HumanMouse.move(page, 200, 200, 100, true, { x: 0, y: 0 }, 5);
+			const movePromise = HumanMouse.move(page, 200, 200, 100, true, { x: 0, y: 0 }, { speedMultiplier: 5 });
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			expect(page.mouse.move).toHaveBeenCalled();
@@ -150,7 +150,7 @@ describe("HumanMouse", () => {
 
 		it("uses default start position (400,300) when currentPos is not provided", async () => {
 			const page = mockPage();
-			const movePromise = HumanMouse.move(page, 500, 400, 100, true, undefined, 5);
+			const movePromise = HumanMouse.move(page, 500, 400, 100, true, undefined, { speedMultiplier: 5 });
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			expect(page.mouse.move).toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe("HumanMouse", () => {
 		it("uses onStep callback when provided (headed mode)", async () => {
 			const page = mockPage();
 			const onStep = vi.fn().mockResolvedValue(undefined);
-			const movePromise = HumanMouse.move(page, 100, 100, 100, true, { x: 0, y: 0 }, 5, onStep);
+			const movePromise = HumanMouse.move(page, 100, 100, 100, true, { x: 0, y: 0 }, { speedMultiplier: 5, onStep });
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			// onStep should be called for every intermediate step
@@ -172,7 +172,7 @@ describe("HumanMouse", () => {
 			const page = mockPage();
 			const targetX = 250;
 			const targetY = 350;
-			const movePromise = HumanMouse.move(page, targetX, targetY, 100, true, { x: 0, y: 0 }, 5);
+			const movePromise = HumanMouse.move(page, targetX, targetY, 100, true, { x: 0, y: 0 }, { speedMultiplier: 5 });
 			await vi.advanceTimersByTimeAsync(5000);
 			await movePromise;
 			const lastCall = page.mouse.move.mock.calls.at(-1);

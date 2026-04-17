@@ -16,7 +16,8 @@ export type BuiltInAnnotationLabel = "bug" | "note" | "question" | "improvement"
  * An annotation label — either one of the four built-in presets or any
  * custom string typed by the human and confirmed with Enter.
  */
-export type AnnotationLabel = BuiltInAnnotationLabel | string;
+// sonar-disable-next-line typescript:S6564 — intentional semantic alias for documentation
+export type AnnotationLabel = string;
 
 // ─── Element Snapshot ────────────────────────────────────────────────────────
 

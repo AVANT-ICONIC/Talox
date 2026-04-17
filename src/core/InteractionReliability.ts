@@ -19,6 +19,7 @@
  * inside `click()` and `type()`.
  */
 
+import type { ElementHandle } from "playwright";
 import type { TaloxNode } from "../types/index.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,7 +56,7 @@ export interface ReliabilityOutcome {
 	 * The resolved Playwright element handle ready to be clicked, or null if
 	 * resolution failed. Caller owns the interaction after this.
 	 */
-	resolvedElement: any | null;
+	resolvedElement: ElementHandle | null;
 	/**
 	 * The final selector string that worked (may differ from original if
 	 * detach/duplicate recovery produced a new one).

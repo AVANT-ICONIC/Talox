@@ -104,7 +104,7 @@ const AGE_BODY = [/confirm.*age/i, /are you.*18/i, /are you.*21/i, /age.*verific
 const AGE_TITLE = [/age.*verification/i, /age.*confirm/i];
 
 const MAINTENANCE_TITLE = [/maintenance/i, /be right back/i, /down for maintenance/i, /503/i, /service unavailable/i];
-const MAINTENANCE_STATUS = [503, 502, 500, 521, 522, 523, 524];
+const MAINTENANCE_STATUS = new Set([503, 502, 500, 521, 522, 523, 524]);
 
 const GEO_BODY = [
 	/not available in your (country|region)/i,
@@ -176,7 +176,8 @@ export class ChallengeDetector {
 			if (emptySpa) candidates.push(emptySpa);
 		}
 
-		const sorted = candidates.sort((a, b) => b.confidence - a.confidence);
+		candidates.sort((a, b) => b.confidence - a.confidence);
+		const sorted = candidates;
 
 		return {
 			hasChallenge: sorted.length > 0,
@@ -373,7 +374,7 @@ export class ChallengeDetector {
 			evidence.push("Page body contains maintenance message");
 			score += 0.4;
 		}
-		const has5xx = state.network.failedRequests.some((r) => MAINTENANCE_STATUS.includes(r.status));
+		const has5xx = state.network.failedRequests.some((r) => MAINTENANCE_STATUS.has(r.status));
 		if (has5xx) {
 			evidence.push("Network requests returning 5xx / Cloudflare origin error status");
 			score += 0.35;

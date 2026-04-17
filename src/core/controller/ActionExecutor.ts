@@ -102,7 +102,6 @@ export class ActionExecutor {
 	): Promise<TaloxPageState> {
 		const page = this.getPage();
 		const profile = this.getProfile();
-		const settings = this.settings;
 
 		await this.checkRiskyAction("navigate", url);
 
@@ -477,16 +476,10 @@ export class ActionExecutor {
 		if (attentionFrame && targetBox) {
 			const centerX = targetBox.x + targetBox.width * (0.2 + Math.random() * 0.6);
 			const centerY = targetBox.y + targetBox.height * (0.2 + Math.random() * 0.6);
-			await HumanMouse.move(
-				page,
-				centerX,
-				centerY,
-				targetBox.width,
-				false,
-				this.getCurrentLastMousePos(),
-				settings.mouseSpeed * dnaSpeed,
+			await HumanMouse.move(page, centerX, centerY, targetBox.width, false, this.getCurrentLastMousePos(), {
+				speedMultiplier: settings.mouseSpeed * dnaSpeed,
 				onStep,
-			);
+			});
 			await page.mouse.click(centerX, centerY);
 			this.setCurrentLastMousePos({ x: Math.round(centerX), y: Math.round(centerY) });
 			this.events.emit("cursorClicked", { x: Math.round(centerX), y: Math.round(centerY) });
@@ -535,16 +528,10 @@ export class ActionExecutor {
 			await page.mouse.move(clampedPos.x, clampedPos.y);
 			this.events.emit("cursorMoved", { x: clampedPos.x, y: clampedPos.y });
 		} else {
-			await HumanMouse.move(
-				page,
-				clampedPos.x,
-				clampedPos.y,
-				100,
-				false,
-				this.getCurrentLastMousePos(),
-				effectiveMouseSpeed,
+			await HumanMouse.move(page, clampedPos.x, clampedPos.y, 100, false, this.getCurrentLastMousePos(), {
+				speedMultiplier: effectiveMouseSpeed,
 				onStep,
-			);
+			});
 		}
 
 		this.setCurrentLastMousePos({ x: clampedPos.x, y: clampedPos.y });
@@ -596,17 +583,20 @@ export class ActionExecutor {
 			);
 
 			const rows = Array.from(tableEl.querySelectorAll("tbody tr, tr"));
-			return rows
-				.map((row) => {
-					const cells = Array.from(row.querySelectorAll("td, th"));
-					const rowData: Record<string, string> = {};
-					cells.forEach((cell, i) => {
-						const key = headers[i] || `col${i}`;
-						rowData[key] = cell.textContent?.trim() || "";
-					});
-					return rowData;
-				})
-				.filter((row) => Object.values(row).some((v) => v));
+			return (
+				rows
+					.map((row) => {
+						const cells = Array.from(row.querySelectorAll("td, th"));
+						const rowData: Record<string, string> = {};
+						cells.forEach((cell, i) => {
+							const key = headers[i] || `col${i}`;
+							rowData[key] = cell.textContent?.trim() || "";
+						});
+						return rowData;
+					})
+					// sonar-disable-next-line typescript:S7770 — not equivalent to Boolean: filters rows with empty values
+					.filter((row) => Object.values(row).some((v) => v))
+			);
 		});
 	}
 
@@ -826,7 +816,7 @@ export class ActionExecutor {
 
 	private async checkRiskyAction(action: string, target: string): Promise<void> {
 		const profile = this.getProfile();
-		if (profile && profile.class === "ops" && this.riskyActionHook) {
+		if (profile?.class === "ops" && this.riskyActionHook) {
 			const isApproved = await this.riskyActionHook();
 			if (!isApproved) {
 				throw new Error(`Human-in-the-Loop blocked risky action: ${action} on ${target}`);
@@ -975,6 +965,7 @@ export class ActionExecutor {
 			this.densityCache.set(cacheKey, finalDensity);
 			return finalDensity;
 		} catch (error_) {
+			// Density computation failed — return default density
 			return 0.5;
 		}
 	}

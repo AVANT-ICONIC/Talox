@@ -19,11 +19,11 @@
  */
 
 import type { Page } from "playwright";
-import type { TakeoverReason, TakeoverSummary, TaloxEventMap } from "../../types/events.js";
+import type { TakeoverSummary, TaloxEventMap } from "../../types/events.js";
 import type { EventBus } from "./EventBus.js";
 
 export type TakeoverState = "AGENT_RUNNING" | "WAITING_FOR_HUMAN";
-export type { TakeoverReason, TakeoverSummary };
+export { TakeoverReason, TakeoverSummary } from "../../types/events.js";
 
 // ─── Agent Overlay Bundle (injected into every page) ─────────────────────────
 
@@ -194,7 +194,7 @@ export class TakeoverBridge {
 	private headed = false;
 	private currentPage: Page | null = null;
 	private takeoverStartedAt: string | null = null;
-	private takeoverReason: TakeoverReason | string | undefined = undefined;
+	private takeoverReason: string | undefined = undefined;
 	private takeoverStartedUrl: string | null = null;
 
 	constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
@@ -250,12 +250,12 @@ export class TakeoverBridge {
 	}
 
 	/** Signal agent is paused (human has control). */
-	async requestTakeover(reason?: TakeoverReason | string): Promise<void> {
+	async requestTakeover(reason?: string): Promise<void> {
 		const timestamp = new Date().toISOString();
 		this.takeoverReason = reason;
 		this.takeoverStartedAt = timestamp;
 		this.takeoverStartedUrl = typeof this.currentPage?.url === "function" ? this.currentPage.url() : null;
-		const payload: { timestamp: string; reason?: TakeoverReason | string } = { timestamp };
+		const payload: { timestamp: string; reason?: string } = { timestamp };
 		if (reason !== undefined) payload.reason = reason;
 		this.eventBus.emit("humanTakeoverRequested", payload);
 	}
@@ -341,7 +341,7 @@ export class TakeoverBridge {
 		};
 	}
 
-	private inferAgentIntent(reason: TakeoverReason | string | undefined): string {
+	private inferAgentIntent(reason: string | undefined): string {
 		if (!reason) return "Agent was performing browser actions autonomously.";
 		const intentMap: Record<string, string> = {
 			"login-required": "Agent needed credentials to proceed past a login page.",
@@ -359,7 +359,7 @@ export class TakeoverBridge {
 		return `URL changed from ${startUrl} to ${endUrl} during takeover.`;
 	}
 
-	private inferSuggestedNextAction(reason: TakeoverReason | string | undefined, whatChanged: string): string {
+	private inferSuggestedNextAction(reason: string | undefined, whatChanged: string): string {
 		if (!reason) return "Continue with the next planned action.";
 		const actionMap: Record<string, string> = {
 			"login-required": "Re-collect page state and verify login succeeded before continuing.",
@@ -383,7 +383,7 @@ export class TakeoverBridge {
 		if (!this.currentPage || !this.headed) return;
 		try {
 			await this.currentPage.evaluate((c: string) => {
-				(window as any).__taloxDispatch__?.(c);
+				(globalThis as any).__taloxDispatch__?.(c);
 			}, cmd);
 		} catch {
 			/* page navigated or closed */

@@ -68,7 +68,7 @@ export class AnnotationBuffer {
 	 * Returns the most recently added annotation without removing it.
 	 */
 	peek(): AnnotationEntry | undefined {
-		return this.stack[this.stack.length - 1];
+		return this.stack.at(-1);
 	}
 
 	// ─── State ──────────────────────────────────────────────────────────────────

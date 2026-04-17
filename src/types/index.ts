@@ -3,14 +3,17 @@ export type ProfileClass = "qa" | "ops" | "sandbox";
 /** Bug severity levels detected by the RulesEngine. */
 export type BugSeverity = "CRITICAL" | "MAJOR" | "MINOR";
 /** Built-in bug types detected by the RulesEngine. */
-export type BugType =
+export type BuiltInBugType =
 	| "JS_ERROR"
 	| "NETWORK_FAILURE"
 	| "LAYOUT_OVERLAP"
 	| "CLIPPED_ELEMENT"
 	| "INVISIBLE_CTA"
-	| "VISUAL_REGRESSION"
-	| string;
+	| "VISUAL_REGRESSION";
+
+/** Bug type — built-in or custom string. */
+// sonar-disable-next-line typescript:S6571 — intentional: built-in + custom extensible pattern
+export type BugType = BuiltInBugType | string;
 
 // ─── Annotation Types ─────────────────────────────────────────────────────────
 export type {

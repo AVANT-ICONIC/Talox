@@ -133,7 +133,7 @@ export class ObserveSession {
 		// Track console errors
 		this.page.on("console", (msg: any) => {
 			if (msg.type() === "error") {
-				const last = this.interactions[this.interactions.length - 1];
+				const last = this.interactions.at(-1);
 				if (last) {
 					last.consoleErrors.push(msg.text());
 				}
@@ -151,7 +151,7 @@ export class ObserveSession {
 				status: request.failure()?.errorText ? -1 : 0,
 				type: request.resourceType(),
 			};
-			const last = this.interactions[this.interactions.length - 1];
+			const last = this.interactions.at(-1);
 			if (last) {
 				last.networkFailures.push(failure);
 			}

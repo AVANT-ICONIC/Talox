@@ -182,9 +182,9 @@ export class PageStateCollector {
 			if (e.id) return `#${CSS.escape(e.id)}`;
 			if (e.getAttribute("name")) return `${e.tagName.toLowerCase()}[name="${e.getAttribute("name")}"]`;
 			if (e.getAttribute("aria-label"))
-				return `${e.tagName.toLowerCase()}[aria-label="${CSS.escape(e.getAttribute("aria-label")!)}"]`;
+				return `${e.tagName.toLowerCase()}[aria-label="${CSS.escape(e.getAttribute("aria-label"))}"]`;
 			if (e.getAttribute("placeholder"))
-				return `${e.tagName.toLowerCase()}[placeholder="${CSS.escape(e.getAttribute("placeholder")!)}"]`;
+				return `${e.tagName.toLowerCase()}[placeholder="${CSS.escape(e.getAttribute("placeholder"))}"]`;
 			if (e.getAttribute("type")) return `${e.tagName.toLowerCase()}[type="${e.getAttribute("type")}"]`;
 			const parent = e.parentElement;
 			if (parent) {
@@ -349,9 +349,9 @@ export class PageStateCollector {
 						else if (el.getAttribute("name"))
 							selector = `${el.tagName.toLowerCase()}[name="${el.getAttribute("name")}"]`;
 						else if (el.getAttribute("aria-label"))
-							selector = `${el.tagName.toLowerCase()}[aria-label="${CSS.escape(el.getAttribute("aria-label")!)}"]`;
+							selector = `${el.tagName.toLowerCase()}[aria-label="${CSS.escape(el.getAttribute("aria-label"))}"]`;
 						else if (el.getAttribute("placeholder"))
-							selector = `${el.tagName.toLowerCase()}[placeholder="${CSS.escape(el.getAttribute("placeholder")!)}"]`;
+							selector = `${el.tagName.toLowerCase()}[placeholder="${CSS.escape(el.getAttribute("placeholder"))}"]`;
 						else if (el.getAttribute("type"))
 							selector = `${el.tagName.toLowerCase()}[type="${el.getAttribute("type")}"]`;
 						else {

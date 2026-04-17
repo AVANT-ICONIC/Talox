@@ -51,6 +51,7 @@ export interface TaloxBridgeMeta {
  * @param payload - JSON-serialisable event payload.
  */
 export function taloxEmit(type: string, payload: unknown = {}): void {
+	// sonar-disable-next-line typescript:S7764 -- browser context
 	if (typeof window.__taloxEmit__ === "function") {
 		window.__taloxEmit__(type, payload).catch((err: unknown) => {
 			console.warn("[Talox Bridge] Emit failed:", err);

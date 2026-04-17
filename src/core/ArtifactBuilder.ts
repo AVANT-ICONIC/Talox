@@ -57,7 +57,7 @@ export class ArtifactBuilder {
 	}
 
 	addMousePosition(mouseX: number, mouseY: number, viewportWidth?: number, viewportHeight?: number) {
-		const lastAction = this.actions[this.actions.length - 1];
+		const lastAction = this.actions.at(-1);
 		if (lastAction) {
 			const vc: VisualContext = {
 				mouseX,
@@ -77,7 +77,7 @@ export class ArtifactBuilder {
 	}
 
 	addScrollPosition(scrollPosition: number) {
-		const lastAction = this.actions[this.actions.length - 1];
+		const lastAction = this.actions.at(-1);
 		if (lastAction) {
 			lastAction.visualContext = {
 				...lastAction.visualContext,
@@ -187,8 +187,7 @@ export class ArtifactBuilder {
 			return exportFrame;
 		});
 
-		const endTimestamp =
-			this.actions.length > 0 ? this.actions[this.actions.length - 1]?.timestamp : new Date().toISOString();
+		const endTimestamp = this.actions.length > 0 ? this.actions.at(-1)?.timestamp : new Date().toISOString();
 
 		const exportData = {
 			sessionId: `session-${this.startTime}`,
@@ -315,7 +314,7 @@ export class ArtifactBuilder {
 			}
 		});
 
-		const lastAction = this.actions[this.actions.length - 1];
+		const lastAction = this.actions.at(-1);
 		const endTime = lastAction ? new Date(lastAction.timestamp).getTime() : Date.now();
 
 		return {

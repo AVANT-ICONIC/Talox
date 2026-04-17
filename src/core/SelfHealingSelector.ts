@@ -317,7 +317,7 @@ export class SelfHealingSelector {
 	}
 
 	private escapeSelectorPart(str: string): string {
-		return str.replace(/["\\]/g, "\\$&");
+		return str.replaceAll(/["\\]/g, String.raw`\$&`);
 	}
 
 	getSuccessStates(selector: string): SuccessState[] {

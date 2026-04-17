@@ -20,14 +20,6 @@ const getOptimizedSteps = (dist: number, targetWidth: number, speedMultiplier: n
  */
 export type CursorStepCallback = (x: number, y: number) => Promise<void>;
 
-export interface MoveOptions {
-	ttargetWidth?: number;
-	tisFlow?: boolean;
-	tcurrentPos?: Point;
-	tspeedMultiplier?: number;
-	tonStep?: CursorStepCallback;
-}
-
 /**
  * Simulates human-like mouse movements and clicks using Fitts's Law-derived
  * Bezier curves with quintic easing, jitter, and micro-drag. Supports both
@@ -101,9 +93,9 @@ export class HumanMouse {
 		targetWidth: number = 100,
 		isFlow: boolean = false,
 		currentPos?: Point,
-		speedMultiplier: number = 1,
-		onStep?: CursorStepCallback,
+		options?: { speedMultiplier?: number; onStep?: CursorStepCallback },
 	): Promise<void> {
+		const { speedMultiplier = 1, onStep } = options ?? {};
 		if (!isFlow) {
 			await sleep((50 + Math.random() * 100) / speedMultiplier);
 		}
@@ -113,7 +105,7 @@ export class HumanMouse {
 		const path = HumanMouse.generatePath(start, end, targetWidth, speedMultiplier);
 
 		const startPoint = path[0];
-		if (!startPoint || startPoint.t === undefined) return;
+		if (startPoint?.t === undefined) return;
 		const startTime = startPoint.t;
 		const initialRealTime = Date.now();
 
@@ -159,7 +151,7 @@ export class HumanMouse {
 		const targetX = box.x + box.width * (0.2 + Math.random() * 0.6);
 		const targetY = box.y + box.height * (0.2 + Math.random() * 0.6);
 
-		await HumanMouse.move(page, targetX, targetY, box.width, isFlow, currentPos, speedMultiplier, onStep);
+		await HumanMouse.move(page, targetX, targetY, box.width, isFlow, currentPos, { speedMultiplier, onStep });
 
 		// Reduced hunting (15% chance)
 		let finalX = targetX;

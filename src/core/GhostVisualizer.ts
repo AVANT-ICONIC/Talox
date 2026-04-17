@@ -345,7 +345,7 @@ export class GhostVisualizer {
 
 		for (let i = 0; i < points.length; i += 10) {
 			const point = points[i];
-			if (!point || point.relativeTimeMs === undefined) continue;
+			if (point?.relativeTimeMs === undefined) continue;
 			const timeStr = `${(point.relativeTimeMs / 1000).toFixed(1)}s`;
 
 			this.drawText(Math.round(point.x) + 10, Math.round(point.y) - 10, timeStr, color, fontWidth, fontHeight);

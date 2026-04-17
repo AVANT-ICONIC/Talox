@@ -273,7 +273,7 @@ export class SessionManager {
 			throw new Error(`Invalid page index: ${index}`);
 		}
 
-		const page = (this.pages[index] as any).page as any;
+		const page = (this.pages[index] as any).page;
 		await page.close();
 
 		this.pages.splice(index, 1);
@@ -531,7 +531,7 @@ export class SessionManager {
 				const postData = request.postData() || "";
 				// Match JWT tokens (eyJ...), API keys, bearer tokens, and common secret patterns
 				const credentialRegex =
-					/(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,})/i;
+					/(eyJ[\w-]{10,}\.[\w-]{10,}|(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,})/i;
 
 				if (credentialRegex.test(postData) || credentialRegex.test(url)) {
 					console.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);
@@ -576,9 +576,8 @@ export class SessionManager {
 
 	async injectStealthScripts(page: any): Promise<void> {
 		// Generate a fingerprint if one doesn't exist yet (e.g. in tests)
-		if (!this.fingerprint) {
-			this.fingerprint = this.fingerprintGen.generate();
-		}
+		this.fingerprint ??= this.fingerprintGen.generate();
+
 		const fp = this.fingerprint;
 
 		// Serialize the fingerprint profile for injection into the page.

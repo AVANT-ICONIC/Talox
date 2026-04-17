@@ -142,6 +142,7 @@ async function readTaloxVersion(): Promise<string> {
 		const pkg = JSON.parse(raw);
 		return String(pkg.version ?? "0.0.0");
 	} catch (_error) {
+		// Malformed package.json — return sentinel version
 		return "0.0.0";
 	}
 }

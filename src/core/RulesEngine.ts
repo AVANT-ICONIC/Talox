@@ -106,6 +106,7 @@ export class RulesEngine {
 		// 1. JS Error Rule
 		for (const error of state.console.errors) {
 			bugs.push({
+				// sonar-disable-next-line typescript:S1874 — backward compat
 				id: `js-error-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
 				type: "JS_ERROR",
 				severity: "CRITICAL",

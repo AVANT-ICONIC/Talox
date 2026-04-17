@@ -180,8 +180,8 @@ export class BrowserManager {
 				path.join(os.homedir(), "Library/Application Support/Firefox"),
 			);
 		} else if (platform === "win32") {
-			const programFiles = process.env["PROGRAMFILES"] || "C:\\Program Files";
-			const programFilesX86 = process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
+			const programFiles = process.env["PROGRAMFILES"] || String.raw`C:\Program Files`;
+			const programFilesX86 = process.env["PROGRAMFILES(X86)"] || String.raw`C:\Program Files (x86)`;
 			paths.push(
 				path.join(programFiles, "Google/Chrome/Application/chrome.exe"),
 				path.join(programFiles, "Chromium/chrome.exe"),
@@ -313,8 +313,7 @@ export class BrowserManager {
 	}
 
 	private buildLaunchOptions(extraOptions: any): any {
-		const effectiveHeadless =
-			extraOptions?.headless !== undefined ? extraOptions.headless : this.config.browser.headless;
+		const effectiveHeadless = extraOptions?.headless ?? this.config.browser.headless;
 
 		const launchOptions: any = {
 			headless: effectiveHeadless,

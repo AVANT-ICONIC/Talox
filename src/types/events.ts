@@ -107,7 +107,7 @@ export type TakeoverReason =
  */
 export interface TakeoverSummary {
 	/** Why the takeover was triggered. */
-	reason: TakeoverReason | string;
+	reason: string;
 	/** ISO timestamp when takeover was requested. */
 	startedAt: string;
 	/** ISO timestamp when agent resumed. */
@@ -190,7 +190,7 @@ export interface TaloxEventMap {
 	/** Fired when verbosity level is changed via `setVerbosity()`. */
 	verbosityChanged: { level: 0 | 1 | 2 | 3 };
 	/** Fired when human takeover is requested. */
-	humanTakeoverRequested: { reason?: TakeoverReason | string; timestamp: string };
+	humanTakeoverRequested: { reason?: string; timestamp: string };
 	/** Fired when agent resumes after human takeover. */
 	agentResumed: { reason: "timeout" | "manual"; summary?: TakeoverSummary };
 	/** Fired when Talox auto-escalates from headless to headed mode. */

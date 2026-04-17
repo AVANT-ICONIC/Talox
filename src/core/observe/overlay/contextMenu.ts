@@ -165,6 +165,7 @@ function showMenu(x: number, y: number, onCommentMode: () => void): void {
 	document.getElementById("talox-menu-snapshot")?.addEventListener("click", () => {
 		dismissMenu();
 		taloxEmit("snapshot:request", {
+			// sonar-disable-next-line typescript:S7764 -- browser context
 			url: window.location.href,
 			timestamp: new Date().toISOString(),
 		});

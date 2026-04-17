@@ -49,7 +49,7 @@ import type {
 import { compactState } from "../../types/index.js";
 import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
-// noinspection SonarQube S1874 — intentional backward-compat
+// @ts-expect-error -- backward compat
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js";
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
@@ -66,13 +66,15 @@ export type { BehavioralDNA } from "../../types/index.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./ActionExecutor.js";
 export type { AttentionFrame } from "./SessionManager.js";
 
+export type VerbosityLevel = 0 | 1 | 2 | 3;
+
 export interface DebugSnapshot {
 	state?: TaloxPageState;
 	bugs: TaloxBug[];
 	consoleErrors: string[];
 	networkErrors: Array<{ url: string; status: number }>;
 	lastAdaptation: any;
-	verbosity: 0 | 1 | 2 | 3;
+	verbosity: VerbosityLevel;
 	timestamp: string;
 }
 
@@ -116,7 +118,7 @@ export class TaloxController {
 
 		// Handle legacy mode mapping (v1 → v2 compatibility layer)
 		if (mergedConfig.mode) {
-			// noinspection SonarQube S1874 — intentional backward-compat usage
+			// @ts-expect-error -- backward compat usage
 			const legacySettings = resolveLegacyMode(mergedConfig.mode);
 			mergedSettings = { ...mergedSettings, ...legacySettings };
 		}
@@ -230,7 +232,7 @@ export class TaloxController {
 		if (page) {
 			// headed:true activates the full agent overlay (cursor + glow + takeover button)
 			try {
-				await this._takeover.initialize(page as any, this.settings.headed);
+				await this._takeover.initialize(page, this.settings.headed);
 			} catch (e) {
 				await this._session.stop();
 				throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -405,12 +407,12 @@ export class TaloxController {
 	// VERBOSITY
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	setVerbosity(level: 0 | 1 | 2 | 3): void {
+	setVerbosity(level: VerbosityLevel): void {
 		this.settings.verbosity = level;
 		this._events.emit("verbosityChanged", { level });
 	}
 
-	getVerbosity(): 0 | 1 | 2 | 3 {
+	getVerbosity(): VerbosityLevel {
 		return this.settings.verbosity;
 	}
 
@@ -824,8 +826,8 @@ export class TaloxController {
 
 	findNodesByRole(roles: string[]): TaloxNode[] {
 		const nodes: TaloxNode[] = (this._session.getActiveStateCollector() as any).state?.nodes ?? [];
-		const rs = roles.map((r) => r.toLowerCase());
-		return nodes.filter((n) => rs.includes((n.role ?? "").toLowerCase()));
+		const rs = new Set(roles.map((r) => r.toLowerCase()));
+		return nodes.filter((n) => rs.has((n.role ?? "").toLowerCase()));
 	}
 
 	findInteractiveNodes(): TaloxNode[] {

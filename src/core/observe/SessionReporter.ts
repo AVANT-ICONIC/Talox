@@ -282,8 +282,10 @@ export class SessionReporter {
 		lines.push("| # | Labels | Element | Comment |", "|---|--------|---------|---------|");
 		for (const annotation of annotations) {
 			const labels = annotation.labels.map((l) => `${getLabelEmoji(l)} ${l}`).join(", ");
-			const element = `\`<${annotation.element.tag}>\` ${annotation.element.text ? `"${annotation.element.text}"` : ""}`;
-			const comment = annotation.comment.replaceAll("|", "\\|");
+			const tagPart = `\`<${annotation.element.tag}>\``;
+			const textPart = annotation.element.text ? `"${annotation.element.text}"` : "";
+			const element = `${tagPart} ${textPart}`;
+			const comment = annotation.comment.replaceAll("|", String.raw`\|`);
 			lines.push(`| ${annotation.interactionIndex} | ${labels} | ${element} | ${comment} |`);
 		}
 		return lines;
@@ -297,7 +299,7 @@ export class SessionReporter {
 		const lines: string[] = ["", "---", "", "## Errors & Failures"];
 		if (allErrors.length > 0) {
 			lines.push("", "**Console Errors:**");
-			for (const error of [...new Set(allErrors)]) {
+			for (const error of new Set(allErrors)) {
 				lines.push(`- \`${error}\``);
 			}
 		}
@@ -420,8 +422,8 @@ export class SessionReporter {
 			: this.capitalise(interaction.type);
 		const errorBadge = interaction.consoleErrors.length ? " ⚠️ console errors recorded" : "";
 		const screenshotLinks = [interaction.screenshotBefore, interaction.screenshotAfter]
-			.filter(Boolean)
-			.map((path) => `<a href="${this.escapeHtml(path!)}">${this.escapeHtml(path!)}</a>`)
+			.filter((p): p is string => Boolean(p))
+			.map((path) => `<a href="${this.escapeHtml(path)}">${this.escapeHtml(path)}</a>`)
 			.join(", ");
 		const annotationNotes = annotations
 			.filter((a) => a.interactionIndex === interaction.index)
@@ -459,9 +461,14 @@ export class SessionReporter {
 			line = `${interaction.index}. **${time}** — Navigated to \`${interaction.url}\`${errorBadge}`;
 		} else {
 			const el = interaction.element;
-			const elText = el
-				? `\`<${el.tag}>\` ${el.text ? `"${el.text}"` : `[${el.role ?? el.tag}]`}`
-				: `_(${interaction.type})_`;
+			let elText: string;
+			if (el) {
+				const tagLabel = `\`<${el.tag}>\``;
+				const contentLabel = el.text ? `"${el.text}"` : `[${el.role ?? el.tag}]`;
+				elText = `${tagLabel} ${contentLabel}`;
+			} else {
+				elText = `_(${interaction.type})_`;
+			}
 			line = `${interaction.index}. **${time}** — ${this.capitalise(interaction.type)} ${elText}${errorBadge}`;
 		}
 

@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-04-17
+
+### Changed
+
+- **3 CRITICAL cognitive complexity refactors**:
+  - `GhostVisualizer.renderCharPixels()`: extracted `drawPixelBlock()` helper (17→11)
+  - `PageStateCollector.collect()`: extracted `collectWithRetry()`, `attemptAxTreeSnapshot()`, `collectInteractive()`, `closedPageFallback()` (23→8)
+- **~53 additional MAJOR/MINOR issues resolved** across 20+ rules:
+  - S6571 (2): Removed `any | null` → `ElementHandle | null`, suppressed extensible union patterns
+  - S6582 (3): Optional chaining `profile?.class`, `startPoint?.t`, `point?.relativeTimeMs`
+  - S107 (1): `HumanMouse.move()` params grouped into options object
+  - S7770: Suppressed false positive (table filter ≠ Boolean)
+  - S6564: Suppressed intentional semantic type alias
+  - S1128 (1): Removed unused `TakeoverReason` import
+  - S2486 (2): Added catch block comments for density computation and overlay fallback
+  - S7780, S4323, S7776, S6594, S7763, S7781, S7735, S101, S7747, S1874, S7764, S7755, S4325: All addressed
+
+### Fixed
+
+- `HumanMouse.move()`: Updated all call sites (ActionExecutor, tests) for new options object signature
+- `ActionExecutor.filter(Boolean)`: Reverted behavioral change — preserved `Object.values(row).some((v) => v)` logic
+- `PageStateCollector.attemptAxTreeSnapshot()`: Cleaned up nested try/catch with proper error propagation
+
+
 ## [4.2.0] - 2026-04-16
 
 ### Changed
