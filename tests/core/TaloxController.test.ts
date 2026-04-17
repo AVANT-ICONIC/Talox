@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { TaloxController } from "../../src/core/TaloxController";
+import { TaloxController } from "../../src/core/controller/TaloxController.js";
 
 function isMissingBrowserError(error: unknown): boolean {
 	return error instanceof Error && error.message.includes("Browser launch failed");

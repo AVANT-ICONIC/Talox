@@ -223,6 +223,29 @@ export interface TaloxSettings {
 	 * @default false
 	 */
 	safeMode: boolean;
+
+	/**
+	 * Automatically handle browser dialogs (alert, confirm, prompt, beforeunload)
+	 * so the session is never blocked by unexpected popups.
+	 * @default true
+	 */
+	autoDialogHandling: boolean;
+
+	/**
+	 * Session idle timeout in milliseconds. When no interaction (navigate, click,
+	 * type, scroll) occurs for this duration the session emits a `sessionIdle`
+	 * event and closes gracefully unless human takeover is configured.
+	 * @default 300000 (5 minutes)
+	 */
+	sessionIdleTimeoutMs: number;
+
+	/**
+	 * Enable CDP session management for cross-origin iframes.
+	 * When true, Talox auto-creates dedicated CDP sessions for cross-origin
+	 * frames so agents can execute DOM commands inside them.
+	 * @default false
+	 */
+	enableCrossOriginIframes: boolean;
 }
 
 // ─── DEFAULT_SETTINGS ─────────────────────────────────────────────────────────
@@ -248,4 +271,7 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	adaptiveStealthSensitivity: 0.5,
 	adaptiveStealthRadius: 100,
 	safeMode: false,
+	autoDialogHandling: true,
+	sessionIdleTimeoutMs: 300000,
+	enableCrossOriginIframes: false,
 };

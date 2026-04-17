@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "4.3.1",
+  "version": "5.0.0",
   "description": "Local browser runtime for agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
@@ -87,6 +87,7 @@
     "@types/node": "^25.5.0",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.4",
     "esbuild": "^0.28.0",
     "ts-node": "^10.9.2",
@@ -103,6 +104,7 @@
     "playwright-core": "^1.58.2",
     "pngjs": "^7.0.0",
     "ssim.js": "^3.5.0",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "ws": "^8.20.0"
   }
 }

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -68,6 +69,9 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		humanTakeoverEnabled: false,
 		humanTakeoverTimeoutMs: 120000,
 		safeMode: false,
+		autoDialogHandling: true,
+		sessionIdleTimeoutMs: 300000,
+		enableCrossOriginIframes: false,
 	},
 };
 
@@ -91,10 +95,20 @@ export function resolveConfigDir(): string {
  * Patchright stealth driver), supports proxy configuration, and tracks all
  * open contexts for clean teardown on exit.
  */
+interface LaunchOptions {
+	headless: boolean;
+	browserType: BrowserType;
+	proxy?: { server: string; username?: string; password?: string };
+	userDataDir?: string;
+	args?: string[];
+	extensions?: string[];
+}
+
 export class BrowserManager {
 	private context: BrowserContext | null = null;
 	private config: TaloxConfig;
 	private detectedBrowsers: DetectedBrowser[] = [];
+	private launchOptionsHash: string | null = null;
 
 	private readonly contexts: Set<BrowserContext> = new Set();
 
@@ -341,6 +355,18 @@ export class BrowserManager {
 		return ctx;
 	}
 
+	private computeLaunchHash(options: LaunchOptions): string {
+		const parts = [
+			String(options.headless),
+			String(options.browserType),
+			options.proxy ? JSON.stringify(options.proxy) : '',
+			options.userDataDir ?? '',
+			(options.args ?? []).sort().join(','),
+			options.extensions?.sort().join(',') ?? '',
+		];
+		return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
+	}
+
 	async launch(
 		profile: TaloxProfile,
 		_headed?: boolean,
@@ -358,6 +384,28 @@ export class BrowserManager {
 
 		const launcher = this.resolveLauncher(actualBrowserType, false);
 		const launchOptions = this.buildLaunchOptions(extraOptions);
+
+		// Compute hash of launch options to detect config changes
+		const newHash = this.computeLaunchHash({
+			headless: launchOptions.headless,
+			browserType: actualBrowserType,
+			userDataDir: profile.userDataDir,
+			...(this.config.browser.proxy ? { proxy: this.config.browser.proxy } : {}),
+			...(launchOptions.args ? { args: launchOptions.args } : {}),
+			...(extraOptions?.extensions ? { extensions: extraOptions.extensions } : {}),
+		});
+
+		// Reuse existing browser if configuration hasn't changed
+		if (this.context && newHash === this.launchOptionsHash) {
+			return this.context;
+		}
+
+		// Close existing browser if configuration changed
+		if (this.context) {
+			await this.close();
+		}
+
+		this.launchOptionsHash = newHash;
 
 		// Do not force chrome channel, as it conflicts if the user has Chrome open.
 		// Use Playwright's bundled Chromium instead.

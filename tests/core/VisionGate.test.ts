@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "fs-extra";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TaloxController } from "../../src/core/TaloxController.js";
+import { TaloxController } from "../../src/core/controller/TaloxController.js";
 
 function isMissingBrowserError(error: unknown): boolean {
 	return error instanceof Error && error.message.includes("Browser launch failed");

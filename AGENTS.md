@@ -80,20 +80,21 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-15) — v4.3.1
+### Current Status (2026-04-18) — v5.0.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
 - **0 BLOCKER**
 - **0 CRITICAL**
-- **0 MAJOR** — code smells (down from 62)
-- **0 MINOR** — code smells (down from 317)
+- **0 MAJOR** — code smells
+- **0 MINOR** — code smells
+- **1015 tests** across **48 files**
 
 ## Build & Test
 
 ```bash
 npm run build          # Compile TypeScript
-npm run test           # Run all unit tests (917 tests across 42 files)
+npm run test           # Run all unit tests (1015 tests across 48 files)
 npm run test:e2e       # Run Playwright E2E tests
 npm run test:real      # Run real-world integration tests
 npm run typecheck      # TypeScript strict mode check

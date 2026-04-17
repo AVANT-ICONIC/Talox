@@ -205,6 +205,14 @@ export interface TaloxEventMap {
 	agentThinking: undefined;
 	/** Fired when a click happens at given coords - triggers ripple animation on fake cursor. */
 	cursorClicked: { x: number; y: number };
+
+	// ── Auto-dialog handling ─────────────────────────────────────────────────
+	/** Fired when a browser dialog was automatically accepted or dismissed. */
+	dialogHandled: { type: string; message: string; action: "accepted" | "dismissed" };
+
+	// ── Session idle timeout ─────────────────────────────────────────────────
+	/** Fired when the session has been idle longer than the configured timeout. */
+	sessionIdle: { idleMs: number; timeoutMs: number; sessionId: string };
 }
 
 /** Union of all event names. */

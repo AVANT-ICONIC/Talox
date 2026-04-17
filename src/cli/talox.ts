@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
 import fs, { promises as fsPromises } from "node:fs";
+import * as os from "node:os";
 import path from "node:path";
 import type { BrowserType } from "../core/BrowserManager.js";
+import { ChatSession } from "../core/chat/ChatSession.js";
 import { TaloxController } from "../core/controller/TaloxController.js";
+import { TaloxDaemon } from "../core/daemon/TaloxDaemon.js";
 import type { ProfileClass } from "../types/index.js";
+import { formatDoctorOutput, runDoctor } from "./doctor.js";
 
 const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
 const OUTPUT_FORMATS = ["json", "markdown", "both"] as const;
@@ -28,6 +32,20 @@ interface InitCommandOptions {
 	targetDir: string;
 }
 
+interface ScreenshotCommandOptions {
+	url: string | undefined;
+	output: string;
+	profileId: string;
+	profileClass: ProfileClass;
+	browser: BrowserType;
+}
+
+interface ChatCommandOptions {
+	model: string;
+	apiKey: string | undefined;
+	baseUrl: string | undefined;
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
 	if (argv.length === 0) {
 		return { command: undefined, args: [] };
@@ -41,18 +59,33 @@ function usage(): void {
 Usage:
   talox observe [options]
   talox init [directory]
+  talox screenshot [url] [options]
+  talox chat [options]
+  talox doctor [--fix]
+  talox daemon [options]
 
 Options:
   --profile, -p       Profile ID for the session (default: observe)
   --class, -c         Profile class (ops | qa | sandbox) (default: ops)
   --browser, -b       Browser to launch (chromium | firefox | webkit) (default: chromium)
   --output-dir        Directory where reports are written (default: ./talox-sessions)
+  --output, -o        Output file path for screenshot command (default: screenshot.png)
   --format            Report format: json | markdown | both (default: both)
   --verbosity         Verbosity level (2 | 3), controls console chatter (default: 2)
+  --fix               Automatically fix issues found by doctor
   --help              Show this message
+
+Chat Options:
+  --model             OpenAI model ID (default: gpt-4o or OPENAI_MODEL env)
+  --api-key           OpenAI API key (or OPENAI_API_KEY env)
+  --url               OpenAI-compatible API base URL (or OPENAI_BASE_URL env)
 
 Commands:
   init [directory]    Scaffold a browser-lab project with Talox, presets, and practical tools.
+  screenshot [url]    Capture an annotated screenshot with element refs.
+  chat                Start an interactive chat session with browser control via LLM.
+  doctor [--fix]      Run diagnostic checks on your environment.
+  daemon              Start a Talox daemon for IPC control.
 `);
 }
 
@@ -371,6 +404,247 @@ async function runInit(args: string[]): Promise<void> {
 	console.log("  npm run start");
 }
 
+function parseScreenshotOptions(args: string[]): ScreenshotCommandOptions {
+	const opts: ScreenshotCommandOptions = {
+		url: undefined,
+		output: "screenshot.png",
+		profileId: "screenshot",
+		profileClass: "ops",
+		browser: "chromium",
+	};
+
+	const PROFILE_CLASSES_SET: Set<ProfileClass> = new Set(PROFILE_CLASSES);
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		switch (arg) {
+			case "--output":
+			case "-o":
+				opts.output = args[i + 1] ?? opts.output;
+				i += 2;
+				break;
+			case "--profile":
+			case "-p":
+				opts.profileId = args[i + 1] ?? opts.profileId;
+				i += 2;
+				break;
+			case "--class":
+			case "-c":
+				opts.profileClass = (args[i + 1] as ProfileClass) ?? opts.profileClass;
+				i += 2;
+				break;
+			case "--browser":
+			case "-b":
+				opts.browser = (args[i + 1] as BrowserType) ?? opts.browser;
+				i += 2;
+				break;
+			case "--help":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				if (arg && !arg.startsWith("-")) {
+					opts.url = arg;
+				} else {
+					console.warn(`[Talox CLI] Unknown option ${arg}`);
+					usage();
+					process.exit(1);
+				}
+				i += 1;
+				break;
+		}
+	}
+
+	if (!PROFILE_CLASSES_SET.has(opts.profileClass)) {
+		console.warn(`[Talox CLI] Invalid profile class: ${opts.profileClass}`);
+		usage();
+		process.exit(1);
+	}
+
+	return opts;
+}
+
+async function runScreenshot(args: string[]): Promise<void> {
+	const opts = parseScreenshotOptions(args);
+	const talox = new TaloxController(process.cwd());
+
+	try {
+		await talox.launch(opts.profileId, opts.profileClass, opts.browser);
+
+		if (opts.url) {
+			await talox.navigate(opts.url);
+		}
+
+		const buffer = await talox.annotatedScreenshot();
+		const outputPath = path.resolve(process.cwd(), opts.output);
+		await fsPromises.mkdir(path.dirname(outputPath), { recursive: true });
+		await fsPromises.writeFile(outputPath, buffer);
+		console.log(`[Talox CLI] Annotated screenshot saved to ${outputPath}`);
+	} finally {
+		await talox.stop();
+	}
+}
+
+async function runDoctorCommand(args: string[]): Promise<void> {
+	if (args.includes("--help") || args.includes("-h")) {
+		usage();
+		process.exit(0);
+	}
+	const fix = args.includes("--fix");
+	const version = await readTaloxVersion();
+	const result = await runDoctor({ fix });
+	console.log(formatDoctorOutput(result, version));
+	if (result.errors > 0) {
+		process.exit(1);
+	}
+}
+
+interface DaemonCommandOptions {
+	socketPath: string | undefined;
+	port: number | undefined;
+}
+
+function parseDaemonOptions(args: string[]): DaemonCommandOptions {
+	if (args.includes("--help") || args.includes("-h")) {
+		usage();
+		process.exit(0);
+	}
+	const opts: DaemonCommandOptions = {
+		socketPath: undefined,
+		port: undefined,
+	};
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (arg === "--socket") {
+			opts.socketPath = args[i + 1];
+			i += 2;
+		} else if (arg === "--port") {
+			const raw = args[i + 1];
+			if (raw !== undefined) {
+				opts.port = Number(raw);
+			}
+			i += 2;
+		} else {
+			console.warn(`[Talox CLI] Unknown daemon option: ${arg}`);
+			i += 1;
+		}
+	}
+	return opts;
+}
+
+async function runDaemon(args: string[]): Promise<void> {
+	const opts = parseDaemonOptions(args);
+	const config: import("../core/daemon/TaloxDaemon.js").DaemonConfig = {};
+	if (opts.socketPath !== undefined) {
+		config.socketPath = opts.socketPath;
+	}
+	if (opts.port !== undefined) {
+		config.port = opts.port;
+	}
+
+	const daemon = new TaloxDaemon(config);
+	await daemon.start();
+
+	const address = daemon.getAddress();
+	const isTcp = os.platform() === "win32" || opts.port !== undefined;
+	if (isTcp) {
+		console.log(`[Talox Daemon] Listening on TCP ${address} (PID ${process.pid})`);
+	} else {
+		const socketPath = opts.socketPath ?? "/tmp/talox-daemon.sock";
+		console.log(`[Talox Daemon] Listening on socket ${socketPath} (PID ${process.pid})`);
+	}
+
+	const gracefulShutdown = async () => {
+		console.log("[Talox Daemon] Shutting down...");
+		await daemon.stop();
+		process.exit(0);
+	};
+	process.on("SIGINT", gracefulShutdown);
+	process.on("SIGTERM", gracefulShutdown);
+}
+
+function parseChatOptions(args: string[]): ChatCommandOptions {
+	const opts: ChatCommandOptions = {
+		model: "gpt-4o",
+		apiKey: undefined,
+		baseUrl: undefined,
+	};
+
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (!arg) {
+			i += 1;
+			continue;
+		}
+		switch (arg) {
+			case "--model":
+				opts.model = args[i + 1] ?? opts.model;
+				i += 2;
+				break;
+			case "--api-key":
+				opts.apiKey = args[i + 1];
+				i += 2;
+				break;
+			case "--url":
+				opts.baseUrl = args[i + 1];
+				i += 2;
+				break;
+			case "--help":
+			case "-h":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				console.warn(`[Talox CLI] Unknown chat option: ${arg}`);
+				i += 1;
+				break;
+		}
+	}
+
+	return opts;
+}
+
+async function runChat(args: string[]): Promise<void> {
+	const opts = parseChatOptions(args);
+
+	if (!opts.apiKey && !process.env["OPENAI_API_KEY"]) {
+		console.error("[Talox CLI] Error: No API key provided. Use --api-key or set OPENAI_API_KEY env var.");
+		process.exit(1);
+	}
+
+	console.log("[Talox Chat] Starting browser...");
+
+	const talox = new TaloxController(process.cwd(), {
+		settings: {
+			headed: true,
+			verbosity: 1,
+		},
+	});
+
+	const chatConfig: import("../core/chat/ChatSession.js").ChatConfig = {
+		model: opts.model,
+	};
+	if (opts.apiKey) chatConfig.apiKey = opts.apiKey;
+	if (opts.baseUrl) chatConfig.baseUrl = opts.baseUrl;
+
+	const session = new ChatSession(talox, chatConfig);
+
+	const cleanup = async () => {
+		console.log("\n[Talox Chat] Shutting down...");
+		await session.stop();
+		process.exit(0);
+	};
+	process.on("SIGINT", cleanup);
+
+	await talox.launch("chat", "sandbox", "chromium", { headed: true });
+
+	console.log("[Talox Chat] Browser ready. Type your message (Ctrl+C to exit).\n");
+
+	await session.start();
+}
+
 async function main(): Promise<void> {
 	const { command, args } = parseArgs(process.argv.slice(2));
 	switch (command) {
@@ -379,6 +653,18 @@ async function main(): Promise<void> {
 			break;
 		case "init":
 			await runInit(args);
+			break;
+		case "screenshot":
+			await runScreenshot(args);
+			break;
+		case "doctor":
+			await runDoctorCommand(args);
+			break;
+		case "daemon":
+			await runDaemon(args);
+			break;
+		case "chat":
+			await runChat(args);
 			break;
 		default:
 			usage();

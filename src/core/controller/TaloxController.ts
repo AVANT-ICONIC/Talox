@@ -54,13 +54,24 @@ import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; /
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
+import { OriginHeaders } from "../OriginHeaders.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import { SemanticMapper } from "../SemanticMapper.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
+import { formatAgentError } from "../AgentErrors.js";
+import type { HarRecorder, HarRecorderOptions } from "../HarRecorder.js";
+import { HarRecorder as HarRecorderClass } from "../HarRecorder.js";
+import type { CrossOriginManager } from "../CrossOriginManager.js";
+import { CrossOriginManager as CrossOriginManagerClass } from "../CrossOriginManager.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
 import { SessionManager } from "./SessionManager.js";
 import { TakeoverBridge } from "./TakeoverBridge.js";
+import type { SkillLoader } from "../skills/SkillLoader.js";
+import type { InspectServer as InspectServerType } from "../inspect/InspectServer.js";
+import { InspectServer as InspectServerClass } from "../inspect/InspectServer.js";
+import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
+import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 
 export type { BehavioralDNA } from "../../types/index.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./ActionExecutor.js";
@@ -94,6 +105,8 @@ export class TaloxController {
 	readonly _takeover: TakeoverBridge;
 	readonly _challenge: ChallengeDetector;
 
+	skillLoader?: SkillLoader; // NOSONAR — optional, set externally before launch
+
 	settings: TaloxSettings;
 
 	private attentionFrame: { x: number; y: number; width: number; height: number; selector?: string } | null = null;
@@ -108,6 +121,15 @@ export class TaloxController {
 	private autoResumeTimer: NodeJS.Timeout | null = null;
 	private readonly takeoverHistory: TakeoverSummary[] = [];
 	private readonly observing: boolean;
+	private originHeaders: OriginHeaders | null = null;
+	private readonly originHeaderConfig: import("../../types/config.js").TaloxConfig["originHeaders"];
+	private harRecorder: HarRecorder | null = null;
+	private readonly harRecordingConfig: import("../../types/config.js").TaloxConfig["harRecording"];
+	private crossOriginManager: CrossOriginManager | null = null;
+	private inspectServer: InspectServerType | null = null;
+	private readonly inspectServerConfig: import("../../types/config.js").TaloxConfig["inspectServer"];
+	private videoRecorder: VideoRecorderType | null = null;
+	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
 
 	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
 		// Support TaloxController(config) shorthand when first arg is an object
@@ -168,6 +190,11 @@ export class TaloxController {
 			this.observing,
 		);
 		this.attachTakeoverListeners();
+
+		this.originHeaderConfig = mergedConfig.originHeaders;
+		this.harRecordingConfig = mergedConfig.harRecording;
+		this.inspectServerConfig = mergedConfig.inspectServer;
+		this.videoRecordingConfig = mergedConfig.videoRecording;
 
 		this._actions = new ActionExecutor(
 			this.settings,
@@ -237,6 +264,52 @@ export class TaloxController {
 				await this._session.stop();
 				throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
 			}
+
+			// Install per-origin headers if configured
+			if (this.originHeaderConfig) {
+				this.originHeaders = new OriginHeaders(this.originHeaderConfig);
+				this.originHeaders.install(page);
+			}
+
+			// Start HAR recording if configured
+			if (this.harRecordingConfig?.enabled) {
+				const harOpts: HarRecorderOptions = {
+					outputPath: this.harRecordingConfig.outputPath,
+				};
+				if (this.harRecordingConfig.includeContent !== undefined) {
+					harOpts.includeContent = this.harRecordingConfig.includeContent;
+				}
+				this.harRecorder = new HarRecorderClass(harOpts);
+				this.harRecorder.start(page);
+			}
+
+			// Install cross-origin iframe manager if enabled
+			if (this.settings.enableCrossOriginIframes) {
+				this.crossOriginManager = new CrossOriginManagerClass();
+				this.crossOriginManager.install(page);
+			}
+
+			// Start inspect server if configured
+			if (this.inspectServerConfig) {
+				this.inspectServer = new InspectServerClass(this.inspectServerConfig);
+				await this.inspectServer.attach(page);
+				if (this.settings.verbosity >= 1) {
+					console.log(`[Talox] DevTools inspect server: ${this.inspectServer.getAddress()}`);
+				}
+			}
+
+			// Start video recording if configured
+		if (this.videoRecordingConfig?.enabled) {
+			const vrOpts: { outputPath: string; fps?: number } = {
+				outputPath: this.videoRecordingConfig.outputPath,
+			};
+			if (this.videoRecordingConfig.fps) vrOpts.fps = this.videoRecordingConfig.fps;
+			this.videoRecorder = new VideoRecorderClass(vrOpts);
+				this.videoRecorder.start(page);
+				if (this.settings.verbosity >= 1) {
+					console.log(`[Talox] Video recording started → ${this.videoRecordingConfig.outputPath}`);
+				}
+			}
 		}
 	}
 
@@ -244,12 +317,54 @@ export class TaloxController {
 	 * Close the browser and finalise any active observe session.
 	 */
 	async stop(): Promise<void> {
+		// Flush HAR recording if active
+		if (this.harRecorder) {
+			try {
+				const result = await this.harRecorder.stop();
+				if (this.settings.verbosity >= 1) {
+					console.log(`[Talox] HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
+				}
+			} catch (e) {
+				console.error(`[Talox] HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			}
+			this.harRecorder = null;
+		}
+
+		// Dispose cross-origin iframe manager
+		if (this.crossOriginManager) {
+			this.crossOriginManager.dispose();
+			this.crossOriginManager = null;
+		}
+
+		// Stop inspect server if active
+		if (this.inspectServer) {
+			this.inspectServer.detach();
+			this.inspectServer = null;
+		}
+
+		// Stop video recording if active
+		if (this.videoRecorder) {
+			try {
+				const outputPath = await this.videoRecorder.stop();
+				if (this.settings.verbosity >= 1) {
+					console.log(`[Talox] Video recording saved: ${outputPath}`);
+				}
+			} catch (e) {
+				console.error(`[Talox] Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			}
+			this.videoRecorder = null;
+		}
+
 		// Persist accumulated takeover history as a final artifact entry
 		if (this.takeoverHistory.length > 0) {
 			this._session.artifactBuilder.addAction("takeoverHistorySummary", {
 				count: this.takeoverHistory.length,
 				history: this.takeoverHistory,
 			});
+		}
+		if (this.originHeaders) {
+			await this.originHeaders.dispose();
+			this.originHeaders = null;
 		}
 		try {
 			await this._session.stop();
@@ -268,19 +383,25 @@ export class TaloxController {
 
 	/** Navigate to a URL and return the resulting page state. */
 	async navigate(url: string): Promise<TaloxPageState> {
-		const state = await this._actions.navigate(
-			url,
-			this._session.isFirstNavigation,
-			(v) => {
-				this._session.isFirstNavigation = v;
-			},
-			this._session.lastState,
-			this._session.rulesEngine,
-		);
-		this._session.lastState = state;
-		const adapted = await this._adapt.evaluate(state);
-		if (!adapted) this._adapt.recordStrategySuccess(state.url);
-		return state;
+		try {
+			const state = await this._actions.navigate(
+				url,
+				this._session.isFirstNavigation,
+				(v) => {
+					this._session.isFirstNavigation = v;
+				},
+				this._session.lastState,
+				this._session.rulesEngine,
+			);
+			this._session.lastState = state;
+			// Inject domain hints from matching skills
+			this.injectDomainHints(state, url);
+			const adapted = await this._adapt.evaluate(state);
+			if (!adapted) this._adapt.recordStrategySuccess(state.url);
+			return state;
+		} catch (error: unknown) {
+			return this.buildErrorState(error);
+		}
 	}
 
 	/**
@@ -297,11 +418,15 @@ export class TaloxController {
 	async getState(variant: "agent"): Promise<AgentPageState>;
 	async getState(variant: "debug"): Promise<DebugPageState>;
 	async getState(variant?: CompactVariant): Promise<TaloxPageState | AgentPageState | DebugPageState> {
-		const state = await this._session.getActiveStateCollector().collect();
-		state.bugs.push(...this._session.rulesEngine.analyze(state));
-		this._session.lastState = state;
-		if (!variant || variant === "full") return state;
-		return compactState(state, variant as any);
+		try {
+			const state = await this._session.getActiveStateCollector().collect();
+			state.bugs.push(...this._session.rulesEngine.analyze(state));
+			this._session.lastState = state;
+			if (!variant || variant === "full") return state;
+			return compactState(state, variant as any);
+		} catch (error: unknown) {
+			return this.buildErrorState(error);
+		}
 	}
 
 	/**
@@ -327,15 +452,23 @@ export class TaloxController {
 
 	/** Click an element by CSS selector. Self-heals on failure. */
 	async click(selector: string): Promise<TaloxPageState> {
-		const state = await this._actions.click(selector);
-		const adapted = await this._adapt.evaluate(state);
-		if (!adapted) this._adapt.recordStrategySuccess(state.url);
-		return state;
+		try {
+			const state = await this._actions.click(selector);
+			const adapted = await this._adapt.evaluate(state);
+			if (!adapted) this._adapt.recordStrategySuccess(state.url);
+			return state;
+		} catch (error: unknown) {
+			return this.buildErrorState(error);
+		}
 	}
 
 	/** Type text into an element by CSS selector. Self-heals on failure. */
 	async type(selector: string, text: string): Promise<TaloxPageState> {
-		return this._actions.type(selector, text);
+		try {
+			return await this._actions.type(selector, text);
+		} catch (error: unknown) {
+			return this.buildErrorState(error);
+		}
 	}
 
 	/** Move the mouse to absolute viewport coordinates. */
@@ -351,6 +484,32 @@ export class TaloxController {
 	/** Take a screenshot of the full page or a specific element. */
 	async screenshot(options?: { selector?: string; path?: string }): Promise<Buffer | string> {
 		return this._actions.screenshot(options);
+	}
+
+	/**
+	 * Capture an annotated screenshot with numbered labels overlaid on each
+	 * interactive element, showing element refs (e.g. "@e1", "@e2") at the
+	 * top-left corner of their bounding boxes.
+	 */
+	async annotatedScreenshot(): Promise<Buffer> {
+		const state = await this.getState();
+		const elements = state.interactiveElements
+			.filter((el) => el.boundingBox)
+			.map((el, idx) => ({
+				ref: `@e${idx + 1}`,
+				x: el.boundingBox.x,
+				y: el.boundingBox.y,
+				width: el.boundingBox.width,
+				height: el.boundingBox.height,
+			}));
+
+		const { GhostVisualizer } = await import("../GhostVisualizer.js");
+		const visualizer = new GhostVisualizer();
+		const page = this._session.getPlaywrightPage();
+		if (!page) {
+			throw new Error("No active page. Call launch() first.");
+		}
+		return visualizer.annotateScreenshot(page, elements);
 	}
 
 	/** Extract table data as JSON array. */
@@ -988,5 +1147,45 @@ export class TaloxController {
 
 	getEventListeners(): Map<TaloxEventType, number> {
 		return this._events.getListenerCounts();
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// ERROR HANDLING
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Build a minimal {@link TaloxPageState} from a caught error, using
+	 * {@link formatAgentError} to produce an AI-friendly message.
+	 */
+	private buildErrorState(error: unknown): TaloxPageState {
+		const friendlyMessage = formatAgentError(error);
+		return {
+			url: '',
+			title: 'Error',
+			timestamp: new Date().toISOString(),
+			console: { errors: [friendlyMessage] },
+			network: { failedRequests: [] },
+			nodes: [],
+			interactiveElements: [],
+			bugs: [],
+		};
+	}
+
+	/**
+	 * Inject domain hints from the SkillLoader into the page state.
+	 * Matches the URL's hostname against loaded skills and populates
+	 * `state.domainHints` with formatted skill prompt content.
+	 */
+	private injectDomainHints(state: TaloxPageState, url: string): void {
+		if (!this.skillLoader) return;
+		try {
+			const hostname = new URL(url).hostname;
+			const matched = this.skillLoader.matchDomain(hostname);
+			if (matched.length > 0) {
+				state.domainHints = matched.map((s) => this.skillLoader!.toPrompt(s.manifest.name));
+			}
+		} catch {
+			// NOSONAR — invalid URL, skip domain hints
+		}
 	}
 }

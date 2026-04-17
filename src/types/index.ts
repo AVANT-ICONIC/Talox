@@ -182,6 +182,9 @@ export interface TaloxStateTiming {
  *
  * @see TALOX_STATE_CONTRACT_VERSION
  */
+/** Detection method used to find cursor-detected interactive elements. */
+export type CursorDetectionMethod = "cursor-style" | "onclick-attr" | "tabindex";
+
 export interface TaloxPageState {
 	// ── v1 frozen fields ──────────────────────────────────────────────────────
 	url: string;
@@ -208,6 +211,10 @@ export interface TaloxPageState {
 		text?: string;
 		boundingBox: { x: number; y: number; width: number; height: number };
 		isActionable?: boolean;
+		/** True when this element was discovered via cursor/onclick/tabindex heuristics outside the AX tree. */
+		cursorDetected?: boolean;
+		/** How the element was detected when cursorDetected is true. */
+		detectionMethod?: CursorDetectionMethod;
 	}>;
 	bugs: TaloxBug[];
 
@@ -223,6 +230,11 @@ export interface TaloxPageState {
 	diff?: TaloxStateDiff;
 	/** Profile ID that produced this state (set by SessionManager). */
 	profileId?: string;
+	/**
+	 * Domain-specific hints injected from matching skills.
+	 * Populated by TaloxController.navigate() when skills match the current hostname.
+	 */
+	domainHints?: string[];
 	/** Visual artifact references produced during this action cycle. */
 	screenshots?: {
 		fullPage?: string;

@@ -1,5 +1,5 @@
 import type { Page, Response } from "playwright-core";
-import type { TaloxNode, TaloxPageState } from "../types/index.js";
+import type { CursorDetectionMethod, TaloxNode, TaloxPageState } from "../types/index.js";
 
 export interface RetryOptions {
 	maxRetries: number;
@@ -385,6 +385,153 @@ export class PageStateCollector {
 		);
 	}
 
+	/**
+	 * Additional pass AFTER the standard DOM walk — detects interactive elements
+	 * that are not captured by the AX tree or standard selectors:
+	 * - Elements with `cursor: pointer` computed style
+	 * - Elements with `onclick` attribute
+	 * - Elements with `tabindex` that aren't semantic interactive elements
+	 * - Hidden radio/checkbox inputs inside cursor-interactive wrappers
+	 */
+	private async collectCursorDetectedElements(
+		existingIds: Set<string>,
+		startIndex: number,
+	): Promise<
+		Array<{
+			id: string;
+			tagName: string;
+			role?: string;
+			text?: string;
+			boundingBox: { x: number; y: number; width: number; height: number };
+			isActionable: boolean;
+			cursorDetected: true;
+			detectionMethod: CursorDetectionMethod;
+		}>
+	> {
+		return this.page.evaluate(
+			(args) => {
+				const { existingIds, startIndex } = args;
+				const SEMANTIC_TAGS = new Set(["a", "button", "input", "select", "textarea", "details", "summary"]);
+				const results: Array<{
+					selector: string;
+					tagName: string;
+					text: string;
+					boundingBox: { x: number; y: number; width: number; height: number };
+					detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
+				}> = [];
+
+				function buildSelectorFor(el: Element, tag: string): string {
+					if (el.id) return `#${CSS.escape(el.id)}`;
+					const name = el.getAttribute("name");
+					if (name) return `${tag}[name="${name}"]`;
+					const cls = el.getAttribute("class");
+					if (cls) {
+						const firstClass = cls.trim().split(/\s+/)[0];
+						if (firstClass) return `${tag}.${CSS.escape(firstClass)}`;
+					}
+					const parent = el.parentElement;
+					if (parent) {
+						const siblings = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
+						if (siblings.length === 1) return tag;
+						return `${tag}:nth-of-type(${siblings.indexOf(el) + 1})`;
+					}
+					return tag;
+				}
+
+				// Deduplicate by selector
+				const seen = new Set(existingIds);
+
+				function tryAdd(el: Element, method: "cursor-style" | "onclick-attr" | "tabindex"): void {
+					const rect = el.getBoundingClientRect();
+					if (rect.width === 0 || rect.height === 0) return;
+					if ((el as HTMLElement).style.display === "none") return;
+					if ((el as HTMLElement).style.visibility === "hidden") return;
+					if (el.getAttribute("aria-hidden") === "true") return;
+					const tag = el.tagName.toLowerCase();
+					const sel = buildSelectorFor(el, tag);
+					if (seen.has(sel)) return;
+					seen.add(sel);
+					results.push({
+						selector: sel,
+						tagName: tag,
+						text: el.textContent?.trim().slice(0, 100) || "",
+						boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+						detectionMethod: method,
+					});
+				}
+
+				// Pass 1: cursor: pointer elements
+				const allElements = document.querySelectorAll("*");
+				for (const el of Array.from(allElements)) {
+					if (el.id?.startsWith("__talox")) continue;
+					const tag = el.tagName.toLowerCase();
+					const cursor = getComputedStyle(el).cursor;
+					if (cursor === "pointer") {
+						// Only add if not a semantic interactive element (those are already captured)
+						if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
+							tryAdd(el, "cursor-style");
+						}
+					}
+				}
+
+				// Pass 2: onclick attribute
+				const onclickEls = document.querySelectorAll("[onclick]");
+				for (const el of Array.from(onclickEls)) {
+					if (el.id?.startsWith("__talox")) continue;
+					const tag = el.tagName.toLowerCase();
+					if (!SEMANTIC_TAGS.has(tag)) {
+						tryAdd(el, "onclick-attr");
+					}
+				}
+
+			// Pass 3: tabindex elements that aren't semantic interactive
+				const tabindexEls = document.querySelectorAll('[tabindex]:not([tabindex="-1"])');
+				for (const el of Array.from(tabindexEls)) {
+					if (el.id?.startsWith("__talox")) continue;
+					const tag = el.tagName.toLowerCase();
+					if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
+						tryAdd(el, "tabindex");
+					}
+				}
+
+				// Pass 4: Hidden radio/checkbox inside cursor-interactive wrappers
+				const hiddenInputs = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+				for (const input of Array.from(hiddenInputs)) {
+					if ((input as HTMLInputElement).style.display === "none" || (input as HTMLInputElement).style.visibility === "hidden" || input.getAttribute("type") === "hidden") {
+						const parent = input.parentElement;
+						if (parent && getComputedStyle(parent).cursor === "pointer") {
+							const parentRect = parent.getBoundingClientRect();
+							if (parentRect.width === 0 || parentRect.height === 0) continue;
+							const parentTag = parent.tagName.toLowerCase();
+							const parentSel = buildSelectorFor(parent, parentTag);
+							if (seen.has(parentSel)) continue;
+							seen.add(parentSel);
+							results.push({
+								selector: parentSel,
+								tagName: parentTag,
+								text: parent.textContent?.trim().slice(0, 100) || "",
+								boundingBox: { x: parentRect.x, y: parentRect.y, width: parentRect.width, height: parentRect.height },
+								detectionMethod: "cursor-style",
+							});
+						}
+					}
+				}
+
+				return results.map((r, i) => ({
+					id: r.selector || `cursor-${startIndex + i}`,
+					tagName: r.tagName,
+					text: r.text,
+					boundingBox: r.boundingBox,
+					isActionable: true,
+					cursorDetected: true as const,
+					detectionMethod: r.detectionMethod,
+					ref: `cursor-${startIndex + i}`,
+				}));
+			},
+			{ existingIds: Array.from(existingIds), startIndex },
+		);
+	}
+
 	private flattenAXTree(node: any, result: TaloxNode[] = []) {
 		// If it has a role, it's a candidate
 		if (node.role) {
@@ -531,6 +678,18 @@ export class PageStateCollector {
 		}
 		const mergedInteractiveElements = this.mergeInteractiveElements(interactiveElements, shadowDomElements);
 
+		// Additional pass: cursor-detected elements (cursor:pointer, onclick, tabindex, hidden inputs)
+		const existingIds = new Set(mergedInteractiveElements.map((el: any) => el.id));
+		const cursorStartIndex = mergedInteractiveElements.length;
+		let cursorDetectedElements: any[] = [];
+		try {
+			cursorDetectedElements = await this.collectCursorDetectedElements(existingIds, cursorStartIndex);
+		} catch {
+			// Page may have closed mid-collection; return what we have
+		}
+
+		const allInteractiveElements = [...mergedInteractiveElements, ...cursorDetectedElements];
+
 		const collectedAt = new Date().toISOString();
 		return {
 			url,
@@ -539,7 +698,7 @@ export class PageStateCollector {
 			console: { errors: [...this.consoleErrors] },
 			network: { failedRequests: [...this.failedRequests] },
 			nodes,
-			interactiveElements: mergedInteractiveElements,
+			interactiveElements: allInteractiveElements,
 			bugs: [],
 			timing: {
 				totalMs: Date.now() - collectStart,

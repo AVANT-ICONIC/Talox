@@ -28,6 +28,7 @@ import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
 import { VisionGate } from "../VisionGate.js";
+import { AutoDialogHandler, type DialogRecord } from "../AutoDialogHandler.js";
 import type { EventBus } from "./EventBus.js";
 
 /**
@@ -57,6 +58,14 @@ export class SessionManager {
 	private lastActivityTimestamp: number = 0;
 	private isAutoThinkingActive: boolean = false;
 
+	/** Auto-dialog handler — installed on every new page if enabled in settings. */
+	readonly dialogHandler: AutoDialogHandler;
+
+	/** Session idle timeout interval — checks every 30s for inactivity. */
+	private sessionIdleCheckInterval: NodeJS.Timeout | null = null;
+	/** Tracks the last time any meaningful interaction occurred (for session idle). */
+	private sessionLastActivity: number = 0;
+
 	/** Saved before a headed/headless browser restart so the new session can restore it. */
 	private pendingSnapshot: SessionSnapshot | null = null;
 	/** The current fingerprint profile used for this session. */
@@ -74,6 +83,7 @@ export class SessionManager {
 		this.artifactBuilder = new ArtifactBuilder();
 		this.visionGate = new VisionGate();
 		this.policyEngine = new PolicyEngine();
+		this.dialogHandler = new AutoDialogHandler(events, settings.verbosity);
 	}
 
 	// ─── Launch ──────────────────────────────────────────────────────────────────
@@ -121,6 +131,11 @@ export class SessionManager {
 
 		await this.attachSecurityHooks(page);
 
+		// Install auto-dialog handler if enabled
+		if (this.settings.autoDialogHandling) {
+			this.dialogHandler.install(page);
+		}
+
 		const stateCollector = new PageStateCollector(page);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
@@ -135,12 +150,13 @@ export class SessionManager {
 		}
 
 		this.startAutoThinking(behavioralDNA);
+		this.startSessionIdleMonitor();
 	}
-
-	// ─── Stop ────────────────────────────────────────────────────────────────────
 
 	async stop(): Promise<void> {
 		this.stopAutoThinking();
+		this.stopSessionIdleMonitor();
+		this.dialogHandler.dispose();
 		await this.browserManager.close();
 
 		if (this.observeSession) {
@@ -208,6 +224,11 @@ export class SessionManager {
 		await this.injectStealthScripts(newPage);
 		await this.attachSecurityHooks(newPage);
 
+		// Re-install auto-dialog handler on new page
+		if (this.settings.autoDialogHandling) {
+			this.dialogHandler.install(newPage);
+		}
+
 		const stateCollector = new PageStateCollector(newPage);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
@@ -229,6 +250,7 @@ export class SessionManager {
 
 		const behavioralDNA = this.generateBehavioralDNA(profile.id);
 		this.startAutoThinking(behavioralDNA);
+		this.startSessionIdleMonitor();
 	}
 
 	// ─── Freeze/Unfreeze for Human Takeover ───────────────────────────────────────
@@ -254,6 +276,11 @@ export class SessionManager {
 		await this.injectStealthScripts(page);
 
 		await this.attachSecurityHooks(page);
+
+		// Install auto-dialog handler on new page
+		if (this.settings.autoDialogHandling) {
+			this.dialogHandler.install(page);
+		}
 
 		const stateCollector = new PageStateCollector(page);
 		this.activePageIndex = this.pages.length;
@@ -428,6 +455,60 @@ export class SessionManager {
 		this.artifactBuilder.addAction("setIdleTimeout", { idleTimeout: clamped });
 	}
 
+	// ─── Session Idle Timeout ──────────────────────────────────────────────────
+
+	/**
+	 * Start the session idle timeout monitor.
+	 * Checks every 30 seconds whether the session has been idle beyond
+	 * `sessionIdleTimeoutMs`. If so, emits `sessionIdle` and optionally
+	 * closes the browser.
+	 */
+	startSessionIdleMonitor(): void {
+		this.stopSessionIdleMonitor();
+		this.sessionLastActivity = Date.now();
+
+		const IDLE_CHECK_INTERVAL_MS = 30_000;
+
+		this.sessionIdleCheckInterval = setInterval(() => {
+			const idleMs = Date.now() - this.sessionLastActivity;
+			if (idleMs >= this.settings.sessionIdleTimeoutMs) {
+				const sessionId = this.profile?.id ?? "unknown";
+				this.events.emit("sessionIdle", {
+					idleMs,
+					timeoutMs: this.settings.sessionIdleTimeoutMs,
+					sessionId,
+				});
+
+				if (this.settings.verbosity > 0) {
+					console.log(
+						`[SessionIdle] Session "${sessionId}" idle for ${idleMs}ms (timeout: ${this.settings.sessionIdleTimeoutMs}ms)`,
+					);
+				}
+
+				// If no human takeover configured, close the browser gracefully
+				if (!this.settings.humanTakeoverEnabled) {
+					this.stop().catch(() => {
+						// NOSONAR — best-effort close
+					});
+				}
+			}
+		}, IDLE_CHECK_INTERVAL_MS);
+
+		this.artifactBuilder.addAction("startSessionIdleMonitor", {
+			sessionIdleTimeoutMs: this.settings.sessionIdleTimeoutMs,
+		});
+	}
+
+	/**
+	 * Stop the session idle timeout monitor.
+	 */
+	stopSessionIdleMonitor(): void {
+		if (this.sessionIdleCheckInterval) {
+			clearInterval(this.sessionIdleCheckInterval);
+			this.sessionIdleCheckInterval = null;
+		}
+	}
+
 	async triggerThinkingBehavior(
 		lastMousePos: Point,
 		attentionFrame: any,
@@ -458,6 +539,7 @@ export class SessionManager {
 
 	recordActivity(): void {
 		this.lastActivityTimestamp = Date.now();
+		this.sessionLastActivity = Date.now();
 	}
 
 	// ─── Private: Auto-Think Helpers ─────────────────────────────────────────────

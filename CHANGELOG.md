@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-04-18
+
+### Added — 13 new features
+
+- **#1 Agent-friendly error messages**: `AgentErrors` module converts Playwright errors into structured, AI-actionable guidance with category, friendly message, and self-correcting suggestions.
+- **#2 Auto-dismiss dialog handler**: `AutoDialogHandler` automatically intercepts browser dialogs (alert, confirm, prompt, beforeunload) with configurable strategies and stats tracking.
+- **#3 Annotated screenshot mode**: `GhostVisualizer.annotateScreenshot()` overlays numbered element ref labels on screenshots. `talox screenshot` CLI command for quick captures.
+- **#4 Doctor command**: `talox doctor [--fix]` runs 10 diagnostic checks (Node version, Playwright, browsers, profiles, network, display) with auto-fix mode.
+- **#5 Session timeout with heartbeat**: Configurable idle timeout with automatic browser cleanup. `sessionTimeoutMs` setting on TaloxSettings.
+- **#6 Daemon/IPC protocol**: `TaloxDaemon` — long-lived process accepting newline-delimited JSON commands over Unix socket (or TCP on Windows). `talox daemon` CLI command.
+- **#7 Skills/domain knowledge system**: `SkillLoader` loads SKILL.md files with per-site strategies for LLM prompt injection. Auto-matches by hostname.
+- **#8 Built-in chat mode**: `ChatSession` — LLM-powered interactive REPL using OpenAI-compatible function calling. `talox chat` CLI command.
+- **#9 HAR recording**: `HarRecorder` captures HTTP traffic in HAR 1.2 format with `includeContent` option.
+- **#10 DevTools inspect server**: `InspectServer` proxies CDP for live Chrome DevTools connection. Configurable port.
+- **#11 Cursor detection field**: `cursorDetected` and `detectionMethod` fields on TaloxNode for visibility analysis.
+- **#12 Cross-origin iframe sessions**: `CrossOriginManager` manages dedicated CDP sessions per cross-origin iframe.
+- **#13 Video recording**: `VideoRecorder` captures screenshots at configurable FPS, encodes via ffmpeg or saves PNG sequence with HTML viewer.
+- **#14 Per-origin custom headers**: `OriginHeaders` applies custom HTTP headers per URL origin pattern.
+- **#15 Launch hash relaunch**: `BrowserManager` hashes launch config and auto-relaunches browser when options change.
+
+### Changed
+
+- Moved `Navigation timeout` pattern before generic `timeout.*exceeded` in `AgentErrors` for correct category matching.
+- `extractMessage()` now returns `'Unknown error'` for null/undefined inputs.
+
+### Fixed
+
+- CI browser integration tests: corrected import paths (`../../src/core/TaloxController` → `../../src/core/controller/TaloxController.js`).
+
+### Tests
+
+- 1015 tests across 48 files (up from 917/42). New test files: AgentErrors, AutoDialogHandler, OriginHeaders, HarRecorder, VideoRecorder, SkillLoader, TaloxDaemon.
+
 ## [4.3.1] - 2026-04-17
 
 ### Changed
