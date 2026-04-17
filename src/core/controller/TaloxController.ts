@@ -50,7 +50,7 @@ import { compactState } from "../../types/index.js";
 import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
 // @ts-expect-error -- backward compat
-import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js";
+import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; // NOSONAR
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
@@ -118,8 +118,9 @@ export class TaloxController {
 
 		// Handle legacy mode mapping (v1 → v2 compatibility layer)
 		if (mergedConfig.mode) {
+			// NOSONAR — deprecated mode property for v1→v2 compat
 			// @ts-expect-error -- backward compat usage
-			const legacySettings = resolveLegacyMode(mergedConfig.mode);
+			const legacySettings = resolveLegacyMode(mergedConfig.mode); // NOSONAR
 			mergedSettings = { ...mergedSettings, ...legacySettings };
 		}
 

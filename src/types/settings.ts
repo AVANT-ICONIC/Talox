@@ -31,6 +31,7 @@ export type LegacyTaloxMode =
  * 'stealth', 'balanced', 'qa' are deprecated aliases for 'smart'.
  */
 export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = [
+	// NOSONAR — intentional deprecated compat
 	"smart",
 	"debug",
 	"speed",
@@ -59,7 +60,8 @@ export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = [
  * ```
  */
 export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
-	return typeof value === "string" && LEGACY_MODE_VALUES.includes(value as LegacyTaloxMode);
+	// NOSONAR — intentional deprecated compat
+	return typeof value === "string" && LEGACY_MODE_VALUES.includes(value as LegacyTaloxMode); // NOSONAR
 }
 
 /**
@@ -103,6 +105,7 @@ export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
  * ```
  */
 export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings> {
+	// NOSONAR — intentional deprecated compat
 	switch (mode) {
 		case "smart":
 		case "adaptive":

@@ -150,11 +150,12 @@ function captureElement(el: Element, _event: MouseEvent): CapturedElement {
  * Prefers `id` → `data-testid` → `aria-label` → tag+class → nth-child fallback.
  */
 function generateSelector(el: Element): string {
+	const htmlEl = el as HTMLElement;
 	// ID is always unique
 	if (el.id) return `#${CSS.escape(el.id)}`;
 
 	// data-testid is reliable for test-annotated elements
-	const testId = el.getAttribute("data-testid");
+	const testId = htmlEl.dataset.testid;
 	if (testId) return `[data-testid="${CSS.escape(testId)}"]`;
 
 	// aria-label for accessible elements

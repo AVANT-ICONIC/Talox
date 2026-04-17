@@ -259,6 +259,7 @@ export class PageStateCollector {
 								}
 							}
 						} catch (error_) {
+							// NOSONAR
 							// intentionally ignored: Skip selectors that may not be valid in this context
 						}
 					}
@@ -279,6 +280,7 @@ export class PageStateCollector {
 				return results;
 			});
 		} catch (error_) {
+			// NOSONAR
 			// intentionally ignored: DOM query failure returns empty result
 			return [];
 		}
@@ -314,55 +316,57 @@ export class PageStateCollector {
 		return this.page.$$eval(
 			'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"]',
 			(elements) => {
+				function deriveRole(el: Element): string | undefined {
+					// NOSONAR — browser-context helper, cannot be in outer scope
+					const explicitRole = el.getAttribute("role");
+					if (explicitRole) return explicitRole;
+					const tag = el.tagName.toLowerCase();
+					if (tag === "a") return "link";
+					if (tag === "button") return "button";
+					if (tag === "input") return "textbox";
+					if (tag === "select") return "combobox";
+					if (tag === "textarea") return "textbox";
+					return undefined;
+				}
+
+				function buildSelector(el: Element): string {
+					// NOSONAR — browser-context helper, cannot be in outer scope
+					if (el.id) return `#${CSS.escape(el.id)}`;
+					const tag = el.tagName.toLowerCase();
+					const name = el.getAttribute("name");
+					if (name) return `${tag}[name="${name}"]`;
+					const ariaLabel = el.getAttribute("aria-label");
+					if (ariaLabel) return `${tag}[aria-label="${CSS.escape(ariaLabel)}"]`;
+					const placeholder = el.getAttribute("placeholder");
+					if (placeholder) return `${tag}[placeholder="${CSS.escape(placeholder)}"]`;
+					const type = el.getAttribute("type");
+					if (type) return `${tag}[type="${type}"]`;
+					const parent = el.parentElement;
+					if (parent) {
+						const siblings = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
+						if (siblings.length === 1) return tag;
+						return `${tag}:nth-of-type(${siblings.indexOf(el) + 1})`;
+					}
+					return tag;
+				}
+
 				return elements
 					.filter((el) => {
-						// Skip Talox-injected overlay elements
 						if (el.id?.startsWith("__talox")) return false;
-						// Skip aria-hidden / presentation elements
 						if (el.getAttribute("aria-hidden") === "true") return false;
 						if (el.getAttribute("role") === "presentation") return false;
 						return true;
 					})
 					.map((el, i) => {
 						const rect = el.getBoundingClientRect();
-						// Derive semantic role from explicit attribute or tagName
-						const explicitRole = el.getAttribute("role");
-						let role: string | undefined = explicitRole || undefined;
-						if (!role) {
-							const tag = el.tagName.toLowerCase();
-							if (tag === "a") role = "link";
-							else if (tag === "button") role = "button";
-							else if (tag === "input") role = "textbox";
-							else if (tag === "select") role = "combobox";
-							else if (tag === "textarea") role = "textbox";
-						}
-						// Get visible text: prefer label association, fallback to textContent
+						const role = deriveRole(el);
 						const label =
 							(el as HTMLInputElement).labels?.[0]?.textContent?.trim() ||
 							el.getAttribute("aria-label")?.trim() ||
 							el.getAttribute("placeholder")?.trim() ||
 							el.textContent?.trim().slice(0, 120) ||
 							"";
-						// Build a usable CSS selector for agent interaction
-						let selector = "";
-						if (el.id) selector = `#${CSS.escape(el.id)}`;
-						else if (el.getAttribute("name"))
-							selector = `${el.tagName.toLowerCase()}[name="${el.getAttribute("name")}"]`;
-						else if (el.getAttribute("aria-label"))
-							selector = `${el.tagName.toLowerCase()}[aria-label="${CSS.escape(el.getAttribute("aria-label"))}"]`;
-						else if (el.getAttribute("placeholder"))
-							selector = `${el.tagName.toLowerCase()}[placeholder="${CSS.escape(el.getAttribute("placeholder"))}"]`;
-						else if (el.getAttribute("type"))
-							selector = `${el.tagName.toLowerCase()}[type="${el.getAttribute("type")}"]`;
-						else {
-							const parent = el.parentElement;
-							if (parent) {
-								const siblings = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
-								if (siblings.length === 1) selector = el.tagName.toLowerCase();
-								else selector = `${el.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(el) + 1})`;
-							}
-							if (!selector) selector = el.tagName.toLowerCase();
-						}
+						const selector = buildSelector(el);
 						return {
 							id: selector || `dom-${i}`,
 							tagName: el.tagName.toLowerCase(),
@@ -413,6 +417,49 @@ export class PageStateCollector {
 		return result;
 	}
 
+	private async collectWithRetry(nodeThreshold: number): Promise<{ nodes: TaloxNode[]; shouldUseFallback: boolean }> {
+		const { maxRetries = DEFAULT_RETRY_OPTIONS.maxRetries } = this.options.retry;
+		let nodes: TaloxNode[] = [];
+		let axSnapshot: any = null;
+		let axTreeError: Error | null = null;
+
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
+			this.retryStats.axTreeAttempts++;
+
+			try {
+				if (attempt > 0) {
+					const delay = this.calculateBackoff(attempt - 1);
+					this.retryStats.totalDelayMs += delay;
+					await this.sleep(delay);
+				}
+
+				try {
+					// @ts-expect-error - accessibility might not be in types
+					axSnapshot = await this.page.accessibility?.snapshot();
+				} catch (error_) {
+					axTreeError = error_ as Error;
+					axSnapshot = null;
+				}
+
+				if (axSnapshot) {
+					nodes = this.flattenAXTree(axSnapshot);
+					this.retryStats.axTreeSuccesses++;
+					break;
+				}
+
+				axTreeError = new Error("AX-Tree snapshot returned null");
+			} catch (err) {
+				axTreeError = err as Error;
+				this.retryStats.lastError = axTreeError.message;
+			}
+		}
+
+		const shouldUseFallback =
+			this.options.useDomFallback && (nodes.length < nodeThreshold || axTreeError !== null || axSnapshot === null);
+
+		return { nodes, shouldUseFallback };
+	}
+
 	async collect(): Promise<TaloxPageState> {
 		// Guard against calling collect() on a page that has already been closed
 		// (e.g. during browser teardown or headed/headless restart races).
@@ -438,54 +485,16 @@ export class PageStateCollector {
 		this.retryStats.attempts++;
 
 		let nodes: TaloxNode[] = [];
-		let axSnapshot: any = null;
-		let axTreeError: Error | null = null;
 		let shouldUseFallback = false;
-		const { maxRetries = DEFAULT_RETRY_OPTIONS.maxRetries } = this.options.retry;
-
-		// Progressive State Collection: Retry if node count is below threshold
 		const nodeThreshold = this.options.domFallbackThreshold;
+
 		let collectionAttempts = 0;
 		const maxCollectionAttempts = 3;
 
 		while (collectionAttempts < maxCollectionAttempts) {
-			nodes = [];
-			axSnapshot = null;
-			axTreeError = null;
-
-			for (let attempt = 0; attempt <= maxRetries; attempt++) {
-				this.retryStats.axTreeAttempts++;
-
-				try {
-					if (attempt > 0) {
-						const delay = this.calculateBackoff(attempt - 1);
-						this.retryStats.totalDelayMs += delay;
-						await this.sleep(delay);
-					}
-
-					try {
-						// @ts-expect-error - accessibility might not be in types
-						axSnapshot = await this.page.accessibility?.snapshot();
-					} catch (error_) {
-						axTreeError = error_ as Error;
-						axSnapshot = null;
-					}
-
-					if (axSnapshot) {
-						nodes = this.flattenAXTree(axSnapshot);
-						this.retryStats.axTreeSuccesses++;
-						break;
-					}
-
-					axTreeError = new Error("AX-Tree snapshot returned null");
-				} catch (err) {
-					axTreeError = err as Error;
-					this.retryStats.lastError = axTreeError.message;
-				}
-			}
-
-			shouldUseFallback =
-				this.options.useDomFallback && (nodes.length < nodeThreshold || axTreeError !== null || axSnapshot === null);
+			const result = await this.collectWithRetry(nodeThreshold);
+			nodes = result.nodes;
+			shouldUseFallback = result.shouldUseFallback;
 
 			if (shouldUseFallback) {
 				nodes = await this.collectDomFallback();

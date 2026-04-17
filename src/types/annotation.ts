@@ -16,8 +16,6 @@ export type BuiltInAnnotationLabel = "bug" | "note" | "question" | "improvement"
  * An annotation label — either one of the four built-in presets or any
  * custom string typed by the human and confirmed with Enter.
  */
-// sonar-disable-next-line typescript:S6564 — intentional semantic alias for documentation
-export type AnnotationLabel = string;
 
 // ─── Element Snapshot ────────────────────────────────────────────────────────
 
@@ -57,7 +55,7 @@ export interface AnnotationEntry {
 	/** ISO 8601 timestamp of when the annotation was submitted. */
 	timestamp: string;
 	/** One or more labels selected/typed by the human. */
-	labels: AnnotationLabel[];
+	labels: string[];
 	/** The human's free-text comment. */
 	comment: string;
 	/** The annotated element's identity and position. */
@@ -77,6 +75,6 @@ export const ANNOTATION_LABEL_EMOJI: Record<BuiltInAnnotationLabel, string> = {
 };
 
 /** Returns a display emoji for any label (built-in or custom). */
-export function getLabelEmoji(label: AnnotationLabel): string {
+export function getLabelEmoji(label: string): string {
 	return ANNOTATION_LABEL_EMOJI[label as BuiltInAnnotationLabel] ?? "🏷️";
 }

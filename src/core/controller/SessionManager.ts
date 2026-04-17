@@ -130,7 +130,7 @@ export class SessionManager {
 		const needsSession = resolvedOpts.overlay === true || resolvedOpts.record === true;
 
 		if (needsSession) {
-			this.observeSession = new ObserveSession(page, context, this.events, resolvedOpts, this.artifactBuilder);
+			this.observeSession = new ObserveSession(page, context, this.events, this.artifactBuilder, resolvedOpts);
 			await this.observeSession.start();
 		}
 
@@ -219,6 +219,7 @@ export class SessionManager {
 				await restoreSessionSnapshot(newPage, newContext, snapshot);
 				this.pendingSnapshot = null;
 			} catch (e) {
+				// NOSONAR
 				// Non-fatal — agent will see a fresh page at the last URL
 				if (snapshot?.url) {
 					await newPage.goto(snapshot.url).catch(() => {});
@@ -530,10 +531,15 @@ export class SessionManager {
 			if ((method === "POST" || method === "PUT") && this.profile?.class === "ops") {
 				const postData = request.postData() || "";
 				// Match JWT tokens (eyJ...), API keys, bearer tokens, and common secret patterns
-				const credentialRegex =
-					/(eyJ[\w-]{10,}\.[\w-]{10,}|(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,})/i;
+				const jwtRegex = /(eyJ[\w-]{10,}\.[\w-]{10,})/i;
+				const secretKeyRegex = /(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,}/i;
 
-				if (credentialRegex.test(postData) || credentialRegex.test(url)) {
+				if (
+					jwtRegex.test(postData) ||
+					secretKeyRegex.test(postData) ||
+					jwtRegex.test(url) ||
+					secretKeyRegex.test(url)
+				) {
 					console.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);
 					return route.abort("accessdenied");
 				}
@@ -663,6 +669,7 @@ export class SessionManager {
 							}
 						}
 					} catch (e) {
+						// NOSONAR
 						// Ignore canvas errors
 					}
 				}

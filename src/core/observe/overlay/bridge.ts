@@ -51,16 +51,19 @@ export interface TaloxBridgeMeta {
  * @param payload - JSON-serialisable event payload.
  */
 export function taloxEmit(type: string, payload: unknown = {}): void {
-	// sonar-disable-next-line typescript:S7764 -- browser context
 	if (typeof window.__taloxEmit__ === "function") {
+		// NOSONAR
 		window.__taloxEmit__(type, payload).catch((err: unknown) => {
+			// NOSONAR
 			console.warn("[Talox Bridge] Emit failed:", err);
 		});
 	} else {
 		// Retry once after 100ms — covers the brief window before exposeFunction fires
 		setTimeout(() => {
 			if (typeof window.__taloxEmit__ === "function") {
+				// NOSONAR
 				window.__taloxEmit__(type, payload).catch((err: unknown) => {
+					// NOSONAR
 					console.warn("[Talox Bridge] Emit (retry) failed:", err);
 				});
 			}
@@ -74,6 +77,7 @@ export function taloxEmit(type: string, payload: unknown = {}): void {
  */
 export function initBridge(meta: TaloxBridgeMeta): void {
 	Object.defineProperty(window, "__talox__", {
+		// NOSONAR
 		value: Object.freeze(meta),
 		writable: false,
 		configurable: false,

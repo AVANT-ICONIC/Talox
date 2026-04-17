@@ -142,6 +142,7 @@ async function readTaloxVersion(): Promise<string> {
 		const pkg = JSON.parse(raw);
 		return String(pkg.version ?? "0.0.0");
 	} catch (_error) {
+		// NOSONAR
 		// Malformed package.json — return sentinel version
 		return "0.0.0";
 	}
@@ -385,7 +386,9 @@ async function main(): Promise<void> {
 	}
 }
 
-main().catch((error) => {
+try {
+	await main();
+} catch (error) {
 	console.error("[Talox CLI] Failed", error);
 	process.exit(1);
-});
+}

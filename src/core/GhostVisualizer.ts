@@ -445,12 +445,16 @@ export class GhostVisualizer {
 			if (!row) continue;
 			for (let cx = 0; cx < row.length; cx++) {
 				if (row[cx]) {
-					for (let px = 0; px < 2; px++) {
-						for (let py = 0; py < 2; py++) {
-							this.drawPixel(x + cx * 2 + px, y + cy * 2 + py, r, g, b);
-						}
-					}
+					this.renderSubPixel(x + cx * 2, y + cy * 2, r, g, b);
 				}
+			}
+		}
+	}
+
+	private renderSubPixel(x: number, y: number, r: number, g: number, b: number): void {
+		for (let px = 0; px < 2; px++) {
+			for (let py = 0; py < 2; py++) {
+				this.drawPixel(x + px, y + py, r, g, b);
 			}
 		}
 	}

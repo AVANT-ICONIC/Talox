@@ -382,7 +382,7 @@ export class BrowserManager {
 			}
 		}
 
-		return this.context!;
+		return this.context;
 	}
 
 	async close() {

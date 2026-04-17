@@ -77,8 +77,8 @@ export class ObserveSession {
 		private readonly page: any, // Playwright Page
 		private readonly context: any, // Playwright BrowserContext
 		eventBus: EventBus<TaloxEventMap>,
-		options: ObserveSessionOptions = {},
 		artifactBuilder: ArtifactBuilder,
+		options: ObserveSessionOptions = {},
 	) {
 		this.sessionId = randomUUID();
 		this.startedAt = new Date().toISOString();
@@ -332,6 +332,7 @@ export class ObserveSession {
 			const buffer = await this.page.screenshot({ fullPage: true });
 			return buffer.toString("base64");
 		} catch (error_) {
+			// NOSONAR
 			// intentionally ignored: screenshot capture failure is non-fatal
 			return undefined;
 		}

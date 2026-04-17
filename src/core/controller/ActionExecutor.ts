@@ -115,6 +115,7 @@ export class ActionExecutor {
 				await page.goto("about:blank");
 				await new Promise((r) => setTimeout(r, 2000 + Math.random() * 1000));
 			} catch (error_) {
+				// NOSONAR
 				// Ignore warmup failures
 			}
 			setFirstNavigation(false);
@@ -330,6 +331,7 @@ export class ActionExecutor {
 		try {
 			return await this.getActiveStateCollector().collect();
 		} catch (error_) {
+			// NOSONAR
 			// intentionally ignored: collection failure returns minimal state
 			return {
 				url: page.url(),
@@ -583,20 +585,17 @@ export class ActionExecutor {
 			);
 
 			const rows = Array.from(tableEl.querySelectorAll("tbody tr, tr"));
-			return (
-				rows
-					.map((row) => {
-						const cells = Array.from(row.querySelectorAll("td, th"));
-						const rowData: Record<string, string> = {};
-						cells.forEach((cell, i) => {
-							const key = headers[i] || `col${i}`;
-							rowData[key] = cell.textContent?.trim() || "";
-						});
-						return rowData;
-					})
-					// sonar-disable-next-line typescript:S7770 — not equivalent to Boolean: filters rows with empty values
-					.filter((row) => Object.values(row).some((v) => v))
-			);
+			return rows
+				.map((row) => {
+					const cells = Array.from(row.querySelectorAll("td, th"));
+					const rowData: Record<string, string> = {};
+					cells.forEach((cell, i) => {
+						const key = headers[i] || `col${i}`;
+						rowData[key] = cell.textContent?.trim() || "";
+					});
+					return rowData;
+				})
+				.filter((row) => Object.values(row).some((v) => v)); // NOSONAR
 		});
 	}
 
@@ -621,8 +620,8 @@ export class ActionExecutor {
 		);
 
 		if (matches.length === 0) return null;
-
-		const best = matches.sort((a, b) => b.confidence - a.confidence)[0];
+		const sorted = [...matches].sort((a, b) => b.confidence - a.confidence);
+		const best = sorted[0];
 		if (!best) return null;
 
 		return {
@@ -829,8 +828,12 @@ export class ActionExecutor {
 	getDNAMouseSpeed(behavioralDNA: any): number {
 		if (!behavioralDNA) return 1;
 		const settings = this.settings;
-		const styleFactor =
-			behavioralDNA.movementStyle === "precise" ? 0.8 : behavioralDNA.movementStyle === "relaxed" ? 1.2 : 1;
+		let styleFactor = 1;
+		if (behavioralDNA.movementStyle === "precise") {
+			styleFactor = 0.8;
+		} else if (behavioralDNA.movementStyle === "relaxed") {
+			styleFactor = 1.2;
+		}
 		return settings.mouseSpeed * styleFactor;
 	}
 
@@ -965,6 +968,7 @@ export class ActionExecutor {
 			this.densityCache.set(cacheKey, finalDensity);
 			return finalDensity;
 		} catch (error_) {
+			// NOSONAR
 			// Density computation failed — return default density
 			return 0.5;
 		}

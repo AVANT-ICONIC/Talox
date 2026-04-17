@@ -133,7 +133,7 @@ describe("ObserveSession", () => {
 		it("creates a session with a UUID and ISO timestamp", () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(page, context, eventBus, {}, artifactBuilder as any);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {});
 			expect(session.sessionId).toMatch(/^[0-9a-f-]{36}$/);
 			expect(session.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 		});
@@ -141,7 +141,7 @@ describe("ObserveSession", () => {
 		it("uses default options when none provided", () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(page, context, eventBus, {}, artifactBuilder as any);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {});
 			// session should be created without errors
 			expect(session.sessionId).toBeTruthy();
 		});
@@ -149,13 +149,10 @@ describe("ObserveSession", () => {
 		it("respects overlay=false option", () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			// Creation succeeds
 			expect(session.sessionId).toBeTruthy();
 		});
@@ -169,13 +166,10 @@ describe("ObserveSession", () => {
 		it("registers page event listeners", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const onCalls = page.on.mock.calls.map((c: any[]) => c[0]);
@@ -187,13 +181,10 @@ describe("ObserveSession", () => {
 		it("registers context close listener", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const onCalls = context.on.mock.calls.map((c: any[]) => c[0]);
@@ -203,7 +194,7 @@ describe("ObserveSession", () => {
 		it("injects overlay when overlay=true", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(page, context, eventBus, { overlay: true }, artifactBuilder as any);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, { overlay: true });
 			await session.start();
 			// The OverlayInjector mock's inject should have been called
 			// We can verify the session started without errors
@@ -213,13 +204,10 @@ describe("ObserveSession", () => {
 		it("does not inject overlay when overlay=false", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 			expect(session.sessionId).toBeTruthy();
 		});
@@ -233,13 +221,10 @@ describe("ObserveSession", () => {
 		it("records navigation interactions on framenavigated", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			// Simulate framenavigated event — must emit the SAME frame object that mainFrame() returns
@@ -254,13 +239,10 @@ describe("ObserveSession", () => {
 		it("ignores framenavigated for about:blank", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			page._emit("framenavigated", { url: () => "about:blank" });
@@ -271,13 +253,10 @@ describe("ObserveSession", () => {
 		it("emits navigation event on the event bus", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const navHandler = vi.fn();
@@ -298,13 +277,10 @@ describe("ObserveSession", () => {
 		it("emits consoleError event when page fires error console message", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const errorHandler = vi.fn();
@@ -317,13 +293,10 @@ describe("ObserveSession", () => {
 		it("ignores non-error console messages", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const errorHandler = vi.fn();
@@ -342,13 +315,10 @@ describe("ObserveSession", () => {
 		it("emits networkError event when request fails", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const netHandler = vi.fn();
@@ -372,13 +342,10 @@ describe("ObserveSession", () => {
 		it("returns a valid session report structure", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const report = session.buildReport();
@@ -399,13 +366,10 @@ describe("ObserveSession", () => {
 		it("includes recorded interactions", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			// Use the same frame identity that mainFrame() returns
@@ -427,13 +391,10 @@ describe("ObserveSession", () => {
 		it("emits sessionEnd event on the event bus", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const endHandler = vi.fn();
@@ -446,13 +407,10 @@ describe("ObserveSession", () => {
 		it("is idempotent — calling twice does not emit twice", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const endHandler = vi.fn();
@@ -472,13 +430,10 @@ describe("ObserveSession", () => {
 		it("logs navigation events", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const frame = page.mainFrame();
@@ -492,13 +447,10 @@ describe("ObserveSession", () => {
 		it("logs consoleError events", async () => {
 			const page = makeMockPage();
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			page._emit("console", { type: () => "error", text: () => "Test error" });
@@ -522,13 +474,10 @@ describe("ObserveSession", () => {
 			page.url = vi.fn(() => "https://myapp.com/home");
 			page.mainFrame = vi.fn(() => ({ url: () => "https://myapp.com/home" }));
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const report = session.buildReport();
@@ -540,13 +489,10 @@ describe("ObserveSession", () => {
 			// Remove url function entirely
 			page.url = undefined;
 			const context = makeMockContext();
-			const session = new ObserveSession(
-				page,
-				context,
-				eventBus,
-				{ overlay: false, record: false },
-				artifactBuilder as any,
-			);
+			const session = new ObserveSession(page, context, eventBus, artifactBuilder as any, {
+				overlay: false,
+				record: false,
+			});
 			await session.start();
 
 			const report = session.buildReport();

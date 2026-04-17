@@ -206,17 +206,11 @@ export class VisionGate {
 			for (let col = 0; col < gridCols; col++) {
 				if (gridRow[col] && !visitedRow[col]) {
 					visitedRow[col] = true;
-					const result = this.floodFillMerge(
-						row,
-						col,
-						grid,
-						visited,
-						gridCols,
-						gridRows,
+					const result = this.floodFillMerge(row, col, grid, visited, gridCols, gridRows, {
 						gridSize,
 						regions,
-						merged.length,
-					);
+						mergeThreshold: merged.length,
+					});
 					merged.push(result);
 				}
 			}
@@ -252,10 +246,13 @@ export class VisionGate {
 		visited: boolean[][],
 		gridCols: number,
 		gridRows: number,
-		gridSize: number,
-		regions: DiffRegion[],
-		mergedCount: number,
+		options: {
+			gridSize: number;
+			regions: DiffRegion[];
+			mergeThreshold: number;
+		},
 	): DiffRegion {
+		const { gridSize, regions, mergeThreshold: mergedCount } = options;
 		let minX = startCol * gridSize;
 		let minY = startRow * gridSize;
 		let maxX = minX + gridSize;

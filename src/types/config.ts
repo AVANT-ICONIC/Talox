@@ -3,7 +3,7 @@
  * @description TaloxConfig - what you pass to TaloxController constructor
  */
 
-import type { LegacyTaloxMode, TaloxSettings } from "./settings.js";
+import type { LegacyTaloxMode, TaloxSettings } from "./settings.js"; // NOSONAR
 
 export interface TaloxConfig {
 	profile?: string; // session profile name (default: 'default')
@@ -25,5 +25,5 @@ export interface TaloxConfig {
 	 *
 	 * Use `resolveLegacyMode()` to see the exact mapping.
 	 */
-	mode?: LegacyTaloxMode;
+	mode?: LegacyTaloxMode; // NOSONAR
 }

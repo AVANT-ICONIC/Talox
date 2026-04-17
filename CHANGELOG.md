@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-04-17
+
+### Changed
+
+- 3 CRITICAL cognitive complexity refactors:
+  - GhostVisualizer.renderCharPixels(): extracted renderSubPixel() (17->5)
+  - PageStateCollector.collectInteractiveElementsViaDom(): extracted deriveRole() and buildSelector() inside $$eval callback (21->7)
+  - PageStateCollector.collect(): extracted collectWithRetry() method (23->10)
+
+### Fixed
+
+- 8 MAJOR issues resolved:
+  - S107: VisionGate.floodFillMerge() params grouped into options object
+  - S1788: ObserveSession default param moved to last position
+  - S3358: ActionExecutor nested ternary replaced with if/else chain
+  - S4043: Array sort moved to separate statement
+  - S5843: Complex regex split into two simpler patterns
+  - S6564: Removed redundant AnnotationLabel type alias
+  - S7761: elementInspector uses .dataset instead of getAttribute
+  - S7785: CLI uses top-level await instead of .catch() chain
+
+- 21 remaining issues resolved as Won't Fix:
+  - S1874 (4): Intentional deprecated backward-compat API usage
+  - S2486 (10): Intentional empty catches for non-fatal graceful degradation
+  - S7764 (5): Browser-injected code correctly uses window (not globalThis)
+  - S7721 (2): Browser-context helpers cannot be in outer scope
+
+- Added sonar-project.properties for persistent issue exclusions
+
+### Result
+
+- SonarQube: 0 open issues. Quality gate: OK.
+- 1007/1007 tests passing
+
 ## [4.3.0] - 2026-04-17
 
 ### Changed

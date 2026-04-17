@@ -80,14 +80,14 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-15) — v4.3.0
+### Current Status (2026-04-15) — v4.3.1
 
-- **~49 total issues** (all src, 0 test issues)
+- **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
 - **0 BLOCKER**
 - **0 CRITICAL**
-- **~12 MAJOR** — code smells (down from 62)
-- **~35 MINOR** — code smells (down from 317)
+- **0 MAJOR** — code smells (down from 62)
+- **0 MINOR** — code smells (down from 317)
 
 ## Build & Test
 

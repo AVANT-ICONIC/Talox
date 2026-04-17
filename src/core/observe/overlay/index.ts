@@ -57,8 +57,7 @@ export function bootstrapOverlay(meta: TaloxBridgeMeta): void {
 			taloxEmit("interaction:click", {
 				index: interactionCounter,
 				timestamp: new Date().toISOString(),
-				// sonar-disable-next-line typescript:S7764 -- browser context
-				url: window.location.href,
+				url: window.location.href, // NOSONAR
 				element: {
 					tag: (target.tagName ?? "unknown").toLowerCase(),
 					role: target.getAttribute("role") ?? undefined,

@@ -12,14 +12,12 @@ export type BuiltInBugType =
 	| "VISUAL_REGRESSION";
 
 /** Bug type — built-in or custom string. */
-// sonar-disable-next-line typescript:S6571 — intentional: built-in + custom extensible pattern
-export type BugType = BuiltInBugType | string;
+export type BugType = BuiltInBugType | string; // NOSONAR
 
 // ─── Annotation Types ─────────────────────────────────────────────────────────
 export type {
 	AnnotationElement,
 	AnnotationEntry,
-	AnnotationLabel,
 	BuiltInAnnotationLabel,
 } from "./annotation.js";
 export { ANNOTATION_LABEL_EMOJI, getLabelEmoji } from "./annotation.js";

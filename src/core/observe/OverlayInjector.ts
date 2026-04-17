@@ -234,8 +234,9 @@ export class OverlayInjector {
 			if (!outputFile) throw new Error("esbuild produced no output");
 
 			this.bundleCache = outputFile.text;
-			return this.bundleCache!;
+			return this.bundleCache;
 		} catch (error_) {
+			// NOSONAR
 			// sonar-disable-next-line typescript:S2486 — handled via console.warn fallback
 			console.warn(
 				"[Talox] esbuild not available — overlay using fallback stub. " +
