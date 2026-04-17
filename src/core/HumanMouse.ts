@@ -151,7 +151,9 @@ export class HumanMouse {
 		const targetX = box.x + box.width * (0.2 + Math.random() * 0.6);
 		const targetY = box.y + box.height * (0.2 + Math.random() * 0.6);
 
-		await HumanMouse.move(page, targetX, targetY, box.width, isFlow, currentPos, { speedMultiplier, onStep });
+		const moveOpts: { speedMultiplier?: number; onStep?: CursorStepCallback } = { speedMultiplier };
+		if (onStep) moveOpts.onStep = onStep;
+		await HumanMouse.move(page, targetX, targetY, box.width, isFlow, currentPos, moveOpts);
 
 		// Reduced hunting (15% chance)
 		let finalX = targetX;

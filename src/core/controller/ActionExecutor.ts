@@ -478,10 +478,11 @@ export class ActionExecutor {
 		if (attentionFrame && targetBox) {
 			const centerX = targetBox.x + targetBox.width * (0.2 + Math.random() * 0.6);
 			const centerY = targetBox.y + targetBox.height * (0.2 + Math.random() * 0.6);
-			await HumanMouse.move(page, centerX, centerY, targetBox.width, false, this.getCurrentLastMousePos(), {
+			const mouseOpts1: { speedMultiplier?: number; onStep?: CursorStepCallback } = {
 				speedMultiplier: settings.mouseSpeed * dnaSpeed,
-				onStep,
-			});
+			};
+			if (onStep) mouseOpts1.onStep = onStep;
+			await HumanMouse.move(page, centerX, centerY, targetBox.width, false, this.getCurrentLastMousePos(), mouseOpts1);
 			await page.mouse.click(centerX, centerY);
 			this.setCurrentLastMousePos({ x: Math.round(centerX), y: Math.round(centerY) });
 			this.events.emit("cursorClicked", { x: Math.round(centerX), y: Math.round(centerY) });
@@ -530,10 +531,11 @@ export class ActionExecutor {
 			await page.mouse.move(clampedPos.x, clampedPos.y);
 			this.events.emit("cursorMoved", { x: clampedPos.x, y: clampedPos.y });
 		} else {
-			await HumanMouse.move(page, clampedPos.x, clampedPos.y, 100, false, this.getCurrentLastMousePos(), {
+			const mouseOpts2: { speedMultiplier?: number; onStep?: CursorStepCallback } = {
 				speedMultiplier: effectiveMouseSpeed,
-				onStep,
-			});
+			};
+			if (onStep) mouseOpts2.onStep = onStep;
+			await HumanMouse.move(page, clampedPos.x, clampedPos.y, 100, false, this.getCurrentLastMousePos(), mouseOpts2);
 		}
 
 		this.setCurrentLastMousePos({ x: clampedPos.x, y: clampedPos.y });

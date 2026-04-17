@@ -23,7 +23,7 @@ import type { TakeoverSummary, TaloxEventMap } from "../../types/events.js";
 import type { EventBus } from "./EventBus.js";
 
 export type TakeoverState = "AGENT_RUNNING" | "WAITING_FOR_HUMAN";
-export { TakeoverReason, TakeoverSummary } from "../../types/events.js";
+export type { TakeoverReason, TakeoverSummary } from "../../types/events.js";
 
 // ─── Agent Overlay Bundle (injected into every page) ─────────────────────────
 
