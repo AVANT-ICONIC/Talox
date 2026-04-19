@@ -366,6 +366,28 @@ function buildSummary(messages: ChatMessage[]): string {
 	return parts.join("\n");
 }
 
+function formatPageState(state: Partial<TaloxPageState>): string {
+	const parts = [`URL: ${state.url}`, `Title: ${state.title ?? "N/A"}`];
+	if (state.interactiveElements) {
+		parts.push(`Interactive elements: ${state.interactiveElements.length}`);
+	}
+	if (state.console && state.console.errors.length > 0) {
+		parts.push(`Console errors: ${state.console.errors.length}`);
+	}
+	if (state.bugs && state.bugs.length > 0) {
+		parts.push(`Bugs: ${state.bugs.length}`);
+	}
+	return parts.join(" | ");
+}
+
+function stringifyResult(result: unknown): string {
+	try {
+		return JSON.stringify(result).slice(0, 500);
+	} catch { /* NOSONAR */
+		return String(result);
+	}
+}
+
 function formatActionResult(action: string, result: unknown): string {
 	if (result === null || result === undefined) {
 		return `${action} completed (no return value)`;
@@ -374,23 +396,9 @@ function formatActionResult(action: string, result: unknown): string {
 	if (typeof result === "object") {
 		const state = result as Partial<TaloxPageState>;
 		if (state.url !== undefined) {
-			const parts = [`URL: ${state.url}`, `Title: ${state.title ?? "N/A"}`];
-			if (state.interactiveElements) {
-				parts.push(`Interactive elements: ${state.interactiveElements.length}`);
-			}
-			if (state.console && state.console.errors.length > 0) {
-				parts.push(`Console errors: ${state.console.errors.length}`);
-			}
-			if (state.bugs && state.bugs.length > 0) {
-				parts.push(`Bugs: ${state.bugs.length}`);
-			}
-			return parts.join(" | ");
+			return formatPageState(state);
 		}
 	}
 
-	try {
-		return JSON.stringify(result).slice(0, 500);
-	} catch { /* NOSONAR */
-		return String(result);
-	}
+	return stringifyResult(result);
 }

@@ -128,7 +128,7 @@ export class VideoRecorder {
 		await mkdir(path.dirname(output), { recursive: true });
 
 		const codec = this.format === "mp4" ? "libx264" : "libvpx-vp9";
-		const pixFmt = this.format === "mp4" ? "yuv420p" : "yuv420p";
+		const pixFmt = "yuv420p"; // NOSONAR — same for both formats
 
 		const ffmpegArgs = [
 			"-f",

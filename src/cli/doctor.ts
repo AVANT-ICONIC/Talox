@@ -36,7 +36,7 @@ function execAsync(command: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
 		execFile(command, args, { timeout: 30_000 }, (error, stdout, stderr) => {
 			if (error) {
-				reject(error);
+				reject(error instanceof Error ? error : new Error(String(error)));
 				return;
 			}
 			resolve((stdout || stderr).trim());
@@ -342,28 +342,50 @@ export async function runDoctor(options?: { fix?: boolean }): Promise<DoctorResu
 	};
 }
 
-export function formatDoctorOutput(result: DoctorResult, version: string): string {
-	const lines: string[] = [];
-	lines.push(`Talox Doctor — v${version}`);
-	lines.push(HORIZONTAL_LINE);
+function statusIcon(status: DoctorCheck["status"]): string {
+	if (status === "ok") return "✓";
+	if (status === "warning") return "⚠";
+	return "✗";
+}
 
-	for (const check of result.checks) {
-		const icon = check.status === "ok" ? "✓" : check.status === "warning" ? "⚠" : "✗";
-		const color = check.status === "ok" ? GREEN : check.status === "warning" ? YELLOW : RED;
+function statusColor(status: DoctorCheck["status"]): string {
+	if (status === "ok") return GREEN;
+	if (status === "warning") return YELLOW;
+	return RED;
+}
+
+function pluralize(count: number, singular: string): string {
+	return count === 1 ? singular : `${singular}s`;
+}
+
+function buildSummaryParts(result: DoctorResult): string[] {
+	const parts: string[] = [];
+	if (result.passed > 0) parts.push(`${GREEN}${result.passed} passed${RESET}`);
+	if (result.warnings > 0) parts.push(`${YELLOW}${result.warnings} ${pluralize(result.warnings, "warning")}${RESET}`);
+	if (result.errors > 0) parts.push(`${RED}${result.errors} ${pluralize(result.errors, "error")}${RESET}`);
+	return parts;
+}
+
+function formatCheckLines(checks: DoctorCheck[]): string[] {
+	const lines: string[] = [];
+	for (const check of checks) {
+		const icon = statusIcon(check.status);
+		const color = statusColor(check.status);
 		const label = check.name.padEnd(24);
 		lines.push(`  ${color}${icon}${RESET} ${label} ${check.message}`);
 		if (check.fixHint) {
 			lines.push(`    ${DIM}→ Fix: ${check.fixHint}${RESET}`);
 		}
 	}
+	return lines;
+}
 
+export function formatDoctorOutput(result: DoctorResult, version: string): string {
+	const lines: string[] = [];
+	lines.push(`Talox Doctor — v${version}`);
 	lines.push(HORIZONTAL_LINE);
-	const summaryParts: string[] = [];
-	if (result.passed > 0) summaryParts.push(`${GREEN}${result.passed} passed${RESET}`);
-	if (result.warnings > 0)
-		summaryParts.push(`${YELLOW}${result.warnings} warning${result.warnings > 1 ? "s" : ""}${RESET}`);
-	if (result.errors > 0) summaryParts.push(`${RED}${result.errors} error${result.errors > 1 ? "s" : ""}${RESET}`);
-	lines.push(`  ${summaryParts.join(" · ")}`);
-
+	lines.push(...formatCheckLines(result.checks));
+	lines.push(HORIZONTAL_LINE);
+	lines.push(`  ${buildSummaryParts(result).join(" · ")}`);
 	return lines.join("\n");
 }

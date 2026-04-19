@@ -35,8 +35,8 @@ export interface DialogRecord {
  */
 export class AutoDialogHandler {
 	private enabled: boolean = true;
-	private verbosity: number;
-	private events: EventBus<TaloxEventMap>;
+	private readonly verbosity: number;
+	private readonly events: EventBus<TaloxEventMap>;
 
 	/** Total number of dialogs handled so far. */
 	handledCount: number = 0;
@@ -121,15 +121,11 @@ export class AutoDialogHandler {
 				break;
 
 			case "beforeunload":
-				action = "dismissed";
-				await dialog.dismiss();
-				break;
-
-			default:
-				// Unknown dialog type — dismiss to avoid blocking
-				action = "dismissed";
-				await dialog.dismiss();
-				break;
+			// fallthrough — same as default: dismiss unknown/unload dialogs
+		default:
+			action = "dismissed";
+			await dialog.dismiss();
+			break;
 		}
 
 		this.handledCount++;

@@ -361,10 +361,44 @@ export class BrowserManager {
 			String(options.browserType),
 			options.proxy ? JSON.stringify(options.proxy) : "",
 			options.userDataDir ?? "",
-			(options.args ?? []).sort().join(","),
-			options.extensions?.sort().join(",") ?? "",
+		(options.args ?? []).sort((a, b) => a.localeCompare(b)).join(","),
+		options.extensions?.sort((a, b) => a.localeCompare(b)).join(",") ?? "",
 		];
 		return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
+	}
+
+	private resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> | BrowserType {
+		let actual = browserType || this.config.browser.preferred;
+		if (process.platform !== "darwin" && this.config.browser.autoDetect) {
+			return this.autoDetectBrowser();
+		}
+		return actual;
+	}
+
+	private async launchWithFallback(
+		launcher: any,
+		userDataDir: string,
+		launchOptions: any,
+		browserType: BrowserType,
+	): Promise<BrowserContext> {
+		try {
+			return await this.tryLaunchContext(launcher, userDataDir, launchOptions);
+		} catch (error: any) {
+			if (launchOptions.channel === "chrome") {
+				delete launchOptions.channel;
+				try {
+					return await this.tryLaunchContext(launcher, userDataDir, launchOptions);
+				} catch (fallbackError: any) {
+					console.error("[DEBUG] Playwright Headed Error:", fallbackError);
+					throw new Error(`Browser launch failed for ${browserType}. Please ensure Chrome is installed.`);
+				}
+			}
+			if (error.message?.includes("browser")) {
+				console.error("[DEBUG] Raw Error:", error);
+				throw new Error(`Browser launch failed for ${browserType}. Please ensure the browser is installed.`);
+			}
+			throw error;
+		}
 	}
 
 	async launch(
@@ -373,14 +407,7 @@ export class BrowserManager {
 		browserType?: BrowserType,
 		extraOptions?: any,
 	): Promise<BrowserContext> {
-		let actualBrowserType = browserType || this.config.browser.preferred;
-
-		// Skip autoDetect on macOS - just use chrome channel directly
-		if (process.platform !== "darwin") {
-			if (this.config.browser.autoDetect) {
-				actualBrowserType = await this.autoDetectBrowser();
-			}
-		}
+		const actualBrowserType = await this.resolveBrowserType(browserType);
 
 		const launcher = this.resolveLauncher(actualBrowserType, false);
 		const launchOptions = this.buildLaunchOptions(extraOptions);
@@ -410,26 +437,7 @@ export class BrowserManager {
 		// Do not force chrome channel, as it conflicts if the user has Chrome open.
 		// Use Playwright's bundled Chromium instead.
 
-		try {
-			this.context = await this.tryLaunchContext(launcher, profile.userDataDir, launchOptions);
-		} catch (error: any) {
-			// Fallback: try without channel if it failed
-			if (launchOptions.channel === "chrome") {
-				delete launchOptions.channel;
-				try {
-					this.context = await this.tryLaunchContext(launcher, profile.userDataDir, launchOptions);
-				} catch (fallbackError: any) {
-					console.error("[DEBUG] Playwright Headed Error:", fallbackError);
-					throw new Error(`Browser launch failed for ${actualBrowserType}. Please ensure Chrome is installed.`);
-				}
-			} else if (error.message?.includes("browser")) {
-				console.error("[DEBUG] Raw Error:", error);
-				throw new Error(`Browser launch failed for ${actualBrowserType}. Please ensure the browser is installed.`);
-			} else {
-				throw error;
-			}
-		}
-
+		this.context = await this.launchWithFallback(launcher, profile.userDataDir, launchOptions, actualBrowserType);
 		return this.context;
 	}
 

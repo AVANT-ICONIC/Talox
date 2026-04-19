@@ -72,11 +72,7 @@ export class CrossOriginManager {
 	 */
 	dispose(): void {
 		for (const [, session] of Array.from(this.sessions.entries())) {
-			try {
-				session.cdpSession.detach().catch(() => {}); // NOSONAR
-			} catch { // NOSONAR -- non-fatal
-				// NOSONAR — best-effort cleanup
-			}
+			session.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
 		}
 		this.sessions.clear();
 		this.mainCdpSession = null;
@@ -134,11 +130,7 @@ export class CrossOriginManager {
 		const frameId = this.resolveFrameId(frame);
 		const existing = this.sessions.get(frameId);
 		if (existing) {
-			try {
-				existing.cdpSession.detach().catch(() => {}); // NOSONAR
-			} catch { // NOSONAR -- non-fatal
-				// NOSONAR
-			}
+			existing.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
 			this.sessions.delete(frameId);
 		}
 	}

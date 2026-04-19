@@ -42,11 +42,11 @@ export class InspectServer {
 	private readonly host: string;
 	private readonly targetId: string;
 
-	private httpServer: Server;
-	private wss: WebSocketServer;
+	private readonly httpServer: Server;
+	private readonly wss: WebSocketServer;
 	private page: Page | null = null;
 	private cdpSession: import("playwright-core").CDPSession | null = null;
-	private devtoolsClients: Set<WebSocket> = new Set();
+	private readonly devtoolsClients: Set<WebSocket> = new Set();
 	private running = false;
 
 	constructor(config?: InspectServerConfig) {
@@ -104,11 +104,7 @@ export class InspectServer {
 		this.devtoolsClients.clear();
 
 		if (this.cdpSession) {
-			try {
-				void this.cdpSession.detach();
-			} catch { // NOSONAR -- non-fatal
-				// NOSONAR — detach may fail if session already closed
-			}
+			this.cdpSession.detach().catch(() => {}); // NOSONAR — detach may fail
 			this.cdpSession = null;
 		}
 
