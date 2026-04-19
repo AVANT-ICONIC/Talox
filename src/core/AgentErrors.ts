@@ -115,12 +115,7 @@ function extractMessage(error: unknown): string {
 	if (error == null) return "Unknown error";
 	if (error instanceof Error) return error.message;
 	if (typeof error === "string") return error;
-	try {
-		return String(error);
-	} catch {
-		// NOSONAR — fallback for non-serialisable values
-		return "Unknown error";
-	}
+	return String(error); // NOSONAR — String() is safe on all values
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

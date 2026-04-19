@@ -89,7 +89,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 			secure: c.secure ?? false,
 			sameSite: c.sameSite ?? "None",
 		}));
-	} catch {
+	} catch { // NOSONAR -- non-fatal
 		/* cookie extraction optional */
 	}
 
@@ -107,7 +107,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 				}
 				return out;
 			});
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			/* inaccessible — leave empty */
 		}
 
@@ -120,7 +120,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 				}
 				return out;
 			});
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			/* inaccessible — leave empty */
 		}
 	}
@@ -132,7 +132,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 		const pos = await page.evaluate(() => ({ x: globalThis.scrollX, y: globalThis.scrollY }));
 		scrollX = pos.x;
 		scrollY = pos.y;
-	} catch {
+	} catch { // NOSONAR -- non-fatal
 		/* non-fatal */
 	}
 
@@ -162,14 +162,14 @@ async function restoreStorage(
 				for (const [k, v] of ents) {
 					try {
 						storage.setItem(k, v);
-					} catch {
+					} catch { // NOSONAR -- non-fatal
 						/* quota / security */
 					}
 				}
 			},
 			[entries, storageType] as any,
 		);
-	} catch {
+	} catch { // NOSONAR -- non-fatal
 		/* page may have navigated away */
 	}
 }
@@ -179,7 +179,7 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 	if (snapshot.cookies.length > 0) {
 		try {
 			await context.addCookies(snapshot.cookies);
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			/* non-fatal — cookies may have expired or be cross-origin */
 		}
 	}
@@ -187,11 +187,11 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 	// 2. Navigate to the captured URL
 	try {
 		await page.goto(snapshot.url, { waitUntil: "domcontentloaded" });
-	} catch {
+	} catch { // NOSONAR -- non-fatal
 		// If navigation fails (e.g. redirect loop), try a direct goto without waiting
 		try {
 			await page.goto(snapshot.url);
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			/* give up */
 		}
 	}
@@ -215,7 +215,7 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 				snapshot.scrollX,
 				snapshot.scrollY,
 			] as [number, number]);
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			/* non-fatal */
 		}
 	}

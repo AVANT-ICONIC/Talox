@@ -74,7 +74,7 @@ export class AutoDialogHandler {
 		for (const page of pages) {
 			try {
 				page.off("dialog", this.boundListener);
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// NOSONAR — page may already be closed
 			}
 		}

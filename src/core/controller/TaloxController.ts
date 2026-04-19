@@ -256,60 +256,71 @@ export class TaloxController {
 		await this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);
 
 		const page = this._session.getPlaywrightPage();
-		if (page) {
-			// headed:true activates the full agent overlay (cursor + glow + takeover button)
-			try {
-				await this._takeover.initialize(page, this.settings.headed);
-			} catch (e) {
-				await this._session.stop();
-				throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
-			}
+		if (!page) return;
 
-			// Install per-origin headers if configured
-			if (this.originHeaderConfig) {
-				this.originHeaders = new OriginHeaders(this.originHeaderConfig);
-				this.originHeaders.install(page);
-			}
+		// headed:true activates the full agent overlay (cursor + glow + takeover button)
+		try {
+			await this._takeover.initialize(page, this.settings.headed);
+		} catch (e) {
+			await this._session.stop();
+			throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
 
-			// Start HAR recording if configured
-			if (this.harRecordingConfig?.enabled) {
-				const harOpts: HarRecorderOptions = {
-					outputPath: this.harRecordingConfig.outputPath,
-				};
-				if (this.harRecordingConfig.includeContent !== undefined) {
-					harOpts.includeContent = this.harRecordingConfig.includeContent;
-				}
-				this.harRecorder = new HarRecorderClass(harOpts);
-				this.harRecorder.start(page);
-			}
+		this.setupOriginHeaders(page);
+		this.setupHarRecording(page);
+		this.setupCrossOriginManager(page);
+		await this.setupInspectServer(page);
+		this.setupVideoRecording(page);
+	}
 
-			// Install cross-origin iframe manager if enabled
-			if (this.settings.enableCrossOriginIframes) {
-				this.crossOriginManager = new CrossOriginManagerClass();
-				this.crossOriginManager.install(page);
-			}
+	/** Install per-origin headers if configured. */
+	private setupOriginHeaders(page: import("playwright-core").Page): void {
+		if (!this.originHeaderConfig) return;
+		this.originHeaders = new OriginHeaders(this.originHeaderConfig);
+		this.originHeaders.install(page);
+	}
 
-			// Start inspect server if configured
-			if (this.inspectServerConfig) {
-				this.inspectServer = new InspectServerClass(this.inspectServerConfig);
-				await this.inspectServer.attach(page);
-				if (this.settings.verbosity >= 1) {
-					console.log(`[Talox] DevTools inspect server: ${this.inspectServer.getAddress()}`);
-				}
-			}
+	/** Start HAR recording if configured. */
+	private setupHarRecording(page: import("playwright-core").Page): void {
+		if (!this.harRecordingConfig?.enabled) return;
+		const harOpts: HarRecorderOptions = {
+			outputPath: this.harRecordingConfig.outputPath,
+		};
+		if (this.harRecordingConfig.includeContent !== undefined) {
+			harOpts.includeContent = this.harRecordingConfig.includeContent;
+		}
+		this.harRecorder = new HarRecorderClass(harOpts);
+		this.harRecorder.start(page);
+	}
 
-			// Start video recording if configured
-			if (this.videoRecordingConfig?.enabled) {
-				const vrOpts: { outputPath: string; fps?: number } = {
-					outputPath: this.videoRecordingConfig.outputPath,
-				};
-				if (this.videoRecordingConfig.fps) vrOpts.fps = this.videoRecordingConfig.fps;
-				this.videoRecorder = new VideoRecorderClass(vrOpts);
-				this.videoRecorder.start(page);
-				if (this.settings.verbosity >= 1) {
-					console.log(`[Talox] Video recording started → ${this.videoRecordingConfig.outputPath}`);
-				}
-			}
+	/** Install cross-origin iframe manager if enabled. */
+	private setupCrossOriginManager(page: import("playwright-core").Page): void {
+		if (!this.settings.enableCrossOriginIframes) return;
+		this.crossOriginManager = new CrossOriginManagerClass();
+		this.crossOriginManager.install(page);
+	}
+
+	/** Start inspect server if configured. */
+	private async setupInspectServer(page: import("playwright-core").Page): Promise<void> {
+		if (!this.inspectServerConfig) return;
+		this.inspectServer = new InspectServerClass(this.inspectServerConfig);
+		await this.inspectServer.attach(page);
+		if (this.settings.verbosity >= 1) {
+			console.log(`[Talox] DevTools inspect server: ${this.inspectServer.getAddress()}`);
+		}
+	}
+
+	/** Start video recording if configured. */
+	private setupVideoRecording(page: import("playwright-core").Page): void {
+		if (!this.videoRecordingConfig?.enabled) return;
+		const vrOpts: { outputPath: string; fps?: number } = {
+			outputPath: this.videoRecordingConfig.outputPath,
+		};
+		if (this.videoRecordingConfig.fps) vrOpts.fps = this.videoRecordingConfig.fps;
+		this.videoRecorder = new VideoRecorderClass(vrOpts);
+		this.videoRecorder.start(page);
+		if (this.settings.verbosity >= 1) {
+			console.log(`[Talox] Video recording started → ${this.videoRecordingConfig.outputPath}`);
 		}
 	}
 
@@ -317,60 +328,76 @@ export class TaloxController {
 	 * Close the browser and finalise any active observe session.
 	 */
 	async stop(): Promise<void> {
-		// Flush HAR recording if active
-		if (this.harRecorder) {
-			try {
-				const result = await this.harRecorder.stop();
-				if (this.settings.verbosity >= 1) {
-					console.log(`[Talox] HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
-				}
-			} catch (e) {
-				console.error(`[Talox] HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
-			}
-			this.harRecorder = null;
-		}
+		await this.flushHarRecorder();
+		this.disposeCrossOriginManager();
+		this.detachInspectServer();
+		await this.flushVideoRecorder();
+		this.persistTakeoverHistory();
+		await this.disposeOriginHeaders();
 
-		// Dispose cross-origin iframe manager
-		if (this.crossOriginManager) {
-			this.crossOriginManager.dispose();
-			this.crossOriginManager = null;
-		}
-
-		// Stop inspect server if active
-		if (this.inspectServer) {
-			this.inspectServer.detach();
-			this.inspectServer = null;
-		}
-
-		// Stop video recording if active
-		if (this.videoRecorder) {
-			try {
-				const outputPath = await this.videoRecorder.stop();
-				if (this.settings.verbosity >= 1) {
-					console.log(`[Talox] Video recording saved: ${outputPath}`);
-				}
-			} catch (e) {
-				console.error(`[Talox] Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
-			}
-			this.videoRecorder = null;
-		}
-
-		// Persist accumulated takeover history as a final artifact entry
-		if (this.takeoverHistory.length > 0) {
-			this._session.artifactBuilder.addAction("takeoverHistorySummary", {
-				count: this.takeoverHistory.length,
-				history: this.takeoverHistory,
-			});
-		}
-		if (this.originHeaders) {
-			await this.originHeaders.dispose();
-			this.originHeaders = null;
-		}
 		try {
 			await this._session.stop();
 		} catch (e) {
 			console.error(`[Talox] Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
 		}
+	}
+
+	/** Flush HAR recording if active. */
+	private async flushHarRecorder(): Promise<void> {
+		if (!this.harRecorder) return;
+		try {
+			const result = await this.harRecorder.stop();
+			if (this.settings.verbosity >= 1) {
+				console.log(`[Talox] HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
+			}
+		} catch (e) {
+			console.error(`[Talox] HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+		this.harRecorder = null;
+	}
+
+	/** Dispose cross-origin iframe manager. */
+	private disposeCrossOriginManager(): void {
+		if (!this.crossOriginManager) return;
+		this.crossOriginManager.dispose();
+		this.crossOriginManager = null;
+	}
+
+	/** Detach inspect server if active. */
+	private detachInspectServer(): void {
+		if (!this.inspectServer) return;
+		this.inspectServer.detach();
+		this.inspectServer = null;
+	}
+
+	/** Flush video recording if active. */
+	private async flushVideoRecorder(): Promise<void> {
+		if (!this.videoRecorder) return;
+		try {
+			const outputPath = await this.videoRecorder.stop();
+			if (this.settings.verbosity >= 1) {
+				console.log(`[Talox] Video recording saved: ${outputPath}`);
+			}
+		} catch (e) {
+			console.error(`[Talox] Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
+		}
+		this.videoRecorder = null;
+	}
+
+	/** Persist accumulated takeover history as a final artifact entry. */
+	private persistTakeoverHistory(): void {
+		if (this.takeoverHistory.length === 0) return;
+		this._session.artifactBuilder.addAction("takeoverHistorySummary", {
+			count: this.takeoverHistory.length,
+			history: this.takeoverHistory,
+		});
+	}
+
+	/** Dispose origin headers if active. */
+	private async disposeOriginHeaders(): Promise<void> {
+		if (!this.originHeaders) return;
+		await this.originHeaders.dispose();
+		this.originHeaders = null;
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -1184,7 +1211,7 @@ export class TaloxController {
 			if (matched.length > 0) {
 				state.domainHints = matched.map((s) => this.skillLoader!.toPrompt(s.manifest.name));
 			}
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — invalid URL, skip domain hints
 		}
 	}

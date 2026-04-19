@@ -208,7 +208,7 @@ export class HarRecorder {
 			try {
 				bodyText = await res.text();
 				bodySize = Buffer.byteLength(bodyText, "utf-8");
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// NOSONAR — body may not be accessible for some responses
 			}
 		}
@@ -243,7 +243,7 @@ export class HarRecorder {
 		try {
 			const parsed = new URL(url);
 			return Array.from(parsed.searchParams.entries()).map(([name, value]) => ({ name, value }));
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — invalid URL, return empty
 			return [];
 		}
@@ -252,7 +252,7 @@ export class HarRecorder {
 	private computeTotalDuration(): number {
 		if (this.entries.length === 0) return 0;
 		const first = new Date(this.entries[0]!.startedDateTime).getTime();
-		const last = new Date(this.entries[this.entries.length - 1]!.startedDateTime).getTime();
+		const last = new Date(this.entries.at(-1)!.startedDateTime).getTime();
 		return last - first;
 	}
 }

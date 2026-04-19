@@ -132,7 +132,7 @@ export class BrowserManager {
 			try {
 				// @ts-expect-error - internal close
 				ctx._browser?.close().catch(() => {});
-			} catch {}
+			} catch { /* NOSONAR */ }
 		}
 	}
 
@@ -168,7 +168,7 @@ export class BrowserManager {
 						});
 					}
 				}
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// Continue searching
 			}
 		}
@@ -229,7 +229,7 @@ export class BrowserManager {
 						paths.push(browserDir);
 					}
 				}
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// Ignore cache errors
 			}
 		}
@@ -254,7 +254,7 @@ export class BrowserManager {
 					const browser = await launcher.launch({ ...options, headless: true });
 					await browser.close();
 					return { path: channel, version: undefined };
-				} catch {
+				} catch { // NOSONAR -- non-fatal
 					// Try without channel
 				}
 			}
@@ -266,12 +266,12 @@ export class BrowserManager {
 						const browser = await launcher.launch(testOptions);
 						await browser.close();
 						return { path: searchPath, version: undefined };
-					} catch {}
+					} catch { /* NOSONAR */ }
 				}
 			}
 
 			return null;
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			return null;
 		}
 	}

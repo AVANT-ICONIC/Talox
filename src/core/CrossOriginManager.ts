@@ -74,7 +74,7 @@ export class CrossOriginManager {
 		for (const [, session] of Array.from(this.sessions.entries())) {
 			try {
 				session.cdpSession.detach().catch(() => {}); // NOSONAR
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// NOSONAR — best-effort cleanup
 			}
 		}
@@ -125,7 +125,7 @@ export class CrossOriginManager {
 				cdpSession,
 				origin,
 			});
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — CDP session creation can fail for certain frame types
 		}
 	}
@@ -136,7 +136,7 @@ export class CrossOriginManager {
 		if (existing) {
 			try {
 				existing.cdpSession.detach().catch(() => {}); // NOSONAR
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// NOSONAR
 			}
 			this.sessions.delete(frameId);
@@ -157,7 +157,7 @@ export class CrossOriginManager {
 			const frameOrigin = new URL(frameUrl).origin;
 			const parentOrigin = new URL(parentUrl).origin;
 			return frameOrigin !== parentOrigin;
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — invalid URL, treat as same-origin
 			return false;
 		}
@@ -166,7 +166,7 @@ export class CrossOriginManager {
 	private extractOrigin(url: string): string {
 		try {
 			return new URL(url).origin;
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			return url;
 		}
 	}

@@ -99,7 +99,7 @@ export class SkillLoader {
 		let raw: string;
 		try {
 			raw = readFileSync(resolved, "utf-8");
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — gracefully skip unreadable files
 			return null;
 		}
@@ -233,32 +233,15 @@ export class SkillLoader {
 			const trimmedLine = line.trim();
 			if (trimmedLine === "" || trimmedLine.startsWith("#")) continue;
 
-			// Array item: "- value"
-			if (trimmedLine.startsWith("- ") && currentKey && currentArray) {
-				currentArray.push(trimmedLine.slice(2).trim());
-				continue;
+			const parsed = this.parseYamlLine(trimmedLine, currentKey, currentArray);
+			if (parsed.flushKey && parsed.flushArray) {
+				values[parsed.flushKey] = parsed.flushArray;
 			}
+			currentKey = parsed.currentKey;
+			currentArray = parsed.currentArray;
 
-			// Flush any in-progress array
-			if (currentKey && currentArray) {
-				values[currentKey] = currentArray;
-				currentKey = null;
-				currentArray = null;
-			}
-
-			// Key-value pair: "key: value"
-			const colonIdx = trimmedLine.indexOf(":");
-			if (colonIdx === -1) continue;
-
-			const key = trimmedLine.slice(0, colonIdx).trim();
-			const val = trimmedLine.slice(colonIdx + 1).trim();
-
-			if (val === "") {
-				// Start of a YAML array block
-				currentKey = key;
-				currentArray = [];
-			} else {
-				values[key] = this.parseScalar(val);
+			if (parsed.value !== undefined) {
+				values[parsed.valueKey!] = parsed.value;
 			}
 		}
 
@@ -267,7 +250,64 @@ export class SkillLoader {
 			values[currentKey] = currentArray;
 		}
 
-		// Validate required fields
+		return this.buildManifest(values);
+	}
+
+	/** Parse a single YAML line and return the updated parse state. */
+	private parseYamlLine(
+		trimmedLine: string,
+		currentKey: string | null,
+		currentArray: string[] | null,
+	): {
+		flushKey: string | undefined;
+		flushArray: string[] | undefined;
+		currentKey: string | null;
+		currentArray: string[] | null;
+		value: unknown;
+		valueKey: string;
+	} {
+		// Array item: "- value"
+		if (trimmedLine.startsWith("- ") && currentKey && currentArray) {
+			currentArray.push(trimmedLine.slice(2).trim());
+			return { flushKey: undefined, flushArray: undefined, currentKey, currentArray, value: undefined, valueKey: "" };
+		}
+
+		let flushKey: string | undefined;
+		let flushArray: string[] | undefined;
+
+		// Flush any in-progress array
+		if (currentKey && currentArray) {
+			flushKey = currentKey;
+			flushArray = currentArray;
+			currentKey = null;
+			currentArray = null;
+		}
+
+		// Key-value pair: "key: value"
+		const colonIdx = trimmedLine.indexOf(":");
+		if (colonIdx === -1) {
+			return { flushKey, flushArray, currentKey, currentArray, value: undefined, valueKey: "" };
+		}
+
+		const key = trimmedLine.slice(0, colonIdx).trim();
+		const val = trimmedLine.slice(colonIdx + 1).trim();
+
+		if (val === "") {
+			return { flushKey, flushArray, currentKey: key, currentArray: [], value: undefined, valueKey: "" };
+		}
+
+		return {
+			flushKey,
+			flushArray,
+			currentKey,
+			currentArray,
+			value: this.parseScalar(val),
+			valueKey: key,
+		};
+	}
+
+	/** Validate parsed values and build a SkillManifest, or return null. */
+	private buildManifest(values: Record<string, unknown>): SkillManifest | null {
 		if (!values.name || !values.description || !values.version || !values.domain) {
 			return null;
 		}
@@ -329,7 +369,7 @@ export class SkillLoader {
 				if (existsSync(absPath)) {
 					refs.set(name, readFileSync(absPath, "utf-8"));
 				}
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// NOSONAR — skip unreadable references
 			}
 		}

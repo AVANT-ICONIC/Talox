@@ -324,14 +324,13 @@ export class ActionExecutor {
 		// Wait for any navigation triggered by the click to settle
 		try {
 			await page.waitForLoadState("domcontentloaded", { timeout: 3000 });
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// Not all clicks trigger navigation; timeout is expected
 		}
 
 		try {
 			return await this.getActiveStateCollector().collect();
-		} catch (error_) {
-			// NOSONAR
+		} catch (error_) { /* NOSONAR */
 			// intentionally ignored: collection failure returns minimal state
 			return {
 				url: page.url(),
@@ -969,8 +968,7 @@ export class ActionExecutor {
 			const finalDensity = density * sensitivity;
 			this.densityCache.set(cacheKey, finalDensity);
 			return finalDensity;
-		} catch (error_) {
-			// NOSONAR
+		} catch (error_) { /* NOSONAR */
 			// Density computation failed — return default density
 			return 0.5;
 		}

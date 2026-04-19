@@ -194,7 +194,7 @@ export class SessionManager {
 		try {
 			snapshot = await captureSessionSnapshot(page, context);
 			this.pendingSnapshot = snapshot;
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// Snapshot failure is non-fatal — we'll lose state but the browser will restart
 		}
 

@@ -218,7 +218,7 @@ export class ChatSession {
 		if (totalChars <= this.config.maxContextChars) return;
 
 		const systemMsg = this.messages[0];
-		if (!systemMsg || systemMsg.role !== "system") return;
+		if (systemMsg?.role !== "system") return;
 
 		const mid = Math.floor(this.messages.length / 2);
 		if (mid <= 1) return;
@@ -304,7 +304,7 @@ export class ChatSession {
 		let args: Record<string, unknown>;
 		try {
 			args = JSON.parse(tc.function.arguments);
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			return `Error: Invalid JSON arguments — ${tc.function.arguments}`;
 		}
 
@@ -390,8 +390,7 @@ function formatActionResult(action: string, result: unknown): string {
 
 	try {
 		return JSON.stringify(result).slice(0, 500);
-	} catch {
-		// NOSONAR
+	} catch { /* NOSONAR */
 		return String(result);
 	}
 }

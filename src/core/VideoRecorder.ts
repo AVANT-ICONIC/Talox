@@ -119,7 +119,7 @@ export class VideoRecorder {
 		try {
 			const buffer = await this.page.screenshot({ type: "png" });
 			this.frames.push(buffer);
-		} catch {
+		} catch { // NOSONAR -- non-fatal
 			// NOSONAR — page may be navigated away or closed between ticks
 		}
 	}
@@ -150,7 +150,7 @@ export class VideoRecorder {
 		await new Promise<void>((resolve, reject) => {
 			const proc = execFile("ffmpeg", ffmpegArgs, (error) => {
 				if (error) {
-					reject(error);
+					reject(error instanceof Error ? error : new Error(String(error)));
 				} else {
 					resolve();
 				}

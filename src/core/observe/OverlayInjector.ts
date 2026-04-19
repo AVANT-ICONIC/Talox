@@ -114,7 +114,7 @@ export class OverlayInjector {
             }
           })();
         `);
-			} catch {
+			} catch { // NOSONAR -- non-fatal
 				// Page may have navigated away — ignore
 			}
 		});
