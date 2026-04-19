@@ -168,7 +168,10 @@ export class VideoRecorder {
 			const writeNext = () => {
 				while (drained && idx < this.frames.length) {
 					const frame = this.frames[idx];
-					if (!frame) { idx++; continue; }
+					if (!frame) {
+						idx++;
+						continue;
+					}
 					idx++;
 					drained = stdin.write(frame);
 				}
@@ -195,7 +198,7 @@ export class VideoRecorder {
 		for (let i = 0; i < this.frames.length; i++) {
 			const frameName = `frame_${String(i + 1).padStart(padding, "0")}.png`;
 			const frame = this.frames[i];
-		if (frame) await writeFile(path.join(framesDir, frameName), frame);
+			if (frame) await writeFile(path.join(framesDir, frameName), frame);
 		}
 
 		const htmlContent = buildViewerHtml(this.fps, this.frames.length);

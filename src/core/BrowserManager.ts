@@ -359,12 +359,12 @@ export class BrowserManager {
 		const parts = [
 			String(options.headless),
 			String(options.browserType),
-			options.proxy ? JSON.stringify(options.proxy) : '',
-			options.userDataDir ?? '',
-			(options.args ?? []).sort().join(','),
-			options.extensions?.sort().join(',') ?? '',
+			options.proxy ? JSON.stringify(options.proxy) : "",
+			options.userDataDir ?? "",
+			(options.args ?? []).sort().join(","),
+			options.extensions?.sort().join(",") ?? "",
 		];
-		return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
+		return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
 	}
 
 	async launch(

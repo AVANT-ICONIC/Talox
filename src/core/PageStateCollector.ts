@@ -484,7 +484,7 @@ export class PageStateCollector {
 					}
 				}
 
-			// Pass 3: tabindex elements that aren't semantic interactive
+				// Pass 3: tabindex elements that aren't semantic interactive
 				const tabindexEls = document.querySelectorAll('[tabindex]:not([tabindex="-1"])');
 				for (const el of Array.from(tabindexEls)) {
 					if (el.id?.startsWith("__talox")) continue;
@@ -497,7 +497,11 @@ export class PageStateCollector {
 				// Pass 4: Hidden radio/checkbox inside cursor-interactive wrappers
 				const hiddenInputs = document.querySelectorAll('input[type="radio"], input[type="checkbox"]');
 				for (const input of Array.from(hiddenInputs)) {
-					if ((input as HTMLInputElement).style.display === "none" || (input as HTMLInputElement).style.visibility === "hidden" || input.getAttribute("type") === "hidden") {
+					if (
+						(input as HTMLInputElement).style.display === "none" ||
+						(input as HTMLInputElement).style.visibility === "hidden" ||
+						input.getAttribute("type") === "hidden"
+					) {
 						const parent = input.parentElement;
 						if (parent && getComputedStyle(parent).cursor === "pointer") {
 							const parentRect = parent.getBoundingClientRect();

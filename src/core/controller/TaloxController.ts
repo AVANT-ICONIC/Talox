@@ -51,27 +51,27 @@ import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
 // NOSONAR -- backward compat
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; // NOSONAR
+import { formatAgentError } from "../AgentErrors.js";
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
+import type { CrossOriginManager } from "../CrossOriginManager.js";
+import { CrossOriginManager as CrossOriginManagerClass } from "../CrossOriginManager.js";
+import type { HarRecorder, HarRecorderOptions } from "../HarRecorder.js";
+import { HarRecorder as HarRecorderClass } from "../HarRecorder.js";
+import type { InspectServer as InspectServerType } from "../inspect/InspectServer.js";
+import { InspectServer as InspectServerClass } from "../inspect/InspectServer.js";
 import { OriginHeaders } from "../OriginHeaders.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import { SemanticMapper } from "../SemanticMapper.js";
+import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
-import { formatAgentError } from "../AgentErrors.js";
-import type { HarRecorder, HarRecorderOptions } from "../HarRecorder.js";
-import { HarRecorder as HarRecorderClass } from "../HarRecorder.js";
-import type { CrossOriginManager } from "../CrossOriginManager.js";
-import { CrossOriginManager as CrossOriginManagerClass } from "../CrossOriginManager.js";
+import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
+import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
 import { SessionManager } from "./SessionManager.js";
 import { TakeoverBridge } from "./TakeoverBridge.js";
-import type { SkillLoader } from "../skills/SkillLoader.js";
-import type { InspectServer as InspectServerType } from "../inspect/InspectServer.js";
-import { InspectServer as InspectServerClass } from "../inspect/InspectServer.js";
-import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
-import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 
 export type { BehavioralDNA } from "../../types/index.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./ActionExecutor.js";
@@ -299,12 +299,12 @@ export class TaloxController {
 			}
 
 			// Start video recording if configured
-		if (this.videoRecordingConfig?.enabled) {
-			const vrOpts: { outputPath: string; fps?: number } = {
-				outputPath: this.videoRecordingConfig.outputPath,
-			};
-			if (this.videoRecordingConfig.fps) vrOpts.fps = this.videoRecordingConfig.fps;
-			this.videoRecorder = new VideoRecorderClass(vrOpts);
+			if (this.videoRecordingConfig?.enabled) {
+				const vrOpts: { outputPath: string; fps?: number } = {
+					outputPath: this.videoRecordingConfig.outputPath,
+				};
+				if (this.videoRecordingConfig.fps) vrOpts.fps = this.videoRecordingConfig.fps;
+				this.videoRecorder = new VideoRecorderClass(vrOpts);
 				this.videoRecorder.start(page);
 				if (this.settings.verbosity >= 1) {
 					console.log(`[Talox] Video recording started → ${this.videoRecordingConfig.outputPath}`);
@@ -1160,8 +1160,8 @@ export class TaloxController {
 	private buildErrorState(error: unknown): TaloxPageState {
 		const friendlyMessage = formatAgentError(error);
 		return {
-			url: '',
-			title: 'Error',
+			url: "",
+			title: "Error",
 			timestamp: new Date().toISOString(),
 			console: { errors: [friendlyMessage] },
 			network: { failedRequests: [] },

@@ -4,8 +4,8 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium } from "playwright-core";
 import type { Browser, BrowserContext } from "playwright-core";
+import { chromium } from "playwright-core";
 
 export type DoctorCheck = {
 	name: string;
@@ -360,7 +360,8 @@ export function formatDoctorOutput(result: DoctorResult, version: string): strin
 	lines.push(HORIZONTAL_LINE);
 	const summaryParts: string[] = [];
 	if (result.passed > 0) summaryParts.push(`${GREEN}${result.passed} passed${RESET}`);
-	if (result.warnings > 0) summaryParts.push(`${YELLOW}${result.warnings} warning${result.warnings > 1 ? "s" : ""}${RESET}`);
+	if (result.warnings > 0)
+		summaryParts.push(`${YELLOW}${result.warnings} warning${result.warnings > 1 ? "s" : ""}${RESET}`);
 	if (result.errors > 0) summaryParts.push(`${RED}${result.errors} error${result.errors > 1 ? "s" : ""}${RESET}`);
 	lines.push(`  ${summaryParts.join(" · ")}`);
 

@@ -268,14 +268,14 @@ describe("NetworkMocker", () => {
 			await handler(route, request);
 			await mocker.stopRecording();
 
-			const fs = await import("fs/promises");
+			const fs = await import("node:fs/promises");
 			vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 			await mocker.saveToFile("/tmp/recordings.json");
 			expect(fs.writeFile).toHaveBeenCalled();
 		});
 
 		it("loads recordings from file", async () => {
-			const fs = await import("fs/promises");
+			const fs = await import("node:fs/promises");
 			const data = JSON.stringify([{ id: "1", url: "https://example.com" }]);
 			vi.mocked(fs.readFile).mockResolvedValue(data);
 

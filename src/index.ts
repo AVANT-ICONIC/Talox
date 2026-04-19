@@ -5,15 +5,12 @@
  * All public APIs are re-exported from this file.
  */
 
+// ─── Auto-Dialog Handling ──────────────────────────────────────────────────────
+export type { DialogRecord } from "./core/AutoDialogHandler.js";
+export { AutoDialogHandler } from "./core/AutoDialogHandler.js";
 // ─── Core Modules ─────────────────────────────────────────────────────────────
 export { BrowserManager, type BrowserType } from "./core/BrowserManager.js";
-// ─── Chat Mode ────────────────────────────────────────────────────────────────
-export type { ChatConfig } from "./core/chat/ChatSession.js";
-export { ChatSession } from "./core/chat/ChatSession.js";
 export * from "./core/BugEngine.js";
-// ─── Daemon / IPC ──────────────────────────────────────────────────────────────
-export type { DaemonCommand, DaemonConfig, DaemonResponse } from "./core/daemon/TaloxDaemon.js";
-export { TaloxDaemon } from "./core/daemon/TaloxDaemon.js";
 export type { ChallengeState, ChallengeType, DetectedChallenge } from "./core/ChallengeDetector.js";
 export { ChallengeDetector } from "./core/ChallengeDetector.js";
 export type {
@@ -26,6 +23,9 @@ export { ChallengeResolver } from "./core/ChallengeResolver.js";
 // ─── Cross-Origin iframe Sessions ────────────────────────────────────────────
 export type { IframeSession } from "./core/CrossOriginManager.js";
 export { CrossOriginManager } from "./core/CrossOriginManager.js";
+// ─── Chat Mode ────────────────────────────────────────────────────────────────
+export type { ChatConfig } from "./core/chat/ChatSession.js";
+export { ChatSession } from "./core/chat/ChatSession.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./core/controller/ActionExecutor.js";
 export { EventBus } from "./core/controller/EventBus.js";
 export type { TakeoverReason, TakeoverState, TakeoverSummary } from "./core/controller/TakeoverBridge.js";
@@ -34,8 +34,10 @@ export { TakeoverBridge } from "./core/controller/TakeoverBridge.js";
 export type { AttentionFrame, DebugSnapshot } from "./core/controller/TaloxController.js";
 // ─── Core Controller ────────────────────────────────────────────────────────────
 export { TaloxController } from "./core/controller/TaloxController.js";
+// ─── Daemon / IPC ──────────────────────────────────────────────────────────────
+export type { DaemonCommand, DaemonConfig, DaemonResponse } from "./core/daemon/TaloxDaemon.js";
+export { TaloxDaemon } from "./core/daemon/TaloxDaemon.js";
 export * from "./core/FingerprintGenerator.js";
-export * from "./core/HumanMouse.js";
 // ─── HAR Recording ──────────────────────────────────────────────────────────
 export type {
 	HarEntry,
@@ -49,24 +51,19 @@ export type {
 	HarTiming,
 } from "./core/HarRecorder.js";
 export { HarRecorder } from "./core/HarRecorder.js";
+export * from "./core/HumanMouse.js";
+export type { InteractionAttempt, InteractionFailureMode, ReliabilityOutcome } from "./core/InteractionReliability.js";
+export { InteractionReliability } from "./core/InteractionReliability.js";
 // ─── DevTools Inspect Server ────────────────────────────────────────────────
 export type { InspectServerConfig } from "./core/inspect/InspectServer.js";
 export { InspectServer } from "./core/inspect/InspectServer.js";
-// ─── Video Recording ────────────────────────────────────────────────────────
-export type { VideoFormat, VideoRecorderOptions } from "./core/VideoRecorder.js";
-export { VideoRecorder } from "./core/VideoRecorder.js";
-export type { InteractionAttempt, InteractionFailureMode, ReliabilityOutcome } from "./core/InteractionReliability.js";
-export { InteractionReliability } from "./core/InteractionReliability.js";
-// ─── Auto-Dialog Handling ──────────────────────────────────────────────────────
-export type { DialogRecord } from "./core/AutoDialogHandler.js";
-export { AutoDialogHandler } from "./core/AutoDialogHandler.js";
+// ─── Origin-Scoped Headers ────────────────────────────────────────────────────
+export type { OriginHeaderConfig } from "./core/OriginHeaders.js";
+export { OriginHeaders } from "./core/OriginHeaders.js";
 export { AnnotationBuffer } from "./core/observe/AnnotationBuffer.js";
 // ─── Observe Mode ─────────────────────────────────────────────────────────────
 export { ObserveSession } from "./core/observe/ObserveSession.js";
 export { SessionReporter } from "./core/observe/SessionReporter.js";
-// ─── Origin-Scoped Headers ────────────────────────────────────────────────────
-export type { OriginHeaderConfig } from "./core/OriginHeaders.js";
-export { OriginHeaders } from "./core/OriginHeaders.js";
 export * from "./core/PageStateCollector.js";
 export type {
 	PerceivedState,
@@ -80,16 +77,19 @@ export * from "./core/ProfileVault.js";
 export * from "./core/RulesEngine.js";
 export type { SessionSnapshot } from "./core/SessionSnapshot.js";
 export { captureSessionSnapshot, restoreSessionSnapshot } from "./core/SessionSnapshot.js";
+export type { LoadedSkill, SkillManifest } from "./core/skills/SkillLoader.js";
+// ─── Skills / Domain Knowledge ──────────────────────────────────────────────
+export { SkillLoader } from "./core/skills/SkillLoader.js";
 // ─── Smart Mode (now always-on) ──────────────────────────────────────────────
 export { AdaptationEngine } from "./core/smart/AdaptationEngine.js";
 export { BotDetector } from "./core/smart/BotDetector.js";
 export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/smart/DomainMemory.js";
 export { DomainMemory } from "./core/smart/DomainMemory.js";
 export { STRATEGIES } from "./core/smart/strategies.js";
-// ─── Skills / Domain Knowledge ──────────────────────────────────────────────
-export { SkillLoader } from "./core/skills/SkillLoader.js";
-export type { LoadedSkill, SkillManifest } from "./core/skills/SkillLoader.js";
 export * from "./core/TaloxTools.js";
+// ─── Video Recording ────────────────────────────────────────────────────────
+export type { VideoFormat, VideoRecorderOptions } from "./core/VideoRecorder.js";
+export { VideoRecorder } from "./core/VideoRecorder.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
 

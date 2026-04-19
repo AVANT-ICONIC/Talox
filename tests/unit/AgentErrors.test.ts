@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
-import {
-	toAgentFriendlyError,
-	formatAgentError,
-} from "../../src/core/AgentErrors";
+import { formatAgentError, toAgentFriendlyError } from "../../src/core/AgentErrors";
 
 describe("AgentErrors", () => {
 	describe("toAgentFriendlyError", () => {
 		// ── Selector issues ───────────────────────────────────────────────
 		it("matches strict mode violation", () => {
-			const err = toAgentFriendlyError(
-				new Error("strict mode violation: selector resolved to 3 elements"),
-			);
+			const err = toAgentFriendlyError(new Error("strict mode violation: selector resolved to 3 elements"));
 			expect(err.category).toBe("selector");
 			expect(err.friendly).toContain("multiple results");
 			expect(err.suggestion).toContain("text()");
@@ -18,50 +13,38 @@ describe("AgentErrors", () => {
 		});
 
 		it("matches 'resolved to multiple'", () => {
-			const err = toAgentFriendlyError(
-				new Error("selector resolved to multiple elements"),
-			);
+			const err = toAgentFriendlyError(new Error("selector resolved to multiple elements"));
 			expect(err.category).toBe("selector");
 			expect(err.friendly).toContain("multiple results");
 		});
 
 		it("matches selector timeout", () => {
-			const err = toAgentFriendlyError(
-				new Error("waiting for selector '.btn' timeout exceeded"),
-			);
+			const err = toAgentFriendlyError(new Error("waiting for selector '.btn' timeout exceeded"));
 			expect(err.category).toBe("timing");
 			expect(err.friendly).toContain("not found within timeout");
 			expect(err.suggestion).toContain("getState()");
 		});
 
 		it("matches generic timeout exceeded", () => {
-			const err = toAgentFriendlyError(
-				new Error("Timeout exceeded waiting for element"),
-			);
+			const err = toAgentFriendlyError(new Error("Timeout exceeded waiting for element"));
 			expect(err.category).toBe("timing");
 		});
 
 		// ── Visibility / interaction ──────────────────────────────────────
 		it("matches element is not visible", () => {
-			const err = toAgentFriendlyError(
-				new Error("element is not visible"),
-			);
+			const err = toAgentFriendlyError(new Error("element is not visible"));
 			expect(err.category).toBe("interaction");
 			expect(err.friendly).toContain("isn't visible");
 			expect(err.suggestion).toContain("scrollTo");
 		});
 
 		it("matches element is not attached", () => {
-			const err = toAgentFriendlyError(
-				new Error("element is not attached to the DOM"),
-			);
+			const err = toAgentFriendlyError(new Error("element is not attached to the DOM"));
 			expect(err.category).toBe("interaction");
 		});
 
 		it("matches element outside the viewport", () => {
-			const err = toAgentFriendlyError(
-				new Error("element is outside the viewport"),
-			);
+			const err = toAgentFriendlyError(new Error("element is outside the viewport"));
 			expect(err.category).toBe("interaction");
 			expect(err.friendly).toContain("off-screen");
 			expect(err.suggestion).toContain("scrollTo");
@@ -69,34 +52,26 @@ describe("AgentErrors", () => {
 
 		// ── Navigation / context ─────────────────────────────────────────
 		it("matches execution context was destroyed", () => {
-			const err = toAgentFriendlyError(
-				new Error("execution context was destroyed"),
-			);
+			const err = toAgentFriendlyError(new Error("execution context was destroyed"));
 			expect(err.category).toBe("navigation");
 			expect(err.friendly).toContain("navigated away");
 		});
 
 		it("matches frame was detached", () => {
-			const err = toAgentFriendlyError(
-				new Error("frame was detached"),
-			);
+			const err = toAgentFriendlyError(new Error("frame was detached"));
 			expect(err.category).toBe("navigation");
 		});
 
 		// ── Network ──────────────────────────────────────────────────────
 		it("matches net::ERR_ errors", () => {
-			const err = toAgentFriendlyError(
-				new Error("net::ERR_CONNECTION_REFUSED"),
-			);
+			const err = toAgentFriendlyError(new Error("net::ERR_CONNECTION_REFUSED"));
 			expect(err.category).toBe("network");
 			expect(err.friendly).toContain("Network error");
 			expect(err.suggestion).toContain("Verify the URL");
 		});
 
 		it("matches Navigation timeout", () => {
-			const err = toAgentFriendlyError(
-				new Error("Navigation timeout of 30000ms exceeded"),
-			);
+			const err = toAgentFriendlyError(new Error("Navigation timeout of 30000ms exceeded"));
 			expect(err.category).toBe("navigation");
 			expect(err.friendly).toContain("too long to load");
 		});
@@ -115,18 +90,14 @@ describe("AgentErrors", () => {
 		});
 
 		it("matches 'has been closed'", () => {
-			const err = toAgentFriendlyError(
-				new Error("The page has been closed"),
-			);
+			const err = toAgentFriendlyError(new Error("The page has been closed"));
 			expect(err.category).toBe("browser");
 			expect(err.friendly).toContain("disposed");
 		});
 
 		// ── Interaction: intercepted ─────────────────────────────────────
 		it("matches Intercepted resolution", () => {
-			const err = toAgentFriendlyError(
-				new Error("Intercepted resolution of element"),
-			);
+			const err = toAgentFriendlyError(new Error("Intercepted resolution of element"));
 			expect(err.category).toBe("interaction");
 			expect(err.friendly).toContain("intercepted");
 			expect(err.suggestion).toContain("scrollTo");

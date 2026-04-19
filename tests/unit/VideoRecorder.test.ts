@@ -28,9 +28,7 @@ import { VideoRecorder } from "../../src/core/VideoRecorder";
 
 function createMockPage(screenshotBuffer?: Buffer) {
 	return {
-		screenshot: vi.fn().mockResolvedValue(
-			screenshotBuffer ?? Buffer.from("fake-png-data"),
-		),
+		screenshot: vi.fn().mockResolvedValue(screenshotBuffer ?? Buffer.from("fake-png-data")),
 	} as any;
 }
 
@@ -39,20 +37,18 @@ function createMockPage(screenshotBuffer?: Buffer) {
 describe("VideoRecorder", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.mocked(execFile).mockImplementation(
-			(_cmd: string, _args: string[], cb: Function) => {
-				// Mock ffmpeg check: first call is -version check
-				const proc = {
-					stdin: {
-						write: vi.fn().mockReturnValue(true),
-						end: vi.fn(),
-						on: vi.fn(),
-					},
-				};
-				cb(null);
-				return proc as any;
-			},
-		);
+		vi.mocked(execFile).mockImplementation((_cmd: string, _args: string[], cb: Function) => {
+			// Mock ffmpeg check: first call is -version check
+			const proc = {
+				stdin: {
+					write: vi.fn().mockReturnValue(true),
+					end: vi.fn(),
+					on: vi.fn(),
+				},
+			};
+			cb(null);
+			return proc as any;
+		});
 	});
 
 	afterEach(() => {

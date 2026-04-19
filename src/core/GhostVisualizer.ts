@@ -1,8 +1,8 @@
+import { Buffer } from "node:buffer";
 import * as path from "node:path";
 import * as fs from "fs-extra";
-import { Buffer } from "node:buffer";
-import { PNG } from "pngjs";
 import type { Page } from "playwright-core";
+import { PNG } from "pngjs";
 
 export interface PathPoint {
 	x: number;
@@ -591,17 +591,19 @@ export class GhostVisualizer {
 				const label = el.ref || `@e${idx + 1}`;
 				const textLen = label.length * 7 + 12;
 				const badgeH = 20;
-				return `<rect x="${badgeX}" y="${badgeY}" width="${textLen}" height="${badgeH}" rx="3" fill="rgba(0,0,0,0.75)" stroke="none"/>` +
-					`<text x="${badgeX + 6}" y="${badgeY + 14}" fill="#fff" font-family="monospace" font-size="12" font-weight="bold">${label}</text>`;
+				return (
+					`<rect x="${badgeX}" y="${badgeY}" width="${textLen}" height="${badgeH}" rx="3" fill="rgba(0,0,0,0.75)" stroke="none"/>` +
+					`<text x="${badgeX + 6}" y="${badgeY + 14}" fill="#fff" font-family="monospace" font-size="12" font-weight="bold">${label}</text>`
+				);
 			})
 			.join("");
 
 		const overlayHtml = [
 			"<svg",
-			"  style=\"position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;\"",
-			"  xmlns=\"http://www.w3.org/2000/svg\"",
-			"  width=\"100%\"",
-			"  height=\"100%\"",
+			'  style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;"',
+			'  xmlns="http://www.w3.org/2000/svg"',
+			'  width="100%"',
+			'  height="100%"',
 			">",
 			labels,
 			"</svg>",
@@ -611,19 +613,24 @@ export class GhostVisualizer {
 		await page.evaluate((html: string) => {
 			const wrapper = document.createElement("div");
 			wrapper.id = "__talox_annotate_overlay__";
-			wrapper.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;";
+			wrapper.style.cssText =
+				"position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;";
 			wrapper.innerHTML = html;
 			document.body.appendChild(wrapper);
 		}, overlayHtml);
 
 		let screenshotBuffer: Buffer;
 		try {
-			screenshotBuffer = await page.screenshot({ type: "png" }) as Buffer;
+			screenshotBuffer = (await page.screenshot({ type: "png" })) as Buffer;
 		} finally {
-			await page.evaluate(() => {
-				const el = document.getElementById("__talox_annotate_overlay__");
-				if (el) el.remove();
-			}).catch(() => { /* NOSONAR */ });
+			await page
+				.evaluate(() => {
+					const el = document.getElementById("__talox_annotate_overlay__");
+					if (el) el.remove();
+				})
+				.catch(() => {
+					/* NOSONAR */
+				});
 		}
 
 		return screenshotBuffer;

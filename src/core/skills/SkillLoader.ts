@@ -20,8 +20,7 @@
  * ```
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 
@@ -297,10 +296,7 @@ export class SkillLoader {
 		if (/^-?\d+$/.test(val)) return Number.parseInt(val, 10);
 		if (/^-?\d+\.\d+$/.test(val)) return Number.parseFloat(val);
 		// Strip surrounding quotes
-		if (
-			(val.startsWith('"') && val.endsWith('"')) ||
-			(val.startsWith("'") && val.endsWith("'"))
-		) {
+		if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
 			return val.slice(1, -1);
 		}
 		return val;
@@ -321,10 +317,7 @@ export class SkillLoader {
 	 * Load reference files declared in the manifest.
 	 * Reference paths are relative to the SKILL.md file's parent directory.
 	 */
-	private async loadReferences(
-		skillPath: string,
-		manifest: SkillManifest,
-	): Promise<Map<string, string>> {
+	private async loadReferences(skillPath: string, manifest: SkillManifest): Promise<Map<string, string>> {
 		const refs = new Map<string, string>();
 		if (!manifest.references) return refs;
 
@@ -357,18 +350,18 @@ export class SkillLoader {
 		// Wildcard: *.example.com matches sub.example.com
 		if (d.startsWith("*.")) {
 			const suffix = d.slice(2);
-			return h === suffix || h.endsWith("." + suffix);
+			return h === suffix || h.endsWith(`.${suffix}`);
 		}
 
 		// Suffix match: slack.com matches app.slack.com
-		return h.endsWith("." + d);
+		return h.endsWith(`.${d}`);
 	}
 
 	/**
 	 * Resolve a path string, expanding `~` to the user's home directory.
 	 */
 	private resolvePath(rawPath: string): string {
-		if (rawPath.startsWith("~" + sep) || rawPath === "~") {
+		if (rawPath.startsWith(`~${sep}`) || rawPath === "~") {
 			return join(homedir(), rawPath.slice(1));
 		}
 		return resolve(rawPath);

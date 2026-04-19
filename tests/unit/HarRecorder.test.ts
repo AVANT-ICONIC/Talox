@@ -12,12 +12,14 @@ import type { HarEntry, HarFile } from "../../src/core/HarRecorder";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function createMockRequest(overrides: Partial<{
-	method: string;
-	url: string;
-	headers: Record<string, string>;
-	postData: string | null;
-}> = {}) {
+function createMockRequest(
+	overrides: Partial<{
+		method: string;
+		url: string;
+		headers: Record<string, string>;
+		postData: string | null;
+	}> = {},
+) {
 	return {
 		method: vi.fn().mockReturnValue(overrides.method ?? "GET"),
 		url: vi.fn().mockReturnValue(overrides.url ?? "https://example.com/api"),
@@ -26,12 +28,14 @@ function createMockRequest(overrides: Partial<{
 	};
 }
 
-function createMockResponse(overrides: Partial<{
-	status: number;
-	statusText: string;
-	headers: Record<string, string>;
-	text: string;
-}> = {}) {
+function createMockResponse(
+	overrides: Partial<{
+		status: number;
+		statusText: string;
+		headers: Record<string, string>;
+		text: string;
+	}> = {},
+) {
 	const req = createMockRequest();
 	return {
 		request: vi.fn().mockReturnValue(req),

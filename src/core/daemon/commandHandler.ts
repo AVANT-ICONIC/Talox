@@ -17,10 +17,7 @@ import type { DaemonCommand, DaemonResponse } from "./TaloxDaemon.js";
  * @param command    - Parsed daemon command
  * @returns Structured response to send back over the socket
  */
-export async function handleCommand(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+export async function handleCommand(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	try {
 		switch (command.action) {
 			case "navigate":
@@ -44,10 +41,7 @@ export async function handleCommand(
 
 // ─── Action Handlers ─────────────────────────────────────────────────────────
 
-async function handleNavigate(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+async function handleNavigate(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	const url = command.params?.["url"];
 	if (typeof url !== "string" || url.length === 0) {
 		return errorResponse(command.id, "Missing or invalid 'url' parameter");
@@ -56,10 +50,7 @@ async function handleNavigate(
 	return successResponse(command.id, { url: state.url, title: state.title });
 }
 
-async function handleClick(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+async function handleClick(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	const selector = command.params?.["selector"];
 	if (typeof selector !== "string" || selector.length === 0) {
 		return errorResponse(command.id, "Missing or invalid 'selector' parameter");
@@ -68,10 +59,7 @@ async function handleClick(
 	return successResponse(command.id, { url: state.url, title: state.title });
 }
 
-async function handleType(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+async function handleType(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	const selector = command.params?.["selector"];
 	const text = command.params?.["text"];
 	if (typeof selector !== "string" || selector.length === 0) {
@@ -84,26 +72,18 @@ async function handleType(
 	return successResponse(command.id, { url: state.url, title: state.title });
 }
 
-async function handleGetState(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+async function handleGetState(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	const state = await controller.getState();
 	return successResponse(command.id, state);
 }
 
-async function handleScreenshot(
-	controller: TaloxController,
-	command: DaemonCommand,
-): Promise<DaemonResponse> {
+async function handleScreenshot(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
 	const selector = command.params?.["selector"];
 	const options: { selector?: string; path?: string } = {};
 	if (typeof selector === "string" && selector.length > 0) {
 		options.selector = selector;
 	}
-	const result = await controller.screenshot(
-		Object.keys(options).length > 0 ? options : undefined,
-	);
+	const result = await controller.screenshot(Object.keys(options).length > 0 ? options : undefined);
 	// Convert buffer to base64 for JSON serialization
 	if (Buffer.isBuffer(result)) {
 		return successResponse(command.id, {

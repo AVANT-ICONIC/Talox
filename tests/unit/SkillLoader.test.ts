@@ -269,7 +269,8 @@ This is the body content.
 					version: "1.0",
 					domain: "example.com",
 				},
-				content: "---\nname: with-refs\ndescription: Skill with refs\nversion: \"1.0\"\ndomain: example.com\n---\n\nBody.",
+				content:
+					'---\nname: with-refs\ndescription: Skill with refs\nversion: "1.0"\ndomain: example.com\n---\n\nBody.',
 				references: refs,
 			});
 
@@ -289,7 +290,8 @@ This is the body content.
 					version: "1.0",
 					domain: "slack.com",
 				},
-				content: "---\nname: slack-nav\ndescription: Slack navigation\nversion: \"1.0\"\ndomain: slack.com\n---\n\nUse Ctrl+K.",
+				content:
+					'---\nname: slack-nav\ndescription: Slack navigation\nversion: "1.0"\ndomain: slack.com\n---\n\nUse Ctrl+K.',
 				references: new Map(),
 			});
 

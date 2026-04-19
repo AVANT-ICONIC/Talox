@@ -19,6 +19,7 @@ import type { Point, ProfileClass, TaloxPageState, TaloxProfile } from "../../ty
 import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
 import { ArtifactBuilder } from "../ArtifactBuilder.js";
+import { AutoDialogHandler, type DialogRecord } from "../AutoDialogHandler.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
 import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
 import { ObserveSession } from "../observe/ObserveSession.js";
@@ -28,7 +29,6 @@ import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
 import { VisionGate } from "../VisionGate.js";
-import { AutoDialogHandler, type DialogRecord } from "../AutoDialogHandler.js";
 import type { EventBus } from "./EventBus.js";
 
 /**

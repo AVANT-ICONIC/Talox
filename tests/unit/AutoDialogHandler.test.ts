@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AutoDialogHandler } from "../../src/core/AutoDialogHandler";
 import type { DialogRecord } from "../../src/core/AutoDialogHandler";
+import { AutoDialogHandler } from "../../src/core/AutoDialogHandler";
 import { EventBus } from "../../src/core/controller/EventBus";
 import type { TaloxEventMap } from "../../src/types/events";
 

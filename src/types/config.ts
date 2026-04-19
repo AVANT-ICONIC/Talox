@@ -3,8 +3,8 @@
  * @description TaloxConfig - what you pass to TaloxController constructor
  */
 
-import type { OriginHeaderConfig } from "../core/OriginHeaders.js";
 import type { InspectServerConfig } from "../core/inspect/InspectServer.js";
+import type { OriginHeaderConfig } from "../core/OriginHeaders.js";
 import type { LegacyTaloxMode, TaloxSettings } from "./settings.js"; // NOSONAR
 
 export interface TaloxConfig {

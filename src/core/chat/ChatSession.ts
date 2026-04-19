@@ -7,8 +7,8 @@
  */
 
 import { createInterface } from "node:readline";
-import { TaloxController } from "../controller/TaloxController.js";
 import type { TaloxPageState } from "../../types/index.js";
+import type { TaloxController } from "../controller/TaloxController.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -224,7 +224,11 @@ export class ChatSession {
 		if (mid <= 1) return;
 
 		const summary = buildSummary(this.messages.slice(1, mid));
-		this.messages = [systemMsg, { role: "user", content: `[Earlier conversation summary]\n${summary}` }, ...this.messages.slice(mid)];
+		this.messages = [
+			systemMsg,
+			{ role: "user", content: `[Earlier conversation summary]\n${summary}` },
+			...this.messages.slice(mid),
+		];
 	}
 
 	/**

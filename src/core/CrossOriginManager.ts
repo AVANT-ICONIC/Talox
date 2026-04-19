@@ -59,11 +59,7 @@ export class CrossOriginManager {
 	 * @returns The CDP result.
 	 * @throws If no session exists for the given frame.
 	 */
-	async executeInFrame(
-		frameId: string,
-		command: string,
-		params?: Record<string, unknown>,
-	): Promise<unknown> {
+	async executeInFrame(frameId: string, command: string, params?: Record<string, unknown>): Promise<unknown> {
 		const session = this.sessions.get(frameId);
 		if (!session) {
 			throw new Error(`No CDP session for frame: ${frameId}`);

@@ -6,10 +6,10 @@
  * DevTools can attach to a Talox-controlled page in real-time.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Page } from "playwright-core";
-import { WebSocketServer, type WebSocket, type RawData } from "ws";
+import { type RawData, type WebSocket, WebSocketServer } from "ws";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

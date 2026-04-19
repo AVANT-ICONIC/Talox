@@ -120,9 +120,7 @@ export class TaloxDaemon {
 		this.sessions.forEach((session) => {
 			stopPromises.push(
 				session.controller.stop().catch((err: Error) => {
-					console.error(
-						`[TaloxDaemon] Error stopping session ${session.id}: ${err.message}`,
-					);
+					console.error(`[TaloxDaemon] Error stopping session ${session.id}: ${err.message}`);
 				}),
 			);
 		});
@@ -183,10 +181,7 @@ export class TaloxDaemon {
 
 	// ─── Command Dispatch ───────────────────────────────────────────────────
 
-	private async processLine(
-		line: string,
-		socket: net.Socket,
-	): Promise<void> {
+	private async processLine(line: string, socket: net.Socket): Promise<void> {
 		let command: DaemonCommand;
 		try {
 			command = JSON.parse(line) as DaemonCommand;
@@ -212,9 +207,7 @@ export class TaloxDaemon {
 		this.sendResponse(socket, response);
 	}
 
-	private async dispatchCommand(
-		command: DaemonCommand,
-	): Promise<DaemonResponse> {
+	private async dispatchCommand(command: DaemonCommand): Promise<DaemonResponse> {
 		try {
 			switch (command.action) {
 				case "launch":
@@ -257,12 +250,9 @@ export class TaloxDaemon {
 	// ─── Daemon-Level Actions ───────────────────────────────────────────────
 
 	private async handleLaunch(command: DaemonCommand): Promise<DaemonResponse> {
-		const profileId =
-			(command.params?.["profileId"] as string | undefined) ?? "daemon";
-		const profileClass =
-			(command.params?.["profileClass"] as ProfileClass | undefined) ?? "ops";
-		const browserType =
-			(command.params?.["browser"] as BrowserType | undefined) ?? "chromium";
+		const profileId = (command.params?.["profileId"] as string | undefined) ?? "daemon";
+		const profileClass = (command.params?.["profileClass"] as ProfileClass | undefined) ?? "ops";
+		const browserType = (command.params?.["browser"] as BrowserType | undefined) ?? "chromium";
 
 		const sessionId = generateSessionId();
 		const controller = new TaloxController(process.cwd());
@@ -312,9 +302,7 @@ export class TaloxDaemon {
 		return { id: command.id, success: true, data: { stopped: sessionId } };
 	}
 
-	private async handleShutdown(
-		command: DaemonCommand,
-	): Promise<DaemonResponse> {
+	private async handleShutdown(command: DaemonCommand): Promise<DaemonResponse> {
 		const response: DaemonResponse = {
 			id: command.id,
 			success: true,
@@ -357,7 +345,7 @@ export class TaloxDaemon {
 	private sendResponse(socket: net.Socket, response: DaemonResponse): void {
 		if (socket.destroyed) return;
 		try {
-			socket.write(JSON.stringify(response) + "\n");
+			socket.write(`${JSON.stringify(response)}\n`);
 		} catch (err: unknown) {
 			// NOSONAR — socket may have closed between check and write
 			const message = err instanceof Error ? err.message : String(err);
