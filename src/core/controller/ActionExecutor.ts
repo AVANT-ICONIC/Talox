@@ -194,8 +194,9 @@ export class ActionExecutor {
 		try {
 			const state = await this._clickInternal(effectiveSelector);
 			return this.attachDiff(prevState, state);
-		} catch (error: any) {
-			console.warn(`[Talox Reliability] Click failed for "${effectiveSelector}": ${error?.message}`);
+		} catch (error: unknown) {
+			const errMsg = error instanceof Error ? error.message : String(error);
+			console.warn(`[Talox Reliability] Click failed for "${effectiveSelector}": ${errMsg}`);
 
 			const context = page.context?.();
 			const recovery = await this.reliability.recoverAfterFailure(
@@ -358,8 +359,9 @@ export class ActionExecutor {
 		try {
 			const state = await this._typeInternal(effectiveSelector, text);
 			return this.attachDiff(prevState, state);
-		} catch (error: any) {
-			console.warn(`[Talox Reliability] Type failed for "${effectiveSelector}": ${error?.message}`);
+		} catch (error: unknown) {
+			const errMsg = error instanceof Error ? error.message : String(error);
+			console.warn(`[Talox Reliability] Type failed for "${effectiveSelector}": ${errMsg}`);
 
 			const context = page.context?.();
 			const recovery = await this.reliability.recoverAfterFailure(

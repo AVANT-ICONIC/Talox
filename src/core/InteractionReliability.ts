@@ -199,14 +199,14 @@ export class InteractionReliability {
 					durationMs: Date.now() - t0,
 				});
 			}
-		} catch (e: any) {
+		} catch (e: unknown) {
 			// Not a fatal pre-flight error — the element might still be findable
 			attempts.push({
 				mode: "viewport",
 				strategy: "scrollIntoViewIfNeeded",
 				success: false,
 				durationMs: Date.now() - t0,
-				detail: e?.message,
+				detail: e instanceof Error ? e.message : String(e),
 			});
 		}
 

@@ -100,7 +100,7 @@ export class HarRecorder {
 	private recording = false;
 	private readonly entries: HarEntry[] = [];
 	private readonly pending = new Map<Request, PendingRequest>();
-	private readonly version = "5.0.0";
+	private readonly version = "5.0.1";
 
 	constructor(options: HarRecorderOptions) {
 		this.outputPath = options.outputPath;

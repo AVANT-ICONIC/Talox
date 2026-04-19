@@ -383,18 +383,17 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		try {
 			return await this.tryLaunchContext(launcher, userDataDir, launchOptions);
-		} catch (error: any) {
+		} catch (error: unknown) {
 			if (launchOptions.channel === "chrome") {
 				delete launchOptions.channel;
 				try {
 					return await this.tryLaunchContext(launcher, userDataDir, launchOptions);
-				} catch (fallbackError: any) {
-					console.error("[DEBUG] Playwright Headed Error:", fallbackError);
+				} catch { // NOSONAR -- non-fatal
 					throw new Error(`Browser launch failed for ${browserType}. Please ensure Chrome is installed.`);
 				}
 			}
-			if (error.message?.includes("browser")) {
-				console.error("[DEBUG] Raw Error:", error);
+			const msg = error instanceof Error ? error.message : String(error);
+			if (msg.includes("browser")) {
 				throw new Error(`Browser launch failed for ${browserType}. Please ensure the browser is installed.`);
 			}
 			throw error;

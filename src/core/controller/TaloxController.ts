@@ -603,7 +603,7 @@ export class TaloxController {
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// DEBUG SNAPSHOT
+	// DIAGNOSTIC SNAPSHOT
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	async getDebugSnapshot(): Promise<DebugSnapshot> {
