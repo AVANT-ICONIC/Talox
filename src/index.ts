@@ -99,6 +99,14 @@ export type { TaloxConfig } from "./types/config.js";
 // TALOX_STATE_CONTRACT_VERSION, TaloxStateDiff, TaloxStateTiming, diffPageState
 // and all core types are exported via the wildcard below.
 export * from "./types/index.js";
+
+// ─── Autonomous Loop (v6) ───────────────────────────────────────────────────
+export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
+export { LLMPlanner } from "./core/loop/Planner.js";
+export type { Planner } from "./core/loop/Planner.js";
+export { SkillWriter } from "./core/skills/SkillWriter.js";
+export type * from "./core/loop/types.js";
+
 // ─── Legacy Mode Compatibility (v1 → v2) ─────────────────────────────────────
 /**
  * @deprecated Legacy modes are deprecated in v2. Use `TaloxSettings` directly.

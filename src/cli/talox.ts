@@ -8,6 +8,9 @@ import { ChatSession } from "../core/chat/ChatSession.js";
 import { TaloxController } from "../core/controller/TaloxController.js";
 import { TaloxDaemon } from "../core/daemon/TaloxDaemon.js";
 import type { ProfileClass } from "../types/index.js";
+import { AutonomousLoop } from "../core/loop/AutonomousLoop.js";
+import { SkillLoader } from "../core/skills/SkillLoader.js";
+import { SkillWriter } from "../core/skills/SkillWriter.js";
 import { formatDoctorOutput, runDoctor } from "./doctor.js";
 
 const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
@@ -46,6 +49,24 @@ interface ChatCommandOptions {
 	baseUrl: string | undefined;
 }
 
+interface RunCommandOptions {
+	goal: string;
+	url: string | undefined;
+	model: string;
+	apiKey: string | undefined;
+	baseUrl: string | undefined;
+	maxIterations: number;
+	strategy: "conservative" | "balanced" | "aggressive";
+	skillsDir: string | undefined;
+}
+
+interface SkillCreateOptions {
+	domain: string;
+	name: string;
+	description: string;
+	file: string | undefined;
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
 	if (argv.length === 0) {
 		return { command: undefined, args: [] };
@@ -63,6 +84,8 @@ Usage:
   talox chat [options]
   talox doctor [--fix]
   talox daemon [options]
+  talox run "<goal>" [options]
+  talox skill create [options]
 
 Options:
   --profile, -p       Profile ID for the session (default: observe)
@@ -80,12 +103,29 @@ Chat Options:
   --api-key           OpenAI API key (or OPENAI_API_KEY env)
   --url               OpenAI-compatible API base URL (or OPENAI_BASE_URL env)
 
+Run Options:
+  --url               Starting URL for the autonomous loop
+  --model             OpenAI model ID (default: gpt-4o)
+  --api-key           OpenAI API key (or OPENAI_API_KEY env)
+  --base-url          OpenAI-compatible API base URL (or OPENAI_BASE_URL env)
+  --max-iterations    Maximum loop iterations (default: 10)
+  --strategy          Loop strategy: conservative | balanced | aggressive (default: balanced)
+  --skills-dir        Directory containing domain skills
+
+Skill Create Options:
+  --domain            Target domain for the skill (required)
+  --name              Skill name (required)
+  --description       Skill description (required)
+  --file              Path to markdown file with skill content (required)
+
 Commands:
   init [directory]    Scaffold a browser-lab project with Talox, presets, and practical tools.
   screenshot [url]    Capture an annotated screenshot with element refs.
   chat                Start an interactive chat session with browser control via LLM.
   doctor [--fix]      Run diagnostic checks on your environment.
   daemon              Start a Talox daemon for IPC control.
+  run "<goal>"        Run an autonomous loop to achieve the given goal.
+  skill create        Create a new domain skill from a markdown file.
 `);
 }
 
@@ -605,6 +645,125 @@ function parseChatOptions(args: string[]): ChatCommandOptions {
 	return opts;
 }
 
+function parseRunOptions(args: string[]): RunCommandOptions {
+	const VALID_STRATEGIES = new Set<string>(["conservative", "balanced", "aggressive"]);
+	const opts: RunCommandOptions = {
+		goal: "",
+		url: undefined,
+		model: "gpt-4o",
+		apiKey: undefined,
+		baseUrl: undefined,
+		maxIterations: 10,
+		strategy: "balanced",
+		skillsDir: undefined,
+	};
+
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (!arg) {
+			i += 1;
+			continue;
+		}
+		switch (arg) {
+			case "--url":
+				opts.url = args[i + 1];
+				i += 2;
+				break;
+			case "--model":
+				opts.model = args[i + 1] ?? opts.model;
+				i += 2;
+				break;
+			case "--api-key":
+				opts.apiKey = args[i + 1];
+				i += 2;
+				break;
+			case "--base-url":
+				opts.baseUrl = args[i + 1];
+				i += 2;
+				break;
+			case "--max-iterations":
+				opts.maxIterations = Number(args[i + 1]) || opts.maxIterations;
+				i += 2;
+				break;
+			case "--strategy": {
+				const raw = args[i + 1] ?? "balanced";
+				opts.strategy = VALID_STRATEGIES.has(raw)
+					? (raw as RunCommandOptions["strategy"])
+					: opts.strategy;
+				i += 2;
+				break;
+			}
+			case "--skills-dir":
+				opts.skillsDir = args[i + 1];
+				i += 2;
+				break;
+			case "--help":
+			case "-h":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				if (!arg.startsWith("-")) {
+					opts.goal = arg;
+				} else {
+					console.warn(`[Talox CLI] Unknown run option: ${arg}`);
+				}
+				i += 1;
+				break;
+		}
+	}
+
+	return opts;
+}
+
+function parseSkillCreateOptions(args: string[]): SkillCreateOptions {
+	const opts: SkillCreateOptions = {
+		domain: "",
+		name: "",
+		description: "",
+		file: undefined,
+	};
+
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (!arg) {
+			i += 1;
+			continue;
+		}
+		switch (arg) {
+			case "--domain":
+				opts.domain = args[i + 1] ?? opts.domain;
+				i += 2;
+				break;
+			case "--name":
+				opts.name = args[i + 1] ?? opts.name;
+				i += 2;
+				break;
+			case "--description":
+				opts.description = args[i + 1] ?? opts.description;
+				i += 2;
+				break;
+			case "--file":
+				opts.file = args[i + 1];
+				i += 2;
+				break;
+			case "--help":
+			case "-h":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				console.warn(`[Talox CLI] Unknown skill create option: ${arg}`);
+				i += 1;
+				break;
+		}
+	}
+
+	return opts;
+}
+
 async function runChat(args: string[]): Promise<void> {
 	const opts = parseChatOptions(args);
 
@@ -644,6 +803,136 @@ async function runChat(args: string[]): Promise<void> {
 	await session.start();
 }
 
+async function runRun(args: string[]): Promise<void> {
+	const opts = parseRunOptions(args);
+
+	if (!opts.goal) {
+		console.error('[Talox CLI] Error: No goal provided. Usage: talox run "<goal>" [options]');
+		process.exit(1);
+	}
+
+	const apiKey = opts.apiKey ?? process.env["OPENAI_API_KEY"];
+	if (!apiKey) {
+		console.error("[Talox CLI] Error: No API key provided. Use --api-key or set OPENAI_API_KEY env var.");
+		process.exit(1);
+	}
+
+	console.log(`[Talox Run] Starting autonomous loop: "${opts.goal}"`);
+
+	const talox = new TaloxController(process.cwd(), {
+		settings: {
+			headed: false,
+			verbosity: 1,
+		},
+	});
+
+	let totalCost = 0; // NOSONAR — mutated inside onProgress closure
+
+	const loopOptions: import("../core/loop/types.js").AutonomousLoopOptions = {
+		goal: {
+			description: opts.goal,
+			maxIterations: opts.maxIterations,
+			strategy: opts.strategy,
+		},
+		planner: {
+			model: opts.model,
+			apiKey,
+		},
+		onProgress(iteration) {
+			if (iteration.tokenUsage) {
+				totalCost += iteration.tokenUsage.estimatedCostUsd;
+			}
+			const firstStep = iteration.plan.steps[0];
+			if (iteration.plan.goalAchieved) {
+				console.log(
+					`[ iteration ${iteration.iteration} ] goal achieved \u2713 (${iteration.iteration} iterations, $${totalCost.toFixed(3)})`,
+				);
+			} else if (firstStep) {
+				console.log(`[ iteration ${iteration.iteration} ] observing \u2192 planning \u2192 ${firstStep.action}`);
+			} else {
+				console.log(`[ iteration ${iteration.iteration} ] observing \u2192 planning \u2192 ${iteration.result.status}`);
+			}
+		},
+	};
+
+	if (opts.url !== undefined) {
+		loopOptions.goal.startUrl = opts.url;
+	}
+	if (opts.baseUrl !== undefined) {
+		loopOptions.planner.apiBaseUrl = opts.baseUrl;
+	}
+	if (opts.skillsDir !== undefined) {
+		loopOptions.skillsDir = opts.skillsDir;
+	}
+
+	const interrupt = async () => {
+		console.log("[Talox Run] Interrupt received — stopping...");
+		process.exit(0);
+	};
+	process.on("SIGINT", interrupt);
+
+	try {
+		await talox.launch("run", "ops", "chromium");
+
+		const loop = new AutonomousLoop(talox, loopOptions);
+		const result = await loop.run();
+
+		console.log("");
+		console.log(`[Talox CLI] Run completed: ${result.status}`);
+		console.log(`[Talox CLI] Stop reason: ${result.stopReason}`);
+		console.log(`[Talox CLI] Iterations: ${result.totalIterations}`);
+		console.log(`[Talox CLI] Duration: ${(result.totalDurationMs / 1000).toFixed(1)}s`);
+		console.log(`[Talox CLI] Cost: $${result.totalCostUsd.toFixed(3)}`);
+		if (result.createdSkills.length > 0) {
+			console.log(`[Talox CLI] Skills created: ${result.createdSkills.join(", ")}`);
+		}
+
+		loop.dispose();
+	} finally {
+		process.off("SIGINT", interrupt);
+		await talox.stop();
+	}
+}
+
+async function runSkillCreate(args: string[]): Promise<void> {
+	const opts = parseSkillCreateOptions(args);
+
+	if (!opts.domain) {
+		console.error("[Talox CLI] Error: --domain is required.");
+		process.exit(1);
+	}
+	if (!opts.name) {
+		console.error("[Talox CLI] Error: --name is required.");
+		process.exit(1);
+	}
+	if (!opts.description) {
+		console.error("[Talox CLI] Error: --description is required.");
+		process.exit(1);
+	}
+	if (!opts.file) {
+		console.error("[Talox CLI] Error: No --file provided. Supply a markdown file with skill content.");
+		process.exit(1);
+	}
+
+	const content = await fsPromises.readFile(path.resolve(opts.file), "utf-8");
+	const skillsDir = path.join(process.cwd(), "skills");
+	const loader = new SkillLoader([skillsDir]);
+	const writer = new SkillWriter(skillsDir, loader);
+
+	const filePath = await writer.createSkill({
+		name: opts.name,
+		description: opts.description,
+		domain: opts.domain,
+		version: "1.0",
+		content,
+		triggerCondition: `domain == "${opts.domain}"`,
+		toolUsage: [],
+	});
+
+	console.log(`[Talox CLI] Skill "${opts.name}" created for domain ${opts.domain}`);
+	console.log(`[Talox CLI] File: ${filePath}`);
+}
+
 async function main(): Promise<void> {
 	const { command, args } = parseArgs(process.argv.slice(2));
 	switch (command) {
@@ -665,6 +954,20 @@ async function main(): Promise<void> {
 		case "chat":
 			await runChat(args);
 			break;
+		case "run":
+			await runRun(args);
+			break;
+		case "skill": {
+			const subcommand = args[0];
+			if (subcommand === "create") {
+				await runSkillCreate(args.slice(1));
+			} else {
+				console.error(`[Talox CLI] Unknown skill subcommand: ${subcommand ?? ""}`);
+				usage();
+				process.exit(1);
+			}
+			break;
+		}
 		default:
 			usage();
 			process.exit(1);

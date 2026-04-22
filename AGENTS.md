@@ -39,6 +39,14 @@ src/
       ActionExecutor.ts         # Click/type/navigate/scroll execution
       SessionManager.ts         # Session lifecycle + cursor heartbeat
       TakeoverBridge.ts         # Human handoff/resume state machine
+    loop/
+      AutonomousLoop.ts         # Self-driving plan-execute-recover loop
+      Planner.ts                # LLMPlanner + Planner interface with generateSkill()
+      types.ts                  # Loop step, result, and config types
+    skills/
+      SkillLoader.ts            # Loads SKILL.md files by hostname
+      SkillWriter.ts            # Generates new skills from LLM output
+      index.ts                  # Skills barrel export
     smart/
       AdaptationEngine.ts       # Strategy selection with domain memory
       DomainMemory.ts           # EWMA per-hostname strategy scoring
@@ -63,6 +71,19 @@ tests/
 - **Compact Variants**: `full`, `agent`, `debug` — use `getState('agent')` for LLM context.
 - **Takeover**: Human handoff with typed reasons, timeout policies, and session restore.
 - **Adaptation**: `DomainMemory` + `AdaptationEngine` learn which strategies work per domain.
+- **Autonomous Loop**: `AutonomousLoop` runs a plan-execute-observe cycle driven by an LLM `Planner`. On blockers, the loop can ask the planner to generate a new skill via `SkillWriter`, which is auto-loaded by `SkillLoader` on future runs. Convergence detection recovers from stuck loops.
+- **Self-Learning Skills**: `SkillWriter` produces SKILL.md files from blocker analysis. `SkillLoader` auto-discovers and loads them by hostname, so the agent improves over time.
+
+## CLI Commands
+
+```bash
+talox run            # Start autonomous task execution loop
+talox skill create   # Interactively create a new skill file
+talox observe        # Start observation mode with overlay
+talox chat           # Built-in LLM chat mode
+talox doctor         # Run diagnostic checks
+talox init           # Scaffold a new project
+```
 
 ## Code Health (Avant Radar)
 
@@ -80,7 +101,7 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-18) — v5.0.0
+### Current Status (2026-04-21) — v6.0.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
@@ -88,13 +109,13 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 CRITICAL**
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
-- **1015 tests** across **48 files**
+- **1192 tests** across **69 files**
 
 ## Build & Test
 
 ```bash
 npm run build          # Compile TypeScript
-npm run test           # Run all unit tests (1015 tests across 48 files)
+npm run test           # Run all unit tests (1192 tests across 69 files)
 npm run test:e2e       # Run Playwright E2E tests
 npm run test:real      # Run real-world integration tests
 npm run typecheck      # TypeScript strict mode check

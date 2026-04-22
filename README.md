@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-4.3.0-0d9488?style=flat-square" alt="version" />
+  <img src="https://img.shields.io/badge/version-6.0.0-0d9488?style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -172,6 +172,8 @@ See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste st
 > `node dist/cli/talox.js observe --help`
 
 - `node dist/cli/talox.js observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
+- `node dist/cli/talox.js run` starts the autonomous task execution loop with an LLM planner for self-driving browser workflows.
+- `node dist/cli/talox.js skill create` interactively creates a new SKILL.md file for per-site strategies.
 - `node dist/cli/talox.js init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
 - Exported presets (`ops`, `qa`, `observe`, `research`, `login-heavy`) live in `src/presets.ts` so you can reuse curated verbosity, headedness, and human-takeover posture with a single spread or merge.
 - The practical tools from `getPracticalTools(talox)` demonstrate background tabs, API response capture, Markdown snapshot export, on-site search, and visible structured content extraction, so your packaged profiles already include actionable browser lab helpers.
@@ -332,6 +334,49 @@ Any local script that reads from stdin or a temporary file can pick apart `state
 - **Session artifacts** — interaction timeline, screenshots, event log, annotations, and bug summaries for debugging
 - **Policy-as-code** — YAML-based action restrictions per profile
 - **LLM-native API** — 14 function-calling tools compatible with OpenAI, Claude, and other LLM APIs
+
+---
+
+## Autonomous Loop & Self-Learning
+
+v6.0.0 introduces a self-driving execution engine. `AutonomousLoop` runs a plan-execute-observe cycle driven by an LLM `Planner`. When the agent hits a blocker it cannot resolve, the planner generates a reusable skill via `SkillWriter`. On future runs, `SkillLoader` auto-discovers and injects those skills by hostname — so the agent improves over time without manual prompting.
+
+```typescript
+import { TaloxController, AutonomousLoop, LLMPlanner } from 'talox';
+
+const talox = new TaloxController({ headless: true });
+await talox.launch('auto-agent', 'ops');
+
+const planner = new LLMPlanner({ apiKey: process.env.OPENAI_API_KEY });
+const loop = new AutonomousLoop(talox, planner, { maxSteps: 50 });
+
+// Subscribe to loop events for observability
+talox.on('loopStep', (e) => console.log(`Step ${e.data.step}: ${e.data.action}`));
+talox.on('loopStuck', (e) => console.log('Stuck, recovering...', e.data.reason));
+talox.on('skillGenerated', (e) => console.log('New skill written:', e.data.path));
+
+const result = await loop.run('Navigate to example.com and find the main heading');
+console.log('Result:', result.status); // 'completed' | 'stuck' | 'error'
+
+await talox.stop();
+```
+
+### Key components
+
+| Module | Role |
+| :--- | :--- |
+| `AutonomousLoop` | Plan-execute-observe cycle with convergence detection |
+| `LLMPlanner` | LLM-backed planner; decides next actions and generates skills from blockers |
+| `SkillWriter` | Writes SKILL.md files from blocker analysis |
+| `SkillLoader` | Auto-discovers and loads skills by hostname |
+| `resolveChallenge()` | Public API on `TaloxController` for programmatic challenge resolution |
+
+### New CLI commands
+
+```bash
+talox run              # Start an autonomous task execution loop
+talox skill create     # Interactively create a new skill file
+```
 
 ---
 

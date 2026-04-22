@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-04-21
+
+### Added
+
+- **AutonomousLoop** — self-driving plan-execute-observe cycle with convergence detection and stuck-loop recovery.
+- **LLMPlanner** — LLM-backed planner implementing the `Planner` interface; decides next actions and generates skills from blockers.
+- **SkillWriter** — generates SKILL.md files from LLM blocker analysis, enabling the agent to learn from failures.
+- **SkillLoader** — auto-discovers and loads SKILL.md files by hostname for prompt injection.
+- **`talox run`** CLI command — starts autonomous task execution loop with an LLM planner.
+- **`talox skill create`** CLI command — interactively creates a new skill file.
+- **Convergence detection** — detects when the autonomous loop is stuck and triggers recovery strategies.
+- **LLM-powered skill generation** — planner can propose and write new skills when blockers are encountered.
+- **`resolveChallenge()`** on `TaloxController` — public API for programmatic challenge resolution during autonomous loops.
+- **Loop events** in `TaloxEventMap` — `loopStart`, `loopStep`, `loopComplete`, `loopStuck`, `skillGenerated` for observability of the autonomous cycle.
+
+### Changed
+
+- **Planner interface** now supports `generateSkill()` method for LLM-driven skill creation from blockers.
+
+### Tests
+
+- 1192 tests across 69 files (up from 1015/48). New test files: AutonomousLoop, LLMPlanner, SkillWriter, SkillLoader, Planner.
+
 ## [5.0.0] - 2026-04-18
 
 ### Added — 13 new features

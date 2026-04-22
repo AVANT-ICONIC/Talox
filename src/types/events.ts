@@ -213,6 +213,18 @@ export interface TaloxEventMap {
 	// ── Session idle timeout ─────────────────────────────────────────────────
 	/** Fired when the session has been idle longer than the configured timeout. */
 	sessionIdle: { idleMs: number; timeoutMs: number; sessionId: string };
+
+	// ── Autonomous Loop ─────────────────────────────────────────────────────
+	/** Fired when an autonomous loop starts. */
+	loopStarted: { goal: { description: string; startUrl?: string; maxIterations: number } };
+	/** Fired after each loop iteration completes. */
+	loopIteration: { iteration: number; observation: string; status: string };
+	/** Fired when the loop creates a new skill from a blocker. */
+	loopSkillCreated: { skillName: string; triggeredBy: string };
+	/** Fired when the autonomous loop achieves its goal. */
+	loopGoalAchieved: { totalIterations: number; totalCostUsd: number };
+	/** Fired when the autonomous loop stops for any reason. */
+	loopStopped: { reason: string; totalIterations: number };
 }
 
 /** Union of all event names. */

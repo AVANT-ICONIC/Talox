@@ -55,6 +55,8 @@ import { formatAgentError } from "../AgentErrors.js";
 import type { BrowserType } from "../BrowserManager.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
+import type { ChallengeOutcome } from "../ChallengeResolver.js";
+import { ChallengeResolver } from "../ChallengeResolver.js";
 import type { CrossOriginManager } from "../CrossOriginManager.js";
 import { CrossOriginManager as CrossOriginManagerClass } from "../CrossOriginManager.js";
 import type { HarRecorder, HarRecorderOptions } from "../HarRecorder.js";
@@ -104,6 +106,7 @@ export class TaloxController {
 	readonly _adapt: AdaptationEngine;
 	readonly _takeover: TakeoverBridge;
 	readonly _challenge: ChallengeDetector;
+	private readonly _challengeResolver: ChallengeResolver = new ChallengeResolver();
 
 	skillLoader?: SkillLoader; // NOSONAR — optional, set externally before launch
 
@@ -475,6 +478,17 @@ export class TaloxController {
 	async getChallengeState(): Promise<ChallengeState> {
 		const state = this._session.lastState ?? (await this.getState());
 		return this._challenge.analyze(state);
+	}
+
+	/** Attempt to auto-resolve the current challenge. */
+	async resolveChallenge(): Promise<ChallengeOutcome> {
+		const challengeState = await this.getChallengeState();
+		if (!challengeState.primaryChallenge) {
+			return { resolved: true, requiresHuman: false, attempts: [], totalAttempts: 0, finalStrategy: "skipped" };
+		}
+		const page = this._session.getPlaywrightPage();
+		if (!page) throw new Error("No active page");
+		return this._challengeResolver.resolve(challengeState.primaryChallenge, page);
 	}
 
 	/** Click an element by CSS selector. Self-heals on failure. */
