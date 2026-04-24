@@ -168,6 +168,7 @@ Layer 3: JS Injection via addInitScript (page-level, 19 patches)
 |------------|-------|
 | Sannysoft Bot Detection | **31/31** (100%) |
 | GitHub Login | ✅ Full page |
+| Reddit (homepage + subreddits) | ✅ Passes (warmup auto-bypass) |
 | nowsecure.nl (Cloudflare) | ✅ Passes |
 | BrowserLeaks | ✅ Loads |
 | CreepJS | ✅ Loads |
@@ -188,18 +189,20 @@ new TaloxController(dir, {
 
 ### Known Limitations
 
-- **Reddit**: Blocks via Akamai Bot Manager using HTTP/2 fingerprinting — the TLS/HTTP2 SETTINGS frames from Chromium differ from real Chrome. No browser automation library (Playwright, Selenium, Puppeteer) can bypass this at the driver level. Requires residential proxies or TLS impersonation (curl-impersonate/camoufox)
-- **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). Stealth injection falls back to `framenavigated` event handler — works for webdriver/chrome.runtime patches but runs after page JS, not before
-- **Headless mode**: Patchright maintainer confirms headless Chromium is inherently detectable; use headed mode for sensitive sites
-- **TLS fingerprinting**: Patchright doesn't change the TLS stack; sites using JA3/JA4 fingerprinting may still detect automation
+- **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). We use standard `playwright-core` instead — its `addInitScript` works correctly and our JS stealth stack runs before page scripts
+- **Headless mode**: Chromium headless is inherently detectable; use headed mode for sensitive sites
+- **Reddit warmup**: Reddit challenges new sessions with "Prove your humanity" (reCAPTCHA). Talox auto-bypasses by navigating twice — the `edgebucket` cookie from the first request is sufficient. Works for homepage and all subreddits
 
 ### Stealth Injection Architecture
 
 ```
-Primary:   page.addInitScript()      — works with playwright-core (standard mode)
-Fallback:  framenavigated handler    — Patchright mode (addInitScript non-functional)
-Injected:  webdriver deletion (Navigator.prototype), chrome.runtime, CDP cleanup
-Browser:   channel: "chrome"         — uses system Chrome for real TLS fingerprint (v147 vs Patchright's bundled v134)
+Driver:    playwright-core           — standard driver, addInitScript works correctly
+Browser:   channel: "chrome"         — uses system Chrome for real browser fingerprint
+Inject:    page.addInitScript()      — runs BEFORE any page JS (19 patches)
+Patches:   webdriver deletion (Navigator.prototype), chrome.runtime spoofing,
+           ChromeDriver cleanup, plugin spoofing, canvas/WebGL/audio noise,
+           CDP property cleanup, permissions override
+Warmup:    Reddit auto-retry on "Prove your humanity" challenge
 ```
 
 ## Build & Test

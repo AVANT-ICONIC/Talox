@@ -126,6 +126,18 @@ export class ActionExecutor {
 
 		await page.goto(url, waitOption);
 		setFirstNavigation(false);
+
+		// Reddit warmup: Reddit challenges all new sessions with "Prove your humanity"
+		// (reCAPTCHA) on first navigation. However, the challenge cookie (edgebucket)
+		// is set during the initial request. Simply navigating again bypasses the challenge.
+		const hostname = (() => { try { return new URL(url).hostname; } catch { return ""; } })();
+		if (hostname.endsWith("reddit.com")) {
+			const title = await page.title();
+			if (title.includes("Prove") || title.includes("humanity")) {
+				await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15_000 });
+				await new Promise((r) => setTimeout(r, 1000));
+			}
+		}
 		this.densityCache.clear();
 
 		const settleTime = 500;

@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { chromium as patchrightChromium } from "patchright";
 import { type BrowserContext, chromium, firefox, webkit } from "playwright-core";
 import type { TaloxProfile, TaloxSettings } from "../types/index.js";
 
@@ -314,15 +313,14 @@ export class BrowserManager {
 	}
 
 	private resolveLauncher(actualBrowserType: BrowserType, _isAdaptive: boolean): any {
-		// Patchright: patched Playwright driver that fixes CDP Runtime.enable leak,
-		// removes --enable-automation flag, and patches other detection vectors at
-		// the driver level — no JS injection needed for these signals.
-		// Only Chromium is supported by Patchright; other browser types fall back to standard.
-		if (_isAdaptive) {
-			return actualBrowserType === "chromium"
-				? patchrightChromium
-				: ({ firefox, webkit }[actualBrowserType] ?? chromium);
-		}
+		// Use standard playwright-core with channel: "chrome" for all browser types.
+		// Patchright's addInitScript is broken (callback never executes), which means
+		// the entire 19-patch JS stealth stack never gets injected. Regular playwright-core
+		// + channel: "chrome" (system Chrome) + our stealth scripts achieves 31/31 Sannysoft,
+		// GitHub login, Reddit (with warmup), and Cloudflare bypass.
+		//
+		// Patchright is still available via explicit browserType override if needed,
+		// but it's no longer the default because its broken addInitScript is a dealbreaker.
 		return { chromium, firefox, webkit }[actualBrowserType];
 	}
 
