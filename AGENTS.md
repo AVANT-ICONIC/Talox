@@ -188,9 +188,19 @@ new TaloxController(dir, {
 
 ### Known Limitations
 
-- **Reddit**: Blocks via server-side WAF (TLS fingerprinting / IP reputation), not browser detection
+- **Reddit**: Blocks via Akamai Bot Manager using HTTP/2 fingerprinting — the TLS/HTTP2 SETTINGS frames from Chromium differ from real Chrome. No browser automation library (Playwright, Selenium, Puppeteer) can bypass this at the driver level. Requires residential proxies or TLS impersonation (curl-impersonate/camoufox)
+- **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). Stealth injection falls back to `framenavigated` event handler — works for webdriver/chrome.runtime patches but runs after page JS, not before
 - **Headless mode**: Patchright maintainer confirms headless Chromium is inherently detectable; use headed mode for sensitive sites
 - **TLS fingerprinting**: Patchright doesn't change the TLS stack; sites using JA3/JA4 fingerprinting may still detect automation
+
+### Stealth Injection Architecture
+
+```
+Primary:   page.addInitScript()      — works with playwright-core (standard mode)
+Fallback:  framenavigated handler    — Patchright mode (addInitScript non-functional)
+Injected:  webdriver deletion (Navigator.prototype), chrome.runtime, CDP cleanup
+Browser:   channel: "chrome"         — uses system Chrome for real TLS fingerprint (v147 vs Patchright's bundled v134)
+```
 
 ## Build & Test
 

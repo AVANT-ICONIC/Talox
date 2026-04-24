@@ -328,6 +328,7 @@ export class BrowserManager {
 
 	private buildLaunchOptions(extraOptions: any): any {
 		const effectiveHeadless = extraOptions?.headless ?? this.config.browser.headless;
+		const isAdaptive = this.config.settings.adaptiveStealthEnabled !== false;
 
 		const launchOptions: any = {
 			headless: effectiveHeadless,
@@ -348,6 +349,11 @@ export class BrowserManager {
 				// Consistent window size for fingerprinting
 				"--window-size=1280,720",
 			],
+			// When using Patchright (adaptive stealth), prefer system Chrome over bundled
+			// Chromium. System Chrome has a real TLS fingerprint and browser version (e.g. 147)
+			// instead of Patchright's bundled Chromium (e.g. 134) which is instantly flagged
+			// by Akamai, Reddit, and other sites with version-based detection.
+			...(isAdaptive ? { channel: "chrome" } : {}),
 			...extraOptions,
 		};
 

@@ -691,12 +691,10 @@ export class SessionManager {
 			// 1. Navigator Webdriver Evasion — the property must not exist at all.
 			// Detection libraries check `navigator.webdriver` (returns false) AND
 			// `'webdriver' in navigator` (returns true if property exists).
-			// We must delete the property entirely so both checks pass.
+			// We must delete the property from Navigator.prototype entirely.
 			// Patchright handles this at the driver level, but belt-and-suspenders.
 			try {
-				if ("webdriver" in navigator) {
-					delete (navigator as any).webdriver;
-				}
+				delete (Navigator.prototype as any).webdriver;
 			} catch (_e) { /* NOSONAR — some contexts lock this */ }
 			// If delete failed (non-configurable), override via prototype chain
 			if ("webdriver" in navigator) {
@@ -1011,6 +1009,67 @@ export class SessionManager {
 				} catch (_e) { /* NOSONAR */ }
 			}
 		}, stealthData);
+
+		// ── Patchright framenavigated fallback ──
+		// Patchright's addInitScript is non-functional — the callback never executes.
+		// This is a known Patchright issue. As a fallback, we inject the most critical
+		// stealth patches via the framenavigated event, which fires after the DOM is ready
+		// but is our only reliable injection point with Patchright.
+		// The framenavigated handler is a subset — webdriver deletion and chrome.runtime
+		// are the two most impactful signals that Patchright's driver doesn't fully cover.
+		const context = page.context?.();
+		if (context) {
+			context.on("page", (newPage: any) => {
+				this.attachFrameNavStealth(newPage);
+			});
+		}
+		this.attachFrameNavStealth(page);
+	}
+
+	/**
+	 * Attach framenavigated-based stealth injection for Patchright compatibility.
+	 * Patchright's addInitScript silently fails — this is the only reliable injection method.
+	 */
+	private attachFrameNavStealth(page: any): void {
+		page.on("framenavigated", async (frame: any) => {
+			try {
+				await frame.evaluate(() => {
+					// 1. Delete webdriver from Navigator.prototype — makes "in" operator return false
+					try { delete (Navigator.prototype as any).webdriver; } catch (_e) { /* NOSONAR */ }
+
+					// 2. Chrome runtime — critical for Reddit, GitHub, and Akamai-protected sites.
+					// Without chrome.runtime, bot detection flags the browser immediately.
+					const c = (window as any).chrome || {};
+					if (!c.runtime) {
+						c.runtime = {
+							onMessage: { addListener() {}, removeListener() {}, hasListener: () => false },
+							onConnect: { addListener() {}, removeListener() {}, hasListener: () => false },
+							sendMessage(_m: any, cb?: any) { if (cb) cb(); },
+							connect() { return { onMessage: { addListener() {} }, postMessage() {} }; },
+							id: undefined,
+						};
+					}
+					if (!c.loadTimes) {
+						c.loadTimes = () => ({ firstPaintTime: performance.now() / 1000, startLoadTime: 0, commitLoadTime: 0, finishLoadTime: 0 });
+					}
+					if (!c.csi) {
+						c.csi = () => ({ onloadT: performance.now(), startE: 0, pageT: performance.now() });
+					}
+					if (!c.app) {
+						c.app = { isInstalled: false, getDetails: () => null, getIsInstalled: () => false, installState: () => "not_installed" };
+					}
+					try { Object.defineProperty(window, "chrome", { get: () => c, configurable: true }); } catch (_e) { /* NOSONAR */ }
+
+					// 3. CDP property cleanup — remove Playwright/Patchright artifacts
+					const cdpProps = ["__playwright", "__pw_manual", "__PW_inspect", "__cdpBinding"];
+					for (const p of cdpProps) {
+						try { delete (window as any)[p]; delete (document as any)[p]; } catch (_e) { /* NOSONAR */ }
+					}
+				});
+			} catch (_e) {
+				// Frame not ready yet or cross-origin — skip silently
+			}
+		});
 	}
 
 	// ─── Behavioral DNA ───────────────────────────────────────────────────────────
