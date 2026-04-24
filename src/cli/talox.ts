@@ -3,6 +3,10 @@
 import fs, { promises as fsPromises } from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import type { BrowserType } from "../core/BrowserManager.js";
 import { ChatSession } from "../core/chat/ChatSession.js";
 import { TaloxController } from "../core/controller/TaloxController.js";

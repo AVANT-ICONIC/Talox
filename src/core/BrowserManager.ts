@@ -337,6 +337,16 @@ export class BrowserManager {
 				"--disable-dev-shm-usage",
 				// Use new headless mode on macOS to prevent ghost window flicker
 				...(effectiveHeadless && process.platform === "darwin" ? ["--headless=new"] : []),
+				// ── Anti-detection Chromium flags ──
+				// Disable automation-controlled indicators
+				"--disable-blink-features=AutomationControlled",
+				// Suppress "Chrome is being controlled by automated test software" infobar
+				"--disable-infobars",
+				// Prevent exclusion switches from being sent to the browser
+				"--no-first-run",
+				"--no-default-browser-check",
+				// Consistent window size for fingerprinting
+				"--window-size=1280,720",
 			],
 			...extraOptions,
 		};
@@ -408,7 +418,11 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const actualBrowserType = await this.resolveBrowserType(browserType);
 
-		const launcher = this.resolveLauncher(actualBrowserType, false);
+		// Use Patchright (stealth driver) when adaptiveStealthEnabled is true (default).
+		// Patchright patches CDP Runtime.enable leak, removes --enable-automation flag,
+		// and fixes other driver-level detection vectors that JS injection can't reach.
+		const isAdaptive = this.config.settings.adaptiveStealthEnabled !== false;
+		const launcher = this.resolveLauncher(actualBrowserType, isAdaptive);
 		const launchOptions = this.buildLaunchOptions(extraOptions);
 
 		// Compute hash of launch options to detect config changes

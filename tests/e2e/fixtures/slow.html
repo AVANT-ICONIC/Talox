@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Slow Loading Page</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #content { opacity: 0; transition: opacity 0.5s; }
+        #content.ready { opacity: 1; }
+    </style>
+</head>
+<body>
+    <h1>Slow Page</h1>
+    <div id="status">Loading...</div>
+    <div id="content">
+        <p>This content appears after a delay.</p>
+        <button id="readyBtn">I am ready</button>
+    </div>
+    <script>
+        // Simulate slow page load - content becomes visible after 1.5s
+        setTimeout(function() {
+            document.getElementById('status').textContent = 'Loaded!';
+            document.getElementById('content').classList.add('ready');
+            document.getElementById('content').setAttribute('data-loaded', 'true');
+        }, 1500);
+    </script>
+</body>
+</html>

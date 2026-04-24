@@ -325,28 +325,405 @@ This is the body content.
 			expect(loader.get("my-skill")).toBe(skill);
 		});
 
-		it("get returns undefined for unknown skill", () => {
-			const loader = new SkillLoader();
-			expect(loader.get("unknown")).toBeUndefined();
+	it("get returns undefined for unknown skill", () => {
+		const loader = new SkillLoader();
+		expect(loader.get("unknown")).toBeUndefined();
+	});
+
+	it("getAll returns all loaded skills", () => {
+		const loader = new SkillLoader();
+		const s1: LoadedSkill = {
+			manifest: { name: "s1", description: "d1", version: "1", domain: "a.com" },
+			content: "",
+			references: new Map(),
+		};
+		const s2: LoadedSkill = {
+			manifest: { name: "s2", description: "d2", version: "1", domain: "b.com" },
+			content: "",
+			references: new Map(),
+		};
+		(loader as any).skills.set("s1", s1);
+		(loader as any).skills.set("s2", s2);
+
+		const all = loader.getAll();
+		expect(all).toHaveLength(2);
+	});
+});
+}); // close describe("SkillLoader")
+
+// ── loadAll tests ────────────────────────────────────────────────────────────
+
+describe("SkillLoader — loadAll", () => {
+	it("loads skills from directory entries", async () => {
+		const { readdirSync, existsSync, statSync, readFileSync } = await import("node:fs");
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(statSync as any).mockReturnValue({ isDirectory: () => true });
+		vi.mocked(readdirSync as any).mockReturnValue([
+			{ name: "slack", isDirectory: () => true },
+			{ name: "github", isDirectory: () => true },
+			{ name: "not-a-dir.txt", isDirectory: () => false },
+		]);
+		const SKILL_SLACK = `---
+name: slack-skill
+description: Slack skill
+version: "1.0"
+domain: slack.com
+---
+
+Slack content.
+`;
+		const SKILL_GITHUB = `---
+name: github-skill
+description: GitHub skill
+version: "1.0"
+domain: github.com
+---
+
+GitHub content.
+`;
+		let readIdx = 0;
+		vi.mocked(readFileSync as any).mockImplementation(() => {
+			readIdx++;
+			return readIdx === 1 ? SKILL_SLACK : SKILL_GITHUB;
 		});
 
-		it("getAll returns all loaded skills", () => {
-			const loader = new SkillLoader();
-			const s1: LoadedSkill = {
-				manifest: { name: "s1", description: "d1", version: "1", domain: "a.com" },
-				content: "",
-				references: new Map(),
-			};
-			const s2: LoadedSkill = {
-				manifest: { name: "s2", description: "d2", version: "1", domain: "b.com" },
-				content: "",
-				references: new Map(),
-			};
-			(loader as any).skills.set("s1", s1);
-			(loader as any).skills.set("s2", s2);
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL(["/test-skills"]);
+		const count = await loader.loadAll();
 
-			const all = loader.getAll();
-			expect(all).toHaveLength(2);
+		expect(count).toBe(2);
+		expect(loader.getAll()).toHaveLength(2);
+	});
+
+	it("returns 0 when search path does not exist", async () => {
+		const { existsSync } = await import("node:fs");
+		vi.mocked(existsSync as any).mockReturnValue(false);
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL(["/nonexistent"]);
+		const count = await loader.loadAll();
+
+		expect(count).toBe(0);
+	});
+
+	it("returns 0 when search path is not a directory", async () => {
+		const { existsSync, statSync } = await import("node:fs");
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(statSync as any).mockReturnValue({ isDirectory: () => false });
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL(["/test-skills"]);
+		const count = await loader.loadAll();
+
+		expect(count).toBe(0);
+	});
+
+	it("skips entries that fail to load", async () => {
+		const { readdirSync, existsSync, statSync, readFileSync } = await import("node:fs");
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(statSync as any).mockReturnValue({ isDirectory: () => true });
+		vi.mocked(readdirSync as any).mockReturnValue([
+			{ name: "good", isDirectory: () => true },
+			{ name: "bad", isDirectory: () => true },
+		]);
+
+		// First load call succeeds, second fails (no frontmatter)
+		let callCount = 0;
+		vi.mocked(readFileSync as any).mockImplementation(() => {
+			callCount++;
+			if (callCount === 1) return VALID_SKILL_MD;
+			return INVALID_SKILL_MD;
 		});
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL(["/test-skills"]);
+		const count = await loader.loadAll();
+
+		expect(count).toBe(1);
+	});
+});
+
+// ── resolvePath with ~ expansion ────────────────────────────────────────────
+
+describe("SkillLoader — resolvePath", () => {
+	it("resolves ~ to home directory", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const resolved = (loader as any).resolvePath("~/skills");
+		expect(resolved).not.toContain("~");
+		expect(resolved).toContain("skills");
+	});
+
+	it("resolves ~ alone to home directory", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const resolved = (loader as any).resolvePath("~");
+		expect(resolved).not.toContain("~");
+	});
+
+	it("does not expand ~ when not at start", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const resolved = (loader as any).resolvePath("/path/~skills");
+		expect(resolved).toContain("~skills");
+	});
+});
+
+// ── loadReferences ───────────────────────────────────────────────────────────
+
+describe("SkillLoader — loadReferences", () => {
+	it("loads reference files when declared in manifest", async () => {
+		const { existsSync, readFileSync } = await import("node:fs");
+
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(readFileSync as any).mockImplementation((path: string) => {
+			if (path.includes("api.md")) return "API doc content";
+			if (path.includes("config.md")) return "Config content";
+			return "default content";
+		});
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+
+		// Directly call loadReferences with a mock manifest that has object references
+		const refs = await (loader as any).loadReferences("/skills/example/SKILL.md", {
+			name: "skill-refs",
+			references: {
+				"api-docs": "api.md",
+				config: "config.md",
+			},
+		});
+
+		expect(refs.has("api-docs")).toBe(true);
+		expect(refs.has("config")).toBe(true);
+		expect(refs.get("api-docs")).toBe("API doc content");
+		expect(refs.get("config")).toBe("Config content");
+	});
+
+	it("skips references when file does not exist", async () => {
+		const { existsSync, readFileSync } = await import("node:fs");
+
+		const SKILL_WITH_REFS = `---
+name: skill-missing-refs
+description: Has missing refs
+version: "1.0"
+domain: example.com
+references:
+  missing: non-existent.md
+---
+
+Content here.
+`;
+		let readCount = 0;
+		vi.mocked(existsSync as any).mockImplementation(() => {
+			readCount++;
+			// First call is for the SKILL.md itself, then the ref doesn't exist
+			return readCount === 1;
+		});
+		vi.mocked(readFileSync as any).mockReturnValue(SKILL_WITH_REFS);
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const skill = await loader.load("/skills/example/SKILL.md");
+
+		expect(skill).not.toBeNull();
+		expect(skill!.references.has("missing")).toBe(false);
+	});
+
+	it("returns empty map when manifest has no references", async () => {
+		const loader = new SkillLoader();
+		const refs = await (loader as any).loadReferences("/some/path", {
+			name: "test",
+			description: "test",
+			version: "1.0",
+			domain: "test.com",
+		});
+		expect(refs.size).toBe(0);
+	});
+});
+
+// ── parseScalar edge cases ──────────────────────────────────────────────────
+
+describe("SkillLoader — parseScalar", () => {
+	it("parses boolean true", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("true")).toBe(true);
+	});
+
+	it("parses boolean false", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("false")).toBe(false);
+	});
+
+	it("parses integer", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("42")).toBe(42);
+	});
+
+	it("parses negative integer", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("-5")).toBe(-5);
+	});
+
+	it("parses float", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("3.14")).toBeCloseTo(3.14);
+	});
+
+	it("strips double quotes", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar('"hello"')).toBe("hello");
+	});
+
+	it("strips single quotes", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("'hello'")).toBe("hello");
+	});
+
+	it("returns raw string otherwise", async () => {
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		expect((loader as any).parseScalar("plain-value")).toBe("plain-value");
+	});
+});
+
+// ── toPrompt without allowedTools ───────────────────────────────────────────
+
+describe("SkillLoader — toPrompt without allowedTools", () => {
+	it("omits Allowed Tools line when allowedTools is empty", () => {
+		const loader = new SkillLoader();
+		(loader as any).skills.set("no-tools", {
+			manifest: {
+				name: "no-tools",
+				description: "No tools",
+				version: "1.0",
+				domain: "example.com",
+			},
+			content: "---\nname: no-tools\n---\n\nBody.",
+			references: new Map(),
+		});
+
+		const prompt = loader.toPrompt("no-tools");
+		expect(prompt).not.toContain("Allowed Tools");
+	});
+
+	it("omits Allowed Tools line when allowedTools is undefined", () => {
+		const loader = new SkillLoader();
+		(loader as any).skills.set("undef-tools", {
+			manifest: {
+				name: "undef-tools",
+				description: "Undefined tools",
+				version: "1.0",
+				domain: "example.com",
+				allowedTools: undefined,
+			},
+			content: "---\nname: undef-tools\n---\n\nBody.",
+			references: new Map(),
+		});
+
+		const prompt = loader.toPrompt("undef-tools");
+		expect(prompt).not.toContain("Allowed Tools");
+	});
+});
+
+// ── load with readFileSync throwing ──────────────────────────────────────────
+
+describe("SkillLoader — load with read error", () => {
+	it("returns null when readFileSync throws", async () => {
+		const { existsSync, readFileSync } = await import("node:fs");
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(readFileSync as any).mockImplementation(() => {
+			throw new Error("Permission denied");
+		});
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const skill = await loader.load("/skills/forbidden/SKILL.md");
+		expect(skill).toBeNull();
+	});
+});
+
+// ── YAML parsing edge cases ─────────────────────────────────────────────────
+
+describe("SkillLoader — YAML parsing", () => {
+	it("handles frontmatter with comment lines", async () => {
+		const { existsSync, readFileSync } = await import("node:fs");
+		const SKILL_WITH_COMMENTS = `---
+# This is a comment
+name: commented-skill
+description: Has comments
+version: "1.0"
+domain: example.com
+---
+
+Body content.
+`;
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(readFileSync as any).mockReturnValue(SKILL_WITH_COMMENTS);
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const skill = await loader.load("/skills/commented/SKILL.md");
+
+		expect(skill).not.toBeNull();
+		expect(skill!.manifest.name).toBe("commented-skill");
+	});
+
+	it("handles YAML line without colon", async () => {
+		// A line without a colon that is not a list item should be skipped
+		const { existsSync, readFileSync } = await import("node:fs");
+		const SKILL_BAD_LINE = `---
+name: bad-line
+description: Has bad line
+version: "1.0"
+domain: example.com
+orphanline
+---
+
+Body.
+`;
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(readFileSync as any).mockReturnValue(SKILL_BAD_LINE);
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const skill = await loader.load("/skills/badline/SKILL.md");
+
+		expect(skill).not.toBeNull();
+		expect(skill!.manifest.name).toBe("bad-line");
+	});
+
+	it("returns null when frontmatter has no closing delimiter", async () => {
+		const { existsSync, readFileSync } = await import("node:fs");
+		const NO_CLOSE = `---
+name: no-close
+description: Missing close
+`;
+		vi.mocked(existsSync as any).mockReturnValue(true);
+		vi.mocked(readFileSync as any).mockReturnValue(NO_CLOSE);
+
+		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+		const loader = new SL();
+		const skill = await loader.load("/skills/noclose/SKILL.md");
+		expect(skill).toBeNull();
+	});
+
+	it("returns null when content does not start with frontmatter", async () => {
+		const loader = new SkillLoader();
+		const result = (loader as any).parseFrontmatter("no frontmatter here");
+		expect(result).toBeNull();
+	});
+
+	it("returns null when trimmed content starts with --- but has no closing ---", () => {
+		const loader = new SkillLoader();
+		const result = (loader as any).parseFrontmatter("---\nname: test\n");
+		expect(result).toBeNull();
 	});
 });

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Navigation - Page B</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        a { display: block; margin: 10px 0; font-size: 18px; }
+        #pageId { font-weight: bold; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Navigation Test</h1>
+    <div id="pageId">Page B</div>
+    <p>You navigated to Page B successfully.</p>
+    <a href="navigation.html" id="linkToA">Go back to Page A</a>
+
+    <div id="visited" style="display:none;"></div>
+
+    <script>
+        document.getElementById('visited').textContent = 'Page B loaded at ' + Date.now();
+    </script>
+</body>
+</html>

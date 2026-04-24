@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dialog Test Page</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        button { margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #log { margin-top: 20px; padding: 10px; background: #f0f0f0; min-height: 100px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Dialog Test Page</h1>
+    <button id="alertBtn">Trigger Alert</button>
+    <button id="confirmBtn">Trigger Confirm</button>
+    <button id="promptBtn">Trigger Prompt</button>
+    <div id="log"></div>
+
+    <script>
+        var logEl = document.getElementById('log');
+
+        document.getElementById('alertBtn').addEventListener('click', function() {
+            alert('Hello from alert!');
+            logEl.textContent += 'Alert was shown\n';
+        });
+
+        document.getElementById('confirmBtn').addEventListener('click', function() {
+            var result = confirm('Do you confirm?');
+            logEl.textContent += 'Confirm result: ' + result + '\n';
+        });
+
+        document.getElementById('promptBtn').addEventListener('click', function() {
+            var result = prompt('Enter something:', 'default');
+            logEl.textContent += 'Prompt result: ' + result + '\n';
+        });
+    </script>
+</body>
+</html>

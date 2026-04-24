@@ -671,6 +671,623 @@ describe("AutonomousLoop", () => {
 		loop.dispose();
 	});
 
+	// ── Additional executeStep branches ────────────────────────────────────────
+
+	it("executes scrollTo tool step", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Scroll to element",
+						tool: "scrollTo",
+						args: { selector: "#footer", align: "end" },
+						reasoning: "Need to see footer",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.scrollTo).toHaveBeenCalledWith("#footer", "end");
+		loop.dispose();
+	});
+
+	it("executes scrollTo with default align when not specified", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Scroll to element",
+						tool: "scrollTo",
+						args: { selector: "#section" },
+						reasoning: "Scroll to section",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.scrollTo).toHaveBeenCalledWith("#section", "center");
+		loop.dispose();
+	});
+
+	it("executes screenshot tool step with path option", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Take screenshot",
+						tool: "screenshot",
+						args: { path: "/tmp/shot.png" },
+						reasoning: "Document the page",
+						retryable: false,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.screenshot).toHaveBeenCalledWith({ path: "/tmp/shot.png" });
+		loop.dispose();
+	});
+
+	it("executes screenshot tool step with selector option", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Take screenshot of element",
+						tool: "screenshot",
+						args: { selector: "#hero" },
+						reasoning: "Capture hero section",
+						retryable: false,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.screenshot).toHaveBeenCalledWith({ selector: "#hero" });
+		loop.dispose();
+	});
+
+	it("executes screenshot tool step with no options", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Take screenshot",
+						tool: "screenshot",
+						args: {},
+						reasoning: "Full page capture",
+						retryable: false,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.screenshot).toHaveBeenCalledWith(undefined);
+		loop.dispose();
+	});
+
+	it("executes getState tool step", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Get page state",
+						tool: "getState",
+						args: {},
+						reasoning: "Refresh state",
+						retryable: false,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.getState).toHaveBeenCalledWith("agent");
+		loop.dispose();
+	});
+
+	it("executes waitForSelector tool step with timeout", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Wait for element",
+						tool: "waitForSelector",
+						args: { selector: "#content", timeout: 5000 },
+						reasoning: "Wait for content to load",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.waitForSelector).toHaveBeenCalledWith("#content", 5000);
+		loop.dispose();
+	});
+
+	it("executes waitForSelector with default timeout", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Wait for element",
+						tool: "waitForSelector",
+						args: { selector: "#content" },
+						reasoning: "Wait for content",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.waitForSelector).toHaveBeenCalledWith("#content", 30000);
+		loop.dispose();
+	});
+
+	it("executes waitForNavigation tool step with timeout", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Wait for navigation",
+						tool: "waitForNavigation",
+						args: { timeout: 10000 },
+						reasoning: "Wait for page transition",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.waitForNavigation).toHaveBeenCalledWith(10000);
+		loop.dispose();
+	});
+
+	it("executes waitForNavigation with default timeout", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Wait for navigation",
+						tool: "waitForNavigation",
+						args: {},
+						reasoning: "Wait for page transition",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.waitForNavigation).toHaveBeenCalledWith(30000);
+		loop.dispose();
+	});
+
+	it("executes evaluate tool step", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Run JavaScript",
+						tool: "evaluate",
+						args: { script: "document.title" },
+						reasoning: "Get page title",
+						retryable: false,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.evaluate).toHaveBeenCalledWith("document.title");
+		loop.dispose();
+	});
+
+	it("executes extractTable tool step", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Extract table",
+						tool: "extractTable",
+						args: { selector: "table.data" },
+						reasoning: "Extract pricing data",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.extractTable).toHaveBeenCalledWith("table.data");
+		loop.dispose();
+	});
+
+	it("executes findElement tool step with elementType", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Find submit button",
+						tool: "findElement",
+						args: { text: "Submit", elementType: "button" },
+						reasoning: "Locate submit button",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.findElement).toHaveBeenCalledWith("Submit", "button");
+		loop.dispose();
+	});
+
+	it("executes findElement tool step without elementType", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: true,
+				steps: [
+					{
+						index: 0,
+						action: "Find element",
+						tool: "findElement",
+						args: { text: "Click here" },
+						reasoning: "Locate clickable element",
+						retryable: true,
+					},
+				],
+			}),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockController.findElement).toHaveBeenCalledWith("Click here", undefined);
+		loop.dispose();
+	});
+
+	// ── Challenge state / domain hints paths ─────────────────────────────────
+
+	it("passes challenge state to planner when detected", async () => {
+		const challengeState = {
+			hasChallenge: true,
+			challenges: [],
+			primaryChallenge: {
+				type: "captcha" as const,
+				confidence: 0.95,
+				evidence: ["hCaptcha iframe"],
+				canRetry: false,
+				requiresHuman: true,
+			},
+		};
+		mockController.getChallengeState.mockResolvedValue(challengeState);
+
+		mockPlanner = createMockPlanner([
+			makePlan({ goalAchieved: true, steps: [] }),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockPlanner.plan).toHaveBeenCalledWith(
+			expect.objectContaining({
+				challengeState,
+			}),
+		);
+		loop.dispose();
+	});
+
+	it("passes domain hints to planner when domainMemory has strategies", async () => {
+		// Setup controller with strategies
+		mockController._adapt.domainMemory.getDomainRecord.mockReturnValue({ visitCount: 5 });
+		mockController._adapt.domainMemory.getRankedStrategies.mockReturnValue([
+			{ strategy: "wait-and-retry", ewmaSuccessRate: 0.85 },
+		]);
+
+		mockPlanner = createMockPlanner([
+			makePlan({ goalAchieved: true, steps: [] }),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		await loop.run();
+
+		expect(mockPlanner.plan).toHaveBeenCalledWith(
+			expect.objectContaining({
+				domainHints: expect.stringContaining("example.com"),
+			}),
+		);
+		loop.dispose();
+	});
+
+	it("handles getChallengeState throwing gracefully", async () => {
+		mockController.getChallengeState.mockRejectedValue(new Error("Challenge detector error"));
+
+		mockPlanner = createMockPlanner([
+			makePlan({ goalAchieved: true, steps: [] }),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		const result = await loop.run();
+
+		// Should complete successfully despite challenge state error
+		expect(result.status).toBe("completed");
+		// Planner was still called
+		expect(mockPlanner.plan).toHaveBeenCalled();
+		loop.dispose();
+	});
+
+	it("passes skillsContext to planner for matching domain", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({ goalAchieved: true, steps: [] }),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		// Inject a skill into the loader
+		const loader = (loop as any).skillLoader;
+		loader.skills.set("test-skill", {
+			manifest: { name: "test-skill", description: "test", version: "1.0", domain: "example.com" },
+			content: "---\nname: test-skill\n---\n\nTest content.",
+			references: new Map(),
+		});
+
+		await loop.run();
+
+		expect(mockPlanner.plan).toHaveBeenCalledWith(
+			expect.objectContaining({
+				skillsContext: expect.stringContaining("test-skill"),
+			}),
+		);
+		loop.dispose();
+	});
+
+	// ── handleBlocker with skillWriter path ──────────────────────────────────
+
+	it("creates skill from blocker when skillWriter exists and suggestedApproach is set", async () => {
+		// When blocker is autoResolvable=false and skillWriter creates a skill,
+		// the loop still stops (human-takeover) because the blocker isn't auto-resolved.
+		// But skillWriter.createSkill should have been called.
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+			skillsDir: `/tmp/talox-test-skills-${Date.now()}`,
+		});
+
+		// First iteration: blocker with suggestedApproach
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: false,
+				steps: [makeClickStep()],
+				blocker: {
+					type: "captcha",
+					confidence: 0.9,
+					description: "CAPTCHA detected",
+					evidence: ["hCaptcha iframe"],
+					autoResolvable: false,
+					suggestedApproach: "Wait for human to solve",
+				},
+			}),
+		]);
+		options.plannerOverride = mockPlanner as unknown as Planner;
+
+		// Mock skillWriter to avoid disk operations
+		const mockSW = {
+			createSkill: vi.fn(async () => "/tmp/skill.md"),
+			validateSkill: vi.fn(async () => true),
+		};
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		(loop as any).skillWriter = mockSW;
+
+		const result = await loop.run();
+
+		// skillWriter.createSkill should have been called
+		expect(mockSW.createSkill).toHaveBeenCalled();
+		// createdSkills should track the blocker skill
+		const state = loop.getState();
+		expect(state!.createdSkills).toContain("blocker-captcha");
+		// Loop stops because blocker is not autoResolvable
+		expect(result.status).toBe("human-takeover");
+		loop.dispose();
+	});
+
+	it("handles skillWriter.createSkill throwing in handleBlocker", async () => {
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+			skillsDir: `/tmp/talox-test-skills-${Date.now()}`,
+		});
+
+		mockPlanner = createMockPlanner([
+			makePlan({
+				goalAchieved: false,
+				steps: [makeClickStep()],
+				blocker: {
+					type: "captcha",
+					confidence: 0.9,
+					description: "CAPTCHA detected",
+					evidence: [],
+					autoResolvable: false,
+					suggestedApproach: "Wait",
+				},
+			}),
+		]);
+		options.plannerOverride = mockPlanner as unknown as Planner;
+
+		const mockSW = {
+			createSkill: vi.fn().mockRejectedValue(new Error("Disk full")),
+			validateSkill: vi.fn(async () => true),
+		};
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		(loop as any).skillWriter = mockSW;
+
+		const result = await loop.run();
+
+		// Should stop because createSkill failed and blocker is not autoResolvable
+		expect(result.status).toBe("human-takeover");
+		expect(result.stopReason).toBe("unresolvable-blocker");
+		// createdSkills should NOT contain the blocker skill
+		const state = loop.getState();
+		expect(state!.createdSkills).not.toContain("blocker-captcha");
+		loop.dispose();
+	});
+
+	// ── Token usage accumulation ─────────────────────────────────────────────
+
+	it("accumulates token usage across iterations", async () => {
+		mockPlanner = createMockPlanner([
+			makePlan({ goalAchieved: false, steps: [makeClickStep()] }),
+			makePlan({ goalAchieved: true, steps: [] }),
+		]);
+
+		const options = makeOptions({
+			plannerOverride: mockPlanner as unknown as Planner,
+		});
+
+		const loop = new AutonomousLoop(mockController as any, options);
+		// Seed state with a token usage so the accumulation code runs
+		await loop.run();
+
+		const state = loop.getState();
+		expect(state).not.toBeNull();
+		// Token usage defaults to 0
+		expect(state!.totalTokenUsage.promptTokens).toBe(0);
+		loop.dispose();
+	});
+
 	it("unsubscribes from events on dispose", () => {
 		mockPlanner = createMockPlanner([makePlan()]);
 		const options = makeOptions({

@@ -81,7 +81,8 @@ describe("BrowserManager", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// autoDetect: false to prevent autoDetectBrowser() on CI (Linux) where no browsers are installed
-		manager = new BrowserManager({ browser: { preferred: "chromium", headless: true, autoDetect: false } as any });
+		// adaptiveStealthEnabled: false so launch() uses standard playwright-core chromium mock
+		manager = new BrowserManager({ browser: { preferred: "chromium", headless: true, autoDetect: false } as any, settings: { adaptiveStealthEnabled: false } as any });
 	});
 
 	// ─── Constructor & Config ────────────────────────────────────────────────
@@ -366,6 +367,7 @@ describe("BrowserManager", () => {
 					headless: true,
 					proxy: { server: "http://proxy:8080", username: "user", password: "pass" },
 				} as any,
+				settings: { adaptiveStealthEnabled: false } as any,
 			});
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);

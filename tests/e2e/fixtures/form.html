@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Form Test Page</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        label { display: block; margin-top: 10px; }
+        #result { margin-top: 20px; padding: 10px; background: #e0ffe0; display: none; }
+    </style>
+</head>
+<body>
+    <h1>Test Form</h1>
+    <form id="testForm">
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" name="firstName" placeholder="Enter first name">
+
+        <label for="lastName">Last Name</label>
+        <input type="text" id="lastName" name="lastName" placeholder="Enter last name">
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="Enter email">
+
+        <label for="country">Country</label>
+        <select id="country" name="country">
+            <option value="">Select a country</option>
+            <option value="us">United States</option>
+            <option value="uk">United Kingdom</option>
+            <option value="de">Germany</option>
+            <option value="jp">Japan</option>
+        </select>
+
+        <label>
+            <input type="checkbox" id="agreeTerms" name="agreeTerms">
+            I agree to the terms and conditions
+        </label>
+
+        <label>
+            <input type="checkbox" id="newsletter" name="newsletter" checked>
+            Subscribe to newsletter
+        </label>
+
+        <label>
+            <input type="radio" name="plan" value="free"> Free Plan
+        </label>
+        <label>
+            <input type="radio" name="plan" value="pro"> Pro Plan
+        </label>
+
+        <button type="submit" id="submitBtn">Submit</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                email: document.getElementById('email').value,
+                country: document.getElementById('country').value,
+                agreeTerms: document.getElementById('agreeTerms').checked,
+                newsletter: document.getElementById('newsletter').checked,
+                plan: document.querySelector('input[name="plan"]:checked')?.value || 'none'
+            };
+            const resultEl = document.getElementById('result');
+            resultEl.style.display = 'block';
+            resultEl.textContent = JSON.stringify(data);
+        });
+    </script>
+</body>
+</html>

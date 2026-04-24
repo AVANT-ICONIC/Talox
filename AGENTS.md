@@ -101,7 +101,7 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-21) — v6.0.0
+### Current Status (2026-04-23) — v6.0.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
@@ -109,15 +109,103 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 CRITICAL**
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
-- **1192 tests** across **69 files**
+- **89 test files** | **1,339 tests** (unit: 1,255 + smoke: 61 + property: 4 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
+
+### Test Structure
+
+| Suite | Config | Files | Tests | Requires Browser |
+|-------|--------|-------|-------|-----------------|
+| Unit | vitest.config.unit.ts | 61 | 1,255 | No |
+| Smoke | vitest.config.smoke.ts | 1 | 61 | No |
+| Property | vitest.config.unit.ts | 4 | 53 | No |
+| Snapshot | vitest.config.unit.ts | 1 | 5 | No |
+| Performance | vitest.config.unit.ts | 1 | 11 | No |
+| Error-Paths | vitest.config.browser.ts | 1 | 20 | Yes |
+| Browser Integration | vitest.config.browser.ts | 17 | 105 | Yes |
+| E2E Local | vitest.config.e2e.ts | 1 | 13 | Yes |
+
+## Stealth & Anti-Detection
+
+Talox uses a multi-layered stealth stack combining driver-level patches (Patchright) and JS-level fingerprint spoofing.
+
+### Architecture
+
+```
+Layer 1: Patchright Driver (driver-level)
+  ├── Removes --enable-automation flag
+  ├── Fixes CDP Runtime.enable leak
+  └── Patches navigator.webdriver at protocol level
+
+Layer 2: Chromium Launch Args (process-level)
+  ├── --disable-blink-features=AutomationControlled
+  ├── --disable-infobars
+  ├── --no-first-run / --no-default-browser-check
+  └── --window-size=1280,720
+
+Layer 3: JS Injection via addInitScript (page-level, 19 patches)
+  ├── Navigator.webdriver deletion (property must not exist)
+  ├── Chrome runtime spoofing (full runtime/app/csi/loadTimes API)
+  ├── PluginArray spoofing (real PluginArray prototype chain)
+  ├── Language/platform/hardware spoofing (from fingerprint profile)
+  ├── Canvas fingerprint noise (subtle pixel manipulation)
+  ├── WebGL vendor/renderer spoofing (from fingerprint profile)
+  ├── AudioContext spoofing (sampleRate/maxChannelCount/outputLatency)
+  ├── Battery API spoofing
+  ├── WebRTC leak prevention (ICE candidate filtering)
+  ├── Font metrics fingerprint defense (letter-spacing offsets)
+  ├── Timezone consistency (Intl.DateTimeFormat)
+  ├── Permissions API override
+  ├── Function.prototype.toString leak protection (native code facade)
+  ├── iframe contentWindow detection prevention
+  ├── Navigator.connection spoofing
+  ├── Screen colorDepth/pixelDepth consistency
+  └── CDP property cleanup (__playwright, __pw_manual, __PW_inspect)
+```
+
+### Detection Test Scores (2026-04-24)
+
+| Test Suite | Score |
+|------------|-------|
+| Sannysoft Bot Detection | **31/31** (100%) |
+| GitHub Login | ✅ Full page |
+| nowsecure.nl (Cloudflare) | ✅ Passes |
+| BrowserLeaks | ✅ Loads |
+| CreepJS | ✅ Loads |
+
+### Configuration
+
+```ts
+// Enable/disable Patchright (default: true)
+new TaloxController(dir, {
+  settings: { adaptiveStealthEnabled: true }
+});
+
+// Stealth level presets
+new TaloxController(dir, {
+  settings: { humanStealth: 0.8 }  // 0 = none, 1 = maximum human-like behavior
+});
+```
+
+### Known Limitations
+
+- **Reddit**: Blocks via server-side WAF (TLS fingerprinting / IP reputation), not browser detection
+- **Headless mode**: Patchright maintainer confirms headless Chromium is inherently detectable; use headed mode for sensitive sites
+- **TLS fingerprinting**: Patchright doesn't change the TLS stack; sites using JA3/JA4 fingerprinting may still detect automation
 
 ## Build & Test
 
 ```bash
 npm run build          # Compile TypeScript
-npm run test           # Run all unit tests (1192 tests across 69 files)
-npm run test:e2e       # Run Playwright E2E tests
-npm run test:real      # Run real-world integration tests
+npm run test           # Run unit tests (watch mode)
+npm run test:unit      # Run unit tests (watch mode)
+npm run test:smoke     # Smoke test dist exports (no browser)
+npm run test:property  # Property-based fuzz tests (no browser)
+npm run test:snapshot  # State contract snapshots (no browser)
+npm run test:perf      # Performance regression tests (no browser)
+npm run test:browser   # Browser integration tests (needs Chromium)
+npm run test:error-paths # Error-path resilience tests (needs Chromium)
+npm run test:e2e:local # Local E2E with fixture server (needs Chromium)
+npm run test:ci        # Full CI pipeline (no browser tests)
 npm run typecheck      # TypeScript strict mode check
 npm run lint           # Biome lint
 ```

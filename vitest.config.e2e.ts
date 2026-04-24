@@ -2,21 +2,19 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Browser integration tests: need real Chromium
     include: [
-      'tests/core/**/*.test.ts',
+      'tests/e2e/**/*.e2e.test.ts',
     ],
-    testTimeout: 180_000, // 3 min — CI Chromium launch is slow
+    testTimeout: 180_000,
     hookTimeout: 180_000,
-    // Run sequentially — multiple browser launches in parallel cause resource deadlock
-    // Vitest 4: pool options are now top-level
+    // Run sequentially — browser launches are expensive
     fileParallelism: false,
     pool: 'forks',
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
       '**/tests/unit/**',
-      '**/tests/e2e/**',
+      '**/tests/core/**',
       '**/tests/real/**',
       '**/examples/**/*.test.ts',
     ],

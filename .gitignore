@@ -91,3 +91,7 @@ coverage/
 # Smoke test artifacts
 smoke-test-profile/
 smoke-test.mjs
+
+# Test temp dirs
+.tmp-cli-test/
+init-*-*/

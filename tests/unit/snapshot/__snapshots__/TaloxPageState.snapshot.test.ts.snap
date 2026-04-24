@@ -1,0 +1,582 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`compactState — snapshot contracts > compactState(state, 'agent') matches snapshot 1`] = `
+{
+  "bugs": [
+    {
+      "description": "Uncaught TypeError: Cannot read properties of undefined",
+      "severity": "CRITICAL",
+      "type": "JS_ERROR",
+    },
+    {
+      "description": "POST /api/data returned 503",
+      "severity": "MAJOR",
+      "type": "NETWORK_FAILURE",
+    },
+  ],
+  "consoleErrors": [
+    "TypeError: Cannot read properties of undefined",
+  ],
+  "interactiveElements": [
+    {
+      "boundingBox": {
+        "height": 40,
+        "width": 300,
+        "x": 100,
+        "y": 100,
+      },
+      "id": "#search-input",
+      "isActionable": true,
+      "role": "search",
+      "tagName": "input",
+      "text": "Search",
+    },
+    {
+      "boundingBox": {
+        "height": 40,
+        "width": 100,
+        "x": 420,
+        "y": 100,
+      },
+      "id": "#submit-btn",
+      "isActionable": true,
+      "role": "button",
+      "tagName": "button",
+      "text": "Submit",
+    },
+    {
+      "boundingBox": {
+        "height": 32,
+        "width": 80,
+        "x": 1500,
+        "y": 10,
+      },
+      "id": "a[href='/settings']",
+      "role": "link",
+      "tagName": "a",
+      "text": "Settings",
+    },
+  ],
+  "timestamp": "2026-04-23T02:00:00.000Z",
+  "title": "Dashboard — Example App",
+  "url": "https://example.com/dashboard",
+}
+`;
+
+exports[`compactState — snapshot contracts > compactState(state, 'debug') matches snapshot 1`] = `
+{
+  "bugs": [
+    {
+      "confidence": 0.95,
+      "description": "Uncaught TypeError: Cannot read properties of undefined",
+      "evidence": {
+        "consoleLog": "TypeError: Cannot read properties of undefined ('map')",
+        "url": "https://example.com/dashboard",
+      },
+      "id": "bug-001",
+      "metadata": {
+        "source": "RulesEngine",
+      },
+      "reproductionSteps": [
+        "Navigate to /dashboard",
+        "Click #filter-btn",
+      ],
+      "severity": "CRITICAL",
+      "type": "JS_ERROR",
+    },
+    {
+      "description": "POST /api/data returned 503",
+      "evidence": {
+        "networkLog": "503 Service Unavailable",
+        "url": "https://api.example.com/data",
+      },
+      "id": "bug-002",
+      "severity": "MAJOR",
+      "type": "NETWORK_FAILURE",
+    },
+  ],
+  "console": {
+    "errors": [
+      "TypeError: Cannot read properties of undefined",
+    ],
+    "logs": [
+      "App initialized",
+      "Data loaded: 42 records",
+    ],
+    "warnings": [
+      "Deprecation: document.registerElement()",
+    ],
+  },
+  "network": {
+    "exceptions": [
+      {
+        "message": "NetworkError: Load failed",
+      },
+    ],
+    "failedRequests": [
+      {
+        "status": 503,
+        "type": "fetch",
+        "url": "https://api.example.com/data",
+      },
+    ],
+  },
+  "nodes": [
+    {
+      "attributes": {
+        "id": "main-nav",
+      },
+      "boundingBox": {
+        "height": 60,
+        "width": 1920,
+        "x": 0,
+        "y": 0,
+      },
+      "id": "ax-0",
+      "name": "Main navigation",
+      "role": "navigation",
+    },
+    {
+      "attributes": {
+        "data-testid": "search-input",
+        "placeholder": "Type here...",
+      },
+      "boundingBox": {
+        "height": 40,
+        "width": 300,
+        "x": 100,
+        "y": 100,
+      },
+      "description": "Search the site",
+      "id": "ax-1",
+      "name": "Search",
+      "role": "textbox",
+    },
+    {
+      "attributes": {
+        "aria-label": "Submit form",
+      },
+      "boundingBox": {
+        "height": 40,
+        "width": 100,
+        "x": 420,
+        "y": 100,
+      },
+      "children": [
+        {
+          "boundingBox": {
+            "height": 24,
+            "width": 60,
+            "x": 440,
+            "y": 108,
+          },
+          "id": "ax-2-0",
+          "name": "Submit",
+          "role": "text",
+        },
+      ],
+      "id": "ax-2",
+      "name": "Submit",
+      "role": "button",
+    },
+    {
+      "boundingBox": {
+        "height": 32,
+        "width": 80,
+        "x": 1600,
+        "y": 10,
+      },
+      "id": "ax-3",
+      "name": "GitHub",
+      "role": "link",
+    },
+    {
+      "boundingBox": {
+        "height": 900,
+        "width": 1920,
+        "x": 0,
+        "y": 60,
+      },
+      "id": "ax-4",
+      "name": "",
+      "role": "main",
+    },
+  ],
+  "timestamp": "2026-04-23T02:00:00.000Z",
+  "title": "Dashboard — Example App",
+  "url": "https://example.com/dashboard",
+}
+`;
+
+exports[`compactState — snapshot contracts > compactState(state, 'full') matches snapshot 1`] = `
+{
+  "axTree": {
+    "boundingBox": {
+      "height": 1080,
+      "width": 1920,
+      "x": 0,
+      "y": 0,
+    },
+    "children": [
+      {
+        "attributes": {
+          "id": "main-nav",
+        },
+        "boundingBox": {
+          "height": 60,
+          "width": 1920,
+          "x": 0,
+          "y": 0,
+        },
+        "id": "ax-0",
+        "name": "Main navigation",
+        "role": "navigation",
+      },
+      {
+        "attributes": {
+          "data-testid": "search-input",
+          "placeholder": "Type here...",
+        },
+        "boundingBox": {
+          "height": 40,
+          "width": 300,
+          "x": 100,
+          "y": 100,
+        },
+        "description": "Search the site",
+        "id": "ax-1",
+        "name": "Search",
+        "role": "textbox",
+      },
+      {
+        "attributes": {
+          "aria-label": "Submit form",
+        },
+        "boundingBox": {
+          "height": 40,
+          "width": 100,
+          "x": 420,
+          "y": 100,
+        },
+        "children": [
+          {
+            "boundingBox": {
+              "height": 24,
+              "width": 60,
+              "x": 440,
+              "y": 108,
+            },
+            "id": "ax-2-0",
+            "name": "Submit",
+            "role": "text",
+          },
+        ],
+        "id": "ax-2",
+        "name": "Submit",
+        "role": "button",
+      },
+      {
+        "boundingBox": {
+          "height": 32,
+          "width": 80,
+          "x": 1600,
+          "y": 10,
+        },
+        "id": "ax-3",
+        "name": "GitHub",
+        "role": "link",
+      },
+      {
+        "boundingBox": {
+          "height": 900,
+          "width": 1920,
+          "x": 0,
+          "y": 60,
+        },
+        "id": "ax-4",
+        "name": "",
+        "role": "main",
+      },
+    ],
+    "id": "root",
+    "name": "Dashboard — Example App",
+    "role": "WebArea",
+  },
+  "bugs": [
+    {
+      "confidence": 0.95,
+      "description": "Uncaught TypeError: Cannot read properties of undefined",
+      "evidence": {
+        "consoleLog": "TypeError: Cannot read properties of undefined ('map')",
+        "url": "https://example.com/dashboard",
+      },
+      "id": "bug-001",
+      "metadata": {
+        "source": "RulesEngine",
+      },
+      "reproductionSteps": [
+        "Navigate to /dashboard",
+        "Click #filter-btn",
+      ],
+      "severity": "CRITICAL",
+      "type": "JS_ERROR",
+    },
+    {
+      "description": "POST /api/data returned 503",
+      "evidence": {
+        "networkLog": "503 Service Unavailable",
+        "url": "https://api.example.com/data",
+      },
+      "id": "bug-002",
+      "severity": "MAJOR",
+      "type": "NETWORK_FAILURE",
+    },
+  ],
+  "console": {
+    "errors": [
+      "TypeError: Cannot read properties of undefined",
+    ],
+    "logs": [
+      "App initialized",
+      "Data loaded: 42 records",
+    ],
+    "warnings": [
+      "Deprecation: document.registerElement()",
+    ],
+  },
+  "domainHints": [
+    "dashboard-v2",
+    "filter-panel",
+  ],
+  "interactiveElements": [
+    {
+      "boundingBox": {
+        "height": 40,
+        "width": 300,
+        "x": 100,
+        "y": 100,
+      },
+      "id": "#search-input",
+      "isActionable": true,
+      "role": "search",
+      "tagName": "input",
+      "text": "Search",
+    },
+    {
+      "boundingBox": {
+        "height": 40,
+        "width": 100,
+        "x": 420,
+        "y": 100,
+      },
+      "id": "#submit-btn",
+      "isActionable": true,
+      "role": "button",
+      "tagName": "button",
+      "text": "Submit",
+    },
+    {
+      "boundingBox": {
+        "height": 32,
+        "width": 80,
+        "x": 1500,
+        "y": 10,
+      },
+      "id": "a[href='/settings']",
+      "role": "link",
+      "tagName": "a",
+      "text": "Settings",
+    },
+  ],
+  "network": {
+    "exceptions": [
+      {
+        "message": "NetworkError: Load failed",
+      },
+    ],
+    "failedRequests": [
+      {
+        "status": 503,
+        "type": "fetch",
+        "url": "https://api.example.com/data",
+      },
+    ],
+  },
+  "nodes": [
+    {
+      "attributes": {
+        "id": "main-nav",
+      },
+      "boundingBox": {
+        "height": 60,
+        "width": 1920,
+        "x": 0,
+        "y": 0,
+      },
+      "id": "ax-0",
+      "name": "Main navigation",
+      "role": "navigation",
+    },
+    {
+      "attributes": {
+        "data-testid": "search-input",
+        "placeholder": "Type here...",
+      },
+      "boundingBox": {
+        "height": 40,
+        "width": 300,
+        "x": 100,
+        "y": 100,
+      },
+      "description": "Search the site",
+      "id": "ax-1",
+      "name": "Search",
+      "role": "textbox",
+    },
+    {
+      "attributes": {
+        "aria-label": "Submit form",
+      },
+      "boundingBox": {
+        "height": 40,
+        "width": 100,
+        "x": 420,
+        "y": 100,
+      },
+      "children": [
+        {
+          "boundingBox": {
+            "height": 24,
+            "width": 60,
+            "x": 440,
+            "y": 108,
+          },
+          "id": "ax-2-0",
+          "name": "Submit",
+          "role": "text",
+        },
+      ],
+      "id": "ax-2",
+      "name": "Submit",
+      "role": "button",
+    },
+    {
+      "boundingBox": {
+        "height": 32,
+        "width": 80,
+        "x": 1600,
+        "y": 10,
+      },
+      "id": "ax-3",
+      "name": "GitHub",
+      "role": "link",
+    },
+    {
+      "boundingBox": {
+        "height": 900,
+        "width": 1920,
+        "x": 0,
+        "y": 60,
+      },
+      "id": "ax-4",
+      "name": "",
+      "role": "main",
+    },
+  ],
+  "profileId": "agent-42",
+  "screenshots": {
+    "crops": [
+      {
+        "id": "crop-nav",
+        "path": "/tmp/shot-nav.png",
+        "reason": "navigation region",
+      },
+    ],
+    "fullPage": "/tmp/shot-full.png",
+  },
+  "timestamp": "2026-04-23T02:00:00.000Z",
+  "timing": {
+    "axMs": 38,
+    "collectedAt": "2026-04-23T02:00:00.142Z",
+    "totalMs": 142,
+  },
+  "title": "Dashboard — Example App",
+  "url": "https://example.com/dashboard",
+}
+`;
+
+exports[`diffPageState — snapshot contracts > diffPageState(prev, curr) with changes matches snapshot 1`] = `
+{
+  "bugsAdded": [],
+  "bugsResolved": [
+    {
+      "description": "POST /api/data returned 503",
+      "evidence": {
+        "networkLog": "503 Service Unavailable",
+        "url": "https://api.example.com/data",
+      },
+      "id": "bug-002",
+      "severity": "MAJOR",
+      "type": "NETWORK_FAILURE",
+    },
+  ],
+  "currTimestamp": "2026-04-23T02:00:05.000Z",
+  "elapsedMs": 5000,
+  "fromTitle": "Dashboard — Example App",
+  "fromUrl": "https://example.com/dashboard",
+  "interactiveAdded": 1,
+  "interactiveRemoved": 0,
+  "newConsoleErrors": [
+    "ReferenceError: config is not defined",
+  ],
+  "newFailedRequests": [
+    {
+      "status": 404,
+      "url": "https://cdn.example.com/font.woff2",
+    },
+  ],
+  "nodesAdded": [
+    {
+      "boundingBox": {
+        "height": 48,
+        "width": 400,
+        "x": 100,
+        "y": 200,
+      },
+      "id": "ax-5",
+      "name": "Account Settings",
+      "role": "heading",
+    },
+  ],
+  "nodesChanged": [],
+  "nodesRemoved": [],
+  "prevTimestamp": "2026-04-23T02:00:00.000Z",
+  "titleChanged": true,
+  "toTitle": "Settings — Example App",
+  "toUrl": "https://example.com/settings",
+  "urlChanged": true,
+}
+`;
+
+exports[`diffPageState — snapshot contracts > diffPageState(state, state) with identical states yields empty diff 1`] = `
+{
+  "bugsAdded": [],
+  "bugsResolved": [],
+  "currTimestamp": "2026-04-23T02:00:00.000Z",
+  "elapsedMs": 0,
+  "fromTitle": "Dashboard — Example App",
+  "fromUrl": "https://example.com/dashboard",
+  "interactiveAdded": 0,
+  "interactiveRemoved": 0,
+  "newConsoleErrors": [],
+  "newFailedRequests": [],
+  "nodesAdded": [],
+  "nodesChanged": [],
+  "nodesRemoved": [],
+  "prevTimestamp": "2026-04-23T02:00:00.000Z",
+  "titleChanged": false,
+  "toTitle": "Dashboard — Example App",
+  "toUrl": "https://example.com/dashboard",
+  "urlChanged": false,
+}
+`;

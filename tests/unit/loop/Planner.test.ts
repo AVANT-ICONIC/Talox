@@ -339,3 +339,336 @@ describe("LLMPlanner", () => {
 		expect(body.max_tokens).toBe(1024);
 	});
 });
+
+// ── generateSkill tests ────────────────────────────────────────────────────
+
+describe("LLMPlanner — generateSkill", () => {
+	let planner: LLMPlanner;
+
+	beforeEach(() => {
+		vi.stubGlobal("fetch", mockFetch);
+		mockFetch.mockReset();
+		planner = new LLMPlanner({ model: "test-model", apiKey: "test-key" });
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function mockFetchResponse(body: string, status = 200): void {
+		mockFetch.mockResolvedValueOnce({
+			ok: status >= 200 && status < 300,
+			status,
+			statusText: status === 200 ? "OK" : "Error",
+			json: async () => JSON.parse(body),
+		} as Response);
+	}
+
+	it("returns a DynamicSkill from valid LLM JSON", async () => {
+		const skillJson = JSON.stringify({
+			name: "handle-captcha",
+			description: "Auto-resolve CAPTCHA",
+			content: "# CAPTCHA Handler\n\nWait for human.",
+			triggerCondition: 'blocker type == "captcha"',
+			toolUsage: ["click", "waitForSelector"],
+			version: "1.0",
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: skillJson } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "captcha",
+			blockerDescription: "CAPTCHA detected",
+			evidence: ["hCaptcha iframe"],
+			suggestedApproach: "Wait for human",
+			recentHistory: "Iteration 1: saw captcha",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.name).toBe("handle-captcha");
+		expect(result!.description).toBe("Auto-resolve CAPTCHA");
+		expect(result!.content).toContain("CAPTCHA Handler");
+		expect(result!.triggerCondition).toBe('blocker type == "captcha"');
+		expect(result!.toolUsage).toEqual(["click", "waitForSelector"]);
+		expect(result!.version).toBe("1.0");
+		expect(result!.domain).toBe("auto-generated");
+	});
+
+	it("uses fallback defaults when LLM returns partial JSON", async () => {
+		const partialJson = JSON.stringify({
+			name: "partial-skill",
+			// missing description, content, triggerCondition, toolUsage, version
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: partialJson } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "cloudflare",
+			blockerDescription: "Cloudflare challenge",
+			evidence: [],
+			suggestedApproach: "Refresh page",
+			recentHistory: "",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.name).toBe("partial-skill");
+		expect(result!.description).toBe("Cloudflare challenge");
+		expect(result!.version).toBe("1.0");
+		expect(result!.content).toBe("# cloudflare\n\nRefresh page");
+		expect(result!.triggerCondition).toBe('blocker type == "cloudflare"');
+		expect(result!.toolUsage).toEqual([]);
+	});
+
+	it("uses blockerType as name fallback when parsed.name is not a string", async () => {
+		const badNameJson = JSON.stringify({
+			name: 123,
+			description: "desc",
+			content: "content",
+			triggerCondition: "trigger",
+			toolUsage: ["click"],
+			version: "2.0",
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: badNameJson } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "rate-limit",
+			blockerDescription: "Rate limited",
+			evidence: ["429 status"],
+			suggestedApproach: "Back off",
+			recentHistory: "",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.name).toBe("skill-rate-limit");
+	});
+
+	it("uses blockerDescription as description fallback", async () => {
+		const noDescJson = JSON.stringify({
+			name: "my-skill",
+			description: 42,
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: noDescJson } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "timeout",
+			blockerDescription: "Request timed out",
+			evidence: [],
+			suggestedApproach: "",
+			recentHistory: "",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.description).toBe("Request timed out");
+	});
+
+	it("returns null when LLM returns malformed JSON", async () => {
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: "not valid JSON {{{" } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "unknown",
+			blockerDescription: "Unknown blocker",
+			evidence: [],
+			suggestedApproach: "",
+			recentHistory: "",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("returns null when LLM API returns error", async () => {
+		mockFetchResponse("{}", 500);
+
+		const result = await planner.generateSkill!({
+			blockerType: "captcha",
+			blockerDescription: "CAPTCHA",
+			evidence: [],
+			suggestedApproach: "",
+			recentHistory: "",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("returns null when fetch throws", async () => {
+		mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+
+		const result = await planner.generateSkill!({
+			blockerType: "captcha",
+			blockerDescription: "CAPTCHA",
+			evidence: [],
+			suggestedApproach: "",
+			recentHistory: "",
+		});
+
+		expect(result).toBeNull();
+	});
+
+	it("uses suggestedApproach as content fallback when parsed.content is not a string", async () => {
+		const noContentJson = JSON.stringify({
+			name: "my-skill",
+			description: "desc",
+			content: null,
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: noContentJson } }],
+			}),
+		);
+
+		const result = await planner.generateSkill!({
+			blockerType: "login-wall",
+			blockerDescription: "Login required",
+			evidence: [],
+			suggestedApproach: "Try alternate URL",
+			recentHistory: "",
+		});
+
+		expect(result).not.toBeNull();
+		expect(result!.content).toBe("# login-wall\n\nTry alternate URL");
+	});
+});
+
+// ── parsePlan blocker branches ─────────────────────────────────────────────
+
+describe("LLMPlanner — parsePlan branches", () => {
+	let planner: LLMPlanner;
+
+	beforeEach(() => {
+		vi.stubGlobal("fetch", mockFetch);
+		mockFetch.mockReset();
+		planner = new LLMPlanner({ model: "test-model", apiKey: "test-key" });
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	function mockFetchResponse(body: string, status = 200): void {
+		mockFetch.mockResolvedValueOnce({
+			ok: status >= 200 && status < 300,
+			status,
+			statusText: status === 200 ? "OK" : "Error",
+			json: async () => JSON.parse(body),
+		} as Response);
+	}
+
+	it("parses plan with blocker as object", async () => {
+		const planJson = JSON.stringify({
+			assessment: "Blocked",
+			steps: [],
+			goalAchieved: false,
+			blocker: {
+				type: "captcha",
+				confidence: 0.9,
+				description: "CAPTCHA detected",
+				evidence: ["iframe"],
+				autoResolvable: false,
+			},
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: planJson } }],
+			}),
+		);
+
+		const result = await planner.plan(makeInput());
+
+		expect(result.blocker).toBeDefined();
+		expect(result.blocker?.type).toBe("captcha");
+	});
+
+	it("ignores blocker when it is null", async () => {
+		const planJson = JSON.stringify({
+			assessment: "OK",
+			steps: [],
+			goalAchieved: true,
+			blocker: null,
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: planJson } }],
+			}),
+		);
+
+		const result = await planner.plan(makeInput());
+		expect(result.blocker).toBeUndefined();
+	});
+
+	it("ignores blocker when it is an array", async () => {
+		const planJson = JSON.stringify({
+			assessment: "OK",
+			steps: [],
+			goalAchieved: true,
+			blocker: ["not", "valid"],
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: planJson } }],
+			}),
+		);
+
+		const result = await planner.plan(makeInput());
+		expect(result.blocker).toBeUndefined();
+	});
+
+	it("ignores blocker when it is a primitive string", async () => {
+		const planJson = JSON.stringify({
+			assessment: "OK",
+			steps: [],
+			goalAchieved: true,
+			blocker: "just a string",
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: planJson } }],
+			}),
+		);
+
+		const result = await planner.plan(makeInput());
+		expect(result.blocker).toBeUndefined();
+	});
+
+	it("uses default assessment when not a string", async () => {
+		const planJson = JSON.stringify({
+			assessment: 42,
+			steps: "not-array",
+			goalAchieved: "yes",
+		});
+		mockFetchResponse(
+			JSON.stringify({
+				choices: [{ message: { content: planJson } }],
+			}),
+		);
+
+		const result = await planner.plan(makeInput());
+		expect(result.assessment).toBe("");
+		expect(result.steps).toEqual([]);
+		expect(result.goalAchieved).toBe(false);
+	});
+
+	it("handles fetch throwing an error", async () => {
+		mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+		const result = await planner.plan(makeInput());
+		expect(result.assessment).toBe("Planner failed to produce a plan");
+		expect(result.blocker?.type).toBe("unknown");
+	});
+});
