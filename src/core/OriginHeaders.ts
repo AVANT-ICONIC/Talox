@@ -87,7 +87,7 @@ export class OriginHeaders {
 		if (this.installedPage && this.routeHandler) {
 			try {
 				await this.installedPage.unroute("**/*", this.routeHandler);
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// NOSONAR — page may already be closed
 			}
 			this.installedPage = null;

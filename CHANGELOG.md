@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.0] - 2026-04-25
+
+### Added
+
+- **Generic SiteWarmup system** — `SiteWarmupRegistry` with pluggable `WarmupStrategy` interface replaces hardcoded Reddit warmup. Built-in strategies for Reddit, Cloudflare, and generic verification pages. Custom strategies via `registry.register(hostname, strategy)`. Subdomain resolution and wildcard fallback.
+- **Xvfb virtual display support** — `virtualDisplay` setting (auto-enabled on Linux without DISPLAY). Spawns Xvfb for headed Chromium on headless servers, making headless Talox significantly harder to detect. Auto-cleanup on shutdown.
+- **Tests for 5 previously untested modules**: CrossOriginManager (15 tests), InspectServer (17 tests), ChatSession (18 tests), TaloxDaemon + commandHandler (42 tests), XvfbDisplay (17 tests).
+- **Pre-push hook** — runs `build` + `test:ci` before allowing pushes. Prevents broken code from reaching CI.
+
+### Changed
+
+- **Removed Patchright dependency** — 50MB+ dead weight eliminated. Patchright's `addInitScript` was silently broken; standard `playwright-core` works correctly.
+- **NOSONAR cleanup** — reduced from 171 to 76 suppressions. Empty catch blocks now have explanatory comments. Browser-side code markers and type assertions remain suppressed.
+- **Stealth injection architecture** — default driver is now `playwright-core` with `channel: "chrome"` (system Chrome). 19 JS stealth patches injected via `addInitScript` before page scripts run.
+- **Reddit warmup** — auto-bypasses "Prove your humanity" challenge via `SiteWarmupRegistry`. The `edgebucket` cookie from first navigation is sufficient.
+
+### Detection Results
+
+| Test Suite | Score |
+|---|---|
+| Sannysoft Bot Detection | **31/31 (100%)** |
+| Reddit (homepage + subreddits) | ✅ Passes (auto warmup) |
+| GitHub Login | ✅ Full page |
+| Cloudflare (nowsecure.nl) | ✅ Passes |
+| BrowserLeaks | ✅ Loads |
+| CreepJS | ✅ Loads |
+
+### Tests
+
+- **67 test files, 1418 tests** (up from 61/1255). New: SiteWarmup (40), CrossOriginManager (15), InspectServer (17), ChatSession (18), TaloxDaemon (42), XvfbDisplay (17).
+
+## [6.2.0] - 2026-04-24
+
+### Changed
+
+- **Default driver switched from Patchright to playwright-core** — Patchright's `addInitScript` silently fails (callbacks never execute). Our entire 19-patch JS stealth stack was never injected.
+- **Webdriver prototype fix** — `delete Navigator.prototype.webdriver` instead of `Object.defineProperty(navigator, "webdriver", ...)`. Detection libraries now check property existence, not just value.
+- **Reddit auto-bypass** — detected as simple reCAPTCHA challenge, NOT Akamai HTTP/2 fingerprinting as previously assumed.
+
+## [6.1.0] - 2026-04-22
+
+### Changed
+
+- Detection test updates for Sannysoft, Cloudflare, BrowserLeaks, and CreepJS.
+- README and AGENTS.md documentation refresh.
+- SonarQube quality gate: 0 issues.
+
 ## [6.0.0] - 2026-04-21
 
 ### Added

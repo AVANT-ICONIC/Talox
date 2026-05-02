@@ -73,7 +73,7 @@ export class AutonomousLoop {
 			try {
 				await this.controller.navigate(this.options.goal.startUrl);
 			} catch (error: unknown) {
-				// NOSONAR — non-fatal: navigation failure will be caught in next iteration
+				// Ignored: navigation failure will be caught in next iteration
 				const msg = error instanceof Error ? error.message : String(error);
 				this.state.status = "failed";
 				this.state.stopReason = "error";
@@ -164,7 +164,7 @@ export class AutonomousLoop {
 		try {
 			pageState = await this.controller.getState("agent") as AgentPageState;
 		} catch (error: unknown) {
-			// NOSONAR — if we can't get state, return a failed iteration
+			// if we can't get state, return a failed iteration
 			const msg = error instanceof Error ? error.message : String(error);
 			return {
 				iteration: iterationNumber,
@@ -179,7 +179,7 @@ export class AutonomousLoop {
 		let challengeState: ChallengeState | undefined;
 		try {
 			challengeState = await this.controller.getChallengeState();
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			// Continue without challenge state
 		}
 
@@ -188,7 +188,7 @@ export class AutonomousLoop {
 		try {
 			const hostname = this.extractHostname(pageState.url);
 			skillsContext = this.skillLoader.toContextForDomain(hostname);
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			// Continue without skills context
 		}
 
@@ -467,7 +467,7 @@ export class AutonomousLoop {
 			}
 
 			return valid;
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			return false;
 		}
 	}
@@ -540,7 +540,7 @@ export class AutonomousLoop {
 				`Known strategies: ${strategies.map((s: any) => `${s.strategy}(${(s.ewmaSuccessRate * 100).toFixed(0)}%)`).join(", ")}`, // NOSONAR
 			];
 			return lines.join("\n");
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			return "";
 		}
 	}
@@ -570,7 +570,7 @@ export class AutonomousLoop {
 				});
 
 				this.state.createdSkills.push(`blocker-${blocker.type}`);
-			} catch { // NOSONAR — non-fatal
+			} catch { // Ignored: non-fatal error
 				// Skill creation failed, continue to escalation
 			}
 		}
@@ -625,7 +625,7 @@ export class AutonomousLoop {
 	private extractHostname(url: string): string {
 		try {
 			return new URL(url).hostname;
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			return "unknown";
 		}
 	}
@@ -633,7 +633,7 @@ export class AutonomousLoop {
 	// ─── Event Handlers ────────────────────────────────────────────────────
 
 	private readonly handleStateChanged = (_data: unknown): void => {
-		// NOSONAR — state change tracking for future use (e.g. reactive decisions)
+		// state change tracking for future use (e.g. reactive decisions)
 	};
 
 	private readonly handleHumanTakeoverRequested = (data: unknown): void => {

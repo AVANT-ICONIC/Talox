@@ -119,7 +119,7 @@ export class VideoRecorder {
 		try {
 			const buffer = await this.page.screenshot({ type: "png" });
 			this.frames.push(buffer);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — page may be navigated away or closed between ticks
 		}
 	}

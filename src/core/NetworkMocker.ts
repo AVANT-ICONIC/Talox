@@ -82,7 +82,7 @@ export class NetworkMocker {
 					try {
 						const buffer = await response.body();
 						responseBody = buffer.toString("utf-8");
-					} catch { // NOSONAR -- non-fatal
+					} catch {
 						// response body not available
 					}
 					responseStatus = response.status();
@@ -114,7 +114,7 @@ export class NetworkMocker {
 				if (this.recordingHandler) {
 					this.recordingHandler(recording);
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				await route.continue();
 			}
 		});

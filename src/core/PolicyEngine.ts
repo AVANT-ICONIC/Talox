@@ -152,7 +152,7 @@ export class PolicyEngine {
 				if (typeof fieldValue === "string") {
 					try {
 						return new RegExp(String(condition.value)).test(fieldValue);
-					} catch { // NOSONAR -- non-fatal
+					} catch {
 						return false;
 					}
 				}
@@ -166,7 +166,7 @@ export class PolicyEngine {
 		try {
 			const urlObj = new URL(url);
 			return urlObj.hostname;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			return url;
 		}
 	}

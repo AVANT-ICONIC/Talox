@@ -188,15 +188,12 @@ function createTestExecutor(overrides: Record<string, any> = {}) {
 		...overrides,
 	};
 
-	const { ActionExecutor } = require("../../src/core/controller/ActionExecutor.js");
-	// Construct via dynamic import approach — instead use a factory:
-	// We need to import the class. Let's just instantiate with `new`.
 	const executor = new ActionExecutor(
 		settings,
-		events,
-		artifactBuilder,
-		policyEngine,
-		semanticMapper,
+		events as any,
+		artifactBuilder as any,
+		policyEngine as any,
+		semanticMapper as any,
 		deps.getPage,
 		deps.getActiveStateCollector,
 		deps.getProfile,
@@ -208,6 +205,7 @@ function createTestExecutor(overrides: Record<string, any> = {}) {
 		deps.riskyActionHook,
 		deps.recordActivity,
 		deps.getCursorStepCallback,
+		undefined, // no warmup registry in unit tests
 	);
 
 	return { executor, mockPage, mockCollector, settings, events, artifactBuilder, policyEngine, semanticMapper, deps };
@@ -252,10 +250,10 @@ describe("ActionExecutor", () => {
 
 		const executor = new ActionExecutor(
 			settings,
-			events,
-			artifactBuilder,
-			policyEngine,
-			semanticMapper,
+			events as any,
+			artifactBuilder as any,
+			policyEngine as any,
+			semanticMapper as any,
 			deps.getPage,
 			deps.getActiveStateCollector,
 			deps.getProfile,
@@ -267,6 +265,7 @@ describe("ActionExecutor", () => {
 			deps.riskyActionHook,
 			deps.recordActivity,
 			deps.getCursorStepCallback,
+			undefined, // no warmup registry in unit tests
 		);
 
 		return {

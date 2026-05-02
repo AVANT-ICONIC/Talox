@@ -29,6 +29,7 @@ src/
     ArtifactBuilder.ts          # Session artifact assembly
     SemanticMapper.ts           # AX-tree → structured semantic output
     SelfHealingSelector.ts      # Selector adaptation with success tracking
+    SiteWarmup.ts               # Generic per-domain interstitial bypass registry
     PolicyEngine.ts             # Allowlist/blocklist guard
     ProfileVault.ts             # Persistent browser profiles
     NetworkMocker.ts            # Request interception for testing
@@ -101,7 +102,7 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-04-23) — v6.0.0
+### Current Status (2026-05-02) — v7.0.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
@@ -109,7 +110,7 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 CRITICAL**
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
-- **89 test files** | **1,339 tests** (unit: 1,255 + smoke: 61 + property: 4 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
+- **79+ test files** | **1,554 tests** (unit: 1,391 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
 
 ### Test Structure
 
@@ -191,7 +192,7 @@ new TaloxController(dir, {
 
 - **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). We use standard `playwright-core` instead — its `addInitScript` works correctly and our JS stealth stack runs before page scripts
 - **Headless mode**: Chromium headless is inherently detectable; use headed mode for sensitive sites
-- **Reddit warmup**: Reddit challenges new sessions with "Prove your humanity" (reCAPTCHA). Talox auto-bypasses by navigating twice — the `edgebucket` cookie from the first request is sufficient. Works for homepage and all subreddits
+- **Site warmup**: Sites like Reddit challenge new sessions with "Prove your humanity" (reCAPTCHA). Talox auto-bypasses via the `SiteWarmupRegistry` — navigating twice so the `edgebucket` cookie from the first request is sufficient. The registry also handles Cloudflare challenges, generic verification pages, and supports custom strategies via `register()`. Works for homepage and all subreddits
 
 ### Stealth Injection Architecture
 
@@ -202,7 +203,34 @@ Inject:    page.addInitScript()      — runs BEFORE any page JS (19 patches)
 Patches:   webdriver deletion (Navigator.prototype), chrome.runtime spoofing,
            ChromeDriver cleanup, plugin spoofing, canvas/WebGL/audio noise,
            CDP property cleanup, permissions override
-Warmup:    Reddit auto-retry on "Prove your humanity" challenge
+Warmup:    SiteWarmupRegistry        — generic per-domain interstitial bypass
+           ├── reddit.com    → detect "Prove/humanity" title, re-navigate with domcontentloaded
+           ├── cloudflare    → detect "Checking/Just a moment" title or cf-browser-verification body,
+           │                   wait 5s + re-navigate
+           ├── generic       → detect "Attention Required/Access denied/Forbidden", wait 3s + re-navigate
+           └── * (wildcard)  → falls back to cloudflare strategy
+```
+
+#### Adding Custom Warmup Strategies
+
+```ts
+import { SiteWarmupRegistry, type WarmupStrategy } from 'talox';
+
+const registry = new SiteWarmupRegistry();
+
+// Register a custom warmup for a specific domain
+const myStrategy: WarmupStrategy = {
+  name: 'acme-challenge',
+  detect: async (page) => {
+    const title = await page.title();
+    return title.includes('Verify');
+  },
+  warmup: async (page, url) => {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+  },
+};
+
+registry.register('acme.com', myStrategy);
 ```
 
 ## Build & Test

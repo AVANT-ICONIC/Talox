@@ -65,13 +65,13 @@ async function checkPlaywrightInstalled(): Promise<DoctorCheck> {
 			const pkgPath = require.resolve("@playwright/test/package.json");
 			const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 			version = pkg.version ?? "unknown";
-		} catch { // NOSONAR -- non-fatal
-			// NOSONAR — version detection is best-effort
+		} catch {
+			// Ignored: version detection is best-effort
 		}
 		const dir = modPath.split("/").slice(0, -2).join("/");
 		return { name: "Playwright installed", status: "ok", message: `v${version} (${dir})` };
-	} catch { // NOSONAR -- non-fatal
-		// NOSONAR
+	} catch {
+		// Ignored: @playwright/test not found, report as error below
 		return {
 			name: "Playwright installed",
 			status: "error",
@@ -87,8 +87,8 @@ async function checkBrowserBinaries(): Promise<DoctorCheck> {
 		if (output.toLowerCase().includes("chromium")) {
 			return { name: "Browser binaries", status: "ok", message: "Chromium available" };
 		}
-	} catch { // NOSONAR -- non-fatal
-		// NOSONAR — dry-run failed, try fallback detection
+	} catch {
+		// Ignored: dry-run failed, try fallback detection
 	}
 
 	const candidates = [
@@ -102,8 +102,8 @@ async function checkBrowserBinaries(): Promise<DoctorCheck> {
 		try {
 			await access(candidate);
 			return { name: "Browser binaries", status: "ok", message: candidate };
-		} catch { // NOSONAR -- non-fatal
-			// NOSONAR — candidate not found, continue
+		} catch {
+			// Ignored: candidate not found, continue searching
 		}
 	}
 
@@ -121,13 +121,14 @@ async function checkProfileDirectory(fix: boolean): Promise<DoctorCheck> {
 		await access(profileDir);
 		await access(profileDir, 2);
 		return { name: "Profile directory", status: "ok", message: profileDir };
-	} catch { // NOSONAR -- non-fatal
+	} catch {
+		// Ignored: profile directory access check failed
 		if (fix) {
 			try {
 				await mkdir(profileDir, { recursive: true });
 				return { name: "Profile directory", status: "ok", message: `${profileDir} (created)` };
-			} catch { // NOSONAR -- non-fatal
-				// NOSONAR — mkdir failed
+			} catch {
+				// Ignored: mkdir failed, will report error below
 			}
 		}
 		return {
@@ -144,7 +145,8 @@ async function checkTempDirectory(): Promise<DoctorCheck> {
 	try {
 		await access(tmp, 2);
 		return { name: "Temp directory", status: "ok", message: tmp };
-	} catch { // NOSONAR -- non-fatal
+	} catch {
+		// Ignored: temp directory access check failed, will report error
 		return {
 			name: "Temp directory",
 			status: "error",
@@ -168,8 +170,8 @@ async function checkNetworkConnectivity(): Promise<DoctorCheck> {
 			message: `example.com returned HTTP ${response.status}`,
 			fixHint: "Check your network connection or proxy settings",
 		};
-	} catch { // NOSONAR -- non-fatal
-		// NOSONAR
+	} catch {
+		// Ignored: network connectivity check failed, report error
 		return {
 			name: "Network connectivity",
 			status: "error",
@@ -212,8 +214,8 @@ async function checkDependencies(): Promise<DoctorCheck> {
 	for (const pkg of ["playwright", "fs-extra"]) {
 		try {
 			require.resolve(pkg);
-		} catch { // NOSONAR -- non-fatal
-			// NOSONAR
+		} catch {
+			// Ignored: package not resolvable, will be reported as missing
 			missing.push(pkg);
 		}
 	}
@@ -237,8 +239,8 @@ async function checkConfigFile(fix: boolean): Promise<DoctorCheck> {
 		try {
 			await access(join(cwd, candidate));
 			return { name: "Config file", status: "ok", message: join(cwd, candidate) };
-		} catch { // NOSONAR -- non-fatal
-			// NOSONAR — not found, continue
+		} catch {
+			// Ignored: config candidate not found, continue searching
 		}
 	}
 
@@ -253,8 +255,8 @@ async function checkConfigFile(fix: boolean): Promise<DoctorCheck> {
 		try {
 			await writeFile(target, `${JSON.stringify(defaultConfig, null, 2)}\n`, "utf-8");
 			return { name: "Config file", status: "ok", message: `${target} (created)` };
-		} catch { // NOSONAR -- non-fatal
-			// NOSONAR — write failed
+		} catch {
+			// Ignored: config file write failed, will report warning below
 		}
 	}
 

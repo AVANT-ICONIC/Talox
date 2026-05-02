@@ -246,6 +246,20 @@ export interface TaloxSettings {
 	 * @default false
 	 */
 	enableCrossOriginIframes: boolean;
+
+	/**
+	 * Use Xvfb virtual display on headless Linux so Chromium runs in headed
+	 * mode against a fake X server.  Headed Chromium has a real browser
+	 * fingerprint, making it significantly harder for bot-detection systems
+	 * to identify it as automated.
+	 *
+	 * - On Linux without a DISPLAY env var, defaults to true.
+	 * - On all other platforms (or when DISPLAY is set), defaults to false.
+	 * - Requires Xvfb to be installed (sudo apt install xvfb).
+	 *
+	 * @default true on Linux without DISPLAY, false otherwise
+	 */
+	virtualDisplay: boolean;
 }
 
 // ─── DEFAULT_SETTINGS ─────────────────────────────────────────────────────────
@@ -274,4 +288,5 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	autoDialogHandling: true,
 	sessionIdleTimeoutMs: 300000,
 	enableCrossOriginIframes: false,
+	virtualDisplay: false,
 };

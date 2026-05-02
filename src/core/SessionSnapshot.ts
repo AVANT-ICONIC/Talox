@@ -89,8 +89,8 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 			secure: c.secure ?? false,
 			sameSite: c.sameSite ?? "None",
 		}));
-	} catch { // NOSONAR -- non-fatal
-		/* cookie extraction optional */
+	} catch {
+		// Ignored: cookie extraction failed, proceed without cookies
 	}
 
 	// localStorage and sessionStorage — only reachable on http(s) origins
@@ -107,8 +107,8 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 				}
 				return out;
 			});
-		} catch { // NOSONAR -- non-fatal
-			/* inaccessible — leave empty */
+		} catch {
+			// Ignored: localStorage inaccessible, leave empty
 		}
 
 		try {
@@ -120,8 +120,8 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 				}
 				return out;
 			});
-		} catch { // NOSONAR -- non-fatal
-			/* inaccessible — leave empty */
+		} catch {
+			// Ignored: sessionStorage inaccessible, leave empty
 		}
 	}
 
@@ -132,8 +132,8 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
 		const pos = await page.evaluate(() => ({ x: globalThis.scrollX, y: globalThis.scrollY }));
 		scrollX = pos.x;
 		scrollY = pos.y;
-	} catch { // NOSONAR -- non-fatal
-		/* non-fatal */
+	} catch {
+		// Ignored: scroll position retrieval failed
 	}
 
 	return { url, title, capturedAt, cookies, localStorage, sessionStorage, scrollX, scrollY };
@@ -162,15 +162,15 @@ async function restoreStorage(
 				for (const [k, v] of ents) {
 					try {
 						storage.setItem(k, v);
-					} catch { // NOSONAR -- non-fatal
-						/* quota / security */
+					} catch {
+						// Ignored: storage quota or security error for individual key
 					}
 				}
 			},
 			[entries, storageType] as any,
 		);
-	} catch { // NOSONAR -- non-fatal
-		/* page may have navigated away */
+	} catch {
+		// Ignored: page may have navigated away during storage restore
 	}
 }
 
@@ -179,20 +179,20 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 	if (snapshot.cookies.length > 0) {
 		try {
 			await context.addCookies(snapshot.cookies);
-		} catch { // NOSONAR -- non-fatal
-			/* non-fatal — cookies may have expired or be cross-origin */
+		} catch {
+			// Ignored: cookies may have expired or be cross-origin
 		}
 	}
 
 	// 2. Navigate to the captured URL
 	try {
 		await page.goto(snapshot.url, { waitUntil: "domcontentloaded" });
-	} catch { // NOSONAR -- non-fatal
-		// If navigation fails (e.g. redirect loop), try a direct goto without waiting
+	} catch {
+		// Ignored: navigation with domcontentloaded failed, try without waiting
 		try {
 			await page.goto(snapshot.url);
-		} catch { // NOSONAR -- non-fatal
-			/* give up */
+		} catch {
+			// Ignored: navigation completely failed, skip restore
 		}
 	}
 
@@ -215,8 +215,8 @@ export async function restoreSessionSnapshot(page: any, context: any, snapshot: 
 				snapshot.scrollX,
 				snapshot.scrollY,
 			] as [number, number]);
-		} catch { // NOSONAR -- non-fatal
-			/* non-fatal */
+		} catch {
+			// Ignored: scroll restore failed
 		}
 	}
 }

@@ -92,7 +92,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 				triggerCondition: typeof parsed.triggerCondition === "string" ? parsed.triggerCondition : `blocker type == "${input.blockerType}"`,
 				toolUsage: Array.isArray(parsed.toolUsage) ? (parsed.toolUsage as string[]) : [],
 			};
-		} catch { // NOSONAR — non-fatal
+		} catch { // Ignored: non-fatal error
 			return null;
 		}
 	}

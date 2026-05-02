@@ -231,7 +231,7 @@ export class DomainMemory {
 				return parts.slice(-2).join(".");
 			}
 			return hostname;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			return url;
 		}
 	}

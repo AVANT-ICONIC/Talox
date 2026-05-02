@@ -1,3 +1,4 @@
+import { type ChildProcess, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -71,6 +72,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		autoDialogHandling: true,
 		sessionIdleTimeoutMs: 300000,
 		enableCrossOriginIframes: false,
+		virtualDisplay: false,
 	},
 };
 
@@ -111,8 +113,18 @@ export class BrowserManager {
 
 	private readonly contexts: Set<BrowserContext> = new Set();
 
+	// Xvfb virtual display state
+	private xvfbProcess: ChildProcess | null = null;
+	private xvfbDisplay: string | null = null;
+	private savedDisplayEnv: string | undefined;
+
 	constructor(config?: Partial<TaloxConfig>) {
 		this.config = { ...getDefaultConfig(), ...config };
+
+		// Auto-enable virtualDisplay on Linux without a real DISPLAY
+		if (this.config.settings.virtualDisplay === false && process.platform === "linux" && !process.env.DISPLAY) {
+			this.config.settings.virtualDisplay = true;
+		}
 
 		// Auto-cleanup on process exit — use once() so multiple instances don't
 		// stack unbounded listeners (avoids MaxListenersExceededWarning in tests).
@@ -133,6 +145,7 @@ export class BrowserManager {
 				ctx._browser?.close().catch(() => {});
 			} catch { /* NOSONAR */ }
 		}
+		this.stopXvfb();
 	}
 
 	async closeAll() {
@@ -140,6 +153,7 @@ export class BrowserManager {
 		await Promise.all(promises);
 		this.contexts.clear();
 		this.context = null;
+		this.stopXvfb();
 	}
 
 	async detectBrowsers(): Promise<DetectedBrowser[]> {
@@ -167,7 +181,7 @@ export class BrowserManager {
 						});
 					}
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// Continue searching
 			}
 		}
@@ -228,7 +242,7 @@ export class BrowserManager {
 						paths.push(browserDir);
 					}
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// Ignore cache errors
 			}
 		}
@@ -253,7 +267,7 @@ export class BrowserManager {
 					const browser = await launcher.launch({ ...options, headless: true });
 					await browser.close();
 					return { path: channel, version: undefined };
-				} catch { // NOSONAR -- non-fatal
+				} catch {
 					// Try without channel
 				}
 			}
@@ -270,7 +284,7 @@ export class BrowserManager {
 			}
 
 			return null;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			return null;
 		}
 	}
@@ -402,7 +416,7 @@ export class BrowserManager {
 				delete launchOptions.channel;
 				try {
 					return await this.tryLaunchContext(launcher, userDataDir, launchOptions);
-				} catch { // NOSONAR -- non-fatal
+				} catch {
 					throw new Error(`Browser launch failed for ${browserType}. Please ensure Chrome is installed.`);
 				}
 			}
@@ -414,6 +428,134 @@ export class BrowserManager {
 		}
 	}
 
+	// ── Xvfb Virtual Display ──────────────────────────────────────────────────────
+
+	/**
+	 * Resolve the path to the Xvfb binary. Returns null if not found.
+	 */
+	private static findXvfb(): string | null {
+		const candidates = ["/usr/bin/Xvfb", "/usr/local/bin/Xvfb"];
+		for (const candidate of candidates) {
+			try {
+				fs.accessSync(candidate, fs.constants.X_OK);
+				return candidate;
+			} catch { /* NOSONAR — not found, try next */ }
+		}
+		return null;
+	}
+
+	/**
+	 * Find a free X display number by checking /tmp/.X*-lock files.
+	 * Scans from :99 upward and returns the first free number.
+	 */
+	private static findFreeDisplay(): number {
+		for (let display = 99; display < 200; display++) {
+			const lockFile = `/tmp/.X${display}-lock`;
+			try {
+				fs.accessSync(lockFile, fs.constants.F_OK);
+			} catch {
+				return display;
+			}
+		}
+		return 99; // fallback
+	}
+
+	/**
+	 * Start Xvfb and set DISPLAY environment variable so subsequent Chromium
+	 * launches run in "headed" mode against the virtual framebuffer.
+	 *
+	 * @throws Error if not on Linux, Xvfb is not installed, or spawn fails
+	 */
+	async startXvfb(): Promise<void> {
+		if (process.platform !== "linux") {
+			throw new Error("Xvfb virtual display is only supported on Linux.");
+		}
+		if (this.xvfbProcess) {
+			return; // already running
+		}
+
+		const xvfbPath = BrowserManager.findXvfb();
+		if (!xvfbPath) {
+			throw new Error(
+				"Xvfb not found. Install it with: sudo apt install xvfb",
+			);
+		}
+
+		const displayNum = BrowserManager.findFreeDisplay();
+		this.xvfbDisplay = `:${displayNum}`;
+
+		this.xvfbProcess = spawn(xvfbPath, [
+			this.xvfbDisplay,
+			"-screen",
+			"0",
+			"1280x720x24",
+			"-ac",
+			"-nolisten",
+			"tcp",
+		], {
+			stdio: "ignore",
+			detached: false,
+		});
+
+		// Give Xvfb a moment to bind the display socket
+		await new Promise<void>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				// If we reach here without error, Xvfb started successfully
+				resolve();
+			}, 500);
+
+			this.xvfbProcess!.on("error", (err) => {
+				clearTimeout(timeout);
+				this.xvfbProcess = null;
+				this.xvfbDisplay = null;
+				reject(new Error(`Failed to start Xvfb: ${err.message}`));
+			});
+
+			this.xvfbProcess!.on("exit", (code) => {
+				if (code !== null && code !== 0) {
+					clearTimeout(timeout);
+					this.xvfbProcess = null;
+					this.xvfbDisplay = null;
+					reject(new Error(`Xvfb exited with code ${code}`));
+				}
+			});
+		});
+
+		// Save original DISPLAY and set the new one
+		this.savedDisplayEnv = process.env.DISPLAY;
+		process.env.DISPLAY = this.xvfbDisplay;
+	}
+
+	/**
+	 * Kill the Xvfb process and restore the original DISPLAY environment.
+	 */
+	stopXvfb(): void {
+		if (this.xvfbProcess) {
+			try {
+				this.xvfbProcess.kill("SIGTERM");
+			} catch { /* NOSONAR — process may have already exited */ }
+			this.xvfbProcess = null;
+		}
+
+		if (this.xvfbDisplay) {
+			// Restore original DISPLAY
+			if (this.savedDisplayEnv !== undefined) {
+				process.env.DISPLAY = this.savedDisplayEnv;
+			} else {
+				delete process.env.DISPLAY;
+			}
+			this.xvfbDisplay = null;
+			this.savedDisplayEnv = undefined;
+		}
+	}
+
+	/**
+	 * Whether Xvfb is currently running.
+	 */
+	isXvfbRunning(): boolean {
+		return this.xvfbProcess !== null;
+	}
+
 	async launch(
 		profile: TaloxProfile,
 		_headed?: boolean,
@@ -422,11 +564,24 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const actualBrowserType = await this.resolveBrowserType(browserType);
 
+		// Start Xvfb if virtualDisplay is enabled — runs Chromium in "headed"
+		// mode against a virtual framebuffer so its fingerprint is real.
+		if (this.config.settings.virtualDisplay && !this.xvfbProcess) {
+			await this.startXvfb();
+		}
+
 		// Use Patchright (stealth driver) when adaptiveStealthEnabled is true (default).
 		// Patchright patches CDP Runtime.enable leak, removes --enable-automation flag,
 		// and fixes other driver-level detection vectors that JS injection can't reach.
 		const isAdaptive = this.config.settings.adaptiveStealthEnabled !== false;
 		const launcher = this.resolveLauncher(actualBrowserType, isAdaptive);
+
+		// When using Xvfb, force headed mode (headless: false) so Chromium has
+		// a real fingerprint. The virtual display makes "headed" possible.
+		if (this.xvfbProcess && extraOptions?.headless !== false) {
+			extraOptions = { ...extraOptions, headless: false };
+		}
+
 		const launchOptions = this.buildLaunchOptions(extraOptions);
 
 		// Compute hash of launch options to detect config changes
@@ -463,6 +618,7 @@ export class BrowserManager {
 			await this.context.close();
 			this.context = null;
 		}
+		this.stopXvfb();
 	}
 
 	getContext(): BrowserContext | null {

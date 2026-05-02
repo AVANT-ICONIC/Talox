@@ -224,7 +224,7 @@ export class ChallengeResolver {
 					});
 					return this.outcome(true, false, attempts, "wait-and-settle");
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* page may still be loading */
 			}
 
@@ -253,7 +253,7 @@ export class ChallengeResolver {
 				attempts.push({ strategy: "wait-and-settle", success: true, durationMs: Date.now() - t0 });
 				return this.outcome(true, false, attempts, "wait-and-settle");
 			}
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			/* page may still be loading */
 		}
 
@@ -282,7 +282,7 @@ export class ChallengeResolver {
 					detail: `Clicked: ${sel}`,
 				});
 				return this.outcome(true, false, attempts, "auto-click-accept");
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* try next */
 			}
 		}
@@ -325,7 +325,7 @@ export class ChallengeResolver {
 					});
 					return this.outcome(true, false, attempts, "backoff-retry");
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* reload failed */
 			}
 
@@ -360,7 +360,7 @@ export class ChallengeResolver {
 					});
 					return this.outcome(true, false, attempts, "wait-hydration");
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* page still loading */
 			}
 		}

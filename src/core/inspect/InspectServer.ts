@@ -68,7 +68,7 @@ export class InspectServer {
 
 		try {
 			this.cdpSession = await page.context().newCDPSession(page);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — CDP session creation may fail in some browsers
 		}
 
@@ -97,7 +97,7 @@ export class InspectServer {
 		for (const ws of clients) {
 			try {
 				ws.close();
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// NOSONAR
 			}
 		}
@@ -205,7 +205,7 @@ export class InspectServer {
 		try {
 			const str = typeof raw === "string" ? raw : Buffer.from(raw as Uint8Array).toString("utf-8");
 			parsed = JSON.parse(str);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — malformed CDP messages are ignored
 			return;
 		}

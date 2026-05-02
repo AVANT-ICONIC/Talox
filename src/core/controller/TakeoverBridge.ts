@@ -220,7 +220,7 @@ export class TakeoverBridge {
 		// 2. Wire browser → Node.js bridge (persists across navigations)
 		try {
 			await page.exposeFunction("__taloxBridge__", this.handleBridgeEvent.bind(this));
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Already exposed on this page object — safe to ignore
 		}
 
@@ -233,7 +233,7 @@ export class TakeoverBridge {
 			await page.exposeFunction("__taloxCmd__", (_cmd: string) => {
 				// no-op: used only as the bridge target name
 			});
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Already registered
 		}
 
@@ -385,7 +385,7 @@ export class TakeoverBridge {
 			await this.currentPage.evaluate((c: string) => {
 				(globalThis as any).__taloxDispatch__?.(c);
 			}, cmd);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			/* page navigated or closed */
 		}
 	}

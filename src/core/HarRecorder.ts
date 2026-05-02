@@ -208,7 +208,7 @@ export class HarRecorder {
 			try {
 				bodyText = await res.text();
 				bodySize = Buffer.byteLength(bodyText, "utf-8");
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// NOSONAR — body may not be accessible for some responses
 			}
 		}
@@ -243,7 +243,7 @@ export class HarRecorder {
 		try {
 			const parsed = new URL(url);
 			return Array.from(parsed.searchParams.entries()).map(([name, value]) => ({ name, value }));
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — invalid URL, return empty
 			return [];
 		}

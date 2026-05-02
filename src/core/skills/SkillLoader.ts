@@ -99,7 +99,7 @@ export class SkillLoader {
 		let raw: string;
 		try {
 			raw = readFileSync(resolved, "utf-8");
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — gracefully skip unreadable files
 			return null;
 		}
@@ -369,7 +369,7 @@ export class SkillLoader {
 				if (existsSync(absPath)) {
 					refs.set(name, readFileSync(absPath, "utf-8"));
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// NOSONAR — skip unreadable references
 			}
 		}

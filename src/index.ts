@@ -87,6 +87,9 @@ export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/s
 export { DomainMemory } from "./core/smart/DomainMemory.js";
 export { STRATEGIES } from "./core/smart/strategies.js";
 export * from "./core/TaloxTools.js";
+// ─── Site Warmup ──────────────────────────────────────────────────────────────
+export type { WarmupStrategy } from "./core/SiteWarmup.js";
+export { BUILT_IN_WARMUPS, SiteWarmupRegistry } from "./core/SiteWarmup.js";
 // ─── Video Recording ────────────────────────────────────────────────────────
 export type { VideoFormat, VideoRecorderOptions } from "./core/VideoRecorder.js";
 export { VideoRecorder } from "./core/VideoRecorder.js";
@@ -106,6 +109,21 @@ export { LLMPlanner } from "./core/loop/Planner.js";
 export type { Planner } from "./core/loop/Planner.js";
 export { SkillWriter } from "./core/skills/SkillWriter.js";
 export type * from "./core/loop/types.js";
+
+// ─── Auto-Research Loop (v7) ───────────────────────────────────────────────
+export { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "./core/research/AutoResearchLoop.js";
+export { ResearchJournal } from "./core/research/ResearchJournal.js";
+export { HypothesisGenerator } from "./core/research/HypothesisGenerator.js";
+export { SkillEvaluator } from "./core/research/SkillEvaluator.js";
+export { ExperimentRunner } from "./core/research/ExperimentRunner.js";
+export { CrossDomainTransfer } from "./core/research/CrossDomainTransfer.js";
+export { PromptEvolver } from "./core/research/PromptEvolver.js";
+export { SkillVersioning } from "./core/research/SkillVersioning.js";
+export { RegressionHarness } from "./core/research/RegressionHarness.js";
+export { ResearchReporter } from "./core/research/ResearchReporter.js";
+export { AdaptiveExperimentPriority } from "./core/research/AdaptiveExperimentPriority.js";
+export { StrategyComposer } from "./core/research/StrategyComposer.js";
+export type * from "./core/research/types.js";
 
 // ─── Legacy Mode Compatibility (v1 → v2) ─────────────────────────────────────
 /**

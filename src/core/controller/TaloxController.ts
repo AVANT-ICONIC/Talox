@@ -66,6 +66,7 @@ import { InspectServer as InspectServerClass } from "../inspect/InspectServer.js
 import { OriginHeaders } from "../OriginHeaders.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import { SemanticMapper } from "../SemanticMapper.js";
+import { SiteWarmupRegistry } from "../SiteWarmup.js";
 import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
@@ -216,6 +217,7 @@ export class TaloxController {
 			undefined,
 			() => this._session.recordActivity(),
 			undefined, // fake cursor removed
+			new SiteWarmupRegistry(),
 		);
 	}
 
@@ -1225,7 +1227,7 @@ export class TaloxController {
 			if (matched.length > 0) {
 				state.domainHints = matched.map((s) => this.skillLoader!.toPrompt(s.manifest.name));
 			}
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — invalid URL, skip domain hints
 		}
 	}

@@ -121,7 +121,7 @@ export class CrossOriginManager {
 				cdpSession,
 				origin,
 			});
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — CDP session creation can fail for certain frame types
 		}
 	}
@@ -149,7 +149,7 @@ export class CrossOriginManager {
 			const frameOrigin = new URL(frameUrl).origin;
 			const parentOrigin = new URL(parentUrl).origin;
 			return frameOrigin !== parentOrigin;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// NOSONAR — invalid URL, treat as same-origin
 			return false;
 		}
@@ -158,7 +158,7 @@ export class CrossOriginManager {
 	private extractOrigin(url: string): string {
 		try {
 			return new URL(url).origin;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			return url;
 		}
 	}

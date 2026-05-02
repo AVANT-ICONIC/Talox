@@ -194,8 +194,8 @@ export class SessionManager {
 		try {
 			snapshot = await captureSessionSnapshot(page, context);
 			this.pendingSnapshot = snapshot;
-		} catch { // NOSONAR -- non-fatal
-			// Snapshot failure is non-fatal — we'll lose state but the browser will restart
+		} catch {
+			// Ignored: snapshot capture failed, browser will restart with empty state
 		}
 
 		this.artifactBuilder.addAction("headedModeChange", {
@@ -240,8 +240,7 @@ export class SessionManager {
 				await restoreSessionSnapshot(newPage, newContext, snapshot);
 				this.pendingSnapshot = null;
 			} catch (e) {
-				// NOSONAR
-				// Non-fatal — agent will see a fresh page at the last URL
+				// Ignored: snapshot restore failed, agent will see a fresh page
 				if (snapshot?.url) {
 					await newPage.goto(snapshot.url).catch(() => {});
 				}
@@ -703,7 +702,7 @@ export class SessionManager {
 						get: () => undefined,
 						configurable: true,
 					});
-				} catch (_e) { /* NOSONAR */ }
+				} catch (_e) { /* Ignored: non-fatal browser API error */ }
 			}
 
 			// 2. Chrome Runtime Spoofing
@@ -773,7 +772,7 @@ export class SessionManager {
 						configurable: true,
 					});
 				}
-			} catch (_e) { /* NOSONAR */ }
+			} catch (_e) { /* Ignored: non-fatal browser API error */ }
 
 			// 4. Language Spoofing (from fingerprint profile)
 			Object.defineProperty(navigator, "languages", {
@@ -958,7 +957,7 @@ export class SessionManager {
 				if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
 				const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
 				if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
-			} catch (_e) { /* NOSONAR */ }
+			} catch (_e) { /* Ignored: non-fatal browser API error */ }
 
 			// 16. iframe contentWindow detection — prevent cross-origin iframe checks
 			// Some detectors create an iframe and check contentWindow.chrome vs window.chrome
@@ -981,13 +980,14 @@ export class SessionManager {
 			}
 
 			// 17. Navigator.connection spoofing — consistent with fingerprint profile
-			if (navigator.connection) {
+			const navConn = (navigator as any).connection;
+			if (navConn) {
 				try {
-					Object.defineProperty(navigator.connection, "rtt", { get: () => 50 });
-					Object.defineProperty(navigator.connection, "downlink", { get: () => 10 });
-					Object.defineProperty(navigator.connection, "effectiveType", { get: () => "4g" });
-					Object.defineProperty(navigator.connection, "saveData", { get: () => false });
-				} catch (_e) { /* NOSONAR */ }
+					Object.defineProperty(navConn, "rtt", { get: () => 50 });
+					Object.defineProperty(navConn, "downlink", { get: () => 10 });
+					Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
+					Object.defineProperty(navConn, "saveData", { get: () => false });
+				} catch (_e) { /* Ignored: non-fatal browser API error */ }
 			}
 
 			// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
@@ -995,7 +995,7 @@ export class SessionManager {
 				try {
 					Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
 					Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
-				} catch (_e) { /* NOSONAR */ }
+				} catch (_e) { /* Ignored: non-fatal browser API error */ }
 			}
 
 			// 19. CDP (Chrome DevTools Protocol) leak protection
@@ -1006,7 +1006,7 @@ export class SessionManager {
 					delete (window as any).__playwright;
 					delete (window as any).__pw_manual;
 					delete (window as any).__PW_inspect;
-				} catch (_e) { /* NOSONAR */ }
+				} catch (_e) { /* Ignored: non-fatal browser API error */ }
 			}
 		}, stealthData);
 	}

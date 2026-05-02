@@ -61,7 +61,7 @@ export class PageStateCollector {
 		this.page.on("console", (msg) => {
 			try {
 				if (msg.type() === "error") this.consoleErrors.push(msg.text());
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* page may be closing */
 			}
 		});
@@ -73,7 +73,7 @@ export class PageStateCollector {
 				if (status >= 400) {
 					this.failedRequests.push({ url: response.url(), status, type: response.request().resourceType() });
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* page may be closing */
 			}
 		});
@@ -130,7 +130,7 @@ export class PageStateCollector {
 			try {
 				const node = await this.tryBuildDomFallbackNode(el, i);
 				if (node) nodes.push(node);
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				// Skip elements that can't be analyzed
 			}
 		}
@@ -848,7 +848,7 @@ export class PageStateCollector {
 				: await this.collectInteractiveElementsViaDom();
 
 			shadowDomElements = await this.collectFromShadowDom();
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Page may have closed mid-collection; return what we have
 		}
 		const mergedInteractiveElements = this.mergeInteractiveElements(interactiveElements, shadowDomElements);
@@ -859,7 +859,7 @@ export class PageStateCollector {
 		let cursorDetectedElements: any[] = [];
 		try {
 			cursorDetectedElements = await this.collectCursorDetectedElements(existingIds, cursorStartIndex);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Page may have closed mid-collection; return what we have
 		}
 

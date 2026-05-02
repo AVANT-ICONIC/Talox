@@ -185,7 +185,7 @@ export class TaloxDaemon {
 		let command: DaemonCommand;
 		try {
 			command = JSON.parse(line) as DaemonCommand;
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			this.sendResponse(socket, {
 				id: "unknown",
 				success: false,

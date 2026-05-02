@@ -363,7 +363,7 @@ export class InteractionReliability {
 						recoveryNotes,
 					};
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* Escape did not clear it */
 			}
 			attempts.push({ mode: "intercepted", strategy: "press-escape", success: false, durationMs: Date.now() - t0 });
@@ -398,7 +398,7 @@ export class InteractionReliability {
 						recoveryNotes,
 					};
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* try next */
 			}
 			attempts.push({
@@ -443,7 +443,7 @@ export class InteractionReliability {
 						};
 					}
 				}
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* dispatch failed */
 			}
 			attempts.push({ mode: "intercepted", strategy: "dispatch-click", success: false, durationMs: Date.now() - t0 });
@@ -525,7 +525,7 @@ export class InteractionReliability {
 					resolvedSelector: healedSelector,
 					recoveryNotes,
 				};
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* fall through */
 			}
 		}
@@ -600,7 +600,7 @@ export class InteractionReliability {
 					resolvedSelector: selector,
 					recoveryNotes,
 				};
-			} catch { // NOSONAR -- non-fatal
+			} catch {
 				/* try next page */
 			}
 		}

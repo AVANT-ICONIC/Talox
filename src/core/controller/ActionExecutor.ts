@@ -20,6 +20,7 @@ import { InteractionReliability } from "../InteractionReliability.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import type { PolicyEngine } from "../PolicyEngine.js";
 import type { SemanticMapper } from "../SemanticMapper.js";
+import type { SiteWarmupRegistry } from "../SiteWarmup.js";
 import type { EventBus } from "./EventBus.js";
 
 /**
@@ -89,6 +90,7 @@ export class ActionExecutor {
 		private readonly riskyActionHook: (() => Promise<boolean>) | undefined,
 		private readonly recordActivity: () => void,
 		private readonly getCursorStepCallback?: () => CursorStepCallback | undefined,
+		private readonly warmupRegistry?: SiteWarmupRegistry,
 	) {}
 
 	// ─── Navigation ─────────────────────────────────────────────────────────────
@@ -127,16 +129,10 @@ export class ActionExecutor {
 		await page.goto(url, waitOption);
 		setFirstNavigation(false);
 
-		// Reddit warmup: Reddit challenges all new sessions with "Prove your humanity"
-		// (reCAPTCHA) on first navigation. However, the challenge cookie (edgebucket)
-		// is set during the initial request. Simply navigating again bypasses the challenge.
+		// Site warmup: bypass bot-detection interstitials (Cloudflare, CAPTCHA pre-screens, etc.)
 		const hostname = (() => { try { return new URL(url).hostname; } catch { return ""; } })();
-		if (hostname.endsWith("reddit.com")) {
-			const title = await page.title();
-			if (title.includes("Prove") || title.includes("humanity")) {
-				await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15_000 });
-				await new Promise((r) => setTimeout(r, 1000));
-			}
+		if (hostname && this.warmupRegistry) {
+			await this.warmupRegistry.runIfNeeded(page, url, hostname);
 		}
 		this.densityCache.clear();
 
@@ -337,7 +333,7 @@ export class ActionExecutor {
 		// Wait for any navigation triggered by the click to settle
 		try {
 			await page.waitForLoadState("domcontentloaded", { timeout: 3000 });
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Not all clicks trigger navigation; timeout is expected
 		}
 

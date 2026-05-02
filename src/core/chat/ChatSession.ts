@@ -304,7 +304,7 @@ export class ChatSession {
 		let args: Record<string, unknown>;
 		try {
 			args = JSON.parse(tc.function.arguments);
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			return `Error: Invalid JSON arguments — ${tc.function.arguments}`;
 		}
 

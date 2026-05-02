@@ -170,7 +170,7 @@ export class PerceptionStack {
 				const buf: Buffer = await page.screenshot({ type: "png", fullPage: true });
 				state.screenshotBase64 = buf.toString("base64");
 			}
-		} catch { // NOSONAR -- non-fatal
+		} catch {
 			// Non-fatal — screenshot unavailable
 		}
 	}
