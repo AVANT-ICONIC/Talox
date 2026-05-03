@@ -103,11 +103,7 @@ export const genericVerificationWarmup: WarmupStrategy = {
 	name: "generic-verification",
 	detect: async (page: any): Promise<boolean> => {
 		const title = await page.title();
-		return (
-			title.includes("Attention Required") ||
-			title.includes("Access denied") ||
-			title.includes("Forbidden")
-		);
+		return title.includes("Attention Required") || title.includes("Access denied") || title.includes("Forbidden");
 	},
 	warmup: async (page: any, url: string): Promise<void> => {
 		await new Promise((r) => setTimeout(r, 3000));

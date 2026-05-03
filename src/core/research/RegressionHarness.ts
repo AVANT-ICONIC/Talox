@@ -7,16 +7,11 @@
  * After any research change, runs the suite and reports regressions.
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type {
-	RegressionTestCase,
-	RegressionResult,
-	RunMetrics,
-	AutoResearchConfig,
-} from "./types.js";
 import type { AutonomousLoop } from "../loop/AutonomousLoop.js";
 import type { TaskGoal } from "../loop/types.js";
+import type { AutoResearchConfig, RegressionResult, RegressionTestCase, RunMetrics } from "./types.js";
 
 // ─── RegressionHarness ────────────────────────────────────────────────────
 
@@ -53,7 +48,9 @@ export class RegressionHarness {
 	/**
 	 * Add a regression test case.
 	 */
-	addTestCase(testCase: Omit<RegressionTestCase, "id" | "lastRunMetrics" | "lastRunTimestamp" | "status">): RegressionTestCase {
+	addTestCase(
+		testCase: Omit<RegressionTestCase, "id" | "lastRunMetrics" | "lastRunTimestamp" | "status">,
+	): RegressionTestCase {
 		const tc: RegressionTestCase = {
 			...testCase,
 			id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -125,14 +122,10 @@ export class RegressionHarness {
 
 			// Check for regressions
 			if (metrics.iterationsToGoal > testCase.expectedMaxIterations) {
-				regressions.push(
-					`Iterations ${metrics.iterationsToGoal} exceeds max ${testCase.expectedMaxIterations}`,
-				);
+				regressions.push(`Iterations ${metrics.iterationsToGoal} exceeds max ${testCase.expectedMaxIterations}`);
 			}
 			if (metrics.totalDurationMs > testCase.expectedMaxDurationMs) {
-				regressions.push(
-					`Duration ${metrics.totalDurationMs}ms exceeds max ${testCase.expectedMaxDurationMs}ms`,
-				);
+				regressions.push(`Duration ${metrics.totalDurationMs}ms exceeds max ${testCase.expectedMaxDurationMs}ms`);
 			}
 			if (!metrics.goalAchieved) {
 				regressions.push("Goal not achieved");

@@ -57,6 +57,11 @@ export { InteractionReliability } from "./core/InteractionReliability.js";
 // ─── DevTools Inspect Server ────────────────────────────────────────────────
 export type { InspectServerConfig } from "./core/inspect/InspectServer.js";
 export { InspectServer } from "./core/inspect/InspectServer.js";
+// ─── Autonomous Loop (v6) ───────────────────────────────────────────────────
+export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
+export type { Planner } from "./core/loop/Planner.js";
+export { LLMPlanner } from "./core/loop/Planner.js";
+export type * from "./core/loop/types.js";
 // ─── Origin-Scoped Headers ────────────────────────────────────────────────────
 export type { OriginHeaderConfig } from "./core/OriginHeaders.js";
 export { OriginHeaders } from "./core/OriginHeaders.js";
@@ -75,11 +80,29 @@ export { PERCEPTION_PRESETS, PerceptionStack } from "./core/PerceptionStack.js";
 export * from "./core/PolicyEngine.js";
 export * from "./core/ProfileVault.js";
 export * from "./core/RulesEngine.js";
+export { AdaptiveExperimentPriority } from "./core/research/AdaptiveExperimentPriority.js";
+// ─── Auto-Research Loop (v7) ───────────────────────────────────────────────
+export { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "./core/research/AutoResearchLoop.js";
+export { CrossDomainTransfer } from "./core/research/CrossDomainTransfer.js";
+export { ExperimentRunner } from "./core/research/ExperimentRunner.js";
+export { HypothesisGenerator } from "./core/research/HypothesisGenerator.js";
+export { PromptEvolver } from "./core/research/PromptEvolver.js";
+export { RegressionHarness } from "./core/research/RegressionHarness.js";
+export { ResearchJournal } from "./core/research/ResearchJournal.js";
+export { ResearchReporter } from "./core/research/ResearchReporter.js";
+export { SkillEvaluator } from "./core/research/SkillEvaluator.js";
+export { SkillVersioning } from "./core/research/SkillVersioning.js";
+export { StrategyComposer } from "./core/research/StrategyComposer.js";
+export type * from "./core/research/types.js";
 export type { SessionSnapshot } from "./core/SessionSnapshot.js";
 export { captureSessionSnapshot, restoreSessionSnapshot } from "./core/SessionSnapshot.js";
+// ─── Site Warmup ──────────────────────────────────────────────────────────────
+export type { WarmupStrategy } from "./core/SiteWarmup.js";
+export { BUILT_IN_WARMUPS, SiteWarmupRegistry } from "./core/SiteWarmup.js";
 export type { LoadedSkill, SkillManifest } from "./core/skills/SkillLoader.js";
 // ─── Skills / Domain Knowledge ──────────────────────────────────────────────
 export { SkillLoader } from "./core/skills/SkillLoader.js";
+export { SkillWriter } from "./core/skills/SkillWriter.js";
 // ─── Smart Mode (now always-on) ──────────────────────────────────────────────
 export { AdaptationEngine } from "./core/smart/AdaptationEngine.js";
 export { BotDetector } from "./core/smart/BotDetector.js";
@@ -87,43 +110,17 @@ export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/s
 export { DomainMemory } from "./core/smart/DomainMemory.js";
 export { STRATEGIES } from "./core/smart/strategies.js";
 export * from "./core/TaloxTools.js";
-// ─── Site Warmup ──────────────────────────────────────────────────────────────
-export type { WarmupStrategy } from "./core/SiteWarmup.js";
-export { BUILT_IN_WARMUPS, SiteWarmupRegistry } from "./core/SiteWarmup.js";
 // ─── Video Recording ────────────────────────────────────────────────────────
 export type { VideoFormat, VideoRecorderOptions } from "./core/VideoRecorder.js";
 export { VideoRecorder } from "./core/VideoRecorder.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
-
 // ─── v2 Config & Settings ────────────────────────────────────────────────────
 export type { TaloxConfig } from "./types/config.js";
 // ─── Types (v2) ──────────────────────────────────────────────────────────────
 // TALOX_STATE_CONTRACT_VERSION, TaloxStateDiff, TaloxStateTiming, diffPageState
 // and all core types are exported via the wildcard below.
 export * from "./types/index.js";
-
-// ─── Autonomous Loop (v6) ───────────────────────────────────────────────────
-export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
-export { LLMPlanner } from "./core/loop/Planner.js";
-export type { Planner } from "./core/loop/Planner.js";
-export { SkillWriter } from "./core/skills/SkillWriter.js";
-export type * from "./core/loop/types.js";
-
-// ─── Auto-Research Loop (v7) ───────────────────────────────────────────────
-export { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "./core/research/AutoResearchLoop.js";
-export { ResearchJournal } from "./core/research/ResearchJournal.js";
-export { HypothesisGenerator } from "./core/research/HypothesisGenerator.js";
-export { SkillEvaluator } from "./core/research/SkillEvaluator.js";
-export { ExperimentRunner } from "./core/research/ExperimentRunner.js";
-export { CrossDomainTransfer } from "./core/research/CrossDomainTransfer.js";
-export { PromptEvolver } from "./core/research/PromptEvolver.js";
-export { SkillVersioning } from "./core/research/SkillVersioning.js";
-export { RegressionHarness } from "./core/research/RegressionHarness.js";
-export { ResearchReporter } from "./core/research/ResearchReporter.js";
-export { AdaptiveExperimentPriority } from "./core/research/AdaptiveExperimentPriority.js";
-export { StrategyComposer } from "./core/research/StrategyComposer.js";
-export type * from "./core/research/types.js";
 
 // ─── Legacy Mode Compatibility (v1 → v2) ─────────────────────────────────────
 /**

@@ -8,12 +8,7 @@
  */
 
 import type { ResearchJournal } from "./ResearchJournal.js";
-import type {
-	TransferRecord,
-	DomainResearchSummary,
-	StrategyPromotion,
-	ExperimentRun,
-} from "./types.js";
+import type { DomainResearchSummary, ExperimentRun, StrategyPromotion, TransferRecord } from "./types.js";
 
 // ─── Domain Similarity ────────────────────────────────────────────────────
 

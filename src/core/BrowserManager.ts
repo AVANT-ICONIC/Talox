@@ -143,7 +143,9 @@ export class BrowserManager {
 			try {
 				// @ts-expect-error - internal close
 				ctx._browser?.close().catch(() => {});
-			} catch { /* NOSONAR */ }
+			} catch {
+				/* NOSONAR */
+			}
 		}
 		this.stopXvfb();
 	}
@@ -279,7 +281,9 @@ export class BrowserManager {
 						const browser = await launcher.launch(testOptions);
 						await browser.close();
 						return { path: searchPath, version: undefined };
-					} catch { /* NOSONAR */ }
+					} catch {
+						/* NOSONAR */
+					}
 				}
 			}
 
@@ -389,14 +393,14 @@ export class BrowserManager {
 			String(options.browserType),
 			options.proxy ? JSON.stringify(options.proxy) : "",
 			options.userDataDir ?? "",
-		(options.args ?? []).sort((a, b) => a.localeCompare(b)).join(","),
-		options.extensions?.sort((a, b) => a.localeCompare(b)).join(",") ?? "",
+			(options.args ?? []).sort((a, b) => a.localeCompare(b)).join(","),
+			options.extensions?.sort((a, b) => a.localeCompare(b)).join(",") ?? "",
 		];
 		return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
 	}
 
 	private resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> | BrowserType {
-		let actual = browserType || this.config.browser.preferred;
+		const actual = browserType || this.config.browser.preferred;
 		if (process.platform !== "darwin" && this.config.browser.autoDetect) {
 			return this.autoDetectBrowser();
 		}
@@ -439,7 +443,9 @@ export class BrowserManager {
 			try {
 				fs.accessSync(candidate, fs.constants.X_OK);
 				return candidate;
-			} catch { /* NOSONAR — not found, try next */ }
+			} catch {
+				/* NOSONAR — not found, try next */
+			}
 		}
 		return null;
 	}
@@ -476,23 +482,13 @@ export class BrowserManager {
 
 		const xvfbPath = BrowserManager.findXvfb();
 		if (!xvfbPath) {
-			throw new Error(
-				"Xvfb not found. Install it with: sudo apt install xvfb",
-			);
+			throw new Error("Xvfb not found. Install it with: sudo apt install xvfb");
 		}
 
 		const displayNum = BrowserManager.findFreeDisplay();
 		this.xvfbDisplay = `:${displayNum}`;
 
-		this.xvfbProcess = spawn(xvfbPath, [
-			this.xvfbDisplay,
-			"-screen",
-			"0",
-			"1280x720x24",
-			"-ac",
-			"-nolisten",
-			"tcp",
-		], {
+		this.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
 			stdio: "ignore",
 			detached: false,
 		});
@@ -533,7 +529,9 @@ export class BrowserManager {
 		if (this.xvfbProcess) {
 			try {
 				this.xvfbProcess.kill("SIGTERM");
-			} catch { /* NOSONAR — process may have already exited */ }
+			} catch {
+				/* NOSONAR — process may have already exited */
+			}
 			this.xvfbProcess = null;
 		}
 

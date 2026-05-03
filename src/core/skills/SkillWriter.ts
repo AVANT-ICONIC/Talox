@@ -7,7 +7,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { DynamicSkill } from "../loop/types.js";
-import { SkillLoader } from "./SkillLoader.js";
+import type { SkillLoader } from "./SkillLoader.js";
 
 // ─── SkillWriter ────────────────────────────────────────────────────────────
 

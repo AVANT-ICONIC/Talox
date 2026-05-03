@@ -383,7 +383,8 @@ function formatPageState(state: Partial<TaloxPageState>): string {
 function stringifyResult(result: unknown): string {
 	try {
 		return JSON.stringify(result).slice(0, 500);
-	} catch { /* NOSONAR */
+	} catch {
+		/* NOSONAR */
 		return String(result);
 	}
 }

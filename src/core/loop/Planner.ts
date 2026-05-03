@@ -88,18 +88,22 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 				description: typeof parsed.description === "string" ? parsed.description : input.blockerDescription,
 				domain: "auto-generated",
 				version: typeof parsed.version === "string" ? parsed.version : "1.0",
-				content: typeof parsed.content === "string" ? parsed.content : `# ${input.blockerType}\n\n${input.suggestedApproach}`,
-				triggerCondition: typeof parsed.triggerCondition === "string" ? parsed.triggerCondition : `blocker type == "${input.blockerType}"`,
+				content:
+					typeof parsed.content === "string" ? parsed.content : `# ${input.blockerType}\n\n${input.suggestedApproach}`,
+				triggerCondition:
+					typeof parsed.triggerCondition === "string"
+						? parsed.triggerCondition
+						: `blocker type == "${input.blockerType}"`,
 				toolUsage: Array.isArray(parsed.toolUsage) ? (parsed.toolUsage as string[]) : [],
 			};
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			return null;
 		}
 	}
 
 	private buildUserMessage(input: PlannerInput): string {
-		const { state, goal, recentIterations, skillsContext, challengeState, domainHints } =
-			input;
+		const { state, goal, recentIterations, skillsContext, challengeState, domainHints } = input;
 		const parts: string[] = [];
 
 		// Goal
@@ -156,9 +160,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 			const recentSlice = recentIterations.slice(-this.config.contextWindowIterations);
 			parts.push(`\n## Recent Iterations (${recentSlice.length})`);
 			for (const iter of recentSlice) {
-				parts.push(
-					`Iteration ${iter.iteration}: status=${iter.result.status}, duration=${iter.result.durationMs}ms`,
-				);
+				parts.push(`Iteration ${iter.iteration}: status=${iter.result.status}, duration=${iter.result.durationMs}ms`);
 				parts.push(`  Observation: ${iter.observation}`);
 				if (iter.result.error) {
 					parts.push(`  Error: ${iter.result.error}`);
@@ -210,7 +212,8 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 				goalAchieved: typeof parsed.goalAchieved === "boolean" ? parsed.goalAchieved : false,
 			};
 			const blocker = parsed.blocker;
-			if (blocker != null && typeof blocker === "object" && !Array.isArray(blocker)) { // NOSONAR: intentional null check
+			if (blocker != null && typeof blocker === "object" && !Array.isArray(blocker)) {
+				// NOSONAR: intentional null check
 				result.blocker = blocker as NonNullable<TaskPlan["blocker"]>;
 			}
 			return result;

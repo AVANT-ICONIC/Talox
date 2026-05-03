@@ -8,16 +8,16 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
-	JournalEntry,
-	ExperimentRun,
-	SkillEvaluation,
-	StrategyPromotion,
-	Hypothesis,
 	ComposedStrategy,
-	TransferRecord,
 	DomainResearchSummary,
+	ExperimentRun,
+	Hypothesis,
+	JournalEntry,
 	ResearchJournalSnapshot,
 	RunMetrics,
+	SkillEvaluation,
+	StrategyPromotion,
+	TransferRecord,
 } from "./types.js";
 
 // ─── ResearchJournal ─────────────────────────────────────────────────────────
@@ -221,11 +221,9 @@ export class ResearchJournal {
 
 		const totalSuccesses = metrics.goalAchieved ? 1 : 0;
 		summary.totalRuns++;
-		summary.successRate =
-			(summary.successRate * (summary.totalRuns - 1) + totalSuccesses) / summary.totalRuns;
+		summary.successRate = (summary.successRate * (summary.totalRuns - 1) + totalSuccesses) / summary.totalRuns;
 		summary.avgIterationsToGoal =
-			(summary.avgIterationsToGoal * (summary.totalRuns - 1) + metrics.iterationsToGoal) /
-			summary.totalRuns;
+			(summary.avgIterationsToGoal * (summary.totalRuns - 1) + metrics.iterationsToGoal) / summary.totalRuns;
 	}
 
 	private nextId(): string {

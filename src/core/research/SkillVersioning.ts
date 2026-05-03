@@ -7,9 +7,9 @@
  * always identify which version performed best.
  */
 
-import { readFile, writeFile, mkdir, readdir, unlink } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { SkillVersion, RunMetrics } from "./types.js";
+import type { RunMetrics, SkillVersion } from "./types.js";
 
 // ─── SkillVersioning ──────────────────────────────────────────────────────
 

@@ -694,7 +694,9 @@ export class SessionManager {
 			// Patchright handles this at the driver level, but belt-and-suspenders.
 			try {
 				delete (Navigator.prototype as any).webdriver;
-			} catch (_e) { /* NOSONAR — some contexts lock this */ }
+			} catch (_e) {
+				/* NOSONAR — some contexts lock this */
+			}
 			// If delete failed (non-configurable), override via prototype chain
 			if ("webdriver" in navigator) {
 				try {
@@ -702,7 +704,9 @@ export class SessionManager {
 						get: () => undefined,
 						configurable: true,
 					});
-				} catch (_e) { /* Ignored: non-fatal browser API error */ }
+				} catch (_e) {
+					/* Ignored: non-fatal browser API error */
+				}
 			}
 
 			// 2. Chrome Runtime Spoofing
@@ -732,11 +736,41 @@ export class SessionManager {
 			// 3. Plugin Spoofing — use real PluginArray interface via Object.create
 			// to pass `instanceof PluginArray` checks
 			const fakePluginData = [
-				{ name: "PDF Viewer", filename: "internal-pdf-viewer", description: "Portable Document Format", length: 1, 0: { type: "application/pdf", suffixes: "pdf", description: "Portable Document Format" } },
-				{ name: "Chrome PDF Viewer", filename: "internal-pdf-viewer", description: "Google Chrome PDF Viewer", length: 1, 0: { type: "application/pdf", suffixes: "pdf", description: "Google Chrome PDF Viewer" } },
-				{ name: "Chromium PDF Viewer", filename: "internal-pdf-viewer", description: "Chromium PDF Viewer", length: 1, 0: { type: "application/pdf", suffixes: "pdf", description: "Chromium PDF Viewer" } },
-				{ name: "Microsoft Edge PDF Viewer", filename: "internal-pdf-viewer", description: "Microsoft Edge PDF Viewer", length: 1, 0: { type: "application/pdf", suffixes: "pdf", description: "Microsoft Edge PDF Viewer" } },
-				{ name: "WebKit built-in PDF", filename: "internal-pdf-viewer", description: "WebKit built-in PDF Viewer", length: 1, 0: { type: "application/pdf", suffixes: "pdf", description: "WebKit built-in PDF Viewer" } },
+				{
+					name: "PDF Viewer",
+					filename: "internal-pdf-viewer",
+					description: "Portable Document Format",
+					length: 1,
+					0: { type: "application/pdf", suffixes: "pdf", description: "Portable Document Format" },
+				},
+				{
+					name: "Chrome PDF Viewer",
+					filename: "internal-pdf-viewer",
+					description: "Google Chrome PDF Viewer",
+					length: 1,
+					0: { type: "application/pdf", suffixes: "pdf", description: "Google Chrome PDF Viewer" },
+				},
+				{
+					name: "Chromium PDF Viewer",
+					filename: "internal-pdf-viewer",
+					description: "Chromium PDF Viewer",
+					length: 1,
+					0: { type: "application/pdf", suffixes: "pdf", description: "Chromium PDF Viewer" },
+				},
+				{
+					name: "Microsoft Edge PDF Viewer",
+					filename: "internal-pdf-viewer",
+					description: "Microsoft Edge PDF Viewer",
+					length: 1,
+					0: { type: "application/pdf", suffixes: "pdf", description: "Microsoft Edge PDF Viewer" },
+				},
+				{
+					name: "WebKit built-in PDF",
+					filename: "internal-pdf-viewer",
+					description: "WebKit built-in PDF Viewer",
+					length: 1,
+					0: { type: "application/pdf", suffixes: "pdf", description: "WebKit built-in PDF Viewer" },
+				},
 			];
 
 			// Create a proper PluginArray-like object that passes type checks
@@ -762,17 +796,19 @@ export class SessionManager {
 						configurable: true,
 					});
 				} else {
-			// Fallback: plain array with PluginArray-like methods
-				const arr: any = fakePluginData;
-				arr.item = (i: number) => arr[i];
-				arr.namedItem = (name: string) => arr.find((p: any) => p.name === name);
-				arr.refresh = () => {};
+					// Fallback: plain array with PluginArray-like methods
+					const arr: any = fakePluginData;
+					arr.item = (i: number) => arr[i];
+					arr.namedItem = (name: string) => arr.find((p: any) => p.name === name);
+					arr.refresh = () => {};
 					Object.defineProperty(navigator, "plugins", {
 						get: () => arr,
 						configurable: true,
 					});
 				}
-			} catch (_e) { /* Ignored: non-fatal browser API error */ }
+			} catch (_e) {
+				/* Ignored: non-fatal browser API error */
+			}
 
 			// 4. Language Spoofing (from fingerprint profile)
 			Object.defineProperty(navigator, "languages", {
@@ -957,7 +993,9 @@ export class SessionManager {
 				if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
 				const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
 				if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
-			} catch (_e) { /* Ignored: non-fatal browser API error */ }
+			} catch (_e) {
+				/* Ignored: non-fatal browser API error */
+			}
 
 			// 16. iframe contentWindow detection — prevent cross-origin iframe checks
 			// Some detectors create an iframe and check contentWindow.chrome vs window.chrome
@@ -971,7 +1009,9 @@ export class SessionManager {
 							Object.defineProperty(el, "contentWindow", {
 								get: () => null,
 							});
-						} catch (_e) { /* NOSONAR — some browsers don't allow this */ }
+						} catch (_e) {
+							/* NOSONAR — some browsers don't allow this */
+						}
 					}
 					return el;
 				};
@@ -987,7 +1027,9 @@ export class SessionManager {
 					Object.defineProperty(navConn, "downlink", { get: () => 10 });
 					Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
 					Object.defineProperty(navConn, "saveData", { get: () => false });
-				} catch (_e) { /* Ignored: non-fatal browser API error */ }
+				} catch (_e) {
+					/* Ignored: non-fatal browser API error */
+				}
 			}
 
 			// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
@@ -995,7 +1037,9 @@ export class SessionManager {
 				try {
 					Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
 					Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
-				} catch (_e) { /* Ignored: non-fatal browser API error */ }
+				} catch (_e) {
+					/* Ignored: non-fatal browser API error */
+				}
 			}
 
 			// 19. CDP (Chrome DevTools Protocol) leak protection
@@ -1006,7 +1050,9 @@ export class SessionManager {
 					delete (window as any).__playwright;
 					delete (window as any).__pw_manual;
 					delete (window as any).__PW_inspect;
-				} catch (_e) { /* Ignored: non-fatal browser API error */ }
+				} catch (_e) {
+					/* Ignored: non-fatal browser API error */
+				}
 			}
 		}, stealthData);
 	}

@@ -6,8 +6,8 @@
  */
 
 import type { Planner } from "../loop/Planner.js";
-import type { Hypothesis, RunMetrics, ExperimentRun } from "./types.js";
 import type { ResearchJournal } from "./ResearchJournal.js";
+import type { ExperimentRun, Hypothesis, RunMetrics } from "./types.js";
 
 // ─── Strategies ───────────────────────────────────────────────────────────
 
@@ -69,12 +69,7 @@ export class HypothesisGenerator {
 	constructor(journal: ResearchJournal, planner?: Planner) {
 		this.journal = journal;
 		this.planner = planner ?? null;
-		this.variantStrategies = [
-			NUMERIC_PERTURBATION,
-			BOOLEAN_FLIP,
-			CONSERVATIVE_SHIFT,
-			AGGRESSIVE_SHIFT,
-		];
+		this.variantStrategies = [NUMERIC_PERTURBATION, BOOLEAN_FLIP, CONSERVATIVE_SHIFT, AGGRESSIVE_SHIFT];
 	}
 
 	/**
@@ -147,7 +142,10 @@ export class HypothesisGenerator {
 
 		try {
 			const recentSummary = recentRuns
-				.map((r) => `Run: goalAchieved=${r.metrics.goalAchieved}, iterations=${r.metrics.iterationsToGoal}, blockers=${r.metrics.blockerCount}`)
+				.map(
+					(r) =>
+						`Run: goalAchieved=${r.metrics.goalAchieved}, iterations=${r.metrics.iterationsToGoal}, blockers=${r.metrics.blockerCount}`,
+				)
 				.join("; ");
 
 			const input = {

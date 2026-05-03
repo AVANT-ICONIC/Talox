@@ -9,12 +9,7 @@
  */
 
 import type { ResearchJournal } from "./ResearchJournal.js";
-import type {
-	ComposedStrategy,
-	StrategyPromotion,
-	ExperimentRun,
-	RunMetrics,
-} from "./types.js";
+import type { ComposedStrategy, ExperimentRun, RunMetrics, StrategyPromotion } from "./types.js";
 
 // ─── StrategyComposer ─────────────────────────────────────────────────────
 
@@ -33,9 +28,7 @@ export class StrategyComposer {
 	 * Looks for strategies that succeeded on overlapping domains.
 	 */
 	discoverCandidates(): ComposedStrategy[] {
-		const promotions = this.journal
-			.getEntries("strategy_promoted")
-			.map((e) => e.data as StrategyPromotion);
+		const promotions = this.journal.getEntries("strategy_promoted").map((e) => e.data as StrategyPromotion);
 
 		const candidates: ComposedStrategy[] = [];
 
@@ -82,9 +75,7 @@ export class StrategyComposer {
 				const domainB = byDomain.get(domains[j]!)!;
 				// Cross-domain sequential
 				if (domainA.length > 0 && domainB.length > 0) {
-					candidates.push(
-						this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!),
-					);
+					candidates.push(this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!));
 				}
 			}
 		}
@@ -111,9 +102,7 @@ export class StrategyComposer {
 	 * Get the best composed strategy for a domain based on fitness scores.
 	 */
 	getBestForDomain(domain: string): ComposedStrategy | null {
-		const relevant = this.composedStrategies.filter(
-			(c) => c.fitnessScore > this.confidenceThreshold,
-		);
+		const relevant = this.composedStrategies.filter((c) => c.fitnessScore > this.confidenceThreshold);
 		if (relevant.length === 0) return null;
 		relevant.sort((a, b) => b.fitnessScore - a.fitnessScore);
 		return relevant[0]!;
@@ -121,11 +110,7 @@ export class StrategyComposer {
 
 	// ─── Factory Methods ───────────────────────────────────────────────────
 
-	private createSequential(
-		a: StrategyPromotion,
-		b: StrategyPromotion,
-		domain: string,
-	): ComposedStrategy {
+	private createSequential(a: StrategyPromotion, b: StrategyPromotion, domain: string): ComposedStrategy {
 		return {
 			id: `comp_seq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
 			name: `${a.strategyName} → ${b.strategyName}`,
@@ -136,11 +121,7 @@ export class StrategyComposer {
 		};
 	}
 
-	private createParallel(
-		a: StrategyPromotion,
-		b: StrategyPromotion,
-		domain: string,
-	): ComposedStrategy {
+	private createParallel(a: StrategyPromotion, b: StrategyPromotion, domain: string): ComposedStrategy {
 		return {
 			id: `comp_par_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
 			name: `${a.strategyName} + ${b.strategyName}`,
@@ -151,11 +132,7 @@ export class StrategyComposer {
 		};
 	}
 
-	private createConditional(
-		a: StrategyPromotion,
-		b: StrategyPromotion,
-		domain: string,
-	): ComposedStrategy {
+	private createConditional(a: StrategyPromotion, b: StrategyPromotion, domain: string): ComposedStrategy {
 		return {
 			id: `comp_cond_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
 			name: `${a.strategyName} | fallback → ${b.strategyName}`,

@@ -9,10 +9,10 @@
 
 import type { ResearchJournal } from "./ResearchJournal.js";
 import type {
-	ResearchReport,
-	ResearchFinding,
 	DomainResearchSummary,
 	ExperimentRun,
+	ResearchFinding,
+	ResearchReport,
 	SkillEvaluation,
 	StrategyPromotion,
 } from "./types.js";
@@ -29,10 +29,7 @@ export class ResearchReporter {
 	/**
 	 * Generate a research report for a time period.
 	 */
-	generateReport(
-		period: { from: string; to: string },
-		title?: string,
-	): ResearchReport {
+	generateReport(period: { from: string; to: string }, title?: string): ResearchReport {
 		const experiments = this.journal
 			.getEntries("experiment_run")
 			.map((e) => e.data as ExperimentRun)
@@ -216,8 +213,7 @@ export class ResearchReporter {
 			const s = summaries[exp.domain]!;
 			s.totalRuns++;
 			s.successRate = (s.successRate * (s.totalRuns - 1) + (exp.metrics.goalAchieved ? 1 : 0)) / s.totalRuns;
-			s.avgIterationsToGoal =
-				(s.avgIterationsToGoal * (s.totalRuns - 1) + exp.metrics.iterationsToGoal) / s.totalRuns;
+			s.avgIterationsToGoal = (s.avgIterationsToGoal * (s.totalRuns - 1) + exp.metrics.iterationsToGoal) / s.totalRuns;
 		}
 		return summaries;
 	}

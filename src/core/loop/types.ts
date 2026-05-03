@@ -89,13 +89,7 @@ export interface LoopState {
 	stopReason?: LoopStopReason;
 }
 
-export type LoopStatus =
-	| "running"
-	| "paused"
-	| "completed"
-	| "failed"
-	| "human-takeover"
-	| "budget-exhausted";
+export type LoopStatus = "running" | "paused" | "completed" | "failed" | "human-takeover" | "budget-exhausted";
 
 export type LoopStopReason =
 	| "goal-achieved"

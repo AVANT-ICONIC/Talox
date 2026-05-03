@@ -8,11 +8,7 @@
  */
 
 import type { ResearchJournal } from "./ResearchJournal.js";
-import type {
-	RunMetrics,
-	SkillEvaluation,
-	ExperimentRun,
-} from "./types.js";
+import type { ExperimentRun, RunMetrics, SkillEvaluation } from "./types.js";
 
 // ─── SkillEvaluator ───────────────────────────────────────────────────────
 
@@ -47,10 +43,7 @@ export class SkillEvaluator {
 
 		// Weighted improvement score (iterations matter most)
 		const improvement =
-			iterationImprovement * 0.35 +
-			durationImprovement * 0.25 +
-			costImprovement * 0.15 +
-			successImprovement * 0.25;
+			iterationImprovement * 0.35 + durationImprovement * 0.25 + costImprovement * 0.15 + successImprovement * 0.25;
 
 		const verdict = this.classifyVerdict(improvement);
 

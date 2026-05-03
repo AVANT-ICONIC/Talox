@@ -1,6 +1,6 @@
 // src/core/research/types.ts
 
-import type { LoopResult, BlockerType } from "../loop/types.js";
+import type { BlockerType, LoopResult } from "../loop/types.js";
 
 // ── Experiment Model ──
 
@@ -73,7 +73,14 @@ export interface ExperimentComparison {
 
 export interface JournalEntry {
 	id: string;
-	type: "experiment_run" | "skill_created" | "skill_evaluated" | "hypothesis_generated" | "strategy_promoted" | "strategy_composed" | "cross_domain_transfer";
+	type:
+		| "experiment_run"
+		| "skill_created"
+		| "skill_evaluated"
+		| "hypothesis_generated"
+		| "strategy_promoted"
+		| "strategy_composed"
+		| "cross_domain_transfer";
 	timestamp: string;
 	data: ExperimentRun | SkillEvaluation | StrategyPromotion | Hypothesis | ComposedStrategy | TransferRecord;
 }
@@ -242,7 +249,7 @@ export interface ResearchFinding {
 export interface ExperimentArm {
 	name: string;
 	alpha: number; // Thompson sampling: successes + 1
-	beta: number;  // Thompson sampling: failures + 1
+	beta: number; // Thompson sampling: failures + 1
 	sampleCount: number;
 	estimatedValue: number;
 }

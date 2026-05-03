@@ -8,15 +8,9 @@
  */
 
 import type { AutonomousLoop } from "../loop/AutonomousLoop.js";
-import type { LoopResult, TaskGoal, BlockerType } from "../loop/types.js";
-import type {
-	Hypothesis,
-	ExperimentRun,
-	ExperimentComparison,
-	RunMetrics,
-	AutoResearchConfig,
-} from "./types.js";
+import type { BlockerType, LoopResult, TaskGoal } from "../loop/types.js";
 import type { ResearchJournal } from "./ResearchJournal.js";
+import type { AutoResearchConfig, ExperimentComparison, ExperimentRun, Hypothesis, RunMetrics } from "./types.js";
 
 // ─── ExperimentRunner ─────────────────────────────────────────────────────
 

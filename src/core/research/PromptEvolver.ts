@@ -8,7 +8,7 @@
  * selected based on fitness (task completion metrics).
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ResearchJournal } from "./ResearchJournal.js";
 import type { PromptVariant, RunMetrics } from "./types.js";
@@ -28,12 +28,7 @@ const PROMPT_SEGMENTS = [
 	"Track your progress — don't repeat actions you've already completed.",
 ] as const;
 
-const MUTATION_OPERATIONS = [
-	"swap_segment",
-	"insert_segment",
-	"remove_segment",
-	"reorder_segments",
-] as const;
+const MUTATION_OPERATIONS = ["swap_segment", "insert_segment", "remove_segment", "reorder_segments"] as const;
 
 // ─── PromptEvolver ────────────────────────────────────────────────────────
 

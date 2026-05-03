@@ -22,8 +22,8 @@ import type {
 	LoopIteration,
 	LoopResult,
 	LoopState,
-	LoopStopReason,
 	LoopStatus,
+	LoopStopReason,
 	PlanStep,
 	StepResult,
 } from "./types.js";
@@ -47,14 +47,10 @@ export class AutonomousLoop {
 		this.planner = options.plannerOverride ?? new LLMPlanner(options.planner);
 
 		// Create SkillLoader — use skillsDir if provided, otherwise default paths
-		this.skillLoader = new SkillLoader(
-			options.skillsDir ? [options.skillsDir] : undefined,
-		);
+		this.skillLoader = new SkillLoader(options.skillsDir ? [options.skillsDir] : undefined);
 
 		// Create SkillWriter only if skillsDir is provided
-		this.skillWriter = options.skillsDir
-			? new SkillWriter(options.skillsDir, this.skillLoader)
-			: null;
+		this.skillWriter = options.skillsDir ? new SkillWriter(options.skillsDir, this.skillLoader) : null;
 
 		// Subscribe to controller events
 		this.controller.on("stateChanged", this.handleStateChanged);
@@ -162,7 +158,7 @@ export class AutonomousLoop {
 		// 1. OBSERVE — get compact agent state
 		let pageState: AgentPageState;
 		try {
-			pageState = await this.controller.getState("agent") as AgentPageState;
+			pageState = (await this.controller.getState("agent")) as AgentPageState;
 		} catch (error: unknown) {
 			// if we can't get state, return a failed iteration
 			const msg = error instanceof Error ? error.message : String(error);
@@ -179,7 +175,8 @@ export class AutonomousLoop {
 		let challengeState: ChallengeState | undefined;
 		try {
 			challengeState = await this.controller.getChallengeState();
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			// Continue without challenge state
 		}
 
@@ -188,7 +185,8 @@ export class AutonomousLoop {
 		try {
 			const hostname = this.extractHostname(pageState.url);
 			skillsContext = this.skillLoader.toContextForDomain(hostname);
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			// Continue without skills context
 		}
 
@@ -279,7 +277,7 @@ export class AutonomousLoop {
 					return { status: "success", durationMs: Date.now() - stepStart };
 				}
 				case "getState": {
-					const state = await this.controller.getState("agent") as AgentPageState;
+					const state = (await this.controller.getState("agent")) as AgentPageState;
 					return { status: "success", state, durationMs: Date.now() - stepStart };
 				}
 				case "waitForSelector": {
@@ -353,24 +351,14 @@ export class AutonomousLoop {
 		const statuses = last3.map((it) => it.result.status);
 		if (statuses.every((s) => s === "failed") || statuses.every((s) => s === "blocked")) {
 			// Check 2: All 3 have the same blocker type
-			const blockerTypes = last3
-				.map((it) => it.plan.blocker?.type)
-				.filter(Boolean);
-			if (
-				blockerTypes.length >= 2 &&
-				blockerTypes.every((t) => t === blockerTypes[0])
-			) {
+			const blockerTypes = last3.map((it) => it.plan.blocker?.type).filter(Boolean);
+			if (blockerTypes.length >= 2 && blockerTypes.every((t) => t === blockerTypes[0])) {
 				return true;
 			}
 
 			// Check 3: All 3 have the same error message (trimmed to first 80 chars)
-			const errors = last3
-				.map((it) => it.result.error?.slice(0, 80))
-				.filter(Boolean);
-			if (
-				errors.length >= 2 &&
-				errors.every((e) => e === errors[0])
-			) {
+			const errors = last3.map((it) => it.result.error?.slice(0, 80)).filter(Boolean);
+			if (errors.length >= 2 && errors.every((e) => e === errors[0])) {
 				return true;
 			}
 		}
@@ -423,9 +411,7 @@ export class AutonomousLoop {
 	 * The LLM receives the blocker context + recent history and produces
 	 * a structured SKILL.md that teaches the agent how to handle this pattern.
 	 */
-	private async generateSkillFromBlocker(
-		blocker: BlockerClassification,
-	): Promise<boolean> {
+	private async generateSkillFromBlocker(blocker: BlockerClassification): Promise<boolean> {
 		if (!this.skillWriter || !this.state) return false;
 
 		try {
@@ -449,10 +435,11 @@ export class AutonomousLoop {
 			if (!skill) return false;
 
 			// Determine domain from the last known URL
-			const lastUrl = this.state.iterations
-				.map((it) => it.result.state?.url)
-				.filter(Boolean)
-				.pop() ?? "unknown";
+			const lastUrl =
+				this.state.iterations
+					.map((it) => it.result.state?.url)
+					.filter(Boolean)
+					.pop() ?? "unknown";
 			const domain = this.extractHostname(lastUrl);
 
 			// Write and validate the skill
@@ -467,7 +454,8 @@ export class AutonomousLoop {
 			}
 
 			return valid;
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			return false;
 		}
 	}
@@ -540,24 +528,22 @@ export class AutonomousLoop {
 				`Known strategies: ${strategies.map((s: any) => `${s.strategy}(${(s.ewmaSuccessRate * 100).toFixed(0)}%)`).join(", ")}`, // NOSONAR
 			];
 			return lines.join("\n");
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			return "";
 		}
 	}
 
-	private async handleBlocker(
-		blocker: NonNullable<import("./types.js").TaskPlan["blocker"]>,
-	): Promise<void> {
+	private async handleBlocker(blocker: NonNullable<import("./types.js").TaskPlan["blocker"]>): Promise<void> {
 		if (!this.state) return;
 
 		// Try skill creation if we have a SkillWriter
 		if (this.skillWriter && blocker.suggestedApproach) {
 			try {
-				const hostname = this.state.iterations.length > 0
-					? this.extractHostname(
-							this.state.iterations[this.state.iterations.length - 1]?.plan?.assessment ?? "",
-						)
-					: "unknown";
+				const hostname =
+					this.state.iterations.length > 0
+						? this.extractHostname(this.state.iterations[this.state.iterations.length - 1]?.plan?.assessment ?? "")
+						: "unknown";
 
 				await this.skillWriter.createSkill({
 					name: `blocker-${blocker.type}-${Date.now()}`,
@@ -570,17 +556,15 @@ export class AutonomousLoop {
 				});
 
 				this.state.createdSkills.push(`blocker-${blocker.type}`);
-			} catch { // Ignored: non-fatal error
+			} catch {
+				// Ignored: non-fatal error
 				// Skill creation failed, continue to escalation
 			}
 		}
 
 		// Check if human escalation is possible
 		if (this.options.onHumanEscalation) {
-			const resolution = await this.options.onHumanEscalation(
-				blocker.description,
-				this.state,
-			);
+			const resolution = await this.options.onHumanEscalation(blocker.description, this.state);
 			if (resolution) {
 				// Human provided a resolution, continue running
 				return;
@@ -625,7 +609,8 @@ export class AutonomousLoop {
 	private extractHostname(url: string): string {
 		try {
 			return new URL(url).hostname;
-		} catch { // Ignored: non-fatal error
+		} catch {
+			// Ignored: non-fatal error
 			return "unknown";
 		}
 	}

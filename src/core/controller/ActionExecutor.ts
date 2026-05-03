@@ -130,7 +130,13 @@ export class ActionExecutor {
 		setFirstNavigation(false);
 
 		// Site warmup: bypass bot-detection interstitials (Cloudflare, CAPTCHA pre-screens, etc.)
-		const hostname = (() => { try { return new URL(url).hostname; } catch { return ""; } })();
+		const hostname = (() => {
+			try {
+				return new URL(url).hostname;
+			} catch {
+				return "";
+			}
+		})();
 		if (hostname && this.warmupRegistry) {
 			await this.warmupRegistry.runIfNeeded(page, url, hostname);
 		}
@@ -339,7 +345,8 @@ export class ActionExecutor {
 
 		try {
 			return await this.getActiveStateCollector().collect();
-		} catch (error_) { /* NOSONAR */
+		} catch (error_) {
+			/* NOSONAR */
 			// intentionally ignored: collection failure returns minimal state
 			return {
 				url: page.url(),
@@ -978,7 +985,8 @@ export class ActionExecutor {
 			const finalDensity = density * sensitivity;
 			this.densityCache.set(cacheKey, finalDensity);
 			return finalDensity;
-		} catch (error_) { /* NOSONAR */
+		} catch (error_) {
+			/* NOSONAR */
 			// Density computation failed — return default density
 			return 0.5;
 		}

@@ -6,44 +6,42 @@
  * autonomously test, measure, and rewrite browser interaction strategies.
  */
 
-// ─── Types ────────────────────────────────────────────────────────────────
-export type {
-	ExperimentId,
-	Hypothesis,
-	ExperimentRun,
-	RunMetrics,
-	ExperimentComparison,
-	JournalEntry,
-	SkillEvaluation,
-	StrategyPromotion,
-	AutoResearchConfig,
-	ResearchResult,
-	ResearchJournalSnapshot,
-	DomainResearchSummary,
-	TransferRecord,
-	PromptVariant,
-	SkillVersion,
-	RegressionTestCase,
-	RegressionResult,
-	ResearchReport,
-	ResearchFinding,
-	ExperimentArm,
-	ComposedStrategy,
-	ResearchEventMap,
-} from "./types.js";
-
-// ─── Core Subsystems ──────────────────────────────────────────────────────
-export { ResearchJournal } from "./ResearchJournal.js";
-export { HypothesisGenerator } from "./HypothesisGenerator.js";
-export { SkillEvaluator } from "./SkillEvaluator.js";
-export { ExperimentRunner } from "./ExperimentRunner.js";
+export { AdaptiveExperimentPriority } from "./AdaptiveExperimentPriority.js";
 export { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "./AutoResearchLoop.js";
-
 // ─── Extended Subsystems ──────────────────────────────────────────────────
 export { CrossDomainTransfer } from "./CrossDomainTransfer.js";
+export { ExperimentRunner } from "./ExperimentRunner.js";
+export { HypothesisGenerator } from "./HypothesisGenerator.js";
 export { PromptEvolver } from "./PromptEvolver.js";
-export { SkillVersioning } from "./SkillVersioning.js";
 export { RegressionHarness } from "./RegressionHarness.js";
+// ─── Core Subsystems ──────────────────────────────────────────────────────
+export { ResearchJournal } from "./ResearchJournal.js";
 export { ResearchReporter } from "./ResearchReporter.js";
-export { AdaptiveExperimentPriority } from "./AdaptiveExperimentPriority.js";
+export { SkillEvaluator } from "./SkillEvaluator.js";
+export { SkillVersioning } from "./SkillVersioning.js";
 export { StrategyComposer } from "./StrategyComposer.js";
+// ─── Types ────────────────────────────────────────────────────────────────
+export type {
+	AutoResearchConfig,
+	ComposedStrategy,
+	DomainResearchSummary,
+	ExperimentArm,
+	ExperimentComparison,
+	ExperimentId,
+	ExperimentRun,
+	Hypothesis,
+	JournalEntry,
+	PromptVariant,
+	RegressionResult,
+	RegressionTestCase,
+	ResearchEventMap,
+	ResearchFinding,
+	ResearchJournalSnapshot,
+	ResearchReport,
+	ResearchResult,
+	RunMetrics,
+	SkillEvaluation,
+	SkillVersion,
+	StrategyPromotion,
+	TransferRecord,
+} from "./types.js";

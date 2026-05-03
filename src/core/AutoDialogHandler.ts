@@ -122,10 +122,10 @@ export class AutoDialogHandler {
 
 			case "beforeunload":
 			// fallthrough — same as default: dismiss unknown/unload dialogs
-		default:
-			action = "dismissed";
-			await dialog.dismiss();
-			break;
+			default:
+				action = "dismissed";
+				await dialog.dismiss();
+				break;
 		}
 
 		this.handledCount++;
