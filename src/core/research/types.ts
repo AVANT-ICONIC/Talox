@@ -1,6 +1,6 @@
 // src/core/research/types.ts
 
-import type { LoopResult, LoopStrategy, BlockerType } from "../loop/types.js";
+import type { LoopResult, BlockerType } from "../loop/types.js";
 
 // ── Experiment Model ──
 

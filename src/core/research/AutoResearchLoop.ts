@@ -25,27 +25,26 @@ import { join } from "node:path";
 
 import type { AutonomousLoop } from "../loop/AutonomousLoop.js";
 import type { Planner } from "../loop/Planner.js";
-import type { TaskGoal, LoopResult } from "../loop/types.js";
+import type { LoopResult, TaskGoal } from "../loop/types.js";
+import { AdaptiveExperimentPriority } from "./AdaptiveExperimentPriority.js";
+import { CrossDomainTransfer } from "./CrossDomainTransfer.js";
+import { ExperimentRunner } from "./ExperimentRunner.js";
+import { HypothesisGenerator } from "./HypothesisGenerator.js";
+import { PromptEvolver } from "./PromptEvolver.js";
+import { RegressionHarness } from "./RegressionHarness.js";
+import { ResearchJournal } from "./ResearchJournal.js";
+import { ResearchReporter } from "./ResearchReporter.js";
+import { SkillEvaluator } from "./SkillEvaluator.js";
+import { SkillVersioning } from "./SkillVersioning.js";
+import { StrategyComposer } from "./StrategyComposer.js";
 import type {
 	AutoResearchConfig,
-	ResearchResult,
-	Hypothesis,
 	ExperimentComparison,
-	StrategyPromotion,
 	ExperimentRun,
+	Hypothesis,
+	ResearchResult,
+	StrategyPromotion,
 } from "./types.js";
-
-import { ResearchJournal } from "./ResearchJournal.js";
-import { HypothesisGenerator } from "./HypothesisGenerator.js";
-import { SkillEvaluator } from "./SkillEvaluator.js";
-import { ExperimentRunner } from "./ExperimentRunner.js";
-import { CrossDomainTransfer } from "./CrossDomainTransfer.js";
-import { PromptEvolver } from "./PromptEvolver.js";
-import { SkillVersioning } from "./SkillVersioning.js";
-import { RegressionHarness } from "./RegressionHarness.js";
-import { ResearchReporter } from "./ResearchReporter.js";
-import { AdaptiveExperimentPriority } from "./AdaptiveExperimentPriority.js";
-import { StrategyComposer } from "./StrategyComposer.js";
 
 // ─── Default Config ───────────────────────────────────────────────────────
 
@@ -97,9 +96,7 @@ export class AutoResearchLoop {
 		this.config = { ...DEFAULT_RESEARCH_CONFIG, ...options.config };
 
 		this.journal = new ResearchJournal(
-			this.config.persistToDisk
-				? { persistPath: join(this.config.researchDir, "journal.jsonl") }
-				: {},
+			this.config.persistToDisk ? { persistPath: join(this.config.researchDir, "journal.jsonl") } : {},
 		);
 
 		this.hypothesisGenerator = new HypothesisGenerator(this.journal, this.planner ?? undefined);
@@ -116,10 +113,7 @@ export class AutoResearchLoop {
 		this.regressionHarness = new RegressionHarness(this.config);
 		this.reporter = new ResearchReporter(this.journal);
 		this.priority = new AdaptiveExperimentPriority(this.journal);
-		this.composer = new StrategyComposer(
-			this.journal,
-			this.config.compositionConfidenceThreshold,
-		);
+		this.composer = new StrategyComposer(this.journal, this.config.compositionConfidenceThreshold);
 	}
 
 	/**
@@ -182,12 +176,7 @@ export class AutoResearchLoop {
 		}
 
 		// 5. Run A/B experiment
-		const comparison = await this.experimentRunner.runExperiment(
-			hypotheses,
-			goal,
-			domain,
-			this.loopFactory,
-		);
+		const comparison = await this.experimentRunner.runExperiment(hypotheses, goal, domain, this.loopFactory);
 
 		// Collect experiment runs
 		const recentRuns = this.journal.getRecentRuns(domain, hypotheses.length + 5);
@@ -226,11 +215,21 @@ export class AutoResearchLoop {
 		// 9. Evaluate existing skills for this domain
 		const evaluations: import("./types.js").SkillEvaluation[] = [];
 		if (domainSummary && domainSummary.knownSkills.length > 0) {
+			const allDomainRuns = this.journal.getRecentRuns(domain, 50);
 			for (const skillName of domainSummary.knownSkills) {
 				const shouldKeep = this.skillEvaluator.shouldKeepSkill(skillName);
 				if (!shouldKeep) {
-					// Prune hurtful skill
 					await this.skillVersioning.rollbackToBest(skillName);
+				}
+				// Produce a before/after evaluation for each known skill
+				const skillRunIndex = allDomainRuns.findIndex((r) => r.result.createdSkills?.includes(skillName));
+				if (skillRunIndex >= 0) {
+					const beforeRuns = allDomainRuns.slice(0, skillRunIndex);
+					const afterRuns = allDomainRuns.slice(skillRunIndex);
+					if (beforeRuns.length > 0 && afterRuns.length > 0) {
+						const evaluation = this.skillEvaluator.evaluate(skillName, domain, beforeRuns, afterRuns);
+						evaluations.push(evaluation);
+					}
 				}
 			}
 		}
@@ -245,9 +244,7 @@ export class AutoResearchLoop {
 		await this.regressionHarness.save();
 
 		return {
-			loopResult: experiments.length > 0
-				? experiments[experiments.length - 1]!.result
-				: this.emptyLoopResult(),
+			loopResult: experiments.length > 0 ? experiments[experiments.length - 1]!.result : this.emptyLoopResult(),
 			experiments,
 			evaluations,
 			promotions,

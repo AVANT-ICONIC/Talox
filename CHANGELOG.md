@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.0.0] - 2026-05-03
+
+### Added
+
+- **Autonomous Research System** — full self-research loop (`AutoResearchLoop`) that autonomously tests strategies, measures outcomes, and promotes winners. 13 subsystems: `HypothesisGenerator`, `ExperimentRunner` (A/B testing), `SkillEvaluator`, `CrossDomainTransfer`, `PromptEvolver`, `SkillVersioning` (with rollback), `RegressionHarness`, `ResearchJournal`, `ResearchReporter`, `AdaptiveExperimentPriority` (Thompson sampling), `StrategyComposer`.
+- **`talox research` CLI command** — `talox research "<goal>" --domain <domain> [options]`. Supports `--depth`, `--iterations`, `--strategy` (conservative/balanced/aggressive), `--model`, `--api-key`, `--base-url`.
+- **`TaloxController.runResearch()`** — public API for programmatic research. Full feedback loop: promoted strategies → `SkillWriter`, outcomes → `DomainMemory.syncFromResearch()`.
+- **21 AutoResearchLoop tests** (up from 8) — full `run()` flow, cross-domain transfer, prompt evolution, promotion path, excluded domains, composition discovery, sequential runs, config overrides, factory tracking.
+- **Deterministic Thompson sampling** — seeded PRNG for flaky-free integration tests.
+
+### Fixed
+
+- `AutoResearchLoop.run()` — evaluations array was never populated (results were pushed to wrong local).
+- `AdaptiveExperimentPriority` — replaced `Math.pow` with `**` operator (Biome lint).
+- `TaloxController.runResearch()` — removed useless `this` alias (Biome lint).
+- `exactOptionalPropertyTypes` — spread pattern for optional config fields instead of `undefined` assignment.
+
 ## [6.3.0] - 2026-04-25
 
 ### Added

@@ -7,14 +7,15 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 import type { BrowserType } from "../core/BrowserManager.js";
 import { ChatSession } from "../core/chat/ChatSession.js";
 import { TaloxController } from "../core/controller/TaloxController.js";
 import { TaloxDaemon } from "../core/daemon/TaloxDaemon.js";
-import type { ProfileClass } from "../types/index.js";
 import { AutonomousLoop } from "../core/loop/AutonomousLoop.js";
 import { SkillLoader } from "../core/skills/SkillLoader.js";
 import { SkillWriter } from "../core/skills/SkillWriter.js";
+import type { ProfileClass } from "../types/index.js";
 import { formatDoctorOutput, runDoctor } from "./doctor.js";
 
 const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
@@ -64,6 +65,23 @@ interface RunCommandOptions {
 	skillsDir: string | undefined;
 }
 
+interface ResearchCommandOptions {
+	goal: string;
+	domain: string;
+	url: string | undefined;
+	model: string;
+	apiKey: string | undefined;
+	baseUrl: string | undefined;
+	maxIterations: number;
+	strategy: "conservative" | "balanced" | "aggressive";
+	skillsDir: string | undefined;
+	runsPerVariant: number;
+	promotionThreshold: number;
+	researchDir: string;
+	enableCrossDomain: boolean;
+	enablePromptEvolution: boolean;
+}
+
 interface SkillCreateOptions {
 	domain: string;
 	name: string;
@@ -89,6 +107,7 @@ Usage:
   talox doctor [--fix]
   talox daemon [options]
   talox run "<goal>" [options]
+  talox research "<goal>" --domain <domain> [options]
   talox skill create [options]
 
 Options:
@@ -116,6 +135,21 @@ Run Options:
   --strategy          Loop strategy: conservative | balanced | aggressive (default: balanced)
   --skills-dir        Directory containing domain skills
 
+Research Options:
+  --domain, -d        Target domain for experiments (required)
+  --url               Starting URL for the research goal
+  --model             OpenAI model ID (default: gpt-4o)
+  --api-key           OpenAI API key (or OPENAI_API_KEY env)
+  --base-url          OpenAI-compatible API base URL
+  --max-iterations    Maximum loop iterations per run (default: 10)
+  --strategy          Loop strategy: conservative | balanced | aggressive (default: balanced)
+  --skills-dir        Directory for promoted strategy skills
+  --runs-per-variant  Experiment runs per variant (default: 3)
+  --promotion-threshold  Min improvement ratio to promote (default: 1.15)
+  --research-dir      Directory for research journal (default: .talox/research)
+  --enable-cross-domain  Enable cross-domain transfer learning
+  --enable-prompt-evolution  Enable prompt self-evolution
+
 Skill Create Options:
   --domain            Target domain for the skill (required)
   --name              Skill name (required)
@@ -129,6 +163,7 @@ Commands:
   doctor [--fix]      Run diagnostic checks on your environment.
   daemon              Start a Talox daemon for IPC control.
   run "<goal>"        Run an autonomous loop to achieve the given goal.
+  research "<goal>"   Run autonomous research with A/B experiments on a domain.
   skill create        Create a new domain skill from a markdown file.
 `);
 }
@@ -218,7 +253,8 @@ async function readTaloxVersion(): Promise<string> {
 	try {
 		const pkg = JSON.parse(raw);
 		return String(pkg.version ?? "0.0.0");
-	} catch (_error) { /* NOSONAR */
+	} catch (_error) {
+		/* NOSONAR */
 		// Malformed package.json — return sentinel version
 		return "0.0.0";
 	}
@@ -692,9 +728,7 @@ function parseRunOptions(args: string[]): RunCommandOptions {
 				break;
 			case "--strategy": {
 				const raw = args[i + 1] ?? "balanced";
-				opts.strategy = VALID_STRATEGIES.has(raw)
-					? (raw as RunCommandOptions["strategy"])
-					: opts.strategy;
+				opts.strategy = VALID_STRATEGIES.has(raw) ? (raw as RunCommandOptions["strategy"]) : opts.strategy;
 				i += 2;
 				break;
 			}
@@ -898,6 +932,196 @@ async function runRun(args: string[]): Promise<void> {
 	}
 }
 
+// ─── Research Command ────────────────────────────────────────────────────────
+
+function parseResearchOptions(args: string[]): ResearchCommandOptions {
+	const VALID_STRATEGIES = new Set<string>(["conservative", "balanced", "aggressive"]);
+	const opts: ResearchCommandOptions = {
+		goal: "",
+		domain: "",
+		url: undefined,
+		model: "gpt-4o",
+		apiKey: undefined,
+		baseUrl: undefined,
+		maxIterations: 10,
+		strategy: "balanced",
+		skillsDir: undefined,
+		runsPerVariant: 3,
+		promotionThreshold: 1.15,
+		researchDir: ".talox/research",
+		enableCrossDomain: false,
+		enablePromptEvolution: false,
+	};
+
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (!arg) {
+			i += 1;
+			continue;
+		}
+		switch (arg) {
+			case "--domain":
+			case "-d":
+				opts.domain = args[i + 1] ?? opts.domain;
+				i += 2;
+				break;
+			case "--url":
+				opts.url = args[i + 1];
+				i += 2;
+				break;
+			case "--model":
+				opts.model = args[i + 1] ?? opts.model;
+				i += 2;
+				break;
+			case "--api-key":
+				opts.apiKey = args[i + 1];
+				i += 2;
+				break;
+			case "--base-url":
+				opts.baseUrl = args[i + 1];
+				i += 2;
+				break;
+			case "--max-iterations":
+				opts.maxIterations = Number(args[i + 1]) || opts.maxIterations;
+				i += 2;
+				break;
+			case "--strategy": {
+				const raw = args[i + 1] ?? "balanced";
+				opts.strategy = VALID_STRATEGIES.has(raw) ? (raw as ResearchCommandOptions["strategy"]) : opts.strategy;
+				i += 2;
+				break;
+			}
+			case "--skills-dir":
+				opts.skillsDir = args[i + 1];
+				i += 2;
+				break;
+			case "--runs-per-variant":
+				opts.runsPerVariant = Number(args[i + 1]) || opts.runsPerVariant;
+				i += 2;
+				break;
+			case "--promotion-threshold":
+				opts.promotionThreshold = Number(args[i + 1]) || opts.promotionThreshold;
+				i += 2;
+				break;
+			case "--research-dir":
+				opts.researchDir = args[i + 1] ?? opts.researchDir;
+				i += 2;
+				break;
+			case "--enable-cross-domain":
+				opts.enableCrossDomain = true;
+				i += 1;
+				break;
+			case "--enable-prompt-evolution":
+				opts.enablePromptEvolution = true;
+				i += 1;
+				break;
+			case "--help":
+			case "-h":
+				usage();
+				process.exit(0);
+				break;
+			default:
+				if (!arg.startsWith("-")) {
+					opts.goal = arg;
+				} else {
+					console.warn(`[Talox CLI] Unknown research option: ${arg}`);
+				}
+				i += 1;
+				break;
+		}
+	}
+
+	return opts;
+}
+
+async function runResearchCommand(args: string[]): Promise<void> {
+	const opts = parseResearchOptions(args);
+
+	if (!opts.goal) {
+		console.error('[Talox CLI] Error: No goal provided. Usage: talox research "<goal>" --domain <domain> [options]');
+		process.exit(1);
+	}
+	if (!opts.domain) {
+		console.error("[Talox CLI] Error: --domain is required for research.");
+		process.exit(1);
+	}
+
+	const apiKey = opts.apiKey ?? process.env["OPENAI_API_KEY"];
+	if (!apiKey) {
+		console.error("[Talox CLI] Error: No API key provided. Use --api-key or set OPENAI_API_KEY env var.");
+		process.exit(1);
+	}
+
+	console.log(`[Talox Research] Starting research: "${opts.goal}" on domain ${opts.domain}`);
+	console.log(`[Talox Research] Config: ${opts.runsPerVariant} runs/variant, threshold ${opts.promotionThreshold}`);
+
+	const talox = new TaloxController(process.cwd(), {
+		settings: {
+			headed: false,
+			verbosity: 1,
+		},
+	});
+
+	const interrupt = async () => {
+		console.log("[Talox Research] Interrupt received — stopping...");
+		process.exit(0);
+	};
+	process.on("SIGINT", interrupt);
+
+	try {
+		await talox.launch("research", "ops", "chromium");
+
+		const taskGoal: {
+			description: string;
+			maxIterations: number;
+			strategy: "conservative" | "balanced" | "aggressive";
+			startUrl?: string;
+		} = {
+			description: opts.goal,
+			maxIterations: opts.maxIterations,
+			strategy: opts.strategy,
+		};
+		if (opts.url) {
+			taskGoal.startUrl = opts.url;
+		}
+
+		const result = await talox.runResearch(taskGoal, opts.domain, {
+			config: {
+				runsPerVariant: opts.runsPerVariant,
+				promotionThreshold: opts.promotionThreshold,
+				researchDir: opts.researchDir,
+				enableCrossDomainTransfer: opts.enableCrossDomain,
+				enablePromptEvolution: opts.enablePromptEvolution,
+				excludedDomains: [],
+				persistToDisk: true,
+				maxConcurrentExperiments: 1,
+				maxSkillVersions: 5,
+				regressionTimeoutMs: 30_000,
+				adaptivePriority: true,
+				compositionConfidenceThreshold: 0.8,
+			},
+			...(opts.skillsDir ? { skillsDir: opts.skillsDir } : {}),
+		});
+
+		console.log("");
+		console.log(`[Talox Research] Loop status: ${result.loopResult.status}`);
+		console.log(`[Talox Research] Experiments: ${result.experiments.length}`);
+		console.log(`[Talox Research] Evaluations: ${result.evaluations.length}`);
+		console.log(`[Talox Research] Promotions: ${result.promotions.length}`);
+		if (result.promotions.length > 0) {
+			for (const promo of result.promotions) {
+				console.log(`  → ${promo.strategyName} on ${promo.domain} (confidence: ${promo.evidence.length} experiments)`);
+			}
+		}
+		console.log(`[Talox Research] Journal entries: ${result.journal.entries.length}`);
+		console.log(`[Talox Research] Domains studied: ${Object.keys(result.journal.domains).join(", ") || "none"}`);
+	} finally {
+		process.off("SIGINT", interrupt);
+		await talox.stop();
+	}
+}
+
 async function runSkillCreate(args: string[]): Promise<void> {
 	const opts = parseSkillCreateOptions(args);
 
@@ -960,6 +1184,9 @@ async function main(): Promise<void> {
 			break;
 		case "run":
 			await runRun(args);
+			break;
+		case "research":
+			await runResearchCommand(args);
 			break;
 		case "skill": {
 			const subcommand = args[0];

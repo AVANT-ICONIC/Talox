@@ -11,9 +11,8 @@
  * (trying strategies that haven't been tested enough).
  */
 
-import type { ExperimentArm } from "./types.js";
 import type { ResearchJournal } from "./ResearchJournal.js";
-import type { StrategyPromotion } from "./types.js";
+import type { ExperimentArm, StrategyPromotion } from "./types.js";
 
 // ─── AdaptiveExperimentPriority ───────────────────────────────────────────
 
@@ -40,7 +39,7 @@ export class AdaptiveExperimentPriority {
 		this.arms.set(name, {
 			name,
 			alpha: 1, // Beta distribution: alpha = successes + 1
-			beta: 1,  // Beta distribution: beta = failures + 1
+			beta: 1, // Beta distribution: beta = failures + 1
 			sampleCount: 0,
 			estimatedValue: 0.5,
 		});
@@ -122,9 +121,7 @@ export class AdaptiveExperimentPriority {
 	 */
 	initializeFromHistory(): void {
 		// Get all promoted strategies — they start with higher alpha
-		const promotions = this.journal
-			.getEntries("strategy_promoted")
-			.map((e) => e.data as StrategyPromotion);
+		const promotions = this.journal.getEntries("strategy_promoted").map((e) => e.data as StrategyPromotion);
 
 		for (const promo of promotions) {
 			this.registerArm(promo.strategyName);
@@ -164,7 +161,7 @@ export class AdaptiveExperimentPriority {
 	private sampleGamma(shape: number): number {
 		if (shape < 1) {
 			// Use the relation: if X ~ Gamma(1 + k), then X * U^(1/k) ~ Gamma(k)
-			return this.sampleGamma(shape + 1) * Math.pow(this.rng(), 1 / shape);
+			return this.sampleGamma(shape + 1) * this.rng() ** (1 / shape);
 		}
 
 		const d = shape - 1 / 3;

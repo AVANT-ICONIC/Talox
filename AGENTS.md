@@ -110,7 +110,7 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 CRITICAL**
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
-- **79+ test files** | **1,554 tests** (unit: 1,391 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
+- **79+ test files** | **1,645 tests** (unit: 1,457 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
 
 ### Test Structure
 

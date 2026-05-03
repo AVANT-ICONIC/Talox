@@ -997,6 +997,117 @@ export class TaloxController {
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
+	// AUTONOMOUS RESEARCH
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Run a full autonomous research cycle. The system generates hypotheses,
+	 * runs A/B experiments, promotes winning strategies, and optionally writes
+	 * new skills via the SkillWriter feedback loop.
+	 *
+	 * Returns a {@link ResearchResult} with experiments, evaluations, and any
+	 * promoted strategies.
+	 *
+	 * @param goal    - The task goal description (and optional startUrl, strategy, etc.)
+	 * @param domain  - Domain label for the experiment (e.g. "github.com")
+	 * @param options - Optional research config overrides + skillsDir for feedback
+	 */
+	async runResearch(
+		goal: import("../loop/types.js").TaskGoal,
+		domain: string,
+		options?: {
+			config?: Partial<import("../research/types.js").AutoResearchConfig>;
+			skillsDir?: string;
+			planner?: import("../loop/Planner.js").Planner;
+		},
+	): Promise<import("../research/types.js").ResearchResult> {
+		const { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } = await import("../research/AutoResearchLoop.js");
+
+		const researchDir = options?.config?.researchDir ?? ".talox/research";
+		const config: Partial<import("../research/types.js").AutoResearchConfig> = {
+			...options?.config,
+			researchDir,
+		};
+
+		const loopFactory = async (params: Record<string, unknown>) => {
+			const { AutonomousLoop } = await import("../loop/AutonomousLoop.js");
+			const loopOpts: import("../loop/types.js").AutonomousLoopOptions = {
+				goal: {
+					description: (params.description as string) ?? goal.description,
+					maxIterations: (params.maxIterations as number) ?? goal.maxIterations,
+					strategy: (params.strategy as import("../loop/types.js").LoopStrategy) ?? goal.strategy ?? "balanced",
+					startUrl: (params.startUrl as string) ?? goal.startUrl,
+				},
+				planner: {
+					model: (params.model as string) ?? "gpt-4o",
+					apiKey: (params.apiKey as string) ?? process.env["OPENAI_API_KEY"],
+				},
+				...(options?.skillsDir ? { skillsDir: options.skillsDir } : {}),
+				...(options?.planner ? { plannerOverride: options.planner } : {}),
+			};
+			return new AutonomousLoop(this, loopOpts);
+		};
+
+		const researchOpts: {
+			config?: Partial<import("../research/types.js").AutoResearchConfig>;
+			planner?: import("../loop/Planner.js").Planner;
+		} = {};
+		if (Object.keys(config).length > 0) {
+			researchOpts.config = config;
+		}
+		if (options?.planner) {
+			researchOpts.planner = options.planner;
+		}
+		const research = new AutoResearchLoop(loopFactory, researchOpts);
+		const result = await research.run(goal, domain);
+
+		// ── Feedback: promoted strategies → DomainMemory sync ──
+		for (const promo of result.promotions) {
+			// Record the winning strategy in DomainMemory for future adaptation
+			this._adapt.domainMemory.record(promo.domain, promo.strategyName, true);
+		}
+
+		// ── Feedback: promoted strategies → SkillWriter ──
+		if (options?.skillsDir && result.promotions.length > 0) {
+			const { SkillLoader } = await import("../skills/SkillLoader.js");
+			const { SkillWriter } = await import("../skills/SkillWriter.js");
+			const loader = new SkillLoader([options.skillsDir]);
+			const writer = new SkillWriter(options.skillsDir, loader);
+
+			for (const promo of result.promotions) {
+				await writer.createSkill({
+					name: `promoted_${promo.strategyName}`,
+					description: `Auto-promoted strategy "${promo.strategyName}" for domain ${promo.domain}`,
+					domain: promo.domain,
+					version: "1.0",
+					content: [
+						`# Promoted Strategy: ${promo.strategyName}`,
+						``,
+						`**Domain:** ${promo.domain}`,
+						`**Promoted at:** ${promo.promotedAt}`,
+						`**Evidence:** ${promo.evidence.join(", ")}`,
+						``,
+						`## Winning Parameters`,
+						"",
+						"```json",
+						JSON.stringify(promo.winningParameters, null, 2),
+						"```",
+					].join("\n"),
+					triggerCondition: `domain == "${promo.domain}"`,
+					toolUsage: [],
+				});
+			}
+
+			// Re-load skills so they're immediately available
+			if (this.skillLoader) {
+				this.skillLoader = loader;
+			}
+		}
+
+		return result;
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
 	// SEMANTIC SEARCH HELPERS
 	// ═══════════════════════════════════════════════════════════════════════════
 
