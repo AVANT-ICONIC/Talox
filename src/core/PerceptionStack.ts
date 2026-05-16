@@ -165,7 +165,7 @@ export class PerceptionStack {
 
 	private async applyScreenshotLayer(state: PerceivedState): Promise<void> {
 		try {
-			const page = (this.collector as any).page;
+			const page = this.collector.getPage();
 			if (page && typeof page.screenshot === "function") {
 				const buf: Buffer = await page.screenshot({ type: "png", fullPage: true });
 				state.screenshotBase64 = buf.toString("base64");

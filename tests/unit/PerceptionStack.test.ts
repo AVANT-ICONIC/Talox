@@ -19,11 +19,12 @@ function makeBaseState(overrides: Partial<TaloxPageState> = {}): TaloxPageState 
 }
 
 function makeCollector(state: TaloxPageState) {
+	const mockPage = {
+		screenshot: vi.fn().mockResolvedValue(Buffer.from("fake-png")),
+	};
 	return {
 		collect: vi.fn().mockResolvedValue(state),
-		page: {
-			screenshot: vi.fn().mockResolvedValue(Buffer.from("fake-png")),
-		},
+		getPage: () => mockPage,
 	} as any;
 }
 
@@ -138,7 +139,7 @@ describe("PerceptionStack", () => {
 			const stack = new PerceptionStack(collector);
 			const result = await stack.collect("medium");
 			expect(result.screenshotBase64).toBeUndefined();
-			expect(collector.page.screenshot).not.toHaveBeenCalled();
+			expect(collector.getPage().screenshot).not.toHaveBeenCalled();
 		});
 	});
 
@@ -248,7 +249,7 @@ describe("PerceptionStack", () => {
 			const stack = new PerceptionStack(collector);
 			const result = await stack.collect("heavy", { layers: { screenshot: false } });
 			expect(result.screenshotBase64).toBeUndefined();
-			expect(collector.page.screenshot).not.toHaveBeenCalled();
+			expect(collector.getPage().screenshot).not.toHaveBeenCalled();
 		});
 	});
 

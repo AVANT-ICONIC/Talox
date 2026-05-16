@@ -79,6 +79,11 @@ export class PageStateCollector {
 		});
 	}
 
+	/** Expose the Playwright page for internal consumers (e.g. PerceptionStack screenshots). */
+	getPage(): Page {
+		return this.page;
+	}
+
 	getRetryStats(): Readonly<RetryStats> {
 		return { ...this.retryStats };
 	}
