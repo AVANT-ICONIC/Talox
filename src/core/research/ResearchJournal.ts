@@ -179,7 +179,7 @@ export class ResearchJournal {
 		const dir = join(this.persistPath, "..");
 		await mkdir(dir, { recursive: true });
 		// Append only the entries that haven't been flushed
-		const lines = this.entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+		const lines = `${this.entries.map((e) => JSON.stringify(e)).join("\n")}\n`;
 		await writeFile(this.persistPath, lines, "utf-8");
 		this.dirty = false;
 	}

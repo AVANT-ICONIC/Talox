@@ -711,7 +711,7 @@ export class SessionManager {
 
 			// 2. Chrome Runtime Spoofing
 			// @ts-expect-error
-			if (!globalThis.chrome || !globalThis.chrome.runtime) {
+			if (!globalThis.chrome?.runtime) {
 				// @ts-expect-error
 				globalThis.chrome = {
 					runtime: {
@@ -938,7 +938,7 @@ export class SessionManager {
 			}
 
 			// 14. Permissions API — override to prevent detection via permission state
-			if (navigator.permissions && navigator.permissions.query) {
+			if (navigator.permissions?.query) {
 				const origQuery = navigator.permissions.query.bind(navigator.permissions);
 				navigator.permissions.query = (params: any) => {
 					if (params.name === "notifications") {

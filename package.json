@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "7.0.1",
+  "version": "7.0.2",
   "description": "Local browser runtime for agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
@@ -23,7 +23,6 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepare": "npm run build",
     "test": "vitest --config vitest.config.unit.ts",
     "test:unit": "vitest --config vitest.config.unit.ts",
     "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
@@ -68,7 +67,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AVANT-ICONIC/Talox"
+    "url": "git+https://github.com/AVANT-ICONIC/Talox.git"
   },
   "bugs": {
     "url": "https://github.com/AVANT-ICONIC/Talox/issues"
