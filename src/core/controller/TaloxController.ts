@@ -71,6 +71,7 @@ import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
+import { createLogger } from "../Logger.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
 import { SessionManager } from "./SessionManager.js";
@@ -134,6 +135,7 @@ export class TaloxController {
 	private readonly inspectServerConfig: import("../../types/config.js").TaloxConfig["inspectServer"];
 	private videoRecorder: VideoRecorderType | null = null;
 	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
+	private readonly log = createLogger("Controller");
 
 	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
 		// Support TaloxController(config) shorthand when first arg is an object
@@ -311,7 +313,7 @@ export class TaloxController {
 		this.inspectServer = new InspectServerClass(this.inspectServerConfig);
 		await this.inspectServer.attach(page);
 		if (this.settings.verbosity >= 1) {
-			console.log(`[Talox] DevTools inspect server: ${this.inspectServer.getAddress()}`);
+			this.log.info(`DevTools inspect server: ${this.inspectServer.getAddress()}`);
 		}
 	}
 
@@ -325,7 +327,7 @@ export class TaloxController {
 		this.videoRecorder = new VideoRecorderClass(vrOpts);
 		this.videoRecorder.start(page);
 		if (this.settings.verbosity >= 1) {
-			console.log(`[Talox] Video recording started → ${this.videoRecordingConfig.outputPath}`);
+			this.log.info(`Video recording started → ${this.videoRecordingConfig.outputPath}`);
 		}
 	}
 
@@ -343,7 +345,7 @@ export class TaloxController {
 		try {
 			await this._session.stop();
 		} catch (e) {
-			console.error(`[Talox] Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
+			this.log.error(`Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 
@@ -353,10 +355,10 @@ export class TaloxController {
 		try {
 			const result = await this.harRecorder.stop();
 			if (this.settings.verbosity >= 1) {
-				console.log(`[Talox] HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
+				this.log.info(`HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
 			}
 		} catch (e) {
-			console.error(`[Talox] HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
+				this.log.error(`HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
 		}
 		this.harRecorder = null;
 	}
@@ -381,10 +383,10 @@ export class TaloxController {
 		try {
 			const outputPath = await this.videoRecorder.stop();
 			if (this.settings.verbosity >= 1) {
-				console.log(`[Talox] Video recording saved: ${outputPath}`);
+				this.log.info(`Video recording saved: ${outputPath}`);
 			}
 		} catch (e) {
-			console.error(`[Talox] Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
+				this.log.error(`Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
 		}
 		this.videoRecorder = null;
 	}
@@ -691,7 +693,7 @@ export class TaloxController {
 			this.takeoverState = "WAITING_FOR_HUMAN";
 			// TakeoverBridge listens to this event to update the overlay
 			this._takeover.requestTakeover(reason).catch((e) => {
-				console.error(`[Talox] Takeover request failed: ${e instanceof Error ? e.message : String(e)}`);
+				this.log.error(`Takeover request failed: ${e instanceof Error ? e.message : String(e)}`);
 			});
 
 			if (this.settings.humanTakeoverTimeoutMs > 0) {

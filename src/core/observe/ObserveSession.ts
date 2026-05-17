@@ -35,6 +35,7 @@ import type { EventBus } from "../controller/EventBus.js";
 import { AnnotationBuffer } from "./AnnotationBuffer.js";
 import { OverlayInjector } from "./OverlayInjector.js";
 import { SessionReporter } from "./SessionReporter.js";
+import { createLogger } from "../Logger.js";
 
 // ─── ObserveSession ───────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ import { SessionReporter } from "./SessionReporter.js";
  * ```
  */
 export class ObserveSession {
+	private readonly log = createLogger("ObserveSession");
 	readonly sessionId: string;
 	readonly startedAt: string;
 
@@ -227,7 +229,7 @@ export class ObserveSession {
 		// Auto-finalize on browser close
 		this.context.on("close", () => {
 			this.finalize().catch((err: unknown) => {
-				console.error("[Talox] Failed to finalize observe session:", err);
+				this.log.error("Failed to finalize observe session:", err);
 			});
 		});
 

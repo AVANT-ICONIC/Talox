@@ -29,6 +29,7 @@ import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
 import { VisionGate } from "../VisionGate.js";
+import { createLogger } from "../Logger.js";
 import type { EventBus } from "./EventBus.js";
 
 /**
@@ -44,6 +45,7 @@ export class SessionManager {
 	readonly artifactBuilder: ArtifactBuilder;
 	readonly visionGate: VisionGate;
 	readonly policyEngine: PolicyEngine;
+	private readonly log = createLogger("Session");
 
 	pages: PageStateCollector[] = [];
 	activePageIndex: number = -1;
@@ -479,8 +481,8 @@ export class SessionManager {
 				});
 
 				if (this.settings.verbosity > 0) {
-					console.log(
-						`[SessionIdle] Session "${sessionId}" idle for ${idleMs}ms (timeout: ${this.settings.sessionIdleTimeoutMs}ms)`,
+					this.log.info(
+						`Session "${sessionId}" idle for ${idleMs}ms (timeout: ${this.settings.sessionIdleTimeoutMs}ms)`,
 					);
 				}
 
@@ -621,7 +623,7 @@ export class SessionManager {
 					jwtRegex.test(url) ||
 					secretKeyRegex.test(url)
 				) {
-					console.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);
+					this.log.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);
 					return route.abort("accessdenied");
 				}
 			}
@@ -633,7 +635,7 @@ export class SessionManager {
 		page.on("dialog", async (dialog: any) => {
 			dialogCount++;
 			if (dialogCount > 3 && this.profile?.class === "ops") {
-				console.warn("🛡️ SECURITY GUARD: Unexpected dialog storm detected. Auto-dismissing.");
+				this.log.warn("🛡️ SECURITY GUARD: Unexpected dialog storm detected. Auto-dismissing.");
 				await dialog.dismiss();
 			} else {
 				await dialog.dismiss();
@@ -641,7 +643,7 @@ export class SessionManager {
 		});
 
 		page.on("popup", (popup: any) => {
-			console.warn(`🛡️ SECURITY GUARD: Unexpected popup opened: ${popup.url()}`);
+			this.log.warn(`🛡️ SECURITY GUARD: Unexpected popup opened: ${popup.url()}`);
 			if (this.profile?.class === "ops") {
 				popup.close().catch(() => {});
 			}
@@ -654,7 +656,7 @@ export class SessionManager {
 				const type = response.request().resourceType();
 				if (type === "script" || type === "fetch" || type === "xhr") {
 					if (url.includes("exfil") || url.includes("tracker") || url.includes("fingerprint")) {
-						console.warn(`🛡️ SECURITY GUARD: Suspicious script loaded: ${url}`);
+						this.log.warn(`🛡️ SECURITY GUARD: Suspicious script loaded: ${url}`);
 					}
 				}
 			});

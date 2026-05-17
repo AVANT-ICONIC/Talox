@@ -9,6 +9,7 @@
 import { createInterface } from "node:readline";
 import type { TaloxPageState } from "../../types/index.js";
 import type { TaloxController } from "../controller/TaloxController.js";
+import { createLogger } from "../Logger.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ const TALOX_BROWSER_TOOL: ToolFunctionDef = {
  * is compacted when it exceeds `maxContextChars` characters.
  */
 export class ChatSession {
+	private readonly log = createLogger("Chat");
 	private messages: ChatMessage[] = [];
 	private readonly talox: TaloxController;
 	private readonly config: Required<Pick<ChatConfig, "model" | "apiKey" | "baseUrl" | "maxContextChars">> & {
@@ -150,7 +152,7 @@ export class ChatSession {
 			try {
 				await this.sendMessage(input);
 			} catch (error: unknown) {
-				console.error("\x1b[31m[Chat Error]\x1b[0m", error instanceof Error ? error.message : String(error));
+				this.log.error("\x1b[31mError\x1b[0m", error instanceof Error ? error.message : String(error));
 			}
 			rl.prompt();
 		};

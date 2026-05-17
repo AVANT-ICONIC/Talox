@@ -21,7 +21,8 @@ import type { PageStateCollector } from "../PageStateCollector.js";
 import type { PolicyEngine } from "../PolicyEngine.js";
 import type { SemanticMapper } from "../SemanticMapper.js";
 import type { SiteWarmupRegistry } from "../SiteWarmup.js";
-import type { EventBus } from "./EventBus.js";
+import { createLogger } from "../Logger.js";
+import { EventBus } from "./EventBus.js";
 
 /**
  * Executes browser interactions (navigate, click, type, scroll, etc.) on behalf
@@ -30,6 +31,7 @@ import type { EventBus } from "./EventBus.js";
  * page-state diffs after each action.
  */
 export class ActionExecutor {
+	private readonly log = createLogger("Executor");
 	private readonly densityCache: Map<string, number> = new Map();
 	private readonly reliability = new InteractionReliability();
 
@@ -210,7 +212,7 @@ export class ActionExecutor {
 			return this.attachDiff(prevState, state);
 		} catch (error: unknown) {
 			const errMsg = error instanceof Error ? error.message : String(error);
-			console.warn(`[Talox Reliability] Click failed for "${effectiveSelector}": ${errMsg}`);
+			this.log.warn(`Click failed for "${effectiveSelector}": ${errMsg}`);
 
 			const context = page.context?.();
 			const recovery = await this.reliability.recoverAfterFailure(
@@ -376,7 +378,7 @@ export class ActionExecutor {
 			return this.attachDiff(prevState, state);
 		} catch (error: unknown) {
 			const errMsg = error instanceof Error ? error.message : String(error);
-			console.warn(`[Talox Reliability] Type failed for "${effectiveSelector}": ${errMsg}`);
+			this.log.warn(`Type failed for "${effectiveSelector}": ${errMsg}`);
 
 			const context = page.context?.();
 			const recovery = await this.reliability.recoverAfterFailure(

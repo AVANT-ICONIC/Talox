@@ -14,6 +14,7 @@ import type { AdaptationReason, TaloxEventMap } from "../../types/events.js";
 import type { TaloxPageState } from "../../types/index.js";
 import type { TaloxSettings } from "../../types/settings.js";
 import type { EventBus } from "../controller/EventBus.js";
+import { createLogger } from "../Logger.js";
 import { BotDetector } from "./BotDetector.js";
 import { DomainMemory } from "./DomainMemory.js";
 import { type AdaptationSideEffect, STRATEGIES } from "./strategies.js";
@@ -33,6 +34,7 @@ import { type AdaptationSideEffect, STRATEGIES } from "./strategies.js";
  * ```
  */
 export class AdaptationEngine {
+	private readonly log = createLogger("Smart");
 	private readonly detector: BotDetector;
 	private readonly settings: TaloxSettings;
 	private readonly eventBus: EventBus<TaloxEventMap>;
@@ -214,7 +216,7 @@ export class AdaptationEngine {
 			case "emit_captcha_event":
 				// CAPTCHA events surface as adapted events with reason 'captcha_detected'.
 				// The agent is responsible for solving or surfacing to the user.
-				console.warn("[Talox Smart] CAPTCHA detected — human intervention or solver required.");
+				this.log.warn("CAPTCHA detected — human intervention or solver required.");
 				break;
 		}
 	}

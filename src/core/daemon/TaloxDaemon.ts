@@ -14,6 +14,7 @@ import type { ProfileClass } from "../../types/index.js";
 import type { BrowserType } from "../BrowserManager.js";
 import { TaloxController } from "../controller/TaloxController.js";
 import { generateSessionId, handleCommand } from "./commandHandler.js";
+import { createLogger } from "../Logger.js";
 
 // ─── Public Types ─────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ const isWindows = os.platform() === "win32";
 // ─── TaloxDaemon ──────────────────────────────────────────────────────────────
 
 export class TaloxDaemon {
+	private readonly log = createLogger("Daemon");
 	private readonly config: DaemonConfig;
 	private readonly sessions: Map<string, SessionRecord> = new Map();
 	private server: net.Server | null = null;
@@ -80,7 +82,7 @@ export class TaloxDaemon {
 		});
 
 		this.server.on("error", (err: Error) => {
-			console.error(`[TaloxDaemon] Server error: ${err.message}`);
+			this.log.error(`Server error: ${err.message}`);
 		});
 
 		await new Promise<void>((resolve, reject) => {
@@ -120,7 +122,7 @@ export class TaloxDaemon {
 		this.sessions.forEach((session) => {
 			stopPromises.push(
 				session.controller.stop().catch((err: Error) => {
-					console.error(`[TaloxDaemon] Error stopping session ${session.id}: ${err.message}`);
+					this.log.error(`Error stopping session ${session.id}: ${err.message}`);
 				}),
 			);
 		});
@@ -169,13 +171,13 @@ export class TaloxDaemon {
 				const trimmed = line.trim();
 				if (trimmed.length === 0) continue;
 				this.processLine(trimmed, socket).catch((err: Error) => {
-					console.error(`[TaloxDaemon] Unhandled error: ${err.message}`);
+					this.log.error(`Unhandled error: ${err.message}`);
 				});
 			}
 		});
 
 		socket.on("error", (err: Error) => {
-			console.error(`[TaloxDaemon] Socket error: ${err.message}`);
+			this.log.error(`Socket error: ${err.message}`);
 		});
 	}
 
@@ -312,7 +314,7 @@ export class TaloxDaemon {
 		// Schedule shutdown after responding
 		setImmediate(() => {
 			this.stop().catch((err: Error) => {
-				console.error(`[TaloxDaemon] Shutdown error: ${err.message}`);
+				this.log.error(`Shutdown error: ${err.message}`);
 			});
 		});
 
@@ -349,7 +351,7 @@ export class TaloxDaemon {
 		} catch (err: unknown) {
 			// NOSONAR — socket may have closed between check and write
 			const message = err instanceof Error ? err.message : String(err);
-			console.error(`[TaloxDaemon] Write error: ${message}`);
+			this.log.error(`Write error: ${message}`);
 		}
 	}
 }

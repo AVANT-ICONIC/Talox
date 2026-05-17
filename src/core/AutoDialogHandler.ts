@@ -133,7 +133,7 @@ export class AutoDialogHandler {
 		this.records.push(record);
 
 		if (this.verbosity > 0) {
-			console.log(`[AutoDialog] ${type} ${action}: "${message.slice(0, 80)}"`);
+			console.log(`[Talox AutoDialog] ${type} ${action}: "${message.slice(0, 80)}"`);
 		}
 
 		this.events.emit("dialogHandled", { type, message, action });

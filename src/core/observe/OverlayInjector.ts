@@ -18,6 +18,7 @@ import type { TaloxEventMap } from "../../types/events.js";
 import type { TaloxInteraction } from "../../types/session.js";
 import type { EventBus } from "../controller/EventBus.js";
 import type { AnnotationBuffer } from "./AnnotationBuffer.js";
+import { createLogger } from "../Logger.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ interface OverlayEvent {
  * Manages overlay injection and bridge event routing for an observe session.
  */
 export class OverlayInjector {
+	private readonly log = createLogger("Overlay");
 	private bundleCache: string | null = null;
 	private readonly sessionId: string;
 	private readonly startedAt: string;
@@ -97,7 +99,7 @@ export class OverlayInjector {
             bootstrapOverlay(${meta});
           }
         } catch (_err) {
-          console.warn('[Talox] Overlay bootstrap error:', err);
+          this.log.warn('Overlay bootstrap error:', err);
         }
       })();
     `);
@@ -174,14 +176,14 @@ export class OverlayInjector {
 			case "session:end": {
 				if (this.onSessionEndRequest) {
 					void this.onSessionEndRequest().catch((err: unknown) => {
-						console.error("[Talox] Failed to end observe session from overlay:", err);
+						this.log.error("Failed to end observe session from overlay:", err);
 					});
 				}
 				break;
 			}
 
 			default: {
-				console.warn(`[Talox] Unknown overlay event type: ${type}`);
+				this.log.warn(`Unknown overlay event type: ${type}`);
 			}
 		}
 	}

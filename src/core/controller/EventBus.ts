@@ -9,6 +9,7 @@
  */
 
 import { EventEmitter } from "node:events";
+import { createLogger } from "../Logger.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ export type EventHandler<T> = T extends undefined ? () => void : (data: T) => vo
  */
 export class EventBus<TMap extends object> {
 	private readonly emitter: EventEmitter;
+	private readonly log = createLogger("EventBus");
 	/** Tracks the number of active listeners per event for `getListenerCounts()`. */
 	private readonly counts: Map<keyof TMap, number>;
 
@@ -84,7 +86,7 @@ export class EventBus<TMap extends object> {
 			if (event !== "error" && this.emitter.listenerCount("error") > 0) {
 				this.emitter.emit("error", { message, stack });
 			} else {
-				console.error(`[Talox EventBus] Unhandled error in '${String(event)}' listener:`, err);
+				this.log.error(`Unhandled error in '${String(event)}' listener:`, err);
 			}
 		}
 	}

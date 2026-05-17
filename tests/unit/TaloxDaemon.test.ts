@@ -504,7 +504,7 @@ describe("TaloxDaemon", () => {
 			expect(errorHandler).toBeDefined();
 			errorHandler!(new Error("Socket error"));
 
-			expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Socket error"));
+			expect(consoleSpy).toHaveBeenCalledWith("[Talox Daemon]", expect.stringContaining("Socket error"));
 			consoleSpy.mockRestore();
 		});
 	});

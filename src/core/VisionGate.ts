@@ -4,6 +4,7 @@ import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import ssim from "ssim.js";
 import type { VisualDiffResult } from "../types/index.js";
+import { createLogger } from "./Logger.js";
 
 export interface HeatmapResult {
 	heatmapPath: string;
@@ -27,6 +28,7 @@ export interface DiffRegion {
  * diff heatmaps, and extracts on-screen text via OCR.
  */
 export class VisionGate {
+	private readonly log = createLogger("Vision");
 	private readonly baselineDir: string;
 
 	constructor(baseDir: string = "./.talox/baselines") {
@@ -405,7 +407,7 @@ export class VisionGate {
 			await worker.terminate();
 			return text;
 		} catch (err) {
-			console.error("OCR ERROR:", err);
+			this.log.error("OCR ERROR:", err);
 			return "";
 		}
 	}

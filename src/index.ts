@@ -54,6 +54,7 @@ export { HarRecorder } from "./core/HarRecorder.js";
 export * from "./core/HumanMouse.js";
 export type { InteractionAttempt, InteractionFailureMode, ReliabilityOutcome } from "./core/InteractionReliability.js";
 export { InteractionReliability } from "./core/InteractionReliability.js";
+export { createLogger, log, setLogLevel, getLogLevel, type Logger, type LogLevel } from "./core/Logger.js";
 // ─── DevTools Inspect Server ────────────────────────────────────────────────
 export type { InspectServerConfig } from "./core/inspect/InspectServer.js";
 export { InspectServer } from "./core/inspect/InspectServer.js";

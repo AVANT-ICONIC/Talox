@@ -297,7 +297,7 @@ describe("VisionGate", () => {
 			const text = await gate.extractText(makeFakeImage());
 
 			expect(text).toBe("");
-			expect(consoleSpy).toHaveBeenCalledWith("OCR ERROR:", expect.any(Error));
+			expect(consoleSpy).toHaveBeenCalledWith("[Talox Vision]", "OCR ERROR:", expect.any(Error));
 			consoleSpy.mockRestore();
 		});
 

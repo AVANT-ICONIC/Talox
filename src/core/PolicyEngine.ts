@@ -1,6 +1,7 @@
 import * as fs from "fs-extra";
 import * as yaml from "js-yaml";
 import type { ProfileClass } from "../types/index.js";
+import { createLogger } from "./Logger.js";
 
 export interface PolicyCondition {
 	field: "amount" | "url" | "domain" | "action";
@@ -33,6 +34,7 @@ export interface YAMLPolicy {
  * and destructive-action blocking.
  */
 export class PolicyEngine {
+	private readonly log = createLogger("Policy");
 	private readonly allowlists: Record<ProfileClass, string[]> = {
 		qa: ["*"],
 		ops: ["google.com", "github.com", "about:blank", "localhost"],
@@ -64,7 +66,7 @@ export class PolicyEngine {
 
 			this.yamlLoaded = true;
 		} catch (error) {
-			console.error(`Failed to load policy from ${filePath}:`, error);
+			this.log.error(`Failed to load policy from ${filePath}:`, error);
 			throw error;
 		}
 	}
