@@ -100,7 +100,7 @@ export class HypothesisGenerator {
 		for (let i = 0; i < count; i++) {
 			// Pick a variant strategy we haven't used yet, or cycle
 			const available = this.variantStrategies.filter((s) => !usedStrategyNames.has(s.name));
-			const strategy = available[i % available.length] ?? this.variantStrategies[i % this.variantStrategies.length]!;
+			const strategy = available[i % available.length] ?? (this.variantStrategies[i % this.variantStrategies.length] ?? this.variantStrategies[0]!);
 			usedStrategyNames.add(strategy.name);
 
 			const variantParams = strategy.generate(baseParameters);

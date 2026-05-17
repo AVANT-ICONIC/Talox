@@ -713,9 +713,7 @@ export class SessionManager {
 			}
 
 			// 2. Chrome Runtime Spoofing
-			// @ts-expect-error
 			if (!globalThis.chrome?.runtime) {
-				// @ts-expect-error
 				globalThis.chrome = {
 					runtime: {
 						onMessage: { addListener: () => {}, removeListener: () => {} },
@@ -874,8 +872,7 @@ export class SessionManager {
 			// 9. AudioContext Spoofing (consistent with OS)
 			if (typeof AudioContext !== "undefined") {
 				const OrigAudioContext = AudioContext;
-				// @ts-expect-error
-				globalThis.AudioContext = (opts: any) => {
+				(globalThis as any)["AudioContext"] = (opts: any) => {
 					const ctx = new OrigAudioContext(opts);
 					Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
 					Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
@@ -885,10 +882,8 @@ export class SessionManager {
 			}
 
 			// 10. Battery API Spoofing
-			// @ts-expect-error — browser context, getBattery exists at runtime
 			if (typeof navigator.getBattery === "function") {
-				// @ts-expect-error
-				navigator.getBattery = async () => ({
+				(navigator as any)["getBattery"] = async () => ({
 					charging: data.battery.charging,
 					chargingTime: data.battery.chargingTime,
 					dischargingTime: data.battery.dischargingTime,
@@ -902,15 +897,13 @@ export class SessionManager {
 			// 11. WebRTC Leak Prevention
 			if (typeof RTCPeerConnection !== "undefined") {
 				const OrigRTCPeerConnection = RTCPeerConnection;
-				// @ts-expect-error
-				globalThis.RTCPeerConnection = (config: any, constraints: any) => {
+				(globalThis as any)["RTCPeerConnection"] = (config: any, constraints: any) => {
 					// Force ICE candidate filtering to prevent local IP leaks
 					const filteredConfig = {
 						...config,
 						iceServers: config?.iceServers || [],
 					};
-					// @ts-expect-error
-					return new OrigRTCPeerConnection(filteredConfig, constraints);
+					return new (OrigRTCPeerConnection as any)(filteredConfig, constraints);
 				};
 			}
 
@@ -933,10 +926,8 @@ export class SessionManager {
 			// 13. Timezone Consistency
 			if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
 				const OrigDateTimeFormat = Intl.DateTimeFormat;
-				// @ts-expect-error
-				Intl.DateTimeFormat = (locales: any, opts: any) => new OrigDateTimeFormat(data.locale, opts);
-				// @ts-expect-error
-				Intl.DateTimeFormat.prototype = OrigDateTimeFormat.prototype;
+				(Intl as any)["DateTimeFormat"] = (locales: any, opts: any) => new OrigDateTimeFormat(data.locale, opts);
+				Object.defineProperty(Intl.DateTimeFormat, "prototype", { value: OrigDateTimeFormat.prototype });
 				Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
 			}
 

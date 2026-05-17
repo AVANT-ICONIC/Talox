@@ -71,8 +71,8 @@ export class StrategyComposer {
 		const domains = [...byDomain.keys()];
 		for (let i = 0; i < domains.length - 1; i++) {
 			for (let j = i + 1; j < domains.length; j++) {
-				const domainA = byDomain.get(domains[i]!)!;
-				const domainB = byDomain.get(domains[j]!)!;
+				const dA = domains[i]; if (!dA) continue; const domainA = byDomain.get(dA); if (!domainA) continue;
+				const dB = domains[j]; if (!dB) continue; const domainB = byDomain.get(dB); if (!domainB) continue;
 				// Cross-domain sequential
 				if (domainA.length > 0 && domainB.length > 0) {
 					candidates.push(this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!));
@@ -105,7 +105,7 @@ export class StrategyComposer {
 		const relevant = this.composedStrategies.filter((c) => c.fitnessScore > this.confidenceThreshold);
 		if (relevant.length === 0) return null;
 		relevant.sort((a, b) => b.fitnessScore - a.fitnessScore);
-		return relevant[0]!;
+		return relevant[0] ?? null;
 	}
 
 	// ─── Factory Methods ───────────────────────────────────────────────────
