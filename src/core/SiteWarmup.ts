@@ -1,3 +1,4 @@
+import type { Page } from "playwright-core";
 /**
  * @file SiteWarmup.ts
  * @description Generic site warmup registry for bypassing bot-detection
@@ -37,13 +38,13 @@ export interface WarmupStrategy {
 	 * @param page - The Playwright Page object.
 	 * @returns `true` if the warmup should be triggered.
 	 */
-	detect: (page: any) => Promise<boolean> | boolean;
+	detect: (page: Page) => Promise<boolean> | boolean;
 	/**
 	 * Perform the warmup to bypass the interstitial.
 	 * @param page - The Playwright Page object.
 	 * @param url  - The URL to re-navigate to if needed.
 	 */
-	warmup: (page: any, url: string) => Promise<void>;
+	warmup: (page: Page, url: string) => Promise<void>;
 }
 
 // ─── Built-in Strategies ──────────────────────────────────────────────────────
@@ -56,11 +57,11 @@ export interface WarmupStrategy {
  */
 export const redditWarmup: WarmupStrategy = {
 	name: "reddit-humanity-challenge",
-	detect: async (page: any): Promise<boolean> => {
+	detect: async (page: Page): Promise<boolean> => {
 		const title = await page.title();
 		return title.includes("Prove") || title.includes("humanity");
 	},
-	warmup: async (page: any, url: string): Promise<void> => {
+	warmup: async (page: Page, url: string): Promise<void> => {
 		await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15_000 });
 		await new Promise((r) => setTimeout(r, 1000));
 	},
@@ -72,7 +73,7 @@ export const redditWarmup: WarmupStrategy = {
  */
 export const cloudflareWarmup: WarmupStrategy = {
 	name: "cloudflare-challenge",
-	detect: async (page: any): Promise<boolean> => {
+	detect: async (page: Page): Promise<boolean> => {
 		const title = await page.title();
 		if (title.includes("Checking") || title.includes("Just a moment")) {
 			return true;
@@ -88,7 +89,7 @@ export const cloudflareWarmup: WarmupStrategy = {
 			return false;
 		}
 	},
-	warmup: async (page: any, url: string): Promise<void> => {
+	warmup: async (page: Page, url: string): Promise<void> => {
 		await new Promise((r) => setTimeout(r, 5000));
 		await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15_000 });
 		await new Promise((r) => setTimeout(r, 1000));
@@ -101,11 +102,11 @@ export const cloudflareWarmup: WarmupStrategy = {
  */
 export const genericVerificationWarmup: WarmupStrategy = {
 	name: "generic-verification",
-	detect: async (page: any): Promise<boolean> => {
+	detect: async (page: Page): Promise<boolean> => {
 		const title = await page.title();
 		return title.includes("Attention Required") || title.includes("Access denied") || title.includes("Forbidden");
 	},
-	warmup: async (page: any, url: string): Promise<void> => {
+	warmup: async (page: Page, url: string): Promise<void> => {
 		await new Promise((r) => setTimeout(r, 3000));
 		await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15_000 });
 		await new Promise((r) => setTimeout(r, 1000));
@@ -215,7 +216,7 @@ export class SiteWarmupRegistry {
 	 * @param hostname - The hostname extracted from the URL.
 	 * @returns `true` if a warmup was performed, `false` otherwise.
 	 */
-	async runIfNeeded(page: any, url: string, hostname: string): Promise<boolean> {
+	async runIfNeeded(page: Page, url: string, hostname: string): Promise<boolean> {
 		const strategy = this.getWarmup(hostname);
 		if (!strategy) return false;
 

@@ -236,7 +236,7 @@ export class GhostCursorOverlay {
 			try {
 				await page.evaluate(
 					([px, py]) => {
-						const update = (window as any).__taloxUpdateCursor__;
+						const update = window.__taloxUpdateCursor__;
 						if (typeof update === "function") {
 							update(px, py, false);
 						}
@@ -256,7 +256,7 @@ export class GhostCursorOverlay {
 		try {
 			await page.evaluate(
 				([px, py]) => {
-					const update = (window as any).__taloxUpdateCursor__;
+					const update = window.__taloxUpdateCursor__;
 					if (typeof update === "function") {
 						update(px, py, true);
 					}

@@ -383,7 +383,7 @@ export class TakeoverBridge {
 		if (!this.currentPage || !this.headed) return;
 		try {
 			await this.currentPage.evaluate((c: string) => {
-				(globalThis as any).__taloxDispatch__?.(c);
+				globalThis.__taloxDispatch__?.(c);
 			}, cmd);
 		} catch {
 			/* page navigated or closed */

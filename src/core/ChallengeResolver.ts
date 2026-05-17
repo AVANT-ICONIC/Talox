@@ -1,3 +1,4 @@
+import type { Page } from "playwright-core";
 /**
  * @file ChallengeResolver.ts
  * @description Fallback resolution flows for each challenge type detected
@@ -150,7 +151,7 @@ export class ChallengeResolver {
 	 * @param page       Playwright page object (may be null for unit tests).
 	 * @returns          A `ChallengeOutcome` describing what was tried and whether it worked.
 	 */
-	async resolve(challenge: DetectedChallenge, page: any): Promise<ChallengeOutcome> {
+	async resolve(challenge: DetectedChallenge, page: Page): Promise<ChallengeOutcome> {
 		switch (challenge.type) {
 			case "cloudflare":
 				return this.resolveCloudflare(page);
@@ -199,7 +200,7 @@ export class ChallengeResolver {
 
 	// ─── Strategy Implementations ─────────────────────────────────────────────
 
-	private async resolveCloudflare(page: any): Promise<ChallengeOutcome> {
+	private async resolveCloudflare(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];
 
 		for (let i = 0; i < this.maxRetries; i++) {
@@ -240,7 +241,7 @@ export class ChallengeResolver {
 		return this.outcome(false, true, attempts, "wait-and-settle", "challenge-unsolved");
 	}
 
-	private async resolveVerification(page: any): Promise<ChallengeOutcome> {
+	private async resolveVerification(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];
 
 		// Single wait-and-check — if still present, hand off
@@ -261,7 +262,7 @@ export class ChallengeResolver {
 		return this.outcome(false, true, attempts, "human-handoff", "challenge-unsolved");
 	}
 
-	private async resolveConsentWall(page: any): Promise<ChallengeOutcome> {
+	private async resolveConsentWall(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];
 		const t0 = Date.now();
 
@@ -296,12 +297,12 @@ export class ChallengeResolver {
 		return this.outcome(false, false, attempts, "auto-click-accept");
 	}
 
-	private async resolveAgeGate(page: any): Promise<ChallengeOutcome> {
+	private async resolveAgeGate(page: Page): Promise<ChallengeOutcome> {
 		// Age gates usually have an "I am 18+" or "Enter" button
 		return this.resolveConsentWall(page);
 	}
 
-	private async resolveWithBackoff(page: any, type: "maintenance" | "rate-limited"): Promise<ChallengeOutcome> {
+	private async resolveWithBackoff(page: Page, type: "maintenance" | "rate-limited"): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];
 
 		for (let i = 0; i < this.maxRetries; i++) {
@@ -340,7 +341,7 @@ export class ChallengeResolver {
 		return this.outcome(false, false, attempts, "backoff-retry");
 	}
 
-	private async resolveEmptyShellSpa(page: any): Promise<ChallengeOutcome> {
+	private async resolveEmptyShellSpa(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];
 		const maxWaitMs = this.spaHydrationTimeoutMs;
 		const pollMs = 500;

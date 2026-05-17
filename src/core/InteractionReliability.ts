@@ -1,3 +1,4 @@
+import type { Page, BrowserContext } from "playwright-core";
 /**
  * @file InteractionReliability.ts
  * @description Interaction reliability gauntlet for Talox.
@@ -56,7 +57,7 @@ export interface ReliabilityOutcome {
 	 * The resolved Playwright element handle ready to be clicked, or null if
 	 * resolution failed. Caller owns the interaction after this.
 	 */
-	resolvedElement: ElementHandle | null;
+	resolvedElement: ElementHandle<SVGElement | HTMLElement> | null;
 	/**
 	 * The final selector string that worked (may differ from original if
 	 * detach/duplicate recovery produced a new one).
@@ -161,7 +162,7 @@ export class InteractionReliability {
 	 * set to the selector to use. If pre-flight has nothing to do it returns
 	 * `resolved=true` immediately with the original selector unchanged.
 	 */
-	async resolveBeforeClick(page: any, selector: string, nodes: TaloxNode[]): Promise<ReliabilityOutcome> {
+	async resolveBeforeClick(page: Page, selector: string, nodes: TaloxNode[]): Promise<ReliabilityOutcome> {
 		const attempts: InteractionAttempt[] = [];
 		const recoveryNotes: string[] = [];
 		let resolvedSelector = selector;
@@ -235,8 +236,8 @@ export class InteractionReliability {
 	 *          retry with `resolvedElement` or `resolvedSelector`.
 	 */
 	async recoverAfterFailure(
-		page: any,
-		context: any,
+		page: Page,
+		context: BrowserContext,
 		error: unknown,
 		selector: string,
 		nodes: TaloxNode[],
@@ -287,7 +288,7 @@ export class InteractionReliability {
 	// ─── Strategy: Viewport ───────────────────────────────────────────────────
 
 	private async recoverViewport(
-		page: any,
+		page: Page,
 		selector: string,
 		attempts: InteractionAttempt[],
 		recoveryNotes: string[],
@@ -339,7 +340,7 @@ export class InteractionReliability {
 	// ─── Strategy: Intercepted ────────────────────────────────────────────────
 
 	private async recoverIntercepted(
-		page: any,
+		page: Page,
 		selector: string,
 		attempts: InteractionAttempt[],
 		recoveryNotes: string[],
@@ -487,7 +488,7 @@ export class InteractionReliability {
 	}
 
 	private async recoverDetached(
-		page: any,
+		page: Page,
 		selector: string,
 		nodes: TaloxNode[],
 		attempts: InteractionAttempt[],
@@ -508,7 +509,7 @@ export class InteractionReliability {
 		if (bestScore >= 10 && bestNode) {
 			const healedSelector = this.buildCoordinateSelector(bestNode);
 			try {
-				const element = (await page.$(healedSelector)) ?? (await page.locator(`text=${bestNode.name}`).first());
+				const element = (await page.$(healedSelector) ?? await page.locator(`text=${bestNode.name}`).first()) as ElementHandle<SVGElement | HTMLElement> | null;
 				attempts.push({
 					mode: "detached",
 					strategy: "semantic-re-find",
@@ -545,7 +546,7 @@ export class InteractionReliability {
 	// ─── Strategy: Wrong Tab ─────────────────────────────────────────────────
 
 	private async recoverWrongTab(
-		context: any,
+		context: BrowserContext,
 		selector: string,
 		attempts: InteractionAttempt[],
 		recoveryNotes: string[],

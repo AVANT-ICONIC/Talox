@@ -147,4 +147,11 @@ export interface ObserveSessionOptions {
 	 * @default true for observe, false for debug
 	 */
 	record?: boolean;
+	/**
+	 * Enable Playwright video recording for the session.
+	 * When set, a video file is written to the given directory.
+	 * @default undefined
+	 */
+	recordVideo?: { dir: string; size?: { width: number; height: number } };
 }
+

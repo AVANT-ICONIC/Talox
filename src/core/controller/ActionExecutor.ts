@@ -11,6 +11,7 @@ export type TypingRhythm = "fast" | "medium" | "slow" | "variable";
 export type AccelerationCurve = "linear" | "ease-out" | "ease-in-out" | "bezier";
 
 import type { TaloxEventMap } from "../../types/events.js";
+import type { Page } from "playwright-core";
 import type { Point, TaloxNode, TaloxPageState } from "../../types/index.js";
 import { diffPageState } from "../../types/index.js";
 import type { TaloxSettings } from "../../types/settings.js";
@@ -19,10 +20,11 @@ import { type CursorStepCallback, HumanMouse } from "../HumanMouse.js";
 import { InteractionReliability } from "../InteractionReliability.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import type { PolicyEngine } from "../PolicyEngine.js";
-import type { SemanticMapper } from "../SemanticMapper.js";
+import type { SemanticMapper, SemanticEntityType } from "../SemanticMapper.js";
 import type { SiteWarmupRegistry } from "../SiteWarmup.js";
 import { createLogger } from "../Logger.js";
 import { EventBus } from "./EventBus.js";
+import type { AttentionFrame } from "./SessionManager.js";
 
 /**
  * Executes browser interactions (navigate, click, type, scroll, etc.) on behalf
@@ -131,7 +133,7 @@ export class ActionExecutor {
 		}
 
 		// Settle Wait: Ensure hydration before proceeding
-		const waitOption = { waitUntil: "networkidle" } as any;
+		const waitOption = { waitUntil: "networkidle" as const };
 
 		await page.goto(url, waitOption);
 		setFirstNavigation(false);
@@ -278,7 +280,7 @@ export class ActionExecutor {
 
 	private async resolveAttentionFrameBox(
 		selector: string,
-		attentionFrame: any,
+		attentionFrame: AttentionFrame,
 	): Promise<{ x: number; y: number; width: number; height: number } | null> {
 		if (!attentionFrame) return null;
 		const frameElement = await this.findElementInFrame(selector);
@@ -289,10 +291,10 @@ export class ActionExecutor {
 	}
 
 	private async performRawClick(
-		page: any,
+		page: Page,
 		selector: string,
 		targetBox: { x: number; y: number; width: number; height: number } | null,
-		attentionFrame: any,
+		attentionFrame: AttentionFrame,
 	): Promise<void> {
 		const element = targetBox ? null : await page.$(selector);
 		const box = targetBox || (element ? await element.boundingBox() : null);
@@ -307,7 +309,7 @@ export class ActionExecutor {
 	}
 
 	private async performHumanClick(
-		page: any,
+		page: Page,
 		selector: string,
 		targetBox: { x: number; y: number; width: number; height: number } | null,
 	): Promise<void> {
@@ -339,7 +341,7 @@ export class ActionExecutor {
 		this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
 	}
 
-	private async collectStateAfterClick(page: any): Promise<TaloxPageState> {
+	private async collectStateAfterClick (page: Page): Promise<TaloxPageState> {
 		await new Promise((r) => setTimeout(r, 500));
 		this.recordActivity();
 
@@ -448,11 +450,11 @@ export class ActionExecutor {
 	}
 
 	private async performRawType(
-		page: any,
+		page: Page,
 		selector: string,
 		text: string,
 		targetBox: { x: number; y: number; width: number; height: number } | null,
-		attentionFrame: any,
+		attentionFrame: AttentionFrame,
 	): Promise<void> {
 		if (attentionFrame && targetBox) {
 			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
@@ -463,11 +465,11 @@ export class ActionExecutor {
 	}
 
 	private async performHumanType(
-		page: any,
+		page: Page,
 		selector: string,
 		text: string,
 		targetBox: { x: number; y: number; width: number; height: number } | null,
-		attentionFrame: any,
+		attentionFrame: AttentionFrame,
 	): Promise<void> {
 		const settings = this.settings;
 		const dnaSpeed = this.getDNAMouseSpeed(null);
@@ -489,10 +491,10 @@ export class ActionExecutor {
 	}
 
 	private async humanMoveToTypeTarget(
-		page: any,
+		page: Page,
 		selector: string,
 		targetBox: { x: number; y: number; width: number; height: number } | null,
-		attentionFrame: any,
+		attentionFrame: AttentionFrame,
 		dnaSpeed: number,
 		onStep: any,
 	): Promise<void> {
@@ -637,7 +639,7 @@ export class ActionExecutor {
 		let filtered = entities;
 
 		if (elementType && elementType !== "any") {
-			filtered = this.semanticMapper.filterByType(entities, [elementType as any]);
+			filtered = this.semanticMapper.filterByType(entities, [elementType as SemanticEntityType]);
 		}
 
 		const matches = filtered.filter(
@@ -778,7 +780,7 @@ export class ActionExecutor {
 
 	// ─── Typing Helpers ──────────────────────────────────────────────────────────
 
-	private async typeWithTypos(page: any, selector: string, text: string): Promise<void> {
+	private async typeWithTypos(page: Page, selector: string, text: string): Promise<void> {
 		const settings = this.settings;
 		const dnaTypingDelay = this.getDNATypingDelay(null);
 		const baseDelay =

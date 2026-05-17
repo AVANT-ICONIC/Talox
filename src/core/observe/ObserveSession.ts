@@ -1,3 +1,4 @@
+import type { Page, BrowserContext } from "playwright-core";
 /**
  * @file ObserveSession.ts
  * @description Orchestrates the full lifecycle of an observe-mode session.
@@ -76,8 +77,8 @@ export class ObserveSession {
 	private readonly artifactBuilder: ArtifactBuilder;
 
 	constructor(
-		private readonly page: any, // Playwright Page
-		private readonly context: any, // Playwright BrowserContext
+		private readonly page: Page, // Playwright Page
+		private readonly context: BrowserContext, // Playwright BrowserContext
 		eventBus: EventBus<TaloxEventMap>,
 		artifactBuilder: ArtifactBuilder,
 		options: ObserveSessionOptions = {},
@@ -97,7 +98,8 @@ export class ObserveSession {
 			headed: options.headed ?? true,
 			overlay: wantsOverlay,
 			record: wantsRecord,
-		};
+			recordVideo: options.recordVideo,
+		} as Required<ObserveSessionOptions>;
 
 		this.injector = new OverlayInjector(
 			this.sessionId,

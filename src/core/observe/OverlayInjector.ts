@@ -1,3 +1,4 @@
+import type { Page } from "playwright-core";
 /**
  * @file OverlayInjector.ts
  * @description Injects the Talox observe overlay into every page navigation.
@@ -72,7 +73,7 @@ export class OverlayInjector {
 	 *
 	 * @param page - The Playwright `Page` instance.
 	 */
-	async inject(page: any): Promise<void> {
+	async inject(page: Page): Promise<void> {
 		if (this.injectedPages.has(page)) {
 			return;
 		}

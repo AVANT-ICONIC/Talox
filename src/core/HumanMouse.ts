@@ -1,3 +1,4 @@
+import type { Page } from "playwright-core";
 import type { Point } from "../types/index.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -87,7 +88,7 @@ export class HumanMouse {
 	 * page.mouse.move() as before for correct event dispatch.
 	 */
 	static async move(
-		page: any,
+		page: Page,
 		targetX: number,
 		targetY: number,
 		targetWidth: number = 100,
@@ -136,7 +137,7 @@ export class HumanMouse {
 	 * @returns The final position after click
 	 */
 	static async click(
-		page: any,
+		page: Page,
 		selector: string,
 		isFlow: boolean = false,
 		currentPos?: Point,
@@ -188,7 +189,7 @@ export class HumanMouse {
 	 * Micro-movements while agent is idle. Uses onStep when in headed overlay mode.
 	 */
 	static async fidget(
-		page: any,
+		page: Page,
 		currentX: number,
 		currentY: number,
 		durationMs: number = 1500,

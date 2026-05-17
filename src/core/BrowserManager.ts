@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { type BrowserContext, chromium, firefox, webkit } from "playwright-core";
+import { type BrowserContext, type BrowserType as PlaywrightBrowserType, chromium, firefox, webkit } from "playwright-core";
 import type { TaloxProfile, TaloxSettings } from "../types/index.js";
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
@@ -346,7 +346,7 @@ export class BrowserManager {
 		const effectiveHeadless = extraOptions?.headless ?? this.config.browser.headless;
 		const isAdaptive = this.config.settings.adaptiveStealthEnabled !== false;
 
-		const launchOptions: any = {
+		const launchOptions: Record<string, unknown> = {
 			headless: effectiveHeadless,
 			args: [
 				"--no-sandbox",
@@ -380,7 +380,7 @@ export class BrowserManager {
 		return launchOptions;
 	}
 
-	private async tryLaunchContext(launcher: any, userDataDir: string, launchOptions: any): Promise<BrowserContext> {
+	private async tryLaunchContext(launcher: PlaywrightBrowserType, userDataDir: string, launchOptions: Record<string, unknown>): Promise<BrowserContext> {
 		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 		this.contexts.add(ctx);
 		this.attachCloseHandler(ctx);
@@ -408,9 +408,9 @@ export class BrowserManager {
 	}
 
 	private async launchWithFallback(
-		launcher: any,
+		launcher: PlaywrightBrowserType,
 		userDataDir: string,
-		launchOptions: any,
+		launchOptions: Record<string, unknown>,
 		browserType: BrowserType,
 	): Promise<BrowserContext> {
 		try {

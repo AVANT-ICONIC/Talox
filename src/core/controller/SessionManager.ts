@@ -1,3 +1,4 @@
+import type { Page } from "playwright-core";
 /**
  * @file SessionManager.ts
  * @description Session lifecycle, browser launch, multi-page management,
@@ -107,7 +108,7 @@ export class SessionManager {
 		const resolvedOpts: ObserveSessionOptions = { ...observeOptions };
 		const wantsHeaded = resolvedOpts.headed ?? this.settings.headed;
 
-		const launchOptions: any = {};
+		const launchOptions: Record<string, unknown> = {};
 		if (wantsHeaded) {
 			launchOptions.headless = false;
 		}
@@ -122,8 +123,8 @@ export class SessionManager {
 		};
 
 		// Support native video recording
-		if ((resolvedOpts as any).recordVideo) {
-			launchOptions.recordVideo = (resolvedOpts as any).recordVideo;
+		if (resolvedOpts.recordVideo) {
+			launchOptions.recordVideo = resolvedOpts.recordVideo;
 		}
 
 		const context = await this.browserManager.launch(this.profile, this.settings.headed, browserType, launchOptions);
@@ -214,10 +215,10 @@ export class SessionManager {
 		this.activePageIndex = -1;
 
 		// 3. Update the settings reference (shared object — mutation propagates)
-		(this.settings as any).headed = headed;
+		this.settings.headed = headed;
 
 		// 4. Relaunch with new headed setting
-		const launchOptions: any = { headless: !headed };
+		const launchOptions: Record<string, unknown> = { headless: !headed };
 		if (this.fingerprint) launchOptions.userAgent = this.fingerprint.userAgent;
 
 		const newContext = await this.browserManager.launch(profile, headed, "chromium", launchOptions);
@@ -561,7 +562,7 @@ export class SessionManager {
 		}
 	}
 
-	async performMicroJitter(page: any, lastMousePos: Point, setLastMousePos: (p: Point) => void): Promise<void> {
+	async performMicroJitter(page: Page, lastMousePos: Point, setLastMousePos: (p: Point) => void): Promise<void> {
 		const jitterAmount = 2 + Math.random() * 5;
 		const angle = Math.random() * 2 * Math.PI;
 		const offsetX = Math.round(Math.cos(angle) * jitterAmount);
@@ -575,7 +576,7 @@ export class SessionManager {
 	}
 
 	async performSmallCursorMovement(
-		page: any,
+		page: Page,
 		lastMousePos: Point,
 		attentionFrame: any,
 		clampToFrame: (x: number, y: number) => Point,
@@ -594,7 +595,7 @@ export class SessionManager {
 		setLastMousePos(clampedPos);
 	}
 
-	async performMicroScroll(page: any): Promise<void> {
+	async performMicroScroll(page: Page): Promise<void> {
 		const scrollAmount = 50 + Math.random() * 100;
 		const scrollDirection = Math.random() > 0.5 ? -1 : 1;
 		await page.mouse.wheel(0, scrollDirection * scrollAmount);
@@ -602,7 +603,7 @@ export class SessionManager {
 
 	// ─── Private: Security ────────────────────────────────────────────────────────
 
-	private async attachSecurityHooks(page: any): Promise<void> {
+	private async attachSecurityHooks(page: Page): Promise<void> {
 		if (!this.profile || this.profile.class === "sandbox") return;
 
 		// 1. Outbound Request Guard
@@ -663,7 +664,7 @@ export class SessionManager {
 		}
 	}
 
-	async injectStealthScripts(page: any): Promise<void> {
+	async injectStealthScripts(page: Page): Promise<void> {
 		// Generate a fingerprint if one doesn't exist yet (e.g. in tests)
 		this.fingerprint ??= this.fingerprintGen.generate();
 
@@ -1022,7 +1023,7 @@ export class SessionManager {
 			}
 
 			// 17. Navigator.connection spoofing — consistent with fingerprint profile
-			const navConn = (navigator as any).connection;
+			const navConn = navigator.connection;
 			if (navConn) {
 				try {
 					Object.defineProperty(navConn, "rtt", { get: () => 50 });
@@ -1049,9 +1050,9 @@ export class SessionManager {
 			if (typeof window !== "undefined") {
 				// Delete automation-specific properties that leak through CDP
 				try {
-					delete (window as any).__playwright;
-					delete (window as any).__pw_manual;
-					delete (window as any).__PW_inspect;
+					delete window.__playwright;
+					delete window.__pw_manual;
+					delete window.__PW_inspect;
 				} catch (_e) {
 					/* Ignored: non-fatal browser API error */
 				}

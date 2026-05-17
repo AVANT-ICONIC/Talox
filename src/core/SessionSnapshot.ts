@@ -1,3 +1,4 @@
+import type { Page, BrowserContext } from "playwright-core";
 /**
  * @file SessionSnapshot.ts
  * @description Capture and restore browser session state across restarts.
@@ -70,7 +71,7 @@ export interface SessionSnapshot {
  * @param page    Playwright page object (must be in a stable state, not mid-navigation).
  * @param context Playwright browser context (for cookie extraction).
  */
-export async function captureSessionSnapshot(page: any, context: any): Promise<SessionSnapshot> {
+export async function captureSessionSnapshot(page: Page, context: BrowserContext): Promise<SessionSnapshot> {
 	const url = page.url();
 	const title = await page.title().catch(() => "");
 	const capturedAt = new Date().toISOString();
@@ -151,7 +152,7 @@ export async function captureSessionSnapshot(page: any, context: any): Promise<S
  * 4. Scroll to the captured position.
  */
 async function restoreStorage(
-	page: any,
+	page: Page,
 	entries: [string, string][],
 	storageType: "localStorage" | "sessionStorage",
 ): Promise<void> {
@@ -174,7 +175,7 @@ async function restoreStorage(
 	}
 }
 
-export async function restoreSessionSnapshot(page: any, context: any, snapshot: SessionSnapshot): Promise<void> {
+export async function restoreSessionSnapshot(page: Page, context: BrowserContext, snapshot: SessionSnapshot): Promise<void> {
 	// 1. Inject cookies before navigation so they travel with the first request
 	if (snapshot.cookies.length > 0) {
 		try {
