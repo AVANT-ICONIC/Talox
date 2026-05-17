@@ -106,6 +106,7 @@ export { SkillLoader } from "./core/skills/SkillLoader.js";
 export { SkillWriter } from "./core/skills/SkillWriter.js";
 // ─── Smart Mode (now always-on) ──────────────────────────────────────────────
 export { AdaptationEngine } from "./core/smart/AdaptationEngine.js";
+export type { AdaptationRecord } from "./core/smart/AdaptationEngine.js";
 export { BotDetector } from "./core/smart/BotDetector.js";
 export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/smart/DomainMemory.js";
 export { DomainMemory } from "./core/smart/DomainMemory.js";

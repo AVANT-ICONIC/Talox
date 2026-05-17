@@ -19,6 +19,12 @@ import { BotDetector } from "./BotDetector.js";
 import { DomainMemory } from "./DomainMemory.js";
 import { type AdaptationSideEffect, STRATEGIES } from "./strategies.js";
 
+export interface AdaptationRecord {
+	reason: AdaptationReason;
+	strategy: string;
+	before: TaloxSettings;
+	after: TaloxSettings;
+}
 // ─── AdaptationEngine ────────────────────────────────────────────────────────
 
 /**
@@ -53,7 +59,7 @@ export class AdaptationEngine {
 	/** Tracks whether we're in headed mode after escalation. */
 	private headedEscalated: boolean = false;
 
-	private lastAdaptation: any = null;
+	private lastAdaptation: AdaptationRecord | null = null;
 
 	/** Per-domain strategy outcome memory — shared across evaluate() calls. */
 	readonly domainMemory = new DomainMemory();
@@ -79,7 +85,7 @@ export class AdaptationEngine {
 		this.bypassEscalation = bypassEscalation;
 	}
 
-	getLastAdaptation(): any {
+	getLastAdaptation(): AdaptationRecord | null {
 		return this.lastAdaptation;
 	}
 

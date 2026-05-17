@@ -89,11 +89,16 @@ export class ActionExecutor {
 		private readonly getAttentionFrame: () => any,
 		private readonly clampToFrame: (x: number, y: number) => Point,
 		private readonly findElementInFrame: (selector: string) => Promise<any>,
-		private readonly riskyActionHook: (() => Promise<boolean>) | undefined,
+		private riskyActionHook: ((action: string, target: string) => Promise<boolean>) | undefined,
 		private readonly recordActivity: () => void,
 		private readonly getCursorStepCallback?: () => CursorStepCallback | undefined,
 		private readonly warmupRegistry?: SiteWarmupRegistry,
 	) {}
+
+	/** Set or replace the risky-action approval hook. */
+	setRiskyActionHook(hook: (action: string, target: string) => Promise<boolean>): void {
+		this.riskyActionHook = hook;
+	}
 
 	// ─── Navigation ─────────────────────────────────────────────────────────────
 
@@ -836,7 +841,7 @@ export class ActionExecutor {
 	private async checkRiskyAction(action: string, target: string): Promise<void> {
 		const profile = this.getProfile();
 		if (profile?.class === "ops" && this.riskyActionHook) {
-			const isApproved = await this.riskyActionHook();
+			const isApproved = await this.riskyActionHook(action, target);
 			if (!isApproved) {
 				throw new Error(`Human-in-the-Loop blocked risky action: ${action} on ${target}`);
 			}

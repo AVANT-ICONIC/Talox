@@ -38,6 +38,7 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
  */
 export class PageStateCollector {
 	private readonly consoleErrors: string[] = [];
+	private lastState: TaloxPageState | null = null;
 	private readonly failedRequests: Array<{ url: string; status: number; type?: string }> = [];
 	private retryStats: RetryStats = {
 		attempts: 0,
@@ -916,7 +917,7 @@ export class PageStateCollector {
 		const allInteractiveElements = [...mergedInteractiveElements, ...cursorDetectedElements];
 
 		const collectedAt = new Date().toISOString();
-		return {
+		const state: TaloxPageState = {
 			url,
 			title,
 			timestamp: collectedAt,
@@ -930,5 +931,12 @@ export class PageStateCollector {
 				collectedAt,
 			},
 		};
+		this.lastState = state;
+		return state;
+	}
+
+	/** Returns nodes from the most recent collect() call. */
+	getLastNodes(): TaloxNode[] {
+		return this.lastState?.nodes ?? [];
 	}
 }

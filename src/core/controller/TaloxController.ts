@@ -74,6 +74,7 @@ import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { createLogger } from "../Logger.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
+import type { EventHandler } from "./EventBus.js";
 import { SessionManager } from "./SessionManager.js";
 import { TakeoverBridge } from "./TakeoverBridge.js";
 
@@ -88,7 +89,7 @@ export interface DebugSnapshot {
 	bugs: TaloxBug[];
 	consoleErrors: string[];
 	networkErrors: Array<{ url: string; status: number }>;
-	lastAdaptation: any;
+	lastAdaptation: import("../smart/AdaptationEngine.js").AdaptationRecord | null;
 	verbosity: VerbosityLevel;
 	timestamp: string;
 }
@@ -457,7 +458,8 @@ export class TaloxController {
 			state.bugs.push(...this._session.rulesEngine.analyze(state));
 			this._session.lastState = state;
 			if (!variant || variant === "full") return state;
-			return compactState(state, variant as any);
+			if (variant === "agent") return compactState(state, "agent");
+			return compactState(state, "debug");
 		} catch (error: unknown) {
 			return this.buildErrorState(error);
 		}
@@ -630,7 +632,7 @@ export class TaloxController {
 			bugs: state?.bugs ?? [],
 			consoleErrors: state?.console?.errors ?? [],
 			networkErrors: state?.network?.failedRequests ?? [],
-			lastAdaptation: (this._adapt as any).getLastAdaptation?.() ?? null,
+			lastAdaptation: this._adapt.getLastAdaptation() ?? null,
 			verbosity: this.settings.verbosity,
 			timestamp: new Date().toISOString(),
 		};
@@ -1114,7 +1116,7 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	findNodeByText(text: string, fuzzy = false): TaloxNode | null {
-		const nodes: TaloxNode[] = (this._session.getActiveStateCollector() as any).state?.nodes ?? [];
+		const nodes: TaloxNode[] = this._session.getActiveStateCollector().getLastNodes();
 		const norm = fuzzy ? text.toLowerCase() : text;
 		return (
 			nodes.find((n) => {
@@ -1125,7 +1127,7 @@ export class TaloxController {
 	}
 
 	findNodesByText(text: string, fuzzy = false): TaloxNode[] {
-		const nodes: TaloxNode[] = (this._session.getActiveStateCollector() as any).state?.nodes ?? [];
+		const nodes: TaloxNode[] = this._session.getActiveStateCollector().getLastNodes();
 		const norm = fuzzy ? text.toLowerCase() : text;
 		return nodes.filter((n) => {
 			const t = fuzzy ? (n.name ?? "").toLowerCase() : (n.name ?? "");
@@ -1134,13 +1136,13 @@ export class TaloxController {
 	}
 
 	findNodeByRole(role: string): TaloxNode | null {
-		const nodes: TaloxNode[] = (this._session.getActiveStateCollector() as any).state?.nodes ?? [];
+		const nodes: TaloxNode[] = this._session.getActiveStateCollector().getLastNodes();
 		const r = role.toLowerCase();
 		return nodes.find((n) => (n.role ?? "").toLowerCase() === r) ?? null;
 	}
 
 	findNodesByRole(roles: string[]): TaloxNode[] {
-		const nodes: TaloxNode[] = (this._session.getActiveStateCollector() as any).state?.nodes ?? [];
+		const nodes: TaloxNode[] = this._session.getActiveStateCollector().getLastNodes();
 		const rs = new Set(roles.map((r) => r.toLowerCase()));
 		return nodes.filter((n) => rs.has((n.role ?? "").toLowerCase()));
 	}
@@ -1273,7 +1275,7 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	setOnRiskyActionHook(hook: (action: string, target: string) => Promise<boolean>): void {
-		(this._actions as any).riskyActionHook = hook;
+		this._actions.setRiskyActionHook(hook);
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -1289,12 +1291,12 @@ export class TaloxController {
 	 * talox.on('adapted',    (e) => console.log(e.reason));
 	 * ```
 	 */
-	on<K extends keyof TaloxEventMap>(eventType: K, handler: (data: TaloxEventMap[K]) => void): void {
-		this._events.on(eventType, handler as any);
+	on<K extends keyof TaloxEventMap>(eventType: K, handler: EventHandler<TaloxEventMap[K]>): void {
+		this._events.on(eventType, handler);
 	}
 
-	off<K extends keyof TaloxEventMap>(eventType: K, handler: (data: TaloxEventMap[K]) => void): void {
-		this._events.off(eventType, handler as any);
+	off<K extends keyof TaloxEventMap>(eventType: K, handler: EventHandler<TaloxEventMap[K]>): void {
+		this._events.off(eventType, handler);
 	}
 
 	removeAllListeners(): void {
