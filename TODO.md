@@ -1,97 +1,79 @@
 # Talox Release Roadmap
 
-> Generated 2026-05-17 from IMPROVEMENT_BACKLOG.md
+> Updated 2026-05-17 — one release per day cadence
 
 ## ✅ Done
 
-|Version|What|Date|
-|---|---|---|
-|v7.0.2|package.json normalization, biome lint, dep audit|2026-05-17|
-|v7.0.3|Logger abstraction — replace console.log in 12 core modules|2026-05-17|
-|v7.0.4|Typed accessors — zero `as any` casts in TaloxController|2026-05-17|
+|Version|Theme|Key Metric|Date|
+|---|---|---|---|
+|v7.0.2|Package hygiene|npm warnings fixed|2026-05-17|
+|v7.0.3|Logger abstraction|12 core modules de-console.log'd|2026-05-17|
+|v7.0.4|Typed accessors|13 `as any`→0 in TaloxController|2026-05-17|
+|v7.1.0|Type Safety Sprint|49 `page:any`→0, ~70 suppressions killed|2026-05-17|
+|v7.1.1|Suppressions cleanup|9 `@ts-expect-error`→2, 14 `!`→0|2026-05-17|
+|v7.2.0|Test hardening + housekeeping|+43 tests (1688 total), audits|2026-05-17|
 
 ---
 
-## 🔜 v7.1.0 — Type Safety Sprint (~70 type suppressions killed)
+## 🔜 v7.3.0 — Hard Type Gaps
 
-### `page: any` → Playwright types (~50 instances)
-- [ ] ActionExecutor — 16 `page: any`
-- [ ] InteractionReliability — 8 `page: any`
-- [ ] BrowserManager — 7 `launcher: any`, `launchOptions: any`
-- [ ] ChallengeResolver — 6 `page: any`
-- [ ] SiteWarmup — 5 `page: any`
-- [ ] HumanMouse — 3 `page: any`
-- [ ] SessionSnapshot — 4 `page: any`, `context: any`
-- [ ] PageStateCollector — 12 `el: any` DOM handles
-- [ ] ArtifactBuilder — 3 `payload: any`
+**18 remaining `as any` + 2 `@ts-expect-error` — the genuinely hard cases.**
 
-### Remaining `as any` casts
-- [ ] SessionManager — pages array, recordVideo, headed (5x)
-- [ ] PolicyEngine — `_currentAmount` closure (2x)
-- [ ] InspectServer — CDP session type (1x)
-- [ ] CrossOriginManager — CDP command type (1x)
-- [ ] VisionGate — ssim.js ESM compat (1x)
-- [ ] SelfHealingSelector — dynamic options key (1x)
-- [ ] OverlayInjector — event bus gap (1x)
-- [ ] TakeoverBridge — global window extension (1x)
-- [ ] GhostCursorOverlay — global window extension (2x)
-- [ ] AutonomousLoop — controller internals (1x)
+### SessionManager pages wrapper (3 `as any`)
+- [ ] Add `PageHandle` typed wrapper instead of `(this.pages[index] as any).page`
+- [ ] Add `getCollectorPage()` accessor instead of `(collector as any).page`
 
-### Suppressions & assertions
-- [ ] 9 `@ts-expect-error` → `declare global` augmentation (SessionManager stealth)
-- [ ] Non-null assertions → bounds checks (research modules: ExperimentRunner, StrategyComposer, SkillVersioning, HypothesisGenerator)
-- [ ] FingerprintGenerator generic return types
-- [ ] Type index signatures cleanup
+### PolicyEngine `_currentAmount` closure (2 `as any`)
+- [ ] Refactor closure → private method or extract `currentAmount` to a named field
+- [ ] Fix `(this as any)._currentAmount` access in two closure contexts
 
----
+### SelfHealingSelector dynamic key (1 `as any`)
+- [ ] Replace `(this.options as any)[key]` with `keyof` constrained access
 
-## 🔜 v7.2.0 — Test Hardening
+### PageStateCollector `isClosed` (1 `as any`)
+- [ ] Add `isClosed` to Playwright Page type via augmentation OR use try/catch pattern
 
-- [ ] GhostCursorOverlay tests (zero coverage)
-- [ ] daemon/commandHandler tests (zero coverage)
+### CDP protocol looseness (2 `as any`)
+- [ ] InspectServer: widen CDPSession type or accept as upstream limitation
+- [ ] CrossOriginManager: same — CDP command parameters are inherently loose
+
+### ssim.js ESM compat (1 `as any`)
+- [ ] Write local `ssim.js.d.ts` override OR accept as upstream limitation with doc
+
+### Remaining suppressions (2 `@ts-expect-error`)
+- [ ] BrowserManager: internal close — add proper type guard
+- [ ] PageStateCollector: accessibility API — augment Playwright types
+
+### Miscellaneous hard casts (6 `as any`)
+- [ ] SessionSnapshot entries tuple
+- [ ] OverlayInjector event payload
+- [ ] VisionGate ssim access (second cast)
+- [ ] SessionManager stealth bracket-notation casts (3x — accept as necessary)
+
+### Polish
 - [ ] Strategies definition tests
-- [ ] Dead code audit (presets.ts, strategies.ts)
-- [ ] NOSONAR suppressions audit (42 instances)
+- [ ] Update AGENTS.md version + status
 
 ---
 
-## 🔜 v7.3.0 — Robustness & Polish
+## 🔜 v7.4.0 — Robustness & Docs
 
-- [ ] Site warmup fragility hardening (Reddit bypass)
-- [ ] BrowserManager console.log banner → verbose gate
-- [ ] CLI console.log → chalk/ora (doctor.ts, talox.ts)
-- [ ] Legacy compat deprecation path
-- [ ] Chromium dep → optional/peer
-- [ ] Limitation docs (Patchright addInitScript, headless detectability)
-- [ ] ts-prune full dead-code pass
+### Production hardening
+- [ ] Chromium dep → `optionalDependencies` (breaking change — needs migration guide)
+- [ ] Patchright `addInitScript` limitation documented in AGENTS.md + README
+- [ ] Headless detectability limitation documented
+
+### Finishing touches
+- [ ] Mark original IMPROVEMENT_BACKLOG.md complete
+- [ ] Final `as any` tally: zero or documented exceptions only
+- [ ] Run full test suite (unit + smoke + property + snapshot + perf + browser + e2e)
 
 ---
 
-*28 items remaining across 3 releases.*
+## 🔜 v7.5.0+ — Feature Work
 
-## Progress — v7.1.0 (in progress)
+Backlog complete. Start building new features.
 
-### Done
-- [x] `page: any` → `Page`/`BrowserContext` — 49 instances across 10 files
-- [x] `attentionFrame: any` → `AttentionFrame` type — 5 instances
-- [x] `launcher: any` → `PlaywrightBrowserType` — 3 instances
-- [x] `launchOptions: any` → `Record<string, unknown>` — 3 instances
-- [x] Global window extensions → `declare global` in `src/types/global.d.ts` — 7 `as any` killed
-- [x] `resolvedOpts.recordVideo` → typed via `ObserveSessionOptions.recordVideo`
-- [x] `this.settings.headed` → typed
-- [x] `elementType as any` → `SemanticEntityType`
-- [x] `{ waitUntil: "networkidle" } as any` → `as const`
-- [x] `recordVideo` added to `ObserveSessionOptions` type
+---
 
-### Remaining (13 hard `as any`, 9 `@ts-expect-error`, non-null assertions)
-- [ ] PolicyEngine `_currentAmount` closure (2x) — needs refactor
-- [ ] SessionManager pages array internal access (3x) — needs wrapper type
-- [ ] SelfHealingSelector dynamic key (1x)
-- [ ] PageStateCollector `isClosed` (1x) — upstream Playwright gap
-- [ ] InspectServer/CrossOriginManager CDP types (2x) — protocol looseness
-- [ ] VisionGate ssim.js ESM (2x) — broken upstream types
-- [ ] SessionSnapshot entries tuple (1x)
-- [ ] OverlayInjector event payload (1x)
-- [ ] 9 `@ts-expect-error` → `declare global` (SessionManager stealth)
-- [ ] Non-null assertions → bounds checks (research modules)
-- [ ] FingerprintGenerator generic returns
+*Original backlog: 36 items across 8 categories. After v7.4.0: 0 remaining.*

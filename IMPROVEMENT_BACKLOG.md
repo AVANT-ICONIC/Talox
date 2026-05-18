@@ -1,10 +1,11 @@
 # Talox Improvement Backlog
 
+> **Status: 28/36 resolved across v7.0.2–v7.2.0. Remaining 8 items → v7.3.0+v7.4.0.**
 Generated: 2026-05-16
 
 ---
 
-## 1. Lint / Biome Warnings (2 warnings, 1 info)
+## 1. Lint / Biome Warnings ✅ (v7.0.2)
 
 | Severity | File | Line | Description |
 |----------|------|------|-------------|
@@ -16,7 +17,7 @@ Generated: 2026-05-16
 
 ---
 
-## 2. `as any` Casts (34 instances)
+## 2. `as any` Casts 🔄 (v7.0.4+v7.1.0 — 21/34 resolved, 13 remaining)
 
 | Severity | File | Line | What it works around |
 |----------|------|------|----------------------|
@@ -43,7 +44,7 @@ Generated: 2026-05-16
 
 ---
 
-## 3. Console.log in Production Code (non-CLI files)
+## 3. Console.log in Production Code ✅ (v7.0.3+v7.2.0)
 
 | Severity | File | Line(s) | Description |
 |----------|------|---------|-------------|
@@ -58,7 +59,7 @@ Generated: 2026-05-16
 
 ---
 
-## 4. Missing Test Coverage
+## 4. Missing Test Coverage ✅ (v7.2.0)
 
 | Severity | Source File | Missing Test | Notes |
 |----------|-------------|-------------|-------|
@@ -74,7 +75,7 @@ Generated: 2026-05-16
 
 ---
 
-## 5. Dead Code / Unused Exports (quick audit)
+## 5. Dead Code / Unused Exports ✅ (v7.2.0)
 
 | Severity | File | Description |
 |----------|------|-------------|
@@ -86,7 +87,7 @@ Generated: 2026-05-16
 
 ---
 
-## 6. Package.json Issues
+## 6. Package.json Issues ✅ (v7.0.2)
 
 | Severity | Issue | Description |
 |----------|-------|-------------|
@@ -98,7 +99,7 @@ Generated: 2026-05-16
 
 ---
 
-## 7. Type Safety Gaps
+## 7. Type Safety Gaps 🔄 (v7.1.0+v7.1.1 — page:any, @ts-expect-error, non-null done; index sigs + generic returns remain)
 
 ### 7a. `@ts-expect-error` / `@ts-ignore` (11 instances)
 
@@ -138,7 +139,7 @@ Generated: 2026-05-16
 
 ---
 
-## 8. Known Limitations (from AGENTS.md)
+## 8. Known Limitations 🔄 (v7.2.0 — Reddit fragility tagged; Patchright + headless docs remain)
 
 | Severity | Limitation | Description |
 |----------|------------|-------------|
