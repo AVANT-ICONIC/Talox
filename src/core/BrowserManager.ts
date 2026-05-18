@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { createLogger } from "./Logger.js";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -633,8 +634,9 @@ export function createLiveBootManager(): BrowserManager {
 	return new BrowserManager();
 }
 
+const browserLog = createLogger("Browser");
 export function printBrowserInstallGuide(): void {
-	console.log(`
+	browserLog.info(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║           Browser Installation Required                           ║
 ╠══════════════════════════════════════════════════════════════════╣

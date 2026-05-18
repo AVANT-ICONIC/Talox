@@ -77,7 +77,7 @@ Suggested approach: ${input.suggestedApproach || "none"}
 Recent iterations:
 ${input.recentHistory}
 
-Generate a skill that would help the agent overcome this blocker in future runs.`; // NOSONAR: template literal
+Generate a skill that would help the agent overcome this blocker in future runs.`;
 
 		try {
 			const raw = await this.callLLM(skillPrompt);
@@ -118,7 +118,8 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		parts.push(`Title: ${state.title}`);
 
 		if (state.interactiveElements?.length) {
-			const trimmed = state.interactiveElements.slice(0, 30); // NOSONAR: magic number is intentional trim
+			const MAX_INTERACTIVE_ELEMENTS = 30;
+		const trimmed = state.interactiveElements.slice(0, MAX_INTERACTIVE_ELEMENTS);
 			parts.push(`Interactive Elements (${trimmed.length}/${state.interactiveElements.length}):`);
 			for (const el of trimmed) {
 				parts.push(`  - ${el}`);

@@ -51,6 +51,10 @@ export interface WarmupStrategy {
 
 /**
  * Reddit: bypasses the "Prove your humanity" reCAPTCHA interstitial that
+ * @fragile This bypass relies on the \"edgebucket\" cookie surviving a double-navigation.
+ * If Reddit changes their challenge flow (e.g., adds JS-based verification),
+ * this strategy will silently break. Monitor for false negatives.
+ *
  * appears on first navigation. The `edgebucket` cookie is set during the
  * initial request, so simply navigating again with `domcontentloaded` bypasses
  * the challenge.
