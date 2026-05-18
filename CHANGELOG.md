@@ -4,6 +4,92 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [7.2.0] - 2026-05-17
+
+### Added
+
+- **GhostCursorOverlay tests** (18) — constructor options, inject idempotency, createCallback, clickRipple, edge cases.
+- **daemon/commandHandler tests** (25) — dispatch, param validation, screenshot formatting, error handling, generateSessionId.
+- **`@fragile` tag** on Reddit warmup strategy documenting edgebucket cookie dependency.
+
+### Changed
+
+- **BrowserManager** `console.log` banner → `Logger.info` (gated via `TALOX_LOG_LEVEL`).
+- **NOSONAR cleanup**: magic number in Planner extracted to named constant.
+- **Site warmup**: Reddit bypass fragility documented.
+
+### Audits
+
+- **Dead code**: `PRESETS` and `STRATEGIES` confirmed in active use.
+- **NOSONAR**: 78 instances catalogued, easy ones cleaned.
+- **ts-prune**: Full unused export scan completed, barrel exports verified.
+
+### Tests
+
+- **92 test files, 1688 tests** (up from 90/1645).
+
+## [7.1.1] - 2026-05-17
+
+### Fixed
+
+- **9 `@ts-expect-error` → 2** in SessionManager stealth injection. 7 removed via `declare global` + bracket notation casts.
+- **14 non-null assertions → 0** in research modules. All replaced with bounds checks or runtime guards.
+- **`global.d.ts`**: Added `chrome` runtime API, `navigator.getBattery` declarations.
+
+## [7.1.0] - 2026-05-17
+
+### Changed
+
+- **49 `page: any` → `Page` / `BrowserContext`** across 10 core files: ActionExecutor, InteractionReliability, BrowserManager, ChallengeResolver, SiteWarmup, HumanMouse, SessionSnapshot, SessionManager, ObserveSession, OverlayInjector.
+- **5 `attentionFrame: any` → `AttentionFrame`** type in ActionExecutor.
+- **3 `launcher: any` → `PlaywrightBrowserType`** in BrowserManager.
+- **`launchOptions: any` → `Record<string, unknown>`** (3 instances).
+- **`declare global`**: New `src/types/global.d.ts` declares Talox window extensions (`__taloxUpdateCursor__`, `__taloxDispatch__`, `__playwright`, etc.) — kills 7 `as any` casts.
+- **`recordVideo`** added to `ObserveSessionOptions` type.
+- **`elementType as any` → `SemanticEntityType`**.
+- **`{ waitUntil: "networkidle" } as any` → `as const`**.
+
+### Type Suppressions Killed
+
+- `as any`: 34 → 18 remaining (16 killed)
+- `page: any` in core: 49 → 0
+- Files touched: 14
+
+## [7.0.4] - 2026-05-17
+
+### Changed
+
+- **Zero `as any` casts in TaloxController** (13 removed):
+  - `PageStateCollector.getLastNodes()` — typed accessor replacing 4 `(collector as any).state?.nodes`
+  - `ActionExecutor.setRiskyActionHook()` — typed setter replacing `(this._actions as any).riskyActionHook`
+  - `AdaptationRecord` interface — `{ reason, strategy, before, after }` replacing `any` on `getLastAdaptation()` and `DebugSnapshot`
+  - `compactState` overloads — narrow switch replacing `variant as any`
+  - Event handlers — `EventHandler<TaloxEventMap[K]>` on `on()`/`off()` replacing `handler as any` ×2
+- **`AdaptationRecord`** exported from public barrel.
+
+## [7.0.3] - 2026-05-17
+
+### Added
+
+- **Logger abstraction** (`src/core/Logger.ts`): `createLogger(prefix)` with scoped prefixes and level gating via `TALOX_LOG_LEVEL` env var (debug < info < warn < error < silent).
+- Exported from barrel: `createLogger`, `setLogLevel`, `getLogLevel`, `Logger`, `LogLevel`.
+
+### Changed
+
+- Replaced raw `console.log`/`console.error`/`console.warn` in 12 core modules: TaloxController, SessionManager, EventBus, ActionExecutor, AdaptationEngine, OverlayInjector, ObserveSession, ChatSession, PolicyEngine, TaloxDaemon, VisionGate, AutoDialogHandler.
+
+## [7.0.2] - 2026-05-17
+
+### Fixed
+
+- **package.json**: `repository.url` normalized to `git+https://github.com/AVANT-ICONIC/Talox.git` format.
+- **package.json**: `prepare` script fixed (husky only, no build-on-install).
+- **Biome**: Auto-fixed 2 optional chain warnings + 1 template literal warning.
+- **Shebang**: Verified `src/cli/talox.ts` starts with `#!/usr/bin/env node`.
+- **Dependency audit**: Chromium usage verified, duplicate playwright noted.
+
+
 ## [7.0.0] - 2026-05-03
 
 ### Added
