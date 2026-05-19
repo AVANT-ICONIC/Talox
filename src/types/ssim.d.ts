@@ -21,10 +21,10 @@ declare module "ssim.js" {
 	}
 
 	function ssim(
-		image1: SSIMMatrix | ImageData,
-		image2: SSIMMatrix | ImageData,
+		image1: SSIMMatrix | ImageData | { data: Uint8Array; width: number; height: number },
+		image2: SSIMMatrix | ImageData | { data: Uint8Array; width: number; height: number },
 		options?: SSIMOptions,
-	): { ssim: number; mcs: number };
+	): { mssim: number; ssim: number; mcs: number };
 
 	export = ssim;
 }

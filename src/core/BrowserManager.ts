@@ -142,7 +142,7 @@ export class BrowserManager {
 		// Synchronous cleanup is limited, but we try our best
 		for (const ctx of this.contexts) {
 			try {
-				ctx._browser?.close().catch(() => {});
+				(ctx as any)._browser?.close().catch(() => {});
 			} catch {
 				/* NOSONAR */
 			}
