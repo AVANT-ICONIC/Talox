@@ -303,7 +303,7 @@ export class SessionManager {
 			throw new Error(`Invalid page index: ${index}`);
 		}
 
-		const page = (this.pages[index] as any).page;
+		const page = this.pages[index].getPage();
 		await page.close();
 
 		this.pages.splice(index, 1);
@@ -344,7 +344,7 @@ export class SessionManager {
 	getPlaywrightPage(): any {
 		const collector = this.getActivePage();
 		if (!collector) return null;
-		return (collector as any).page;
+		return collector.getPage();
 	}
 
 	getAllPages(): PageStateCollector[] {
@@ -355,7 +355,7 @@ export class SessionManager {
 		if (this.activePageIndex < 0 || this.activePageIndex >= this.pages.length) {
 			throw new Error("No active page. Use launch() or openPage() first.");
 		}
-		return (this.pages[this.activePageIndex] as any).page;
+		return this.pages[this.activePageIndex].getPage();
 	}
 
 	getActiveStateCollector(): PageStateCollector {

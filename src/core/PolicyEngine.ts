@@ -48,6 +48,7 @@ export class PolicyEngine {
 	};
 
 	private yamlLoaded = false;
+	private _currentAmount = 0;
 
 	async loadPolicyFromYAML(filePath: string): Promise<void> {
 		try {
@@ -178,7 +179,7 @@ export class PolicyEngine {
 	}
 
 	setAmountContext(amount: number): void {
-		(this as any)._currentAmount = amount;
+		this._currentAmount = amount;
 	}
 
 	isDestructiveAction(_actionType: string, targetSelector?: string): boolean {
@@ -206,7 +207,7 @@ export class PolicyEngine {
 	isActionAllowed(profileClass: ProfileClass, action: string, context?: Record<string, any>): boolean {
 		if (this.yamlLoaded && this.yamlPolicies[profileClass]) {
 			if (context?.amount !== undefined) {
-				(this as any)._currentAmount = context.amount;
+				this._currentAmount = context.amount;
 			}
 			return this.evaluateYAMLPolicy(profileClass, context?.url || "", action);
 		}

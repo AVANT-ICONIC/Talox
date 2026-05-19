@@ -330,7 +330,7 @@ export class SelfHealingSelector {
 	}
 
 	setOption<K extends keyof SelectorHealingOptions>(key: K, value: SelectorHealingOptions[K]): void {
-		(this.options as any)[key] = value;
+		this.options[key] = value;
 	}
 
 	getOptions(): SelectorHealingOptions {

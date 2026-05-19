@@ -807,8 +807,7 @@ export class PageStateCollector {
 				}
 
 				try {
-					// @ts-expect-error - accessibility might not be in types
-					axSnapshot = await this.page.accessibility?.snapshot();
+					axSnapshot = await (this.page as any).accessibility?.snapshot();
 				} catch (error_) {
 					axTreeError = error_ as Error;
 					axSnapshot = null;
@@ -836,7 +835,8 @@ export class PageStateCollector {
 	async collect(): Promise<TaloxPageState> {
 		// Guard against calling collect() on a page that has already been closed
 		// (e.g. during browser teardown or headed/headless restart races).
-		if ((this.page as any).isClosed?.()) {
+		const closed = (this.page as unknown as { isClosed?: () => boolean }).isClosed?.();
+		if (closed) {
 			const fallbackTs = new Date().toISOString();
 			return {
 				url: "about:blank",

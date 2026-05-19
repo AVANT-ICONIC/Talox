@@ -381,7 +381,7 @@ describe("SessionManager", () => {
 			const mockPage1 = createMockPage();
 			const mockPage2 = createMockPage();
 
-			sm.pages = [{ collect: vi.fn(), page: mockPage1 } as any, { collect: vi.fn(), page: mockPage2 } as any];
+			sm.pages = [{ collect: vi.fn(), getPage: () => mockPage1, collect: vi.fn() } as any, { getPage: () => mockPage2, collect: vi.fn() } as any];
 			sm.activePageIndex = 1;
 			sm.pageMousePositions.set(0, { x: 0, y: 0 });
 			sm.pageMousePositions.set(1, { x: 100, y: 200 });
@@ -399,9 +399,9 @@ describe("SessionManager", () => {
 			const mockPage3 = createMockPage();
 
 			sm.pages = [
-				{ collect: vi.fn(), page: mockPage1 } as any,
-				{ collect: vi.fn(), page: mockPage2 } as any,
-				{ collect: vi.fn(), page: mockPage3 } as any,
+				{ getPage: () => mockPage1, collect: vi.fn() } as any,
+				{ getPage: () => mockPage2, collect: vi.fn() } as any,
+				{ getPage: () => mockPage3, collect: vi.fn() } as any,
 			];
 			sm.activePageIndex = 2;
 
@@ -483,7 +483,7 @@ describe("SessionManager", () => {
 
 		it("returns the playwright page from active collector", () => {
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage } as any];
+			sm.pages = [{ getPage: () => mockPage } as any];
 			sm.activePageIndex = 0;
 
 			expect(sm.getPage()).toBe(mockPage);
@@ -497,7 +497,7 @@ describe("SessionManager", () => {
 
 		it("returns page from active collector", () => {
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage } as any];
+			sm.pages = [{ getPage: () => mockPage } as any];
 			sm.activePageIndex = 0;
 
 			expect(sm.getPlaywrightPage()).toBe(mockPage);
@@ -656,7 +656,7 @@ describe("SessionManager", () => {
 		it("is no-op when settings.headed already matches", async () => {
 			// Must have an active page so getPage() doesn't throw
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage, collect: vi.fn() } as any];
+			sm.pages = [{ getPage: () => mockPage, collect: vi.fn() } as any];
 			sm.activePageIndex = 0;
 			const mockCtx = createMockContext();
 			mockGetContext.mockReturnValue(mockCtx);
@@ -679,7 +679,7 @@ describe("SessionManager", () => {
 			// When context is null, the guard at line 194 returns early.
 			// But getPage() is called first, so we need a valid page.
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage, collect: vi.fn() } as any];
+			sm.pages = [{ getPage: () => mockPage, collect: vi.fn() } as any];
 			sm.activePageIndex = 0;
 			// No context, no profile → guard returns early
 			mockGetContext.mockReturnValue(null);
@@ -705,7 +705,7 @@ describe("SessionManager", () => {
 				userDataDir: "/tmp/test",
 				metadata: { createdAt: "", lastUsed: "" },
 			};
-			sm.pages = [{ page: mockPage, collect: vi.fn() } as any];
+			sm.pages = [{ getPage: () => mockPage, collect: vi.fn() } as any];
 			sm.activePageIndex = 0;
 
 			await sm.setHeadedMode(true);
@@ -793,7 +793,7 @@ describe("SessionManager", () => {
 	describe("verifyVisual", () => {
 		it("auto-saves baseline when not found and autoSave is true", async () => {
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage, collect: vi.fn() } as any];
+			sm.pages = [{ getPage: () => mockPage, collect: vi.fn() } as any];
 			sm.activePageIndex = 0;
 
 			const result = await sm.verifyVisual("test-baseline", true);
@@ -804,7 +804,7 @@ describe("SessionManager", () => {
 
 		it("throws when baseline not found and autoSave is false", async () => {
 			const mockPage = createMockPage();
-			sm.pages = [{ page: mockPage, collect: vi.fn() } as any];
+			sm.pages = [{ getPage: () => mockPage, collect: vi.fn() } as any];
 			sm.activePageIndex = 0;
 
 			await expect(sm.verifyVisual("missing-baseline", false)).rejects.toThrow("not found and autoSave is false");
