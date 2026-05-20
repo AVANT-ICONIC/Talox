@@ -41,6 +41,7 @@ import type { Page } from "playwright-core";
 import type { TakeoverReason } from "../types/events.js";
 import type { ChallengeType, DetectedChallenge } from "./ChallengeDetector.js";
 
+import { trySolve } from "./CaptchaSolver.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ResolutionStrategy =
@@ -156,7 +157,7 @@ export class ChallengeResolver {
 			case "cloudflare":
 				return this.resolveCloudflare(page);
 			case "captcha":
-				return this.humanHandoff("captcha-present");
+				return this.resolveCaptcha(page);
 			case "verification":
 				return this.resolveVerification(page);
 			case "login-wall":
@@ -198,7 +199,60 @@ export class ChallengeResolver {
 		return map[type] ?? "human-handoff";
 	}
 
-	// ─── Strategy Implementations ─────────────────────────────────────────────
+	/**
+	 * Try external CAPTCHA solvers before falling back to human handoff.
+	 */
+	async resolveCaptcha(page: Page): Promise<ChallengeOutcome> {
+		const attempts: ResolutionAttempt[] = [];
+		const t0 = Date.now();
+
+		try {
+			const solution = await trySolve(page);
+			if (solution) {
+				await page.evaluate((token) => {
+					const textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"], #g-recaptcha-response');
+					textareas.forEach((ta) => { (ta as HTMLTextAreaElement).value = token; });
+					const inputs = document.querySelectorAll('input[name="g-recaptcha-response"]');
+					inputs.forEach((inp) => { (inp as HTMLInputElement).value = token; });
+					const cfg = (window as any).___grecaptcha_cfg;
+					if (cfg?.clients) {
+						for (const [, client] of Object.entries(cfg.clients)) {
+							if (typeof (client as any).callback === "function") {
+								(client as any).callback(token);
+							}
+						}
+					}
+					const form = document.querySelector("form");
+					form?.requestSubmit?.();
+				}, solution.token);
+
+				attempts.push({
+					strategy: "auto-click-accept",
+					success: true,
+					durationMs: solution.durationMs,
+					detail: `Solved by ${solution.solver} in ${solution.durationMs}ms`,
+				});
+				return this.outcome(true, false, attempts, "auto-click-accept");
+			}
+		} catch (err) {
+			attempts.push({
+				strategy: "auto-click-accept",
+				success: false,
+				durationMs: Date.now() - t0,
+				detail: `Solver error: ${err instanceof Error ? err.message : String(err)}`,
+			});
+		}
+
+		attempts.push({
+			strategy: "human-handoff",
+			success: false,
+			durationMs: Date.now() - t0,
+			detail: "No external solver succeeded",
+		});
+		return this.outcome(false, true, attempts, "human-handoff", "captcha-present");
+	}
+
+		// ─── Strategy Implementations ─────────────────────────────────────────────
 
 	private async resolveCloudflare(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];

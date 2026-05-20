@@ -20,6 +20,21 @@ export type {
 	ResolutionStrategy,
 } from "./core/ChallengeResolver.js";
 export { ChallengeResolver } from "./core/ChallengeResolver.js";
+// ─── CAPTCHA Solver ────────────────────────────────────────────────────────
+export {
+	registerSolver,
+	clearSolvers,
+	getSolvers,
+	trySolve,
+	createTwoCaptchaSolver,
+	createCapSolverSolver,
+	type CaptchaSolver,
+	type CaptchaChallenge,
+	type CaptchaSolution,
+	type CaptchaVariant,
+	type TwoCaptchaConfig,
+	type CapSolverConfig,
+} from "./core/CaptchaSolver.js";
 // ─── Cross-Origin iframe Sessions ────────────────────────────────────────────
 export type { IframeSession } from "./core/CrossOriginManager.js";
 export { CrossOriginManager } from "./core/CrossOriginManager.js";

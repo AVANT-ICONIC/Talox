@@ -72,6 +72,7 @@ import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { createLogger } from "../Logger.js";
+import { registerSolver, type CaptchaSolver } from "../CaptchaSolver.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
 import type { EventHandler } from "./EventBus.js";
@@ -1283,6 +1284,23 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
+	 * Register an external CAPTCHA solver.
+	 *
+	 * Solvers are tried in registration order when a captcha is detected.
+	 * Built-in providers: `createTwoCaptchaSolver()`, `createCapSolverSolver()`.
+	 * Custom solvers: implement the `CaptchaSolver` interface.
+	 *
+	 * @example
+	 * ```ts
+	 * import { createTwoCaptchaSolver } from "talox";
+	 * talox.useSolver(createTwoCaptchaSolver({ apiKey: "YOUR_KEY" }));
+	 * ```
+	 */
+	useSolver(solver: CaptchaSolver): void {
+		registerSolver(solver);
+	}
+
+		/**
 	 * Subscribe to a Talox event.
 	 *
 	 * @example
