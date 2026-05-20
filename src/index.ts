@@ -32,12 +32,17 @@ export {
 	type CaptchaSolution,
 	type CaptchaVariant,
 } from "./core/CaptchaSolver.js";
-// ─── Visual Reasoning (VLM) ────────────────────────────────────────────────
 export {
 	setVisualReasoner,
 	getVisualReasoner,
 	askVisual,
+	resolveVisual,
+	setScreenshotFormat,
+	getScreenshotFormat,
+	createOpenAIVisionReasoner,
 	type VisualReasoner,
+	type ScreenshotFormat,
+	type OpenAIVisionConfig,
 } from "./core/VisualReasoner.js";
 // ─── Interaction Quality ──────────────────────────────────────────────────
 export {

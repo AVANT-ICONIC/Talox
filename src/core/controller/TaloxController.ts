@@ -73,7 +73,7 @@ import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { createLogger } from "../Logger.js";
 import { registerSolver, type CaptchaSolver } from "../CaptchaSolver.js";
-import { setVisualReasoner, type VisualReasoner } from "../VisualReasoner.js";
+import { setVisualReasoner, resolveVisual, setVisualEmitter, setScreenshotFormat, type VisualReasoner, type ScreenshotFormat } from "../VisualReasoner.js";
 import { QualityTracker } from "../InteractionQuality.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
@@ -185,6 +185,7 @@ export class TaloxController {
 		}
 
 		this._events = new EventBus<TaloxEventMap>();
+		setVisualEmitter((payload) => this._events.emit("visualQuestion", payload));
 		this._challenge = new ChallengeDetector();
 		this._session = new SessionManager(this.settings, this._events, baseDir);
 		this._takeover = new TakeoverBridge(this._events, this.settings.humanTakeoverTimeoutMs);
@@ -1313,7 +1314,31 @@ export class TaloxController {
 	 * talox.useVision(createOpenAIVisionReasoner({ apiKey: "..." }));
 	 * ```
 	 */
-	useVision(reasoner: VisualReasoner | null): void {
+	/**
+	 * Resolve a visual question previously emitted via the `visualQuestion` event.
+	 *
+	 * Called by the hosting agent (Claude Code, Codex, Gemini CLI) after
+	 * processing the screenshot with its own vision model.
+	 *
+	 * @param id     The ID from the `visualQuestion` event payload
+	 * @param answer The answer to the visual question
+	 */
+	resolveVisual(id: string, answer: string): void {
+		resolveVisual(id, answer);
+	}
+
+	/**
+	 * Set the screenshot format for `visualQuestion` events.
+	 *
+	 * - `"base64"` — data URL (default, works everywhere)
+	 * - `"file"` — file path (for agents that read from disk)
+	 * - `"buffer"` — raw base64 (for in-process SDK usage)
+	 */
+	setScreenshotFormat(format: ScreenshotFormat): void {
+		setScreenshotFormat(format);
+	}
+
+		useVision(reasoner: VisualReasoner | null): void {
 		setVisualReasoner(reasoner);
 	}
 
