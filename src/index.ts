@@ -26,14 +26,11 @@ export {
 	clearSolvers,
 	getSolvers,
 	trySolve,
-	createTwoCaptchaSolver,
-	createCapSolverSolver,
+	createVLMCaptchaSolver,
 	type CaptchaSolver,
 	type CaptchaChallenge,
 	type CaptchaSolution,
 	type CaptchaVariant,
-	type TwoCaptchaConfig,
-	type CapSolverConfig,
 } from "./core/CaptchaSolver.js";
 // ─── Visual Reasoning (VLM) ────────────────────────────────────────────────
 export {

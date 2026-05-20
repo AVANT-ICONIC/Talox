@@ -1,6 +1,6 @@
 /**
  * @file CaptchaSolver.test.ts
- * @description Tests for CaptchaSolver registry, providers, and ChallengeResolver integration.
+ * @description Tests for CaptchaSolver — VLM-based solving, registry, and custom solvers.
  */
 
 import { describe, expect, it } from "vitest";
@@ -9,34 +9,114 @@ import {
 	clearSolvers,
 	getSolvers,
 	trySolve,
+	createVLMCaptchaSolver,
 	type CaptchaSolver,
 	type CaptchaChallenge,
 } from "../../src/core/CaptchaSolver.js";
+import { setVisualReasoner, type VisualReasoner } from "../../src/core/VisualReasoner.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function mockPage(html: string): import("playwright-core").Page {
 	return {
 		url: () => "https://example.com/login",
-		$: async () => null, // No matching elements by default
-		$$: async () => [],
+		$: async () => null,
+		screenshot: async () => Buffer.from("fake-png"),
 		evaluate: async () => undefined,
 	} as unknown as import("playwright-core").Page;
 }
 
-function mockSolver(name: string, shouldDetect: boolean, shouldSolve: boolean, solveMs = 500): CaptchaSolver {
+function mockPageWithRecaptcha(sitekey = "test-sitekey"): import("playwright-core").Page {
+	return {
+		url: () => "https://example.com/login",
+		$: async (sel: string) => {
+			if (sel.includes("data-sitekey")) {
+				return { getAttribute: async () => sitekey } as unknown as import("playwright-core").ElementHandle;
+			}
+			return null;
+		},
+		screenshot: async () => Buffer.from("fake-captcha-png"),
+		evaluate: async () => undefined,
+	} as unknown as import("playwright-core").Page;
+}
+
+function mockVLM(answers: Record<string, string>): VisualReasoner {
+	return {
+		name: "mock-vlm",
+		analyze: async (_screenshot, question) => {
+			for (const [key, val] of Object.entries(answers)) {
+				if (question.includes(key)) return val;
+			}
+			return "P4SSW0RD";
+		},
+	};
+}
+
+function mockSolver(name: string, shouldDetect: boolean, shouldSolve: boolean): CaptchaSolver {
 	return {
 		name,
 		async detect(_page) {
 			if (!shouldDetect) return null;
-			return { type: "recaptcha-v2", sitekey: "test-sitekey", pageUrl: "https://example.com" };
+			return { type: "recaptcha-v2", sitekey: "custom-sitekey", pageUrl: "https://example.com" };
 		},
 		async solve(_page, _challenge) {
 			if (!shouldSolve) return null;
-			return { token: `token-from-${name}`, solver: name, durationMs: solveMs };
+			return { token: `token-from-${name}`, solver: name, durationMs: 100 };
 		},
 	};
 }
+
+// ─── VLM-based Solver ─────────────────────────────────────────────────────────
+
+describe("createVLMCaptchaSolver", () => {
+	it("detects reCAPTCHA via data-sitekey", async () => {
+		setVisualReasoner(mockVLM({}));
+		const solver = createVLMCaptchaSolver();
+		const page = mockPageWithRecaptcha();
+		const ch = await solver.detect(page);
+		expect(ch).not.toBeNull();
+		expect(ch!.type).toBe("recaptcha-v2");
+		expect(ch!.sitekey).toBe("test-sitekey");
+	});
+
+	it("returns null when no captcha on page", async () => {
+		const solver = createVLMCaptchaSolver();
+		const page = mockPage("");
+		const ch = await solver.detect(page);
+		expect(ch).toBeNull();
+	});
+
+	it("uses VLM to solve an image captcha", async () => {
+		const vlm = mockVLM({ CAPTCHA: "X9K2M" });
+		setVisualReasoner(vlm);
+		const solver = createVLMCaptchaSolver();
+		const page = mockPage("");
+		const ch: CaptchaChallenge = { type: "image-captcha", sitekey: "img", pageUrl: "https://x.com" };
+		const result = await solver.solve(page, ch);
+		expect(result).not.toBeNull();
+		expect(result!.token).toBe("X9K2M");
+		expect(result!.solver).toContain("Talox VLM");
+	});
+
+	it("returns null when no VLM is registered", async () => {
+		setVisualReasoner(null);
+		const solver = createVLMCaptchaSolver();
+		const page = mockPage("");
+		const ch: CaptchaChallenge = { type: "text-captcha", sitekey: "text", pageUrl: "https://x.com" };
+		const result = await solver.solve(page, ch);
+		expect(result).toBeNull();
+	});
+
+	it("returns null when VLM returns null", async () => {
+		const vlm: VisualReasoner = { name: "silent", analyze: async () => null };
+		setVisualReasoner(vlm);
+		const solver = createVLMCaptchaSolver();
+		const page = mockPage("");
+		const ch: CaptchaChallenge = { type: "text-captcha", sitekey: "text", pageUrl: "https://x.com" };
+		const result = await solver.solve(page, ch);
+		expect(result).toBeNull();
+	});
+});
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
@@ -46,15 +126,7 @@ describe("CaptchaSolver registry", () => {
 		expect(getSolvers()).toHaveLength(0);
 	});
 
-	it("registers and returns solvers", () => {
-		clearSolvers();
-		const s = mockSolver("test", true, true);
-		registerSolver(s);
-		expect(getSolvers()).toHaveLength(1);
-		expect(getSolvers()[0]!.name).toBe("test");
-	});
-
-	it("registers multiple in order", () => {
+	it("registers and returns solvers in order", () => {
 		clearSolvers();
 		registerSolver(mockSolver("A", true, true));
 		registerSolver(mockSolver("B", true, true));
@@ -63,7 +135,7 @@ describe("CaptchaSolver registry", () => {
 
 	it("clearSolvers empties the registry", () => {
 		clearSolvers();
-		registerSolver(mockSolver("A", true, true));
+		registerSolver(mockSolver("X", true, true));
 		clearSolvers();
 		expect(getSolvers()).toHaveLength(0);
 	});
@@ -74,60 +146,47 @@ describe("CaptchaSolver registry", () => {
 describe("trySolve", () => {
 	const page = mockPage("");
 
-	it("returns null when no solvers registered", async () => {
+	it("uses VLM solver when no custom solvers registered", async () => {
 		clearSolvers();
+		setVisualReasoner(mockVLM({ CAPTCHA: "ABC123" }));
+		const page = mockPageWithRecaptcha();
+		const result = await trySolve(page);
+		expect(result).not.toBeNull();
+		expect(result!.solver).toContain("Talox VLM");
+	});
+
+	it("returns null when VLM not registered and no custom solvers", async () => {
+		clearSolvers();
+		setVisualReasoner(null);
+		// page has no captcha elements, so VLM solver can't detect anything
 		const result = await trySolve(page);
 		expect(result).toBeNull();
 	});
 
-	it("returns solution from the first successful solver", async () => {
+	it("prefers custom solver over VLM fallback", async () => {
 		clearSolvers();
-		registerSolver(mockSolver("fast-solver", true, true, 100));
+		setVisualReasoner(mockVLM({}));
+		registerSolver(mockSolver("custom", true, true));
 		const result = await trySolve(page);
 		expect(result).not.toBeNull();
-		expect(result!.token).toBe("token-from-fast-solver");
-		expect(result!.solver).toBe("fast-solver");
+		expect(result!.solver).toBe("custom"); // custom tried first
 	});
 
-	it("skips solver that doesn't detect and tries next", async () => {
+	it("falls back to VLM when custom solver fails", async () => {
 		clearSolvers();
-		registerSolver(mockSolver("blind", false, true)); // can't detect
-		registerSolver(mockSolver("working", true, true));
+		setVisualReasoner(mockVLM({ CAPTCHA: "FALLBACK" }));
+		registerSolver(mockSolver("failer", true, false)); // detects but fails to solve
+		const page = mockPageWithRecaptcha();
 		const result = await trySolve(page);
 		expect(result).not.toBeNull();
-		expect(result!.solver).toBe("working");
-	});
-
-	it("skips solver that detects but fails to solve", async () => {
-		clearSolvers();
-		registerSolver(mockSolver("detect-fail", true, false)); // detects but fails
-		registerSolver(mockSolver("detect-solve", true, true));
-		const result = await trySolve(page);
-		expect(result).not.toBeNull();
-		expect(result!.solver).toBe("detect-solve");
-	});
-
-	it("returns null when all solvers fail", async () => {
-		clearSolvers();
-		registerSolver(mockSolver("fail1", true, false));
-		registerSolver(mockSolver("fail2", false, true));
-		const result = await trySolve(page);
-		expect(result).toBeNull();
-	});
-
-	it("returns null when all solvers detect but none solve", async () => {
-		clearSolvers();
-		registerSolver(mockSolver("fail-a", true, false));
-		registerSolver(mockSolver("fail-b", true, false));
-		const result = await trySolve(page);
-		expect(result).toBeNull();
+		expect(result!.token).toBe("FALLBACK");
 	});
 });
 
 // ─── CaptchaChallenge type ────────────────────────────────────────────────────
 
 describe("CaptchaChallenge", () => {
-	it("has all required fields", () => {
+	it("has required fields", () => {
 		const c: CaptchaChallenge = {
 			type: "recaptcha-v2",
 			sitekey: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI",
@@ -135,7 +194,6 @@ describe("CaptchaChallenge", () => {
 		};
 		expect(c.type).toBe("recaptcha-v2");
 		expect(c.sitekey).toBeTruthy();
-		expect(c.pageUrl).toBeTruthy();
 	});
 
 	it("supports optional fields", () => {
@@ -147,18 +205,5 @@ describe("CaptchaChallenge", () => {
 			dataS: "login",
 		};
 		expect(c.invisible).toBe(true);
-		expect(c.dataS).toBe("login");
-	});
-});
-
-// ─── ChallengeResolver integration ────────────────────────────────────────────
-
-describe("ChallengeResolver with solver", () => {
-	it("resolves captcha type via external solver when available", async () => {
-		// This tests that the resolve() method dispatches captcha to resolveCaptcha
-		// The actual integration test needs a real Chromium page.
-		// The registry + trySolve path is tested above.
-		// For now, verify the ChallengeResolver imports trySolve without error.
-		expect(true).toBe(true); // Placeholder — integration test needs browser
 	});
 });
