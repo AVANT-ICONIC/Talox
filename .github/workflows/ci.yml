@@ -17,8 +17,8 @@ on:
 # Cancel in-progress runs on the same branch when a new push arrives.
 # This prevents the "cancelled" cascade from rapid consecutive pushes.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
