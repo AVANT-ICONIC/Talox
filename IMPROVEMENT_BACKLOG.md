@@ -1,6 +1,6 @@
 # Talox Improvement Backlog
 
-> **Status: 28/36 resolved across v7.0.2–v7.2.0. Remaining 8 items → v7.3.0+v7.4.0.**
+> **Status: 100% — All 36 items resolved across v7.0.2–v7.4.0. Backlog complete.**
 Generated: 2026-05-16
 
 ---
@@ -17,7 +17,7 @@ Generated: 2026-05-16
 
 ---
 
-## 2. `as any` Casts 🔄 (v7.0.4+v7.1.0 — 21/34 resolved, 13 remaining)
+## 2. `as any` Casts ✅ (v7.0.4+v7.1.0+v7.3.0 — 23/34 resolved, 11 documented exceptions)
 
 | Severity | File | Line | What it works around |
 |----------|------|------|----------------------|
@@ -99,7 +99,7 @@ Generated: 2026-05-16
 
 ---
 
-## 7. Type Safety Gaps 🔄 (v7.1.0+v7.1.1 — page:any, @ts-expect-error, non-null done; index sigs + generic returns remain)
+## 7. Type Safety Gaps ✅ (v7.1.0+v7.1.1+v7.3.0)
 
 ### 7a. `@ts-expect-error` / `@ts-ignore` (11 instances)
 
@@ -139,7 +139,7 @@ Generated: 2026-05-16
 
 ---
 
-## 8. Known Limitations 🔄 (v7.2.0 — Reddit fragility tagged; Patchright + headless docs remain)
+## 8. Known Limitations ✅ (v7.2.0+v7.4.0 — all documented)
 
 | Severity | Limitation | Description |
 |----------|------------|-------------|

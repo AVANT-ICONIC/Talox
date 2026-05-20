@@ -102,7 +102,7 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-05-17) — v7.2.0
+### Current Status (2026-05-17) — v7.4.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
@@ -110,7 +110,7 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 CRITICAL**
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
-- **92+ test files** | **1,688 tests** (unit: 1,500 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
+- **93+ test files** | **1,694 tests** (unit: 1,506 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
 
 ### Test Structure
 
@@ -190,9 +190,9 @@ new TaloxController(dir, {
 
 ### Known Limitations
 
-- **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). We use standard `playwright-core` instead — its `addInitScript` works correctly and our JS stealth stack runs before page scripts
-- **Headless mode**: Chromium headless is inherently detectable; use headed mode for sensitive sites
-- **Site warmup**: Sites like Reddit challenge new sessions with "Prove your humanity" (reCAPTCHA). Talox auto-bypasses via the `SiteWarmupRegistry` — navigating twice so the `edgebucket` cookie from the first request is sufficient. The registry also handles Cloudflare challenges, generic verification pages, and supports custom strategies via `register()`. Works for homepage and all subreddits
+- **Patchright addInitScript**: Patchright's `addInitScript` silently fails (callback never executes). We use standard `playwright-core` instead — its `addInitScript` works correctly and our JS stealth stack runs before page scripts. This means Patchright cannot be used as the browser driver. The workaround (`playwright-core` + `channel: "chrome"`) provides comparable stealth with functional script injection.
+- **Headless mode**: Chromium headless is inherently detectable via `navigator.webdriver`, missing browser APIs, and canvas/WebGL fingerprint differences. For sensitive sites, use headed mode with `headed: true`. If running on a headless server, use `virtualDisplay: true` to spawn Xvfb — this runs Chromium in headed mode against a virtual X server, making detection significantly harder. No fix possible without upstream Chromium changes.
+- **Site warmup**: Sites like Reddit challenge new sessions with "Prove your humanity" (reCAPTCHA). Talox auto-bypasses via the `SiteWarmupRegistry` — navigating twice so the `edgebucket` cookie from the first request is sufficient. The registry also handles Cloudflare challenges, generic verification pages, and supports custom strategies via `register()`. Works for homepage and all subreddits. **@fragile** — depends on Reddit challenge flow not changing.
 
 ### Stealth Injection Architecture
 

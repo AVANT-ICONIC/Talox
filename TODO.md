@@ -1,5 +1,8 @@
 # Talox Release Roadmap
 
+> ✅ **Backlog complete — all 36 items resolved.**  
+> 11 `as any` remain as documented exceptions (CDP protocol, browser globals).
+
 > Updated 2026-05-17 — one release per day cadence
 
 ## ✅ Done
@@ -15,7 +18,7 @@
 
 ---
 
-## 🔜 v7.3.0 — Hard Type Gaps
+## ✅ v7.3.0 — Hard Type Gaps (2026-05-17)
 
 **18 remaining `as any` + 2 `@ts-expect-error` — the genuinely hard cases.**
 
@@ -56,17 +59,17 @@
 
 ---
 
-## 🔜 v7.4.0 — Robustness & Docs
+## ✅ v7.4.0 — Robustness & Docs (2026-05-17)
 
 ### Production hardening
-- [ ] Chromium dep → `optionalDependencies` (breaking change — needs migration guide)
-- [ ] Patchright `addInitScript` limitation documented in AGENTS.md + README
-- [ ] Headless detectability limitation documented
+- [x] Chromium dep → `optionalDependencies` (breaking change — needs migration guide)
+- [x] Patchright `addInitScript` limitation documented in AGENTS.md + README
+- [x] Headless detectability limitation documented
 
 ### Finishing touches
-- [ ] Mark original IMPROVEMENT_BACKLOG.md complete
-- [ ] Final `as any` tally: zero or documented exceptions only
-- [ ] Run full test suite (unit + smoke + property + snapshot + perf + browser + e2e)
+- [x] Mark original IMPROVEMENT_BACKLOG.md complete
+- [x] Final `as any` tally: zero or documented exceptions only
+- [x] Run full test suite (unit + smoke + property + snapshot + perf + browser + e2e)
 
 ---
 
@@ -77,3 +80,21 @@ Backlog complete. Start building new features.
 ---
 
 *Original backlog: 36 items across 8 categories. After v7.4.0: 0 remaining.*
+
+## ✅ Done
+
+|Version|Theme|Key Metric|Date|
+|---|---|---|---|
+|v7.0.2|Package hygiene|npm warnings fixed|2026-05-17|
+|v7.0.3|Logger abstraction|12 core modules de-console.log'd|2026-05-17|
+|v7.0.4|Typed accessors|13 `as any`→0 in TaloxController|2026-05-17|
+|v7.1.0|Type Safety Sprint|49 `page:any`→0, ~70 suppressions killed|2026-05-17|
+|v7.1.1|Suppressions cleanup|9 `@ts-expect-error`→2, 14 `!`→0|2026-05-17|
+|v7.2.0|Test hardening|+43 tests (1688 total)|2026-05-17|
+|v7.3.0|Hard type gaps|7 `as any` killed, 0 `@ts-expect-error`|2026-05-17|
+|v7.4.0|Robustness & docs|Backlog complete, chromium→optional|2026-05-17|
+
+---
+
+> **Original backlog: 36 items across 8 categories. All resolved.**
+> **11 `as any` remain as documented exceptions.**
