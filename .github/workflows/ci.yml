@@ -77,7 +77,7 @@ jobs:
       - run: npm run build
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-dependencies chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run browser integration tests
         run: npm run test:browser
@@ -102,7 +102,7 @@ jobs:
       - run: npm run build
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-dependencies chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run real-world tests
         run: |
