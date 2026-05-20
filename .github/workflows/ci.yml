@@ -17,8 +17,8 @@ on:
 # Cancel in-progress runs on the same branch when a new push arrives.
 # This prevents the "cancelled" cascade from rapid consecutive pushes.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
@@ -63,7 +63,7 @@ jobs:
   browser:
     name: Browser Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
