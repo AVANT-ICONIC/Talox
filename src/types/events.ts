@@ -225,7 +225,8 @@ export interface TaloxEventMap {
 	loopGoalAchieved: { totalIterations: number; totalCostUsd: number };
 	/** Fired when the autonomous loop stops for any reason. */
 	loopStopped: { reason: string; totalIterations: number };
-}
+
+	// ── Visual Reasoning ────────────────────────────────────────────────────
 	/** Fired when Talox needs the hosting agent's vision to analyze a page screenshot. */
 	visualQuestion: {
 		id: string;
@@ -235,6 +236,7 @@ export interface TaloxEventMap {
 			data: string;
 		};
 	};
+}
 
 /** Union of all event names. */
 export type TaloxEventType = keyof TaloxEventMap;
