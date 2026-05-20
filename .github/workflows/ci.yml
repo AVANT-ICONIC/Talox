@@ -5,8 +5,6 @@ on:
     branches: [main, v3]
   pull_request:
     branches: [main, v3]
-  # Real-world tests run nightly to avoid rate limits on every push.
-  # They can also be triggered manually via workflow_dispatch.
   schedule:
     - cron: '0 3 * * *'   # 03:00 UTC daily
   workflow_dispatch:
@@ -15,6 +13,12 @@ on:
         description: 'Test name filter (e.g. "Gorilla Mail" or "Reddit")'
         required: false
         default: ''
+
+# Cancel in-progress runs on the same branch when a new push arrives.
+# This prevents the "cancelled" cascade from rapid consecutive pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
@@ -33,7 +37,7 @@ jobs:
       - run: npm ci
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
   # ─── Unit tests — runs on every push / PR ────────────────────────────────────
   unit:
@@ -53,7 +57,7 @@ jobs:
       - run: npm run build
 
       - name: Run unit tests
-        run: npm test
+        run: npm run test:unit
 
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
   browser:
@@ -73,7 +77,7 @@ jobs:
       - run: npm run build
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-dependencies chromium
 
       - name: Run browser integration tests
         run: npm run test:browser
@@ -81,8 +85,6 @@ jobs:
   # ─── Real-world tests — nightly + manual only ────────────────────────────────
   real-world:
     name: Real-World Tests
-    # Only run on schedule or manual dispatch — never on regular push/PR.
-    # This prevents rate-limit bans from running against live sites too often.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -100,7 +102,7 @@ jobs:
       - run: npm run build
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-dependencies chromium
 
       - name: Run real-world tests
         run: |

@@ -24,9 +24,9 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest --config vitest.config.unit.ts",
-    "test:unit": "vitest --config vitest.config.unit.ts",
+    "test:unit": "vitest run --config vitest.config.unit.ts",
     "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
-    "test:browser": "vitest --config vitest.config.browser.ts",
+    "test:browser": "vitest run --config vitest.config.browser.ts",
     "test:all": "vitest",
     "observe": "node ./dist/cli/talox.js observe",
     "prepublishOnly": "npm run build",
@@ -40,11 +40,12 @@
     "test:snapshot": "vitest run tests/unit/snapshot/",
     "test:perf": "vitest run tests/unit/performance/",
     "test:error-paths": "vitest --config vitest.config.browser.ts run tests/core/error-paths.test.ts",
-    "test:ci": "npm run build && npm run test:unit -- --run && npm run test:smoke -- --run && npm run test:property && npm run test:snapshot && npm run test:perf",
+    "test:ci": "npm run build && npm run test:unit && npm run test:smoke -- --run && npm run test:property && npm run test:snapshot && npm run test:perf",
     "test:publish": "tsc --noEmit && npm test && npm run build",
     "lint": "biome check src tests",
     "lint:fix": "biome check --fix src tests",
-    "format": "biome format --write src tests"
+    "format": "biome format --write src tests",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "browser-runtime",
