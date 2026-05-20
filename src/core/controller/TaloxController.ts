@@ -73,6 +73,8 @@ import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { createLogger } from "../Logger.js";
 import { registerSolver, type CaptchaSolver } from "../CaptchaSolver.js";
+import { setVisualReasoner, type VisualReasoner } from "../VisualReasoner.js";
+import { QualityTracker } from "../InteractionQuality.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import { EventBus } from "./EventBus.js";
 import type { EventHandler } from "./EventBus.js";
@@ -138,6 +140,7 @@ export class TaloxController {
 	private videoRecorder: VideoRecorderType | null = null;
 	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
 	private readonly log = createLogger("Controller");
+	readonly quality = new QualityTracker();
 
 	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
 		// Support TaloxController(config) shorthand when first arg is an object
@@ -1296,7 +1299,25 @@ export class TaloxController {
 	 * talox.useSolver(createTwoCaptchaSolver({ apiKey: "YOUR_KEY" }));
 	 * ```
 	 */
-	useSolver(solver: CaptchaSolver): void {
+	/**
+	 * Register a visual reasoning plugin (VLM).
+	 *
+	 * Once registered, the perception stack can answer visual questions
+	 * about pages via `perception.askVisual("What is on this page?")`.
+	 *
+	 * Pass `null` to clear the reasoner.
+	 *
+	 * @example
+	 * ```ts
+	 * import { createOpenAIVisionReasoner } from "talox-vlm-openai";
+	 * talox.useVision(createOpenAIVisionReasoner({ apiKey: "..." }));
+	 * ```
+	 */
+	useVision(reasoner: VisualReasoner | null): void {
+		setVisualReasoner(reasoner);
+	}
+
+		useSolver(solver: CaptchaSolver): void {
 		registerSolver(solver);
 	}
 

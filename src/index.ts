@@ -35,6 +35,29 @@ export {
 	type TwoCaptchaConfig,
 	type CapSolverConfig,
 } from "./core/CaptchaSolver.js";
+// ─── Visual Reasoning (VLM) ────────────────────────────────────────────────
+export {
+	setVisualReasoner,
+	getVisualReasoner,
+	askVisual,
+	type VisualReasoner,
+} from "./core/VisualReasoner.js";
+// ─── Interaction Quality ──────────────────────────────────────────────────
+export {
+	scoreMouse,
+	scoreTyping,
+	scoreScroll,
+	scoreClick,
+	computeQuality,
+	scoreInteraction,
+	QualityTracker,
+	type QualityDimensions,
+	type QualityScore,
+	type MouseMetrics,
+	type TypingMetrics,
+	type ScrollMetrics,
+	type ClickMetrics,
+} from "./core/InteractionQuality.js";
 // ─── Cross-Origin iframe Sessions ────────────────────────────────────────────
 export type { IframeSession } from "./core/CrossOriginManager.js";
 export { CrossOriginManager } from "./core/CrossOriginManager.js";

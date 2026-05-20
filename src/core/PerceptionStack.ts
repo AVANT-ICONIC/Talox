@@ -44,6 +44,7 @@
 import type { TaloxPageState } from "../types/index.js";
 import type { ChallengeDetector, ChallengeState } from "./ChallengeDetector.js";
 import type { PageStateCollector } from "./PageStateCollector.js";
+import { askVisual } from "./VisualReasoner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,26 @@ export class PerceptionStack {
 		}
 	}
 
-	async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
+	/**
+	 * Ask a visual question about the current page.
+	 * Requires a `VisualReasoner` to be registered via `setVisualReasoner()`.
+	 * Returns null if no reasoner is available or it fails.
+	 *
+	 * @param question Natural-language question (e.g. "What is the main heading?")
+	 * @returns Answer string or null
+	 */
+	async askVisual(question: string): Promise<string | null> {
+		try {
+			const page = this.collector.getPage();
+			if (!page) return null;
+			const screenshot = await page.screenshot({ type: "png", fullPage: false });
+			return await askVisual(screenshot, question);
+		} catch {
+			return null;
+		}
+	}
+
+		async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
 		const cacheKey = `${this.sessionTick}::${preset}`;
 
 		if (this.cache.has(cacheKey)) {
