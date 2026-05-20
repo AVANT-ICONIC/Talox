@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [7.4.0] - 2026-05-17
+
+### Changed
+
+- **chromium** npm package moved from `dependencies` to `optionalDependencies`. The package was never imported — code uses Playwright's bundled chromium via `playwright-core`. Consumers no longer download the unused ~100MB binary on `npm install`.
+
+### Docs
+
+- Expanded **Patchright addInitScript limitation** docs: why Patchright can't be used, current `playwright-core` workaround.
+- Expanded **headless detectability** docs: Xvfb virtual display workaround for headless servers.
+- **Site warmup**: `@fragile` tag added to Reddit bypass (edgebucket cookie dependency).
+
+### CI
+
+- Added `concurrency` group to prevent cancel cascade from rapid pushes.
+- Fixed `test:unit` / `test:browser` scripts to use `vitest run` (non-watch mode).
+- Added `typecheck` script (`tsc --noEmit`).
+- Lightened pre-push hook to build-check only.
+- Bumped browser integration timeout to 25min.
+- All 3 CI gates passing (lint+typecheck, unit, browser integration).
+
+### Backlog
+
+- **IMPROVEMENT_BACKLOG.md**: All 36 items resolved and documented.
+- **TODO.md**: Full release history with final tally.
+
+## [7.3.0] - 2026-05-17
+
+### Fixed
+
+- **7 `as any` casts killed**:
+  - SelfHealingSelector: `(this.options as any)[key]` → `this.options[key]`
+  - PolicyEngine: `(this as any)._currentAmount` → declared `_currentAmount` field
+  - SessionManager (3x): `(pages[n] as any).page` → `pages[n]!.getPage()`
+  - VisionGate: `(ssim as any).ssim` → narrow type assertion
+  - PageStateCollector: `isClosed` → try/catch with narrow assertion
+- **2 `@ts-expect-error` removed**: BrowserManager, PageStateCollector — **0 remaining in codebase**.
+- **SessionManager stealth**: 9 `@ts-expect-error` reduced to 6 accepted `as any` (bracket notation for runtime browser globals).
+
+### Added
+
+- **ssim.js type declarations** (`src/types/ssim.d.ts`)
+- **strategies.test.ts** (6 tests — config validation, name uniqueness, side effects)
+
+### Tests
+
+- **93 test files, 1694 tests** (up from 92/1688)
+
 ## [7.2.0] - 2026-05-17
 
 ### Added
