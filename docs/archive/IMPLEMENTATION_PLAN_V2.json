@@ -1,0 +1,69 @@
+[
+  {
+    "issue_id": "STABILIZE-1",
+    "title": "Implement real headed/headless switching in SessionManager",
+    "description": "Current setHeadedMode is a stub. Implement browser relaunch logic to switch between headed and headless modes while preserving session state (cookies, localStorage) via the persistent profile.",
+    "acceptance_criteria": [
+      "Calling talox.setHeaded(true) closes the current headless browser and launches a headed one.",
+      "The new browser instance preserves the current URL and session state (login remains active).",
+      "TaloxController methods (click, type, etc.) continue to work after the switch.",
+      "Emits 'headedEscalation' or 'headlessRestored' events upon successful switch."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "large",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "STABILIZE-2",
+    "title": "Align Takeover Overlay visuals with v2 Specification",
+    "description": "Update TakeoverBridge overlay to switch the glow color to amber (#ffaa00) when human takeover is active, and ensure the 'Resume Agent' button matches the spec design.",
+    "acceptance_criteria": [
+      "Glow color is cyan (#00d4ff) while agent is running.",
+      "Glow color switches to amber (#ffaa00) when requestHumanTakeover is called.",
+      "Button label switches between '⏸ Take Over' and '▶ Resume Agent' correctly.",
+      "Button shows a countdown if humanTakeoverTimeoutMs > 0 is configured."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "STABILIZE-3",
+    "title": "Implement Verbosity Level 3 (Full Tracing & AX-Tree Diffs)",
+    "description": "Expand the verbosity system to support Level 3. This should enable Playwright's built-in tracing and generate full AX-tree structural diffs on every state change.",
+    "acceptance_criteria": [
+      "If verbosity is set to 3, talox.stop() saves a Playwright trace file to the output directory.",
+      "Every navigate/click/type action generates a full AX-tree diff event when verbosity is 3.",
+      "Performance overhead is only incurred when level 3 is explicitly active."
+    ],
+    "dependencies": ["STABILIZE-1"],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "STABILIZE-4",
+    "title": "Verify HumanMouse interaction timing baseline",
+    "description": "Create a performance validation test to ensure that HumanMouse interactions are significantly slower than raw Playwright interactions, verifying that stealth timing is active.",
+    "acceptance_criteria": [
+      "A test script compares the time taken for 10 clicks using HumanMouse vs. raw page.click().",
+      "HumanMouse interactions consistently show variable, human-like delays (>100ms per step).",
+      "Test passes in CI environment to prevent stealth regressions."
+    ],
+    "dependencies": [],
+    "estimated_complexity": "small",
+    "suggested_assignee": "QA"
+  },
+  {
+    "issue_id": "STABILIZE-5",
+    "title": "Integrate BotDetector signals into AdaptationEngine escalation",
+    "description": "Ensure that specific bot-detection signals (like Cloudflare challenges or CAPTCHAs) correctly trigger the 'blocker_unresolvable_headless' reason to fire the headed escalation strategy.",
+    "acceptance_criteria": [
+      "BotDetector identifies 'Cloudflare' or 'CAPTCHA' presence in the page state.",
+      "AdaptationEngine receives these signals and applies the 'escalate_to_headed' strategy.",
+      "The system successfully auto-relaunches the browser in headed mode when a block is detected."
+    ],
+    "dependencies": ["STABILIZE-1"],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  }
+]

@@ -1,0 +1,188 @@
+[
+  {
+    "issue_id": "ARCH-001",
+    "title": "Phase 1: Branch Unification — mandatory first step",
+    "description": "Clean up the v2 branch by unifying it with main. Discard broken Agent-First work while preserving good commits from test-extension and automation branches. This is NOT optional.",
+    "acceptance_criteria": [
+      "Read test-extension branch, compare all files against main, decide which commits to cherry-pick or discard",
+      "Read automation/overnight-audit-20260319 and automation/overnight-audit-20260319-main-fix branches, compare against main, decide which commits to cherry-pick or discard",
+      "Create fresh v2 branch from main (force-reset if current v2 is too dirty)",
+      "Cherry-pick commit 5b34212 from bug-investigation/talox-tests (stealth browser + mouse movement fix)",
+      "Cherry-pick overlay session controls and injection idempotency fixes",
+      "Cherry-pick CI configs and headed mode support + auto-escalation logic",
+      "Discard Agent-First model work: ModeManager.ts, TaloxController rewrite, types/modes.ts additions",
+      "Delete all untracked *.mjs demo scripts in project root (~13 files)",
+      "Delete src/core/controller/TakeoverBridge.ts (current version is broken, rebuilt in Phase 4)"
+    ],
+    "dependencies": [],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-002",
+    "title": "Phase 2: Remove Mode System — delete TaloxMode, ModeManager, and related dead code",
+    "description": "Delete the entire old mode system (modes.ts, ModeManager.ts) and replace it with the new TaloxSettings/TaloxConfig interfaces per the v2 spec. This phase must leave zero references to the old mode system.",
+    "acceptance_criteria": [
+      "src/types/modes.ts is deleted (file no longer exists)",
+      "src/core/controller/ModeManager.ts is deleted (file no longer exists)",
+      "src/types/settings.ts exists with TaloxSettings interface and DEFAULT_SETTINGS (mouseSpeed: 0.7, typingDelayMin: 100, typingDelayMax: 300, typoProbability: 0.03, fidgetEnabled: true, humanStealth: 1.0, stealthLevel: 'high', adaptiveStealthEnabled: true, automaticThinkingEnabled: true, perceptionDepth: 'full', headed: false, autoHeadedEscalation: true, verbosity: 0, humanTakeoverEnabled: false, humanTakeoverTimeoutMs: 120000)",
+      "src/types/config.ts exists with TaloxConfig interface (profile, observe, settings, humanTakeover fields)",
+      "src/types/index.ts exports only new types, no mode exports",
+      "Grep for 'TaloxMode' returns zero results in src/",
+      "Grep for 'ModeManager' returns zero results in src/",
+      "Grep for 'resolveMode' returns zero results in src/",
+      "Grep for 'CANONICAL_MODES' returns zero results in src/",
+      "Grep for 'MODE_PRESETS' returns zero results in src/"
+    ],
+    "dependencies": ["ARCH-001"],
+    "estimated_complexity": "small",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-003",
+    "title": "Phase 3: Rewrite TaloxController — remove modes, add verbosity + takeover state machine",
+    "description": "Rewrite TaloxController to use TaloxSettings instead of TaloxMode. Add new runtime-controllable methods: setVerbosity, getDebugSnapshot, setHeaded, requestHumanTakeover, resumeAgent. Implement the takeover state machine: AGENT_RUNNING → WAITING_FOR_HUMAN → AGENT_RUNNING.",
+    "acceptance_criteria": [
+      "Constructor merges DEFAULT_SETTINGS + user config, no mode system reference",
+      "setMode(), getMode(), override(), all Agent-First methods are removed",
+      "setVerbosity(level: 0|1|2|3): void method exists and changes event emission behavior",
+      "getDebugSnapshot(): Promise<DebugSnapshot> returns current AX-tree, recent bugs, console errors, network failures, last adaptation, interaction history",
+      "setHeaded(headed: boolean): Promise<void> forces browser headed/headless at runtime",
+      "requestHumanTakeover(reason?: string): Promise<void> freezes agent, triggers overlay change",
+      "resumeAgent(): void returns control to agent",
+      "onTakeover() / onAgentResumed() event hooks are implemented",
+      "Takeover state machine correctly transitions: AGENT_RUNNING → WAITING_FOR_HUMAN → AGENT_RUNNING",
+      "Auto-resume timer fires after humanTakeoverTimeoutMs ms; skips if timeoutMs is 0",
+      "npm run typecheck passes with zero errors"
+    ],
+    "dependencies": ["ARCH-002"],
+    "estimated_complexity": "large",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-004",
+    "title": "Phase 3b: Auto Headed/Headless Escalation via AdaptationEngine strategies",
+    "description": "Add auto-escalation strategies to AdaptationEngine: when a headless blocker is detected, auto-relaunch headed. When resolved, de-escalate back to headless. Session state must survive browser relaunches.",
+    "acceptance_criteria": [
+      "autoHeadedEscalation: true is set in DEFAULT_SETTINGS",
+      "escalate_to_headed strategy exists in AdaptationEngine: triggers on blocker detected, saves URL + cookies, relaunches headed, restores state",
+      "de_escalate_to_headless strategy exists: when blocker resolved, saves state, relaunches headless, continues",
+      "headedEscalation event emitted with reason string when escalation fires",
+      "headlessRestored event emitted when de-escalation completes",
+      "Session state (cookies, localStorage, URL, scroll position) survives relaunch via ProfileVault + SessionManager",
+      "If observe: true, bypass escalation entirely, always headed",
+      "Grep for 'escalate_to_headed' returns results in src/strategies.ts or AdaptationEngine"
+    ],
+    "dependencies": ["ARCH-003"],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-005",
+    "title": "Phase 4: Human Takeover Overlay UI — rebuild TakeoverBridge correctly (no fake cursor)",
+    "description": "Rebuild TakeoverBridge from scratch using correct Playwright APIs. Inject overlay via page.addInitScript() (NOT page.evaluate()). No fake cursor. Overlay has exactly the glow frame and Take Over button. Must persist across all navigations.",
+    "acceptance_criteria": [
+      "TakeoverBridge uses page.addInitScript() for overlay injection — NOT page.evaluate()",
+      "page.exposeFunction() used for __talox_requestTakeover and __talox_resumeAgent bindings",
+      "Overlay contains exactly TWO elements: #__talox-overlay (glow frame) and #__talox-takeover-btn (button)",
+      "No fake cursor element injected (no #__talox-fake-cursor)",
+      "Agent running state: cyan glow box-shadow (rgba(0,212,255,0.6)), button shows '⏸ Take Over'",
+      "Waiting for human state: no glow, button shows '▶ Resume Agent' (or with countdown timer)",
+      "Overlay injected only when humanTakeoverEnabled: true AND headed: true",
+      "Headless mode: overlay never injected",
+      "bridge.reinitialize(newPage) re-runs addInitScript + exposeFunction when page is replaced",
+      "Grep for 'page.evaluate' inside TakeoverBridge.ts returns zero results"
+    ],
+    "dependencies": ["ARCH-003"],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-006",
+    "title": "Phase 5: Always-On Capability Modules — remove all mode gates",
+    "description": "Ensure all capability engines run unconditionally. Remove any mode-gating logic from AdaptationEngine, BotDetector, ActionExecutor (HumanMouse), RulesEngine, and PageStateCollector.",
+    "acceptance_criteria": [
+      "AdaptationEngine.ts has no mode gate — always armed",
+      "BotDetector.ts has no mode gate — always scanning",
+      "ActionExecutor.ts always uses HumanMouse for all mouse interactions (no bypass path except humanStealth: 0)",
+      "RulesEngine.ts always runs bug detection; verbosity 0 = collect silently, verbosity 1+ = emit events live",
+      "PageStateCollector.ts always collects full AX-tree + DOM + console + network (no shallow path)",
+      "Grep for 'isSpeedMode' returns zero results in src/",
+      "Grep for 'shouldEmitBugDetected' returns zero results in src/"
+    ],
+    "dependencies": ["ARCH-002"],
+    "estimated_complexity": "small",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-007",
+    "title": "Phase 6: Test Suite Migration — delete mode tests, create v2 unit tests",
+    "description": "Delete obsolete mode-system tests. Create new unit tests for TaloxController (verbosity API, takeover state machine), settings merging, and TakeoverBridge injection behavior.",
+    "acceptance_criteria": [
+      "tests/core/controller/ModeManager.test.ts is deleted (file no longer exists)",
+      "tests/core/controller/modes.test.ts is deleted (file no longer exists)",
+      "tests/unit/TaloxController.test.ts exists with tests for: default construction matches DEFAULT_SETTINGS, setVerbosity() changes emission, observe: true forces headed, takeover state machine transitions (request → waiting → resume, request → waiting → timeout, timeout=0 stays waiting)",
+      "tests/unit/settings.test.ts exists with tests for: DEFAULT_SETTINGS has all required fields, partial override merges correctly, humanTakeover: true → humanTakeoverEnabled: true, humanTakeover: { timeoutMs: 60000 } → correct timeout",
+      "tests/unit/TakeoverBridge.test.ts exists with tests for: addInitScript called (not evaluate), exposeFunction called for both bindings, overlay not injected in headless mode, overlay not injected when humanTakeoverEnabled: false, state transitions on humanTakeoverRequested / agentResumed events",
+      "npm run test runs all unit tests and passes"
+    ],
+    "dependencies": ["ARCH-003", "ARCH-005"],
+    "estimated_complexity": "medium",
+    "suggested_assignee": "QA"
+  },
+  {
+    "issue_id": "ARCH-008",
+    "title": "Phase 7: Public Exports — rewrite src/index.ts for v2 API",
+    "description": "Rewrite the public API exports to expose TaloxController, TaloxConfig, TaloxSettings, DEFAULT_SETTINGS, event types, and ObserveSession. Remove all mode-related exports.",
+    "acceptance_criteria": [
+      "src/index.ts exports: TaloxController, TaloxConfig, TaloxSettings, DEFAULT_SETTINGS",
+      "src/index.ts exports all event types from TaloxEventMap",
+      "src/index.ts exports: ObserveSession",
+      "src/index.ts exports: HumanMouse, BotDetector, AdaptationEngine, PageStateCollector (optional advanced use)",
+      "No TaloxMode, ModeManager, CANONICAL_MODES, MODE_PRESETS, resolveMode in exports",
+      "npm run build produces dist/index.d.ts with correct type signatures",
+      "Importing { TaloxController } from 'talox' works without errors"
+    ],
+    "dependencies": ["ARCH-002", "ARCH-003"],
+    "estimated_complexity": "small",
+    "suggested_assignee": "Builder"
+  },
+  {
+    "issue_id": "ARCH-009",
+    "title": "Phase 8: Documentation — update specs, archive old rearchitecture doc",
+    "description": "Update docs to reflect v2 architecture. Archive the old Agent-First rearchitecture document. Bump version to 2.0.0.",
+    "acceptance_criteria": [
+      "docs/TALOX-SPEC.md updated: new intro removing mode section, add takeover + verbosity reference",
+      "docs/TALOX-ARCHITECTURE.md updated: remove ModeManager, add TakeoverBridge (rebuilt), clarify no fake cursor",
+      "docs/TALOX-AGENT-FIRST-REARCHITECTURE.md moved to docs/archive/ directory",
+      "package.json version bumped to 2.0.0",
+      "docs/TALOX-ROADMAP.md updated to mark v2 Deployment section as in-progress"
+    ],
+    "dependencies": ["ARCH-002", "ARCH-003", "ARCH-004", "ARCH-005", "ARCH-006"],
+    "estimated_complexity": "small",
+    "suggested_assignee": "Reviewer"
+  },
+  {
+    "issue_id": "ARCH-010",
+    "title": "Phase 9: Final Validation — typecheck, tests, zero dead code greps",
+    "description": "Run the full validation suite. All builds must pass, all old code must be gone, no use of deprecated patterns.",
+    "acceptance_criteria": [
+      "npm run typecheck produces zero TypeScript errors",
+      "npm run test passes all unit tests",
+      "npm run build succeeds with zero errors",
+      "npm run test:real:single runs a real-world test successfully (if network available)",
+      "Grep for 'TaloxMode' returns zero results in src/",
+      "Grep for 'ModeManager' returns zero results in src/",
+      "Grep for 'resolveMode' returns zero results in src/",
+      "Grep for 'CANONICAL_MODES' returns zero results in src/",
+      "Grep for 'MODE_PRESETS' returns zero results in src/",
+      "Grep for 'fake-cursor' returns zero results in src/",
+      "Grep for 'fakeCursor' returns zero results in src/",
+      "Grep for '__talox-fake-cursor' returns zero results in src/",
+      "Grep for 'page.evaluate' inside TakeoverBridge returns zero results"
+    ],
+    "dependencies": ["ARCH-001", "ARCH-002", "ARCH-003", "ARCH-004", "ARCH-005", "ARCH-006", "ARCH-007", "ARCH-008", "ARCH-009"],
+    "estimated_complexity": "small",
+    "suggested_assignee": "QA"
+  }
+]

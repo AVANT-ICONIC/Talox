@@ -162,10 +162,9 @@ Talox ships two browser automation packages:
 
 | Package | Role | When it's used |
 | :--- | :--- | :--- |
-| **playwright** | Standard Chromium automation API | All core automation: navigating, clicking, typing, AX-tree collection, console/network interception |
-| **patchright** | Stealth Chromium fork (Playwright-compatible API) | Anti-bot resilience — patchright is a patched Playwright build that removes WebDriver fingerprints, automation markers, and other bot-detection signals. Used when stealth interaction is needed on hostile sites |
+| **playwright-core** | Chromium automation engine | All core automation: navigating, clicking, typing, AX-tree collection, console/network interception. Uses system Chrome for real browser fingerprint. |
 
-Both share the same API surface — Talox uses Playwright by default and falls back to patchright when the `AdaptationEngine` detects bot countermeasures. If patchright is not installed, Talox degrades gracefully to plain Playwright without stealth features.
+Talox uses `playwright-core` with `channel: "chrome"` for maximum stealth — system Chrome provides a real browser fingerprint. The 19-layer JS stealth stack is injected via `addInitScript` before any page scripts run.
 
 ```typescript
 import { TaloxController } from 'talox';
