@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [7.6.0] - 2026-05-20
+
+### Added
+
+- **Event-based visual reasoning**: Talox emits `visualQuestion` event with screenshot + question. Hosting agent (Claude Code, Codex, Gemini CLI) listens and resolves using its own vision.
+- **`talox.resolveVisual(id, answer)`** — agents resolve visual questions by ID.
+- **`talox.setScreenshotFormat(format)`** — configurable screenshot format: `base64` (default), `file`, `buffer`.
+- **Fallback `VisualReasoner`**: If no agent responds within timeout, falls back to registered `VisualReasoner` (OpenAI Vision, local VLM).
+- **`createOpenAIVisionReasoner({ apiKey })`** — built-in OpenAI Vision provider for standalone usage. Zero extra dependencies.
+- **`createVLMCaptchaSolver()`** — captcha solving via VLM. Detects captcha, screenshots it, asks VLM to read text, types answer.
+- **`talox.useVision(reasoner)`** — register a visual reasoner plugin.
+- **`talox.useSolver(solver)`** — register a custom CAPTCHA solver.
+
+### Changed
+
+- **Captcha solving** no longer uses paid external services. Uses Talox's own VLM plugin. The agent's vision model reads the captcha directly.
+- **`PerceptionStack.askVisual(question)`** — captures screenshot and delegates to registered reasoner.
+- **`QualityTracker`** — session-level rolling average with trend detection (improving/declining/stable).
+- **Interaction Quality Score**: scoreMouse, scoreTyping, scoreScroll, scoreClick with 0–100 scale.
+
+### Tests
+
+- **96 files, 1743 tests** (unit: 96 passed, smoke: 61 passed, property: 53 passed, snapshot: 5 passed, perf: 11 passed)
+- New test files: CaptchaSolver (14), VisualReasoner (12), InteractionQuality (23)
+
+
 ## [7.4.0] - 2026-05-17
 
 ### Changed
