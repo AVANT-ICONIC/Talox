@@ -253,7 +253,7 @@ export class AgentCoordinator {
 	 * Get status of all agents.
 	 */
 	getStatus(): AgentStatus[] {
-		return this.agents.map((_, i) => ({
+		return Array.from({ length: this.config.agents }, (_, i) => ({
 			id: i,
 			profileId: `agent-${i}`,
 			busy: false,
