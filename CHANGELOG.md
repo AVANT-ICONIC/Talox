@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [7.7.0] - 2026-05-20
+
+### Added
+
+- **AgentCoordinator** — multi-agent orchestrator. Spawns N TaloxController instances with separate browser profiles.
+- **`coordinator.run(tasks)`** — distribute tasks to agents, execute per-agent sequentially, run all agents in parallel.
+- **`coordinator.mapToAgents(items, factory)`** — round-robin distribution helper for URLs, selectors, search terms.
+- **`coordinator.getStatus()` / `coordinator.getAgent(n)`** — query agent state and access individual controllers.
+- **CLI `--agents N`** — `talox run --agents 3 "scrape top 10 pricing"`
+
+### Fixed
+
+- **Doctor test timeouts** — reduced from 4x5s runs to single 16s beforeAll + instant assertions.
+- **Talox CLI doctor tests** — added 30s timeout for slow system diagnostics.
+
+### Tests
+
+- **104 files, 1884 tests** (unit: 97/1754, smoke: 1/61, property: 4/53, snapshot: 1/5, perf: 1/11)
+- All suites green. Zero failures.
+
+
 ## [7.6.0] - 2026-05-20
 
 ### Added
