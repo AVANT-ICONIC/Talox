@@ -29,7 +29,7 @@
 - [ ] AdaptationEngine uses scores to validate strategy effectiveness
 - [ ] Debug overlay: live "humanity meter" in headed mode
 
-## 🔜 v7.8.0+ — Multi-Agent Orchestrator
+## ✅ v7.7.0 — Multi-Agent Orchestrator (2026-05-20)
 
 - [ ] `AgentCoordinator` — manages multiple `TaloxController` instances
 - [ ] Plan-delegate-observe loop (extends existing autonomous loop)
@@ -44,3 +44,19 @@
 - [ ] Headless-first mode
 - [ ] Plugin architecture (community rules + vision detectors)
 - [ ] Replay UI (interactive session replay)
+
+## 🔜 v7.8.0+ — Plan-Delegate-Observe Loop
+
+- [ ] LLMPlanner integration: break goals into subtasks dynamically
+- [ ] Auto-distribute subtasks to agents via AgentCoordinator
+- [ ] Observe results, adapt plan mid-execution
+- [ ] Shared state bag between agents
+- [ ] Result merging with conflict resolution
+
+## 🔜 Later
+
+- [ ] Docker image
+- [ ] MCP server  
+- [ ] Headless-first mode
+- [ ] Plugin architecture
+- [ ] Replay UI
