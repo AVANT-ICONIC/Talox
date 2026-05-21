@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 import {
 	formatDoctorOutput,
 	runDoctor,
@@ -153,9 +153,14 @@ describe("formatDoctorOutput", () => {
 // ---------------------------------------------------------------------------
 
 describe("runDoctor", () => {
-	it("returns a valid DoctorResult shape", async () => {
-		const result = await runDoctor({ fix: false });
+	// Run doctor once — these diagnostics are slow (browser/network checks)
+	let result: DoctorResult;
 
+	beforeAll(async () => {
+		result = await runDoctor({ fix: false });
+	}, 30_000);
+
+	it("returns a valid DoctorResult shape", () => {
 		expect(result).toHaveProperty("checks");
 		expect(result).toHaveProperty("passed");
 		expect(result).toHaveProperty("warnings");
@@ -169,9 +174,7 @@ describe("runDoctor", () => {
 		expect(typeof result.timestamp).toBe("string");
 	});
 
-	it("has consistent check counts", async () => {
-		const result = await runDoctor({ fix: false });
-
+	it("has consistent check counts", () => {
 		const countedPassed = result.checks.filter((c) => c.status === "ok").length;
 		const countedWarnings = result.checks.filter((c) => c.status === "warning").length;
 		const countedErrors = result.checks.filter((c) => c.status === "error").length;
@@ -181,9 +184,7 @@ describe("runDoctor", () => {
 		expect(result.errors).toBe(countedErrors);
 	});
 
-	it("every check has required fields", async () => {
-		const result = await runDoctor({ fix: false });
-
+	it("every check has required fields", () => {
 		for (const check of result.checks) {
 			expect(check).toHaveProperty("name");
 			expect(check).toHaveProperty("status");
@@ -194,9 +195,7 @@ describe("runDoctor", () => {
 		}
 	});
 
-	it("timestamp is a valid ISO date string", async () => {
-		const result = await runDoctor({ fix: false });
-
+	it("timestamp is a valid ISO date string", () => {
 		const parsed = Date.parse(result.timestamp);
 		expect(Number.isNaN(parsed)).toBe(false);
 	});

@@ -86,7 +86,7 @@ describe("talox CLI", () => {
 	// ── doctor ────────────────────────────────────────────────────────────
 
 	describe("doctor", () => {
-		it("exits with a defined code (doctor runs or fails gracefully)", async () => {
+		it("exits with a defined code (doctor runs or fails gracefully)", { timeout: 30_000 }, async () => {
 			const result = await runCli(["doctor"]);
 			// Doctor may succeed (exit 0) or fail with errors (exit 1) depending
 			// on the environment.  We just verify it terminates and produces some
@@ -96,7 +96,7 @@ describe("talox CLI", () => {
 			expect(result.code).toBeGreaterThanOrEqual(0);
 		});
 
-		it("produces output that mentions Talox Doctor or reports a failure", async () => {
+		it("produces output that mentions Talox Doctor or reports a failure", { timeout: 30_000 }, async () => {
 			const result = await runCli(["doctor"]);
 			// If the CLI built correctly and __dirname is resolved, we get
 			// "Talox Doctor" on stdout.  If it hits a known __dirname ESM issue,
