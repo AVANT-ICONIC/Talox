@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Playwright-Chromium-45ba4b?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
   <img src="https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--only-0d9488?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="AGPL-3.0-only" />
-  <img src="https://img.shields.io/badge/version-7.6.0-0d9488?style=flat-square" alt="v7.6.0" />
+  <img src="https://img.shields.io/github/v/release/AVANT-ICONIC/Talox?color=0d9488<img src="https://img.shields.io/badge/version-7.6.0-0d9488?style=flat-square" alt="v7.6.0" />style=flat-square" alt="version" />
 </p>
 
 <p align="center">
@@ -48,6 +48,27 @@
 </p>
 
 </div>
+
+## Contents
+
+- [Overview](#overview)
+- [Why Not Plain Playwright?](#why-not-plain-playwright)
+- [Quick Start](#quick-start)
+- [Talox CLI & Packaging](#talox-cli--packaging)
+- [Integrations](#integrations)
+  - [CLI-first](#cli-first-recommended)
+  - [OpenAI function calling](#openai-function-calling)
+  - [Claude / Anthropic](#claude--anthropic-prompts)
+  - [Codex CLI](#codex-cli-wrapper)
+- [Browser Lab Demo](#browser-lab-demo)
+- [Agent Overlay & Human Takeover](#agent-overlay--human-takeover)
+- [Agent-First Vision (v7.6.0)](#agent-first-vision)
+- [CAPTCHA Solving (v7.6.0)](#captcha-solving)
+- [Interaction Quality Score (v7.6.0)](#interaction-quality)
+- [Architecture](#architecture)
+- [Stats](#stats)
+- [Contributing](#contributing)
+
 
 ## Category focus
 
