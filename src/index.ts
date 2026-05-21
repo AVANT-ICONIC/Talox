@@ -44,6 +44,15 @@ export {
 	type ScreenshotFormat,
 	type OpenAIVisionConfig,
 } from "./core/VisualReasoner.js";
+// ─── Multi-Agent Coordinator ───────────────────────────────────────────────
+export {
+	AgentCoordinator,
+	type CoordinatorConfig,
+	type AgentTask,
+	type AgentResult,
+	type CoordinatorResult,
+	type AgentStatus,
+} from "./core/AgentCoordinator.js";
 // ─── Interaction Quality ──────────────────────────────────────────────────
 export {
 	scoreMouse,

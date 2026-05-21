@@ -17,6 +17,7 @@ import { SkillLoader } from "../core/skills/SkillLoader.js";
 import { SkillWriter } from "../core/skills/SkillWriter.js";
 import type { ProfileClass } from "../types/index.js";
 import { formatDoctorOutput, runDoctor } from "./doctor.js";
+import { AgentCoordinator } from "../core/AgentCoordinator.js";
 
 const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
 const OUTPUT_FORMATS = ["json", "markdown", "both"] as const;
@@ -63,6 +64,7 @@ interface RunCommandOptions {
 	maxIterations: number;
 	strategy: "conservative" | "balanced" | "aggressive";
 	skillsDir: string | undefined;
+	agents: number;
 }
 
 interface ResearchCommandOptions {
@@ -134,6 +136,7 @@ Run Options:
   --max-iterations    Maximum loop iterations (default: 10)
   --strategy          Loop strategy: conservative | balanced | aggressive (default: balanced)
   --skills-dir        Directory containing domain skills
+  --agents            Number of parallel browser agents (default: 1)
 
 Research Options:
   --domain, -d        Target domain for experiments (required)
@@ -696,6 +699,7 @@ function parseRunOptions(args: string[]): RunCommandOptions {
 		maxIterations: 10,
 		strategy: "balanced",
 		skillsDir: undefined,
+		agents: 1,
 	};
 
 	let i = 0;
@@ -734,6 +738,10 @@ function parseRunOptions(args: string[]): RunCommandOptions {
 			}
 			case "--skills-dir":
 				opts.skillsDir = args[i + 1];
+				i += 2;
+				break;
+			case "--agents":
+				opts.agents = Number(args[i + 1]) || 1;
 				i += 2;
 				break;
 			case "--help":
@@ -996,7 +1004,7 @@ function parseResearchOptions(args: string[]): ResearchCommandOptions {
 				opts.skillsDir = args[i + 1];
 				i += 2;
 				break;
-			case "--runs-per-variant":
+						case "--runs-per-variant":
 				opts.runsPerVariant = Number(args[i + 1]) || opts.runsPerVariant;
 				i += 2;
 				break;
