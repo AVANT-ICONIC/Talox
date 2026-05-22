@@ -10,20 +10,20 @@ export type MovementStyle = "smooth" | "jerky" | "precise" | "relaxed";
 export type TypingRhythm = "fast" | "medium" | "slow" | "variable";
 export type AccelerationCurve = "linear" | "ease-out" | "ease-in-out" | "bezier";
 
-import type { TaloxEventMap } from "../../types/events.js";
 import type { Page } from "playwright-core";
+import type { TaloxEventMap } from "../../types/events.js";
 import type { Point, TaloxNode, TaloxPageState } from "../../types/index.js";
 import { diffPageState } from "../../types/index.js";
 import type { TaloxSettings } from "../../types/settings.js";
 import type { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { type CursorStepCallback, HumanMouse } from "../HumanMouse.js";
 import { InteractionReliability } from "../InteractionReliability.js";
+import { createLogger } from "../Logger.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import type { PolicyEngine } from "../PolicyEngine.js";
-import type { SemanticMapper, SemanticEntityType } from "../SemanticMapper.js";
+import type { SemanticEntityType, SemanticMapper } from "../SemanticMapper.js";
 import type { SiteWarmupRegistry } from "../SiteWarmup.js";
-import { createLogger } from "../Logger.js";
-import { EventBus } from "./EventBus.js";
+import type { EventBus } from "./EventBus.js";
 import type { AttentionFrame } from "./SessionManager.js";
 
 /**
@@ -133,9 +133,24 @@ export class ActionExecutor {
 		}
 
 		// Settle Wait: Ensure hydration before proceeding
-		const waitOption = { waitUntil: "networkidle" as const };
+		const waitState = this.settings.navigationWaitUntil || "networkidle";
+		const waitOption = { waitUntil: waitState };
 
-		await page.goto(url, waitOption);
+		try {
+			await page.goto(url, waitOption);
+		} catch (error: any) {
+			if (
+				waitState === "networkidle" &&
+				(error.name === "TimeoutError" || error.message.includes("timeout") || error.message.includes("Timeout"))
+			) {
+				if (this.settings.verbosity >= 1) {
+					console.warn(`[Talox] networkidle navigation timed out for ${url}. Falling back to load.`);
+				}
+				await page.goto(url, { waitUntil: "load", timeout: 30000 });
+			} else {
+				throw error;
+			}
+		}
 		setFirstNavigation(false);
 
 		// Site warmup: bypass bot-detection interstitials (Cloudflare, CAPTCHA pre-screens, etc.)
@@ -341,7 +356,7 @@ export class ActionExecutor {
 		this.events.emit("cursorClicked", { x: finalPos.x, y: finalPos.y });
 	}
 
-	private async collectStateAfterClick (page: Page): Promise<TaloxPageState> {
+	private async collectStateAfterClick(page: Page): Promise<TaloxPageState> {
 		await new Promise((r) => setTimeout(r, 500));
 		this.recordActivity();
 

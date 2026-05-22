@@ -167,11 +167,12 @@ test.describe("Scenario 7 — AI-driven observe session (debug + overlay + recor
 		console.log("[test] sessionEnd:", evt);
 
 		// ── JSON report ───────────────────────────────────────────────────────────
-		const files = fs.readdirSync(outputDir);
-		const jsonFile = files.find((f) => f.endsWith(".json"));
-		expect(jsonFile).toBeDefined();
+		const jsonPath = evt.reportPath;
+		expect(jsonPath).toBeDefined();
+		expect(jsonPath.endsWith(".json")).toBe(true);
+		expect(fs.existsSync(jsonPath)).toBe(true);
 
-		const jsonContent = fs.readFileSync(path.join(outputDir, jsonFile!), "utf-8");
+		const jsonContent = fs.readFileSync(jsonPath, "utf-8");
 		const report = JSON.parse(jsonContent);
 		expect(report).toHaveProperty("id");
 		expect(Array.isArray(report.annotations)).toBe(true);
@@ -179,10 +180,12 @@ test.describe("Scenario 7 — AI-driven observe session (debug + overlay + recor
 		console.log("[test] JSON report has", report.annotations.length, "annotation(s)");
 
 		// ── Markdown report ───────────────────────────────────────────────────────
-		const mdFile = files.find((f) => f.endsWith(".md"));
+		const sessionDir = path.dirname(jsonPath);
+		const sessionFiles = fs.readdirSync(sessionDir);
+		const mdFile = sessionFiles.find((f) => f.endsWith(".md"));
 		expect(mdFile).toBeDefined();
 
-		const mdContent = fs.readFileSync(path.join(outputDir, mdFile!), "utf-8");
+		const mdContent = fs.readFileSync(path.join(sessionDir, mdFile!), "utf-8");
 		expect(mdContent).toContain("## Annotations");
 		expect(mdContent).toContain("| # |");
 		console.log("[test] Markdown report length:", mdContent.length, "chars");

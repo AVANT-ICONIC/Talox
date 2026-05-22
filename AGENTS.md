@@ -102,7 +102,20 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-05-17) — v7.4.0
+### Current Status (2026-05-21) — v7.7.0
+
+- **0 total issues** (all src, 0 test issues)
+- Quality gate: **OK**
+- **0 BLOCKER**
+- **0 CRITICAL**
+- **0 MAJOR** — code smells
+- **0 MINOR** — code smells
+- **95+ test files** | **1,876 tests** (unit: 1,754 + browser integration: 122 verified passing)
+- **Key Updates**:
+  - Implemented configurable `navigationWaitUntil` setting in `TaloxSettings` with timeout fallback to `load` state.
+  - Fixed nested report subdirectory assertion issue in `tests/real/07-observe-driven-ai.spec.ts`.
+
+### Previous Status (2026-05-17) — v7.4.0
 
 - **0 total issues** (all src, 0 test issues)
 - Quality gate: **OK**
@@ -111,6 +124,7 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **0 MAJOR** — code smells
 - **0 MINOR** — code smells
 - **93+ test files** | **1,694 tests** (unit: 1,754 + research: 136 + smoke: 61 + property: 53 + snapshot: 5 + perf: 11 + error-paths: 20 + browser integration: 105 + E2E: 13)
+
 
 ### Test Structure
 
