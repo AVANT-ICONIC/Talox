@@ -219,6 +219,7 @@ export class PageStateCollector {
 				tag: tagName,
 				...(isDisabled && { disabled: "true" }),
 			},
+			trust: "first-party",
 		};
 	}
 
@@ -774,6 +775,7 @@ export class PageStateCollector {
 						width: box.width,
 						height: box.height,
 					},
+					trust: "first-party",
 				};
 				if (node.value !== undefined) {
 					newNode.attributes = { value: String(node.value) };
@@ -895,6 +897,7 @@ export class PageStateCollector {
 						text: n.name || n.description || "",
 						boundingBox: n.boundingBox,
 						isActionable: n.attributes?.disabled !== "true",
+						trust: n.trust || "first-party",
 					}))
 				: await this.collectInteractiveElementsViaDom();
 
@@ -915,6 +918,10 @@ export class PageStateCollector {
 		}
 
 		const allInteractiveElements = [...mergedInteractiveElements, ...cursorDetectedElements];
+		// Default trust for elements that don't have it (cursor-detected, legacy paths)
+		for (const el of allInteractiveElements) {
+			if (!el.trust) el.trust = "first-party";
+		}
 
 		const collectedAt = new Date().toISOString();
 		const state: TaloxPageState = {

@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 
+## [8.0.0] - 2026-05-21
+
+### Added
+
+- **Content Trust Annotations** — every `TaloxNode` and interactive element now carries a `trust` field: `"first-party"` (same origin) or `"external"` (cross-origin, iframe, unknown). Defaults to `"first-party"` for all elements in the current release (cross-origin iframe trust detection is a future enhancement).
+- **`TaloxSettings.trustedDomains`** — known-safe domains that always get first-party trust even if cross-origin. Defaults to empty.
+- **ContentSanitizer trust integration** — strict mode prefixes external elements with `[EXTERNAL]` marker. Warn mode reports external element count in `_meta` warning.
+
+### Changed
+
+- **`TaloxNode.trust`** and interactive element `trust` — new optional fields (non-breaking addition, no contract version bump required).
+
+### Tests
+
+- **ContentSanitizer** — 6 new trust annotation tests (40 total).
+
+
+
 ## [7.9.0] - 2026-05-21
 
 ### Added

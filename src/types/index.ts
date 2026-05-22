@@ -84,6 +84,8 @@ export interface TaloxNode {
 	description?: string;
 	boundingBox: { x: number; y: number; width: number; height: number };
 	attributes?: Record<string, string | boolean>;
+	/** Content trust: "first-party" (same origin) or "external" (cross-origin, iframe, unknown). */
+	trust?: "first-party" | "external";
 	children?: TaloxNode[];
 }
 
@@ -215,6 +217,8 @@ export interface TaloxPageState {
 		cursorDetected?: boolean;
 		/** How the element was detected when cursorDetected is true. */
 		detectionMethod?: CursorDetectionMethod;
+		/** Content trust: "first-party" (same origin) or "external" (cross-origin, iframe, unknown). */
+		trust?: "first-party" | "external";
 	}>;
 	bugs: TaloxBug[];
 

@@ -1,15 +1,8 @@
 # TODO
 
-> v7.9.0 shipped. 106 test files, 1940 tests, CI green.
+> v8.0.0 shipped. 106 test files, 1946 tests, CI green.
 
 ---
-
-## 🟡 v8.0.0 — Content Trust Annotations
-
-- [ ] Add `trust` field to `TaloxNode` and interactive elements (`"first-party"` / `"external"`)
-- [ ] Domain trust registry — known-safe domains get auto-trusted
-- [ ] Wire into `ContentSanitizer` — strict mode strips content from untrusted origins
-- [ ] Breaking: `TaloxPageState` contract version bump to v2
 
 ## 🟡 v8.1.0 — Plan-Delegate-Observe Loop
 
@@ -28,6 +21,7 @@
 - [ ] Headless-first mode
 - [ ] Plugin architecture (community rules + vision detectors)
 - [ ] Replay UI (interactive session replay)
+- [ ] Cross-origin iframe trust detection (leverages `trust` field from v8.0.0)
 
 ---
 
@@ -35,6 +29,7 @@
 
 | Version | What | When |
 |---------|------|------|
+| v8.0.0 | **Content Trust Annotations** — trust field on nodes/elements, ContentSanitizer integration | 2026-05-21 |
 | v7.9.0 | **NetworkGuard** — client-side JS egress filtering + Token Benchmarks | 2026-05-21 |
 | v7.8.0 | **ContentSanitizer** — prompt injection defense (warn/strict tiers) | 2026-05-21 |
 | v7.7.0 | **AgentCoordinator** — multi-agent orchestrator | 2026-05-20 |

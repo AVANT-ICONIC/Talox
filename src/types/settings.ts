@@ -292,6 +292,14 @@ export interface TaloxSettings {
 	 * @default "off"
 	 */
 	networkGuard: "off" | "warn" | "strict";
+
+	/**
+	 * Known-safe domains that always get "first-party" trust annotations.
+	 * Content from these domains is treated as trusted even if cross-origin.
+	 * Defaults to empty — only same-origin content gets first-party trust.
+	 * @default []
+	 */
+	trustedDomains: string[];
 }
 
 // ─── DEFAULT_SETTINGS ─────────────────────────────────────────────────────────
@@ -324,4 +332,5 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	navigationWaitUntil: "networkidle",
 	contentSafety: "warn",
 	networkGuard: "off",
+	trustedDomains: [],
 };

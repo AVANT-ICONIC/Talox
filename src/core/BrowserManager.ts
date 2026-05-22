@@ -76,6 +76,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		virtualDisplay: false,
 		contentSafety: "warn",
 		networkGuard: "off",
+		trustedDomains: [],
 	},
 };
 
