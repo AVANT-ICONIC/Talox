@@ -31,6 +31,7 @@ import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
 import { VisionGate } from "../VisionGate.js";
 import { createLogger } from "../Logger.js";
+import { NetworkGuard, createNetworkGuard } from "../NetworkGuard.js";
 import type { EventBus } from "./EventBus.js";
 
 /**
@@ -74,6 +75,7 @@ export class SessionManager {
 	/** The current fingerprint profile used for this session. */
 	private fingerprint: FingerprintProfile | null = null;
 	private readonly fingerprintGen = new FingerprintGenerator();
+	private _networkGuard: NetworkGuard | null = null;
 
 	constructor(
 		private readonly settings: TaloxSettings,
@@ -130,6 +132,7 @@ export class SessionManager {
 		const context = await this.browserManager.launch(this.profile, this.settings.headed, browserType, launchOptions);
 		const page = await context.newPage();
 
+		await this.injectNetworkGuard(page);
 		await this.injectStealthScripts(page);
 
 		await this.attachSecurityHooks(page);
@@ -224,6 +227,7 @@ export class SessionManager {
 		const newContext = await this.browserManager.launch(profile, headed, "chromium", launchOptions);
 		const newPage = await newContext.newPage();
 
+		await this.injectNetworkGuard(newPage);
 		await this.injectStealthScripts(newPage);
 		await this.attachSecurityHooks(newPage);
 
@@ -275,6 +279,7 @@ export class SessionManager {
 	async openPage(url: string): Promise<TaloxPageState> {
 		const page = await this.browserManager.newPage();
 
+		await this.injectNetworkGuard(page);
 		await this.injectStealthScripts(page);
 
 		await this.attachSecurityHooks(page);
@@ -602,6 +607,31 @@ export class SessionManager {
 	}
 
 	// ─── Private: Security ────────────────────────────────────────────────────────
+
+
+	/**
+	 * Inject the NetworkGuard client-side JS interception script.
+	 * Runs before stealth scripts so it can intercept any requests they make.
+	 * No-op when settings.networkGuard is "off" (default).
+	 */
+	private async injectNetworkGuard(page: Page): Promise<void> {
+		if (this.settings.networkGuard === "off") return;
+
+		// Lazy-init the guard with the correct allowlist for this profile class
+		if (!this._networkGuard) {
+			const profileClass = this.profile?.class ?? "qa";
+			const allowlist = profileClass === "ops"
+				? ["google.com", "github.com", "about:blank", "localhost"]
+				: ["*"];
+			this._networkGuard = createNetworkGuard(
+				this.settings.networkGuard,
+				allowlist,
+				profileClass,
+			);
+		}
+
+		await this._networkGuard.inject(page);
+	}
 
 	private async attachSecurityHooks(page: Page): Promise<void> {
 		if (!this.profile || this.profile.class === "sandbox") return;

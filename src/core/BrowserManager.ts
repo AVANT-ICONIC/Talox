@@ -74,6 +74,8 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		sessionIdleTimeoutMs: 300000,
 		enableCrossOriginIframes: false,
 		virtualDisplay: false,
+		contentSafety: "warn",
+		networkGuard: "off",
 	},
 };
 

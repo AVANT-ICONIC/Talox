@@ -217,6 +217,12 @@ export interface TaloxSettings {
 	adaptiveStealthRadius: number; // Default: 100
 
 	/**
+	 * Wait state strategy during page navigation.
+	 * @default "networkidle"
+	 */
+	navigationWaitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit";
+
+	/**
 	 * Deterministic safe mode — disables all human simulation (no jitter, no delays,
 	 * no typos, raw direct clicks). Use when testing your own application and you
 	 * want fast, predictable, deterministic interactions. Opposite of biomechanical mode.
@@ -260,6 +266,32 @@ export interface TaloxSettings {
 	 * @default true on Linux without DISPLAY, false otherwise
 	 */
 	virtualDisplay: boolean;
+
+	/**
+	 * Content safety level for prompt injection defense.
+	 * - `"off"` — page content passes through unchanged (currently default).
+	 * - `"warn"` — wraps scraped content in structural markers so the LLM
+	 *   knows it is external, untrusted data — never instructions.
+	 * - `"strict"` — warn + heuristic filtering of known injection patterns
+	 *   from element text, aria-labels, placeholders, and title attributes.
+	 * @default "warn"
+	 */
+	contentSafety: "off" | "warn" | "strict";
+
+	/**
+	 * Client-side network egress guard level.
+	 * Complements the protocol-level `attachSecurityHooks` (which blocks
+	 * credential leaks in POST/PUT requests) with JS-level interception of
+	 * `navigator.sendBeacon()`, `WebSocket`, `fetch`, and `XMLHttpRequest`.
+	 * - `"off"` — no JS injection (default, zero overhead).
+	 * - `"warn"` — injects JS that logs non-allowlisted requests to console
+	 *   but allows them (safe for debugging).
+	 * - `"strict"` — injects JS that blocks sendBeacon/WebSocket/fetch/XHR
+	 *   to non-allowlisted origins. Only enable when you control the target
+	 *   sites and know they won't break.
+	 * @default "off"
+	 */
+	networkGuard: "off" | "warn" | "strict";
 }
 
 // ─── DEFAULT_SETTINGS ─────────────────────────────────────────────────────────
@@ -289,4 +321,7 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	sessionIdleTimeoutMs: 300000,
 	enableCrossOriginIframes: false,
 	virtualDisplay: false,
+	navigationWaitUntil: "networkidle",
+	contentSafety: "warn",
+	networkGuard: "off",
 };

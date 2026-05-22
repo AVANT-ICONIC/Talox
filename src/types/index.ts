@@ -392,6 +392,11 @@ export interface AgentPageState {
 	interactiveElements: TaloxPageState["interactiveElements"];
 	consoleErrors: string[];
 	bugs: Array<{ type: string; severity: string; description: string }>;
+	/** Injected by ContentSanitizer when contentSafety is "warn" or "strict". */
+	_meta?: {
+		contentSafety: "warn" | "strict";
+		warning: string;
+	};
 }
 
 /** State surface focused on debugging — full fidelity but no screenshots. */

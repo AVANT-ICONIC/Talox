@@ -73,6 +73,7 @@ import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
 import { createLogger } from "../Logger.js";
 import { registerSolver, type CaptchaSolver } from "../CaptchaSolver.js";
+import { ContentSanitizer, createContentSanitizer } from "../ContentSanitizer.js";
 import { setVisualReasoner, resolveVisual, setVisualEmitter, setScreenshotFormat, type VisualReasoner, type ScreenshotFormat } from "../VisualReasoner.js";
 import { QualityTracker } from "../InteractionQuality.js";
 import { ActionExecutor } from "./ActionExecutor.js";
@@ -140,6 +141,7 @@ export class TaloxController {
 	private videoRecorder: VideoRecorderType | null = null;
 	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
 	private readonly log = createLogger("Controller");
+	private readonly _sanitizer: ContentSanitizer;
 	readonly quality = new QualityTracker();
 
 	constructor(baseDirOrConfig: string | TaloxConfig = ".", config: TaloxConfig = {}) {
@@ -162,6 +164,7 @@ export class TaloxController {
 		}
 
 		this.settings = mergedSettings;
+		this._sanitizer = createContentSanitizer(this.settings.contentSafety);
 
 		if (mergedConfig.humanTakeover !== undefined) {
 			if (typeof mergedConfig.humanTakeover === "boolean") {
@@ -463,7 +466,7 @@ export class TaloxController {
 			state.bugs.push(...this._session.rulesEngine.analyze(state));
 			this._session.lastState = state;
 			if (!variant || variant === "full") return state;
-			if (variant === "agent") return compactState(state, "agent");
+			if (variant === "agent") return this._sanitizer.sanitizeAgentState(compactState(state, "agent"));
 			return compactState(state, "debug");
 		} catch (error: unknown) {
 			return this.buildErrorState(error);

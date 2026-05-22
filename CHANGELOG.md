@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+
+## [7.9.0] - 2026-05-21
+
+### Added
+
+- **NetworkGuard** — client-side JS network interception for `navigator.sendBeacon()`, `WebSocket`, `fetch`, and `XMLHttpRequest`. Complements the existing `attachSecurityHooks()` (protocol-level credential leak blocking) with page-context overrides for APIs Playwright routing can't catch.
+- **Three tiers**: `"off"` (default, zero overhead), `"warn"` (log only), `"strict"` (block + reject).
+- **Per-profile allowlists**: ops gets restricted domains (`google.com`, `github.com`, `about:blank`, `localhost`), qa/sandbox get `["*"]`.
+- **Token benchmark script** — `scripts/benchmark-tokens.ts` measures token counts for Talox presets vs raw Playwright AX tree. Outputs markdown table.
+
+### Changed
+
+- **`TaloxSettings.networkGuard`** — new setting, defaults to `"off"`. No breaking changes.
+
+### Tests
+
+- **NetworkGuard.test.ts** (22 tests) — injection behavior, script content verification, tier behavior, getters.
+
+
+## [7.8.0] - 2026-05-21
+
+### Added
+
+- **ContentSanitizer** — prompt injection defense for LLM-bound page content. Three tiers: `"off"` (passthrough), `"warn"` (structural framing + `_meta` provenance), `"strict"` (warn + heuristic filtering of 11 injection patterns + data exfiltration URL detection).
+- **`AgentPageState._meta`** — injected by ContentSanitizer when `contentSafety` is `"warn"` or `"strict"`. Carries content safety level and an explicit warning that scraped content is untrusted external data.
+- **Injection patterns caught**: "ignore all previous instructions", "as an AI/LLM", "system prompt", "you are now", "pretend you are", "forget all previous", "new instructions", "override instructions", "disregard instructions", "from now on you are/will/must", "your new role/task/goal/objective/purpose", and exfiltration URLs (`?email=`, `?token=`, `?password=`, etc.).
+
+### Changed
+
+- **`TaloxSettings.contentSafety`** — new setting, defaults to `"warn"`. Wraps all `getState('agent')` output in structural markers so the LLM can distinguish scraped data from instructions.
+
+### Tests
+
+- **ContentSanitizer.test.ts** (34 tests) — all three tiers, 11 injection patterns, exfiltration URLs, edge cases, factory, getters.
+
+
 ## [7.7.0] - 2026-05-20
 
 ### Added
