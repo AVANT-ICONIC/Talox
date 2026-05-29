@@ -4,99 +4,92 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskPlan } from "../../../src/core/loop/types.js";
-import type { Planner } from "../../../src/core/loop/Planner.js";
 import { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
-import type {
-	AutonomousLoopOptions,
-	PlanStep,
-} from "../../../src/core/loop/types.js";
+import type { Planner } from "../../../src/core/loop/Planner.js";
+import type { AutonomousLoopOptions, PlanStep, TaskPlan } from "../../../src/core/loop/types.js";
 
 // ── Mock Factories ──────────────────────────────────────────────────────────
 
-const { createMockController, createMockPlanner, makeGoal, makePlan, makePageState } =
-	vi.hoisted(() => {
-		function createMockController() {
-			return {
-				navigate: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				click: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				type: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				scrollTo: vi.fn<(...args: unknown[]) => Promise<void>>(),
-				screenshot: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				getState: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				getChallengeState: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				waitForSelector: vi.fn<(...args: unknown[]) => Promise<void>>(),
-				waitForNavigation: vi.fn<(...args: unknown[]) => Promise<void>>(),
-				waitForTimeout: vi.fn<(...args: unknown[]) => Promise<void>>(),
-				evaluate: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				extractTable: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				findElement: vi.fn<(...args: unknown[]) => Promise<any>>(),
-				on: vi.fn(),
-				off: vi.fn(),
-				_events: { on: vi.fn(), off: vi.fn() },
-				_adapt: {
-					domainMemory: {
-						extractHostname: vi.fn((url: string) => {
-							try {
-								return new URL(url).hostname;
-							} catch {
-								return "unknown";
-							}
-						}),
-						getDomainRecord: vi.fn(() => null),
-						getRankedStrategies: vi.fn(() => []),
-					},
+const { createMockController, createMockPlanner, makeGoal, makePlan, makePageState } = vi.hoisted(() => {
+	function createMockController() {
+		return {
+			navigate: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			click: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			type: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			scrollTo: vi.fn<(...args: unknown[]) => Promise<void>>(),
+			screenshot: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			getState: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			getChallengeState: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			waitForSelector: vi.fn<(...args: unknown[]) => Promise<void>>(),
+			waitForNavigation: vi.fn<(...args: unknown[]) => Promise<void>>(),
+			waitForTimeout: vi.fn<(...args: unknown[]) => Promise<void>>(),
+			evaluate: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			extractTable: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			findElement: vi.fn<(...args: unknown[]) => Promise<any>>(),
+			on: vi.fn(),
+			off: vi.fn(),
+			_events: { on: vi.fn(), off: vi.fn() },
+			_adapt: {
+				domainMemory: {
+					extractHostname: vi.fn((url: string) => {
+						try {
+							return new URL(url).hostname;
+						} catch {
+							return "unknown";
+						}
+					}),
+					getDomainRecord: vi.fn(() => null),
+					getRankedStrategies: vi.fn(() => []),
 				},
-			};
-		}
+			},
+		};
+	}
 
-		function createMockPlanner(plans: TaskPlan[]) {
-			let callIndex = 0;
-			return {
-				plan: vi.fn(async () => {
-					const plan = plans[Math.min(callIndex, plans.length - 1)];
-					callIndex++;
-					return plan;
-				}),
-			};
-		}
+	function createMockPlanner(plans: TaskPlan[]) {
+		let callIndex = 0;
+		return {
+			plan: vi.fn(async () => {
+				const plan = plans[Math.min(callIndex, plans.length - 1)];
+				callIndex++;
+				return plan;
+			}),
+		};
+	}
 
-		function makeGoal(overrides?: Partial<AutonomousLoopOptions["goal"]>): AutonomousLoopOptions["goal"] {
-			return {
-				description: "Test goal",
-				maxIterations: 5,
-				...overrides,
-			};
-		}
+	function makeGoal(overrides?: Partial<AutonomousLoopOptions["goal"]>): AutonomousLoopOptions["goal"] {
+		return {
+			description: "Test goal",
+			maxIterations: 5,
+			...overrides,
+		};
+	}
 
-		function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
-			return {
-				assessment: "Test assessment",
-				steps: [],
-				goalAchieved: false,
-				...overrides,
-			};
-		}
+	function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
+		return {
+			assessment: "Test assessment",
+			steps: [],
+			goalAchieved: false,
+			...overrides,
+		};
+	}
 
-		function makePageState() {
-			return {
-				url: "https://example.com/page",
-				title: "Example Page",
-				timestamp: new Date().toISOString(),
-				interactiveElements: ["button#search", "input#email"],
-				consoleErrors: [] as string[],
-				bugs: [] as Array<{ type: string; severity: string; description: string }>,
-			};
-		}
+	function makePageState() {
+		return {
+			url: "https://example.com/page",
+			title: "Example Page",
+			timestamp: new Date().toISOString(),
+			interactiveElements: ["button#search", "input#email"],
+			consoleErrors: [] as string[],
+			bugs: [] as Array<{ type: string; severity: string; description: string }>,
+		};
+	}
 
-		return { createMockController, createMockPlanner, makeGoal, makePlan, makePageState };
-	});
+	return { createMockController, createMockPlanner, makeGoal, makePlan, makePageState };
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeOptions(
-	overrides?: Partial<AutonomousLoopOptions>,
-): AutonomousLoopOptions {
+function makeOptions(overrides?: Partial<AutonomousLoopOptions>): AutonomousLoopOptions {
 	return {
 		goal: makeGoal(),
 		planner: { model: "test-model" },
@@ -196,9 +189,7 @@ describe("AutonomousLoop", () => {
 	});
 
 	it("stops after max iterations", async () => {
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: false, steps: [makeClickStep()] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: false, steps: [makeClickStep()] })]);
 
 		const options = makeOptions({
 			goal: makeGoal({ maxIterations: 3 }),
@@ -284,21 +275,13 @@ describe("AutonomousLoop", () => {
 		await loop.run();
 
 		expect(onProgress).toHaveBeenCalledTimes(2);
-		expect(onProgress).toHaveBeenNthCalledWith(
-			1,
-			expect.objectContaining({ iteration: 1 }),
-		);
-		expect(onProgress).toHaveBeenNthCalledWith(
-			2,
-			expect.objectContaining({ iteration: 2 }),
-		);
+		expect(onProgress).toHaveBeenNthCalledWith(1, expect.objectContaining({ iteration: 1 }));
+		expect(onProgress).toHaveBeenNthCalledWith(2, expect.objectContaining({ iteration: 2 }));
 		loop.dispose();
 	});
 
 	it("navigates to startUrl when provided", async () => {
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			goal: makeGoal({ startUrl: "https://example.com" }),
@@ -315,9 +298,7 @@ describe("AutonomousLoop", () => {
 	it("handles startUrl navigation failure", async () => {
 		mockController.navigate.mockRejectedValue(new Error("Network error"));
 
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			goal: makeGoal({ startUrl: "https://example.com" }),
@@ -545,9 +526,7 @@ describe("AutonomousLoop", () => {
 	});
 
 	it("skips iteration when plan has no steps", async () => {
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [], assessment: "Nothing to do" }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [], assessment: "Nothing to do" })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,
@@ -586,10 +565,7 @@ describe("AutonomousLoop", () => {
 		const loop = new AutonomousLoop(mockController as any, options);
 		const result = await loop.run();
 
-		expect(onHumanEscalation).toHaveBeenCalledWith(
-			"CAPTCHA detected",
-			expect.any(Object),
-		);
+		expect(onHumanEscalation).toHaveBeenCalledWith("CAPTCHA detected", expect.any(Object));
 		expect(result.status).toBe("human-takeover");
 		expect(result.stopReason).toBe("unresolvable-blocker");
 		loop.dispose();
@@ -631,9 +607,7 @@ describe("AutonomousLoop", () => {
 
 		// Since we're using maxIterations: 5, it will try getState on each iteration
 		// Each iteration will fail and return a failed iteration, but the loop continues
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,
@@ -1081,9 +1055,7 @@ describe("AutonomousLoop", () => {
 		};
 		mockController.getChallengeState.mockResolvedValue(challengeState);
 
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,
@@ -1107,9 +1079,7 @@ describe("AutonomousLoop", () => {
 			{ strategy: "wait-and-retry", ewmaSuccessRate: 0.85 },
 		]);
 
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,
@@ -1129,9 +1099,7 @@ describe("AutonomousLoop", () => {
 	it("handles getChallengeState throwing gracefully", async () => {
 		mockController.getChallengeState.mockRejectedValue(new Error("Challenge detector error"));
 
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,
@@ -1148,9 +1116,7 @@ describe("AutonomousLoop", () => {
 	});
 
 	it("passes skillsContext to planner for matching domain", async () => {
-		mockPlanner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
+		mockPlanner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
 
 		const options = makeOptions({
 			plannerOverride: mockPlanner as unknown as Planner,

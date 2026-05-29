@@ -8,14 +8,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { FingerprintGenerator } from "../../../src/core/FingerprintGenerator.js";
-import { SemanticMapper } from "../../../src/core/SemanticMapper.js";
 import { SelfHealingSelector } from "../../../src/core/SelfHealingSelector.js";
-import {
-	compactState,
-	diffPageState,
-	type TaloxNode,
-	type TaloxPageState,
-} from "../../../src/types/index.js";
+import { SemanticMapper } from "../../../src/core/SemanticMapper.js";
+import { compactState, diffPageState, type TaloxNode, type TaloxPageState } from "../../../src/types/index.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

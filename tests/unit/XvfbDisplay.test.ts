@@ -1,4 +1,4 @@
-import { type ChildProcess, type SpawnOptions } from "node:child_process";
+import type { ChildProcess, SpawnOptions } from "node:child_process";
 import fs from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserManager, DEFAULT_CONFIG } from "../../src/core/BrowserManager";
@@ -33,7 +33,11 @@ function restorePlatform() {
 	Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
 }
 
-function createMockChildProcess(): { process: ChildProcess; triggerExit: (code: number | null) => void; triggerError: (err: Error) => void } {
+function createMockChildProcess(): {
+	process: ChildProcess;
+	triggerExit: (code: number | null) => void;
+	triggerError: (err: Error) => void;
+} {
 	const listeners: Record<string, Array<(...a: unknown[]) => void>> = {};
 	const cp = {
 		kill: mockKill,

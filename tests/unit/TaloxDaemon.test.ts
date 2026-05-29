@@ -48,7 +48,9 @@ const { mockController, mockNetServer } = vi.hoisted(() => {
 });
 
 vi.mock("../../src/core/controller/TaloxController.js", () => ({
-	TaloxController: vi.fn().mockImplementation(function(this: any) { return mockController; }),
+	TaloxController: vi.fn().mockImplementation(function (this: any) {
+		return mockController;
+	}),
 }));
 
 vi.mock("node:crypto", () => ({
@@ -393,7 +395,7 @@ describe("TaloxDaemon", () => {
 			const socket = createMockSocket();
 			handler(socket);
 			const dataHandler = socket._getDataHandler();
-			dataHandler!(Buffer.from(commandLine + "\n"));
+			dataHandler!(Buffer.from(`${commandLine}\n`));
 			// Yield to microtask queue so async processLine can run.
 			await new Promise((r) => setTimeout(r, 30));
 			return socket;
@@ -544,7 +546,12 @@ describe("TaloxDaemon", () => {
 				await new Promise((r) => setTimeout(r, 30));
 				return sock;
 			})();
-			const response = JSON.parse(socket.write.mock.calls.map((c: any[]) => c[0]).join("").trim());
+			const response = JSON.parse(
+				socket.write.mock.calls
+					.map((c: any[]) => c[0])
+					.join("")
+					.trim(),
+			);
 			expect(response.success).toBe(false);
 			expect(response.error).toContain("Missing 'sessionId'");
 		});
@@ -560,7 +567,12 @@ describe("TaloxDaemon", () => {
 				await new Promise((r) => setTimeout(r, 30));
 				return sock;
 			})();
-			const response = JSON.parse(socket.write.mock.calls.map((c: any[]) => c[0]).join("").trim());
+			const response = JSON.parse(
+				socket.write.mock.calls
+					.map((c: any[]) => c[0])
+					.join("")
+					.trim(),
+			);
 			expect(response.success).toBe(false);
 			expect(response.error).toContain("Session not found");
 		});
@@ -577,7 +589,12 @@ describe("TaloxDaemon", () => {
 				await new Promise((r) => setTimeout(r, 50));
 				return sock;
 			})();
-			const response = JSON.parse(socket.write.mock.calls.map((c: any[]) => c[0]).join("").trim());
+			const response = JSON.parse(
+				socket.write.mock.calls
+					.map((c: any[]) => c[0])
+					.join("")
+					.trim(),
+			);
 			expect(response.success).toBe(false);
 			expect(response.error).toBe("Browser launch failed");
 		});
@@ -595,7 +612,12 @@ describe("TaloxDaemon", () => {
 				await new Promise((r) => setTimeout(r, 30));
 				return sock;
 			})();
-			const response = JSON.parse(socket.write.mock.calls.map((c: any[]) => c[0]).join("").trim());
+			const response = JSON.parse(
+				socket.write.mock.calls
+					.map((c: any[]) => c[0])
+					.join("")
+					.trim(),
+			);
 			expect(response.success).toBe(false);
 			expect(response.error).toContain("Missing 'sessionId' parameter");
 		});
@@ -607,11 +629,18 @@ describe("TaloxDaemon", () => {
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();
-				dataHandler!(Buffer.from('{"id":"sc2","action":"navigate","params":{"sessionId":"nope","url":"https://example.com"}}\n'));
+				dataHandler!(
+					Buffer.from('{"id":"sc2","action":"navigate","params":{"sessionId":"nope","url":"https://example.com"}}\n'),
+				);
 				await new Promise((r) => setTimeout(r, 30));
 				return sock;
 			})();
-			const response = JSON.parse(socket.write.mock.calls.map((c: any[]) => c[0]).join("").trim());
+			const response = JSON.parse(
+				socket.write.mock.calls
+					.map((c: any[]) => c[0])
+					.join("")
+					.trim(),
+			);
 			expect(response.success).toBe(false);
 			expect(response.error).toContain("Session not found");
 		});

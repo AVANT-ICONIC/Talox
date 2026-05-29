@@ -82,7 +82,8 @@ export class PromptEvolver {
 	 */
 	getBestPrompt(): PromptVariant | null {
 		if (this.population.length === 0) return null;
-		const sorted = [...this.population].sort((a, b) => b.fitnessScore - a.fitnessScore); return sorted[0] ?? null;
+		const sorted = [...this.population].sort((a, b) => b.fitnessScore - a.fitnessScore);
+		return sorted[0] ?? null;
 	}
 
 	/**
@@ -127,7 +128,8 @@ export class PromptEvolver {
 
 		// Fill remaining slots with mutations of the best
 		while (newPopulation.length < this.populationSize) {
-			const parent = elites[Math.floor(Math.random() * elites.length)]; if (!parent) continue;
+			const parent = elites[Math.floor(Math.random() * elites.length)];
+			if (!parent) continue;
 			newPopulation.push(this.mutate(parent));
 		}
 
@@ -138,14 +140,16 @@ export class PromptEvolver {
 	 * Mutate a prompt variant to create a new offspring.
 	 */
 	private mutate(parent: PromptVariant): PromptVariant {
-		const operation = MUTATION_OPERATIONS[Math.floor(Math.random() * MUTATION_OPERATIONS.length)] ?? MUTATION_OPERATIONS[0];
+		const operation =
+			MUTATION_OPERATIONS[Math.floor(Math.random() * MUTATION_OPERATIONS.length)] ?? MUTATION_OPERATIONS[0];
 		let prompt = parent.systemPrompt;
 
 		switch (operation) {
 			case "swap_segment": {
 				// Replace a random segment with a different one
 				const idx = Math.floor(Math.random() * PROMPT_SEGMENTS.length);
-				const replacement = PROMPT_SEGMENTS[idx]; if (!replacement) break;
+				const replacement = PROMPT_SEGMENTS[idx];
+				if (!replacement) break;
 				const lines = prompt.split("\n").filter(Boolean);
 				if (lines.length > 0) {
 					const targetLine = Math.floor(Math.random() * lines.length);
@@ -157,7 +161,8 @@ export class PromptEvolver {
 				break;
 			}
 			case "insert_segment": {
-				const seg = PROMPT_SEGMENTS[Math.floor(Math.random() * PROMPT_SEGMENTS.length)]; if (!seg) break;
+				const seg = PROMPT_SEGMENTS[Math.floor(Math.random() * PROMPT_SEGMENTS.length)];
+				if (!seg) break;
 				const lines = prompt.split("\n").filter(Boolean);
 				const insertAt = Math.floor(Math.random() * (lines.length + 1));
 				lines.splice(insertAt, 0, seg);

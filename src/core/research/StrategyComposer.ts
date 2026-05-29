@@ -11,6 +11,8 @@
 import type { ResearchJournal } from "./ResearchJournal.js";
 import type { ComposedStrategy, ExperimentRun, RunMetrics, StrategyPromotion } from "./types.js";
 
+type StrategyPromotedEntry = StrategyPromotion;
+
 // ─── StrategyComposer ─────────────────────────────────────────────────────
 
 export class StrategyComposer {
@@ -30,57 +32,76 @@ export class StrategyComposer {
 	discoverCandidates(): ComposedStrategy[] {
 		const promotions = this.journal.getEntries("strategy_promoted").map((e) => e.data as StrategyPromotion);
 
-		const candidates: ComposedStrategy[] = [];
-
 		// Group strategies by domain
-		const byDomain = new Map<string, StrategyPromotion[]>();
+		const byDomain = new Map<string, StrategyPromotedEntry[]>();
 		for (const promo of promotions) {
 			const list = byDomain.get(promo.domain) ?? [];
 			list.push(promo);
 			byDomain.set(promo.domain, list);
 		}
 
+		const candidates: ComposedStrategy[] = [];
+
 		// For domains with 2+ promoted strategies, create compositions
 		for (const [domain, strategies] of byDomain) {
-			if (strategies.length < 2) continue;
-
-			// Sequential: A then B
-			for (let i = 0; i < strategies.length - 1; i++) {
-				for (let j = i + 1; j < strategies.length; j++) {
-					candidates.push(this.createSequential(strategies[i]!, strategies[j]!, domain));
-					candidates.push(this.createSequential(strategies[j]!, strategies[i]!, domain));
-				}
-			}
-
-			// Parallel: A + B
-			for (let i = 0; i < strategies.length - 1; i++) {
-				for (let j = i + 1; j < strategies.length; j++) {
-					candidates.push(this.createParallel(strategies[i]!, strategies[j]!, domain));
-				}
-			}
-
-			// Conditional: A if success_rate > threshold, else B
-			for (let i = 0; i < strategies.length - 1; i++) {
-				for (let j = i + 1; j < strategies.length; j++) {
-					candidates.push(this.createConditional(strategies[i]!, strategies[j]!, domain));
-				}
-			}
+			candidates.push(...this.discoverIntraDomainPairings(domain, strategies));
 		}
 
 		// Also look for cross-domain transfer candidates
-		const domains = [...byDomain.keys()];
-		for (let i = 0; i < domains.length - 1; i++) {
-			for (let j = i + 1; j < domains.length; j++) {
-				const dA = domains[i]; if (!dA) continue; const domainA = byDomain.get(dA); if (!domainA) continue;
-				const dB = domains[j]; if (!dB) continue; const domainB = byDomain.get(dB); if (!domainB) continue;
-				// Cross-domain sequential
-				if (domainA.length > 0 && domainB.length > 0) {
-					candidates.push(this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!));
-				}
+		candidates.push(...this.discoverCrossDomainPairings(byDomain));
+
+		return candidates;
+	}
+
+	private discoverIntraDomainPairings(domain: string, list: StrategyPromotedEntry[]): ComposedStrategy[] {
+		const pairings: ComposedStrategy[] = [];
+		if (list.length < 2) return pairings;
+
+		// Sequential: A then B
+		for (let i = 0; i < list.length - 1; i++) {
+			for (let j = i + 1; j < list.length; j++) {
+				pairings.push(this.createSequential(list[i]!, list[j]!, domain));
+				pairings.push(this.createSequential(list[j]!, list[i]!, domain));
 			}
 		}
 
-		return candidates;
+		// Parallel: A + B
+		for (let i = 0; i < list.length - 1; i++) {
+			for (let j = i + 1; j < list.length; j++) {
+				pairings.push(this.createParallel(list[i]!, list[j]!, domain));
+			}
+		}
+
+		// Conditional: A if success_rate > threshold, else B
+		for (let i = 0; i < list.length - 1; i++) {
+			for (let j = i + 1; j < list.length; j++) {
+				pairings.push(this.createConditional(list[i]!, list[j]!, domain));
+			}
+		}
+
+		return pairings;
+	}
+
+	private discoverCrossDomainPairings(byDomain: Map<string, StrategyPromotedEntry[]>): ComposedStrategy[] {
+		const pairings: ComposedStrategy[] = [];
+		const domains = [...byDomain.keys()];
+		for (let i = 0; i < domains.length - 1; i++) {
+			for (let j = i + 1; j < domains.length; j++) {
+				const dA = domains[i];
+				if (!dA) continue;
+				const domainA = byDomain.get(dA);
+				if (!domainA) continue;
+				const dB = domains[j];
+				if (!dB) continue;
+				const domainB = byDomain.get(dB);
+				if (!domainB) continue;
+				// Cross-domain sequential
+				if (domainA.length > 0 && domainB.length > 0) {
+					pairings.push(this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!));
+				}
+			}
+		}
+		return pairings;
 	}
 
 	/**

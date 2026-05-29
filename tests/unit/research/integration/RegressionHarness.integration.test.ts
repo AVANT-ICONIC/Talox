@@ -1,17 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RegressionHarness } from "../../../../src/core/research/RegressionHarness.js";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
 import type { AutoResearchConfig, RunMetrics } from "../../../../src/core/research/types.js";
-import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 const defaultConfig: AutoResearchConfig = {
-	runsPerVariant: 3, promotionThreshold: 0.15, excludedDomains: [],
-	persistToDisk: true, researchDir: "",
-	maxConcurrentExperiments: 1, enableCrossDomainTransfer: true,
-	enablePromptEvolution: false, maxSkillVersions: 5,
-	regressionTimeoutMs: 60_000, adaptivePriority: true,
+	runsPerVariant: 3,
+	promotionThreshold: 0.15,
+	excludedDomains: [],
+	persistToDisk: true,
+	researchDir: "",
+	maxConcurrentExperiments: 1,
+	enableCrossDomainTransfer: true,
+	enablePromptEvolution: false,
+	maxSkillVersions: 5,
+	regressionTimeoutMs: 60_000,
+	adaptivePriority: true,
 	compositionConfidenceThreshold: 0.7,
 };
 
@@ -26,7 +32,9 @@ describe("RegressionHarness — Integration", () => {
 	});
 
 	afterEach(() => {
-		try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	});
 
 	it("adds test cases and retrieves them", () => {
@@ -45,8 +53,11 @@ describe("RegressionHarness — Integration", () => {
 
 	it("removes test cases by ID", () => {
 		const tc = harness.addTestCase({
-			name: "test", domain: "x.com", goal: "load page",
-			expectedMaxIterations: 3, expectedMaxDurationMs: 5000,
+			name: "test",
+			domain: "x.com",
+			goal: "load page",
+			expectedMaxIterations: 3,
+			expectedMaxDurationMs: 5000,
 		});
 
 		expect(harness.removeTestCase(tc.id)).toBe(true);
@@ -63,14 +74,18 @@ describe("RegressionHarness — Integration", () => {
 			expectedMaxDurationMs: 30_000,
 		});
 
-		const loopFactory = async () => ({
-			run: async () => ({
-				status: "completed",
-				goal: { description: "test", maxIterations: 10 },
-				totalIterations: 5, totalDurationMs: 2000, totalCostUsd: 0.01,
-				createdSkills: [], stopReason: "goal-achieved",
-			}),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => ({
+					status: "completed",
+					goal: { description: "test", maxIterations: 10 },
+					totalIterations: 5,
+					totalDurationMs: 2000,
+					totalCostUsd: 0.01,
+					createdSkills: [],
+					stopReason: "goal-achieved",
+				}),
+			}) as any;
 
 		const results = await harness.runSuite(loopFactory);
 		expect(results).toHaveLength(1);
@@ -90,14 +105,18 @@ describe("RegressionHarness — Integration", () => {
 			expectedMaxDurationMs: 5000,
 		});
 
-		const loopFactory = async () => ({
-			run: async () => ({
-				status: "completed",
-				goal: { description: "test", maxIterations: 20 },
-				totalIterations: 10, totalDurationMs: 3000, totalCostUsd: 0.01,
-				createdSkills: [], stopReason: "goal-achieved",
-			}),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => ({
+					status: "completed",
+					goal: { description: "test", maxIterations: 20 },
+					totalIterations: 10,
+					totalDurationMs: 3000,
+					totalCostUsd: 0.01,
+					createdSkills: [],
+					stopReason: "goal-achieved",
+				}),
+			}) as any;
 
 		const results = await harness.runSuite(loopFactory);
 		expect(results[0]!.passed).toBe(false);
@@ -115,26 +134,34 @@ describe("RegressionHarness — Integration", () => {
 		});
 
 		// First run: passes
-		const goodFactory = async () => ({
-			run: async () => ({
-				status: "completed",
-				goal: { description: "test", maxIterations: 20 },
-				totalIterations: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-				createdSkills: [], stopReason: "goal-achieved",
-			}),
-		}) as any;
+		const goodFactory = async () =>
+			({
+				run: async () => ({
+					status: "completed",
+					goal: { description: "test", maxIterations: 20 },
+					totalIterations: 5,
+					totalDurationMs: 1000,
+					totalCostUsd: 0.01,
+					createdSkills: [],
+					stopReason: "goal-achieved",
+				}),
+			}) as any;
 
 		await harness.runSuite(goodFactory);
 
 		// Second run: fails — should detect regression
-		const badFactory = async () => ({
-			run: async () => ({
-				status: "failed",
-				goal: { description: "test", maxIterations: 20 },
-				totalIterations: 10, totalDurationMs: 5000, totalCostUsd: 0.05,
-				createdSkills: [], stopReason: "max-iterations",
-			}),
-		}) as any;
+		const badFactory = async () =>
+			({
+				run: async () => ({
+					status: "failed",
+					goal: { description: "test", maxIterations: 20 },
+					totalIterations: 10,
+					totalDurationMs: 5000,
+					totalCostUsd: 0.05,
+					createdSkills: [],
+					stopReason: "max-iterations",
+				}),
+			}) as any;
 
 		const results = await harness.runSuite(badFactory);
 		expect(results[0]!.passed).toBe(false);
@@ -159,22 +186,32 @@ describe("RegressionHarness — Integration", () => {
 
 	it("filters passing and failing tests", async () => {
 		harness.addTestCase({
-			name: "good", domain: "g.com", goal: "g",
-			expectedMaxIterations: 20, expectedMaxDurationMs: 30_000,
+			name: "good",
+			domain: "g.com",
+			goal: "g",
+			expectedMaxIterations: 20,
+			expectedMaxDurationMs: 30_000,
 		});
 		harness.addTestCase({
-			name: "bad", domain: "b.com", goal: "b",
-			expectedMaxIterations: 1, expectedMaxDurationMs: 500,
+			name: "bad",
+			domain: "b.com",
+			goal: "b",
+			expectedMaxIterations: 1,
+			expectedMaxDurationMs: 500,
 		});
 
-		const loopFactory = async () => ({
-			run: async () => ({
-				status: "completed",
-				goal: { description: "test", maxIterations: 20 },
-				totalIterations: 5, totalDurationMs: 2000, totalCostUsd: 0.01,
-				createdSkills: [], stopReason: "goal-achieved",
-			}),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => ({
+					status: "completed",
+					goal: { description: "test", maxIterations: 20 },
+					totalIterations: 5,
+					totalDurationMs: 2000,
+					totalCostUsd: 0.01,
+					createdSkills: [],
+					stopReason: "goal-achieved",
+				}),
+			}) as any;
 
 		await harness.runSuite(loopFactory);
 		expect(harness.getPassingTests().length).toBeGreaterThanOrEqual(1);

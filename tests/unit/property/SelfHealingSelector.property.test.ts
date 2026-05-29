@@ -2,8 +2,9 @@
  * Property-based tests for SelfHealingSelector using fast-check.
  * Tests invariants with arbitrary inputs to ensure correctness under fuzz.
  */
-import { describe, expect, it } from "vitest";
+
 import * as fc from "fast-check";
+import { describe, expect, it } from "vitest";
 import { SelfHealingSelector } from "../../../src/core/SelfHealingSelector.js";
 import type { TaloxNode } from "../../../src/types/index.js";
 
@@ -57,18 +58,14 @@ describe("SelfHealingSelector property tests", () => {
 
 	it("getSuccessStates(selector).length <= 5 for any sequence of recordSuccess calls with the same selector", () => {
 		fc.assert(
-			fc.property(
-				selectorStringArb,
-				fc.array(taloxNodeArb, { minLength: 0, maxLength: 50 }),
-				(selector, nodes) => {
-					const shs = new SelfHealingSelector();
-					for (const node of nodes) {
-						shs.recordSuccess(selector, node);
-					}
-					const states = shs.getSuccessStates(selector);
-					expect(states.length).toBeLessThanOrEqual(5);
-				},
-			),
+			fc.property(selectorStringArb, fc.array(taloxNodeArb, { minLength: 0, maxLength: 50 }), (selector, nodes) => {
+				const shs = new SelfHealingSelector();
+				for (const node of nodes) {
+					shs.recordSuccess(selector, node);
+				}
+				const states = shs.getSuccessStates(selector);
+				expect(states.length).toBeLessThanOrEqual(5);
+			}),
 		);
 	});
 

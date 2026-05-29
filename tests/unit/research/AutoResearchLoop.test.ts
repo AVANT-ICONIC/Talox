@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "../../../src/core/research/AutoResearchLoop.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
 import type { LoopResult } from "../../../src/core/loop/types.js";
+import { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "../../../src/core/research/AutoResearchLoop.js";
 import type { ExperimentComparison, ExperimentRun, StrategyPromotion } from "../../../src/core/research/types.js";
 
 function makeLoopResult(overrides: Partial<LoopResult> = {}): LoopResult {
@@ -17,7 +17,11 @@ function makeLoopResult(overrides: Partial<LoopResult> = {}): LoopResult {
 	};
 }
 
-function makeExperimentRun(variant: string, goalAchieved: boolean, overrides: Partial<ExperimentRun> = {}): ExperimentRun {
+function makeExperimentRun(
+	variant: string,
+	goalAchieved: boolean,
+	overrides: Partial<ExperimentRun> = {},
+): ExperimentRun {
 	return {
 		id: `run_${variant}_${Date.now()}`,
 		experimentId: `exp_${Date.now()}`,
@@ -46,10 +50,7 @@ function makeExperimentRun(variant: string, goalAchieved: boolean, overrides: Pa
 	};
 }
 
-function makeComparison(
-	controlAchieved: boolean,
-	treatmentAchieved: boolean,
-): ExperimentComparison {
+function makeComparison(controlAchieved: boolean, treatmentAchieved: boolean): ExperimentComparison {
 	const control = makeExperimentRun("control", controlAchieved);
 	const treatment = makeExperimentRun("treatment", treatmentAchieved);
 	const impRatio = control.metrics.iterationsToGoal / Math.max(treatment.metrics.iterationsToGoal, 1);
@@ -62,7 +63,12 @@ function makeComparison(
 			costRatio: 1,
 			blockerRatio: control.metrics.blockerCount / Math.max(treatment.metrics.blockerCount, 1),
 		},
-		winner: treatmentAchieved && !controlAchieved ? "treatment" : controlAchieved && !treatmentAchieved ? "control" : "inconclusive",
+		winner:
+			treatmentAchieved && !controlAchieved
+				? "treatment"
+				: controlAchieved && !treatmentAchieved
+					? "control"
+					: "inconclusive",
 		confidence: treatmentAchieved ? 0.95 : 0.3,
 	};
 }
@@ -131,14 +137,19 @@ describe("AutoResearchLoop", () => {
 	});
 
 	it("initialize is idempotent", async () => {
-		await loop.initialize();
-		await loop.initialize();
+		await expect(loop.initialize()).resolves.not.toThrow();
+		await expect(loop.initialize()).resolves.not.toThrow();
 	});
 
 	it("handles loop factory failure gracefully", async () => {
 		const failFactory = vi.fn().mockRejectedValue(new Error("factory failed"));
 		const failLoop = new AutoResearchLoop(failFactory, {
-			config: { persistToDisk: false, researchDir: `/tmp/talox-test-fail-${Date.now()}`, enableCrossDomainTransfer: false, enablePromptEvolution: false },
+			config: {
+				persistToDisk: false,
+				researchDir: `/tmp/talox-test-fail-${Date.now()}`,
+				enableCrossDomainTransfer: false,
+				enablePromptEvolution: false,
+			},
 		});
 
 		const goal = { description: "test", maxIterations: 10 };

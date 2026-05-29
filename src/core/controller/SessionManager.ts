@@ -23,6 +23,8 @@ import { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { AutoDialogHandler, type DialogRecord } from "../AutoDialogHandler.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
 import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
+import { createLogger } from "../Logger.js";
+import { createNetworkGuard, type NetworkGuard } from "../NetworkGuard.js";
 import { ObserveSession } from "../observe/ObserveSession.js";
 import { PageStateCollector } from "../PageStateCollector.js";
 import { PolicyEngine } from "../PolicyEngine.js";
@@ -30,8 +32,6 @@ import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
 import { VisionGate } from "../VisionGate.js";
-import { createLogger } from "../Logger.js";
-import { NetworkGuard, createNetworkGuard } from "../NetworkGuard.js";
 import type { EventBus } from "./EventBus.js";
 
 /**
@@ -608,7 +608,6 @@ export class SessionManager {
 
 	// ─── Private: Security ────────────────────────────────────────────────────────
 
-
 	/**
 	 * Inject the NetworkGuard client-side JS interception script.
 	 * Runs before stealth scripts so it can intercept any requests they make.
@@ -620,14 +619,8 @@ export class SessionManager {
 		// Lazy-init the guard with the correct allowlist for this profile class
 		if (!this._networkGuard) {
 			const profileClass = this.profile?.class ?? "qa";
-			const allowlist = profileClass === "ops"
-				? ["google.com", "github.com", "about:blank", "localhost"]
-				: ["*"];
-			this._networkGuard = createNetworkGuard(
-				this.settings.networkGuard,
-				allowlist,
-				profileClass,
-			);
+			const allowlist = profileClass === "ops" ? ["google.com", "github.com", "about:blank", "localhost"] : ["*"];
+			this._networkGuard = createNetworkGuard(this.settings.networkGuard, allowlist, profileClass);
 		}
 
 		await this._networkGuard.inject(page);
@@ -719,366 +712,9 @@ export class SessionManager {
 			battery: fp.battery,
 		};
 
-		await page.addInitScript((data: any) => {
-			// 1. Navigator Webdriver Evasion — the property must not exist at all.
-			// Detection libraries check `navigator.webdriver` (returns false) AND
-			// `'webdriver' in navigator` (returns true if property exists).
-			// We must delete the property from Navigator.prototype entirely.
-			// Patchright handles this at the driver level, but belt-and-suspenders.
-			try {
-				delete (Navigator.prototype as any).webdriver;
-			} catch (_e) {
-				/* NOSONAR — some contexts lock this */
-			}
-			// If delete failed (non-configurable), override via prototype chain
-			if ("webdriver" in navigator) {
-				try {
-					Object.defineProperty(Object.getPrototypeOf(navigator), "webdriver", {
-						get: () => undefined,
-						configurable: true,
-					});
-				} catch (_e) {
-					/* Ignored: non-fatal browser API error */
-				}
-			}
-
-			// 2. Chrome Runtime Spoofing
-			if (!globalThis.chrome?.runtime) {
-				globalThis.chrome = {
-					runtime: {
-						onMessage: { addListener: () => {}, removeListener: () => {} },
-						onConnect: { addListener: () => {}, removeListener: () => {} },
-						sendMessage: () => {},
-						connect: () => ({ onMessage: { addListener: () => {} }, postMessage: () => {} }),
-					},
-					loadTimes: () => ({ firstPaintTime: 0, startLoadTime: 0, commitLoadTime: 0 }),
-					csi: () => ({ onloadT: 0, startE: 0, pageT: 0 }),
-					app: {
-						isInstalled: false,
-						InstallState: { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" },
-						RunningState: { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" },
-						getDetails: () => null,
-						getIsInstalled: () => false,
-						installState: () => "not_installed",
-					},
-				};
-			}
-
-			// 3. Plugin Spoofing — use real PluginArray interface via Object.create
-			// to pass `instanceof PluginArray` checks
-			const fakePluginData = [
-				{
-					name: "PDF Viewer",
-					filename: "internal-pdf-viewer",
-					description: "Portable Document Format",
-					length: 1,
-					0: { type: "application/pdf", suffixes: "pdf", description: "Portable Document Format" },
-				},
-				{
-					name: "Chrome PDF Viewer",
-					filename: "internal-pdf-viewer",
-					description: "Google Chrome PDF Viewer",
-					length: 1,
-					0: { type: "application/pdf", suffixes: "pdf", description: "Google Chrome PDF Viewer" },
-				},
-				{
-					name: "Chromium PDF Viewer",
-					filename: "internal-pdf-viewer",
-					description: "Chromium PDF Viewer",
-					length: 1,
-					0: { type: "application/pdf", suffixes: "pdf", description: "Chromium PDF Viewer" },
-				},
-				{
-					name: "Microsoft Edge PDF Viewer",
-					filename: "internal-pdf-viewer",
-					description: "Microsoft Edge PDF Viewer",
-					length: 1,
-					0: { type: "application/pdf", suffixes: "pdf", description: "Microsoft Edge PDF Viewer" },
-				},
-				{
-					name: "WebKit built-in PDF",
-					filename: "internal-pdf-viewer",
-					description: "WebKit built-in PDF Viewer",
-					length: 1,
-					0: { type: "application/pdf", suffixes: "pdf", description: "WebKit built-in PDF Viewer" },
-				},
-			];
-
-			// Create a proper PluginArray-like object that passes type checks
-			try {
-				const realPlugins = navigator.plugins;
-				// If real PluginArray exists (even empty), use its prototype for instanceof checks
-				if (realPlugins && Object.getPrototypeOf(realPlugins)) {
-					const proto = Object.getPrototypeOf(realPlugins);
-					const fakeArray = Object.create(proto);
-					fakePluginData.forEach((plugin, i) => {
-						const p = Object.create(Object.getPrototypeOf(realPlugins[0] || {}));
-						Object.defineProperties(p, {
-							name: { get: () => plugin.name, enumerable: true },
-							filename: { get: () => plugin.filename, enumerable: true },
-							description: { get: () => plugin.description, enumerable: true },
-							length: { get: () => plugin.length, enumerable: true },
-						});
-						Object.defineProperty(fakeArray, i, { get: () => p, enumerable: true });
-					});
-					Object.defineProperty(fakeArray, "length", { get: () => fakePluginData.length });
-					Object.defineProperty(navigator, "plugins", {
-						get: () => fakeArray,
-						configurable: true,
-					});
-				} else {
-					// Fallback: plain array with PluginArray-like methods
-					const arr: any = fakePluginData;
-					arr.item = (i: number) => arr[i];
-					arr.namedItem = (name: string) => arr.find((p: any) => p.name === name);
-					arr.refresh = () => {};
-					Object.defineProperty(navigator, "plugins", {
-						get: () => arr,
-						configurable: true,
-					});
-				}
-			} catch (_e) {
-				/* Ignored: non-fatal browser API error */
-			}
-
-			// 4. Language Spoofing (from fingerprint profile)
-			Object.defineProperty(navigator, "languages", {
-				get: () => data.languages,
-			});
-
-			// 5. Platform Spoofing (consistent with UA)
-			Object.defineProperty(navigator, "platform", {
-				get: () => data.platform,
-			});
-
-			// 6. Hardware Spoofing (consistent with OS)
-			Object.defineProperty(navigator, "hardwareConcurrency", {
-				get: () => data.hardwareConcurrency,
-			});
-			Object.defineProperty(navigator, "deviceMemory", {
-				get: () => data.deviceMemory,
-			});
-
-			// 7. Canvas Fingerprint Protection (subtle noise)
-			const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-			HTMLCanvasElement.prototype.toDataURL = function (type, encoderOptions) {
-				const context = this.getContext("2d");
-				if (context) {
-					try {
-						const imageData = context.getImageData(0, 0, this.width, this.height);
-						if (imageData?.data && imageData.data.length > 0) {
-							const lastIdx = imageData.data.length - 1;
-							const val = imageData.data[lastIdx];
-							if (val !== undefined) {
-								imageData.data[lastIdx] = (val + 1) % 255;
-								context.putImageData(imageData, 0, 0);
-							}
-						}
-					} catch (e) {
-						// NOSONAR
-						// Ignore canvas errors
-					}
-				}
-				return originalToDataURL.apply(this, [type, encoderOptions]);
-			};
-
-			// 8. WebGL Vendor/Renderer Spoofing (consistent with OS)
-			const getParameter = WebGLRenderingContext.prototype.getParameter;
-			WebGLRenderingContext.prototype.getParameter = function (parameter) {
-				// UNMASKED_VENDOR_WEBGL
-				if (parameter === 37445) return data.vendor;
-				// UNMASKED_RENDERER_WEBGL
-				if (parameter === 37446) return data.renderer;
-				return getParameter.apply(this, [parameter]);
-			};
-
-			const getParameter2 = WebGL2RenderingContext.prototype.getParameter;
-			WebGL2RenderingContext.prototype.getParameter = function (parameter) {
-				if (parameter === 37445) return data.vendor;
-				if (parameter === 37446) return data.renderer;
-				return getParameter2.apply(this, [parameter]);
-			};
-
-			// 9. AudioContext Spoofing (consistent with OS)
-			if (typeof AudioContext !== "undefined") {
-				const OrigAudioContext = AudioContext;
-				(globalThis as any)["AudioContext"] = (opts: any) => {
-					const ctx = new OrigAudioContext(opts);
-					Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
-					Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
-					Object.defineProperty(ctx, "outputLatency", { get: () => data.audioOutputLatency });
-					return ctx;
-				};
-			}
-
-			// 10. Battery API Spoofing
-			if (typeof navigator.getBattery === "function") {
-				(navigator as any)["getBattery"] = async () => ({
-					charging: data.battery.charging,
-					chargingTime: data.battery.chargingTime,
-					dischargingTime: data.battery.dischargingTime,
-					level: data.battery.level,
-					addEventListener: () => {},
-					removeEventListener: () => {},
-					dispatchEvent: () => true,
-				});
-			}
-
-			// 11. WebRTC Leak Prevention
-			if (typeof RTCPeerConnection !== "undefined") {
-				const OrigRTCPeerConnection = RTCPeerConnection;
-				(globalThis as any)["RTCPeerConnection"] = (config: any, constraints: any) => {
-					// Force ICE candidate filtering to prevent local IP leaks
-					const filteredConfig = {
-						...config,
-						iceServers: config?.iceServers || [],
-					};
-					return new (OrigRTCPeerConnection as any)(filteredConfig, constraints);
-				};
-			}
-
-			// 12. Font Metrics Fingerprint Defense
-			// Offset letter-spacing subtly on measured elements
-			if (typeof document !== "undefined") {
-				const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
-				CanvasRenderingContext2D.prototype.measureText = function (text: string) {
-					const result = origMeasureText.apply(this, [text]);
-					// Add subtle random offset to defeat font metric fingerprinting
-					const offset =
-						data.fontLetterSpacingMin + Math.random() * (data.fontLetterSpacingMax - data.fontLetterSpacingMin);
-					return {
-						...result,
-						width: result.width + offset,
-					};
-				};
-			}
-
-			// 13. Timezone Consistency
-			if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
-				const OrigDateTimeFormat = Intl.DateTimeFormat;
-				(Intl as any)["DateTimeFormat"] = (locales: any, opts: any) => new OrigDateTimeFormat(data.locale, opts);
-				Object.defineProperty(Intl.DateTimeFormat, "prototype", { value: OrigDateTimeFormat.prototype });
-				Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
-			}
-
-			// 14. Permissions API — override to prevent detection via permission state
-			if (navigator.permissions?.query) {
-				const origQuery = navigator.permissions.query.bind(navigator.permissions);
-				navigator.permissions.query = (params: any) => {
-					if (params.name === "notifications") {
-						return Promise.resolve({ state: "prompt" } as PermissionStatus);
-					}
-					return origQuery(params);
-				};
-			}
-
-			// 15. toString leak protection — prevent detection of patched getters
-			// Many bot detectors check: Object.getOwnPropertyDescriptor(navigator, 'webdriver').get.toString()
-			// If it returns "function get webdriver() { ... }" instead of native code, it's detected.
-			const nativeToString = Function.prototype.toString;
-			const patchedFunctions = new Map<any, string>();
-
-			// Pre-register our patched functions with native-looking toString
-			const fakeNativeToString = function (this: any) {
-				if (patchedFunctions.has(this)) {
-					return patchedFunctions.get(this)!;
-				}
-				return nativeToString.call(this);
-			};
-			patchedFunctions.set(fakeNativeToString, "function toString() { [native code] }");
-
-			// Wrap Function.prototype.toString itself
-			const origProtoToString = Function.prototype.toString;
-			Function.prototype.toString = function (this: any) {
-				if (patchedFunctions.has(this)) {
-					return patchedFunctions.get(this)!;
-				}
-				return origProtoToString.call(this);
-			};
-
-			// Register all our patched getters as native
-			const nativeGetterStr = "function get webdriver() { [native code] }";
-			const nativePluginsStr = "function get plugins() { [native code] }";
-			const nativeLangStr = "function get languages() { [native code] }";
-			const nativePlatformStr = "function get platform() { [native code] }";
-			const nativeHwStr = "function get hardwareConcurrency() { [native code] }";
-			const nativeMemStr = "function get deviceMemory() { [native code] }";
-
-			try {
-				const wdDesc = Object.getOwnPropertyDescriptor(navigator, "webdriver");
-				if (wdDesc?.get) patchedFunctions.set(wdDesc.get, nativeGetterStr);
-				const plDesc = Object.getOwnPropertyDescriptor(navigator, "plugins");
-				if (plDesc?.get) patchedFunctions.set(plDesc.get, nativePluginsStr);
-				const laDesc = Object.getOwnPropertyDescriptor(navigator, "languages");
-				if (laDesc?.get) patchedFunctions.set(laDesc.get, nativeLangStr);
-				const pfDesc = Object.getOwnPropertyDescriptor(navigator, "platform");
-				if (pfDesc?.get) patchedFunctions.set(pfDesc.get, nativePlatformStr);
-				const hcDesc = Object.getOwnPropertyDescriptor(navigator, "hardwareConcurrency");
-				if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
-				const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
-				if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
-			} catch (_e) {
-				/* Ignored: non-fatal browser API error */
-			}
-
-			// 16. iframe contentWindow detection — prevent cross-origin iframe checks
-			// Some detectors create an iframe and check contentWindow.chrome vs window.chrome
-			if (typeof document !== "undefined") {
-				const origCreateElement = document.createElement.bind(document);
-				document.createElement = (tag: string) => {
-					const el = origCreateElement(tag);
-					if (tag.toLowerCase() === "iframe") {
-						// Ensure the iframe's contentWindow inherits our chrome object
-						try {
-							Object.defineProperty(el, "contentWindow", {
-								get: () => null,
-							});
-						} catch (_e) {
-							/* NOSONAR — some browsers don't allow this */
-						}
-					}
-					return el;
-				};
-				// Register createElement toString as native
-				patchedFunctions.set(document.createElement, "function createElement() { [native code] }");
-			}
-
-			// 17. Navigator.connection spoofing — consistent with fingerprint profile
-			const navConn = navigator.connection;
-			if (navConn) {
-				try {
-					Object.defineProperty(navConn, "rtt", { get: () => 50 });
-					Object.defineProperty(navConn, "downlink", { get: () => 10 });
-					Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
-					Object.defineProperty(navConn, "saveData", { get: () => false });
-				} catch (_e) {
-					/* Ignored: non-fatal browser API error */
-				}
-			}
-
-			// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
-			if (typeof window !== "undefined" && window.screen) {
-				try {
-					Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
-					Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
-				} catch (_e) {
-					/* Ignored: non-fatal browser API error */
-				}
-			}
-
-			// 19. CDP (Chrome DevTools Protocol) leak protection
-			// Patchright handles most CDP leaks, but belt-and-suspenders for any JS-level checks
-			if (typeof window !== "undefined") {
-				// Delete automation-specific properties that leak through CDP
-				try {
-					delete window.__playwright;
-					delete window.__pw_manual;
-					delete window.__PW_inspect;
-				} catch (_e) {
-					/* Ignored: non-fatal browser API error */
-				}
-			}
-		}, stealthData);
+		await page.addInitScript(injectStealthPart1, stealthData);
+		await page.addInitScript(injectStealthPart2, stealthData);
+		await page.addInitScript(injectStealthPart3, stealthData);
 	}
 
 	// ─── Behavioral DNA ───────────────────────────────────────────────────────────
@@ -1119,5 +755,370 @@ export class SessionManager {
 	/** Returns the current mouse position for the active page (used by auto-thinking interval). */
 	private getCurrentMousePos(): Point {
 		return this.pageMousePositions.get(this.activePageIndex) || { x: 0, y: 0 };
+	}
+}
+
+function injectStealthPart1(data: any): void {
+	// 1. Navigator Webdriver Evasion — the property must not exist at all.
+	// Detection libraries check `navigator.webdriver` (returns false) AND
+	// `'webdriver' in navigator` (returns true if property exists).
+	// We must delete the property from Navigator.prototype entirely.
+	// Patchright handles this at the driver level, but belt-and-suspenders.
+	try {
+		delete (Navigator.prototype as any).webdriver;
+	} catch (_e) {
+		/* NOSONAR — some contexts lock this */
+	}
+	// If delete failed (non-configurable), override via prototype chain
+	if ("webdriver" in navigator) {
+		try {
+			Object.defineProperty(Object.getPrototypeOf(navigator), "webdriver", {
+				get: () => undefined,
+				configurable: true,
+			});
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+
+	// 2. Chrome Runtime Spoofing
+	if (!(globalThis as any).chrome?.runtime) {
+		(globalThis as any).chrome = {
+			runtime: {
+				onMessage: { addListener: () => {}, removeListener: () => {} },
+				onConnect: { addListener: () => {}, removeListener: () => {} },
+				sendMessage: () => {},
+				connect: () => ({ onMessage: { addListener: () => {} }, postMessage: () => {} }),
+			},
+			loadTimes: () => ({ firstPaintTime: 0, startLoadTime: 0, commitLoadTime: 0 }),
+			csi: () => ({ onloadT: 0, startE: 0, pageT: 0 }),
+			app: {
+				isInstalled: false,
+				InstallState: { DISABLED: "disabled", INSTALLED: "installed", NOT_INSTALLED: "not_installed" },
+				RunningState: { CANNOT_RUN: "cannot_run", READY_TO_RUN: "ready_to_run", RUNNING: "running" },
+				getDetails: () => null,
+				getIsInstalled: () => false,
+				installState: () => "not_installed",
+			},
+		};
+	}
+
+	// 3. Plugin Spoofing — use real PluginArray interface via Object.create
+	// to pass `instanceof PluginArray` checks
+	const fakePluginData = [
+		{
+			name: "PDF Viewer",
+			filename: "internal-pdf-viewer",
+			description: "Portable Document Format",
+			length: 1,
+			0: { type: "application/pdf", suffixes: "pdf", description: "Portable Document Format" },
+		},
+		{
+			name: "Chrome PDF Viewer",
+			filename: "internal-pdf-viewer",
+			description: "Google Chrome PDF Viewer",
+			length: 1,
+			0: { type: "application/pdf", suffixes: "pdf", description: "Google Chrome PDF Viewer" },
+		},
+		{
+			name: "Chromium PDF Viewer",
+			filename: "internal-pdf-viewer",
+			description: "Chromium PDF Viewer",
+			length: 1,
+			0: { type: "application/pdf", suffixes: "pdf", description: "Chromium PDF Viewer" },
+		},
+		{
+			name: "Microsoft Edge PDF Viewer",
+			filename: "internal-pdf-viewer",
+			description: "Microsoft Edge PDF Viewer",
+			length: 1,
+			0: { type: "application/pdf", suffixes: "pdf", description: "Microsoft Edge PDF Viewer" },
+		},
+		{
+			name: "WebKit built-in PDF",
+			filename: "internal-pdf-viewer",
+			description: "WebKit built-in PDF Viewer",
+			length: 1,
+			0: { type: "application/pdf", suffixes: "pdf", description: "WebKit built-in PDF Viewer" },
+		},
+	];
+
+	// Create a proper PluginArray-like object that passes type checks
+	try {
+		const realPlugins = navigator.plugins;
+		// If real PluginArray exists (even empty), use its prototype for instanceof checks
+		if (realPlugins && Object.getPrototypeOf(realPlugins)) {
+			const proto = Object.getPrototypeOf(realPlugins);
+			const fakeArray = Object.create(proto);
+			fakePluginData.forEach((plugin, i) => {
+				const p = Object.create(Object.getPrototypeOf(realPlugins[0] || {}));
+				Object.defineProperties(p, {
+					name: { get: () => plugin.name, enumerable: true },
+					filename: { get: () => plugin.filename, enumerable: true },
+					description: { get: () => plugin.description, enumerable: true },
+					length: { get: () => plugin.length, enumerable: true },
+				});
+				Object.defineProperty(fakeArray, i, { get: () => p, enumerable: true });
+			});
+			Object.defineProperty(fakeArray, "length", { get: () => fakePluginData.length });
+			Object.defineProperty(navigator, "plugins", {
+				get: () => fakeArray,
+				configurable: true,
+			});
+		} else {
+			// Fallback: plain array with PluginArray-like methods
+			const arr: any = fakePluginData;
+			arr.item = (i: number) => arr[i];
+			arr.namedItem = (name: string) => arr.find((p: any) => p.name === name);
+			arr.refresh = () => {};
+			Object.defineProperty(navigator, "plugins", {
+				get: () => arr,
+				configurable: true,
+			});
+		}
+	} catch (_e) {
+		/* Ignored: non-fatal browser API error */
+	}
+
+	// 4. Language Spoofing (from fingerprint profile)
+	Object.defineProperty(navigator, "languages", {
+		get: () => data.languages,
+	});
+
+	// 5. Platform Spoofing (consistent with UA)
+	Object.defineProperty(navigator, "platform", {
+		get: () => data.platform,
+	});
+
+	// 6. Hardware Spoofing (consistent with OS)
+	Object.defineProperty(navigator, "hardwareConcurrency", {
+		get: () => data.hardwareConcurrency,
+	});
+	Object.defineProperty(navigator, "deviceMemory", {
+		get: () => data.deviceMemory,
+	});
+}
+
+function injectStealthPart2(data: any): void {
+	// 7. Canvas Fingerprint Protection (subtle noise)
+	const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+	HTMLCanvasElement.prototype.toDataURL = function (type, encoderOptions) {
+		const context = this.getContext("2d");
+		if (context) {
+			try {
+				const imageData = context.getImageData(0, 0, this.width, this.height);
+				if (imageData?.data && imageData.data.length > 0) {
+					const lastIdx = imageData.data.length - 1;
+					const val = imageData.data[lastIdx];
+					if (val !== undefined) {
+						imageData.data[lastIdx] = (val + 1) % 255;
+						context.putImageData(imageData, 0, 0);
+					}
+				}
+			} catch (e) {
+				// NOSONAR
+				// Ignore canvas errors
+			}
+		}
+		return originalToDataURL.apply(this, [type, encoderOptions]);
+	};
+
+	// 8. WebGL Vendor/Renderer Spoofing (consistent with OS)
+	const getParameter = WebGLRenderingContext.prototype.getParameter;
+	WebGLRenderingContext.prototype.getParameter = function (parameter) {
+		// UNMASKED_VENDOR_WEBGL
+		if (parameter === 37445) return data.vendor;
+		// UNMASKED_RENDERER_WEBGL
+		if (parameter === 37446) return data.renderer;
+		return getParameter.apply(this, [parameter]);
+	};
+
+	const getParameter2 = WebGL2RenderingContext.prototype.getParameter;
+	WebGL2RenderingContext.prototype.getParameter = function (parameter) {
+		if (parameter === 37445) return data.vendor;
+		if (parameter === 37446) return data.renderer;
+		return getParameter2.apply(this, [parameter]);
+	};
+
+	// 9. AudioContext Spoofing (consistent with OS)
+	if (typeof AudioContext !== "undefined") {
+		const OrigAudioContext = AudioContext;
+		(globalThis as any)["AudioContext"] = (opts: any) => {
+			const ctx = new OrigAudioContext(opts);
+			Object.defineProperty(ctx, "sampleRate", { get: () => data.audioSampleRate });
+			Object.defineProperty(ctx, "maxChannelCount", { get: () => data.audioMaxChannelCount });
+			Object.defineProperty(ctx, "outputLatency", { get: () => data.audioOutputLatency });
+			return ctx;
+		};
+	}
+
+	// 10. Battery API Spoofing
+	if (typeof navigator.getBattery === "function") {
+		(navigator as any)["getBattery"] = async () => ({
+			charging: data.battery.charging,
+			chargingTime: data.battery.chargingTime,
+			dischargingTime: data.battery.dischargingTime,
+			level: data.battery.level,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			dispatchEvent: () => true,
+		});
+	}
+
+	// 11. WebRTC Leak Prevention
+	if (typeof RTCPeerConnection !== "undefined") {
+		const OrigRTCPeerConnection = RTCPeerConnection;
+		(globalThis as any)["RTCPeerConnection"] = (config: any, constraints: any) => {
+			// Force ICE candidate filtering to prevent local IP leaks
+			const filteredConfig = {
+				...config,
+				iceServers: config?.iceServers || [],
+			};
+			return new (OrigRTCPeerConnection as any)(filteredConfig, constraints);
+		};
+	}
+
+	// 12. Font Metrics Fingerprint Defense
+	// Offset letter-spacing subtly on measured elements
+	if (typeof document !== "undefined") {
+		const origMeasureText = CanvasRenderingContext2D.prototype.measureText;
+		CanvasRenderingContext2D.prototype.measureText = function (text: string) {
+			const result = origMeasureText.apply(this, [text]);
+			// Add subtle random offset to defeat font metric fingerprinting
+			const offset =
+				data.fontLetterSpacingMin + Math.random() * (data.fontLetterSpacingMax - data.fontLetterSpacingMin);
+			return {
+				...result,
+				width: result.width + offset,
+			};
+		};
+	}
+
+	// 13. Timezone Consistency
+	if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+		const OrigDateTimeFormat = Intl.DateTimeFormat;
+		(Intl as any)["DateTimeFormat"] = (locales: any, opts: any) => new OrigDateTimeFormat(data.locale, opts);
+		Object.defineProperty(Intl.DateTimeFormat, "prototype", { value: OrigDateTimeFormat.prototype });
+		Intl.DateTimeFormat.supportedLocalesOf = OrigDateTimeFormat.supportedLocalesOf;
+	}
+}
+
+function injectStealthPart3(data: any): void {
+	// 14. Permissions API — override to prevent detection via permission state
+	if (navigator.permissions?.query) {
+		const origQuery = navigator.permissions.query.bind(navigator.permissions);
+		navigator.permissions.query = (params: any) => {
+			if (params.name === "notifications") {
+				return Promise.resolve({ state: "prompt" } as PermissionStatus);
+			}
+			return origQuery(params);
+		};
+	}
+
+	// 15. toString leak protection — prevent detection of patched getters
+	// Many bot detectors check: Object.getOwnPropertyDescriptor(navigator, 'webdriver').get.toString()
+	// If it returns "function get webdriver() { ... }" instead of native code, it's detected.
+	const nativeToString = Function.prototype.toString;
+	const patchedFunctions = new Map<any, string>();
+
+	// Pre-register our patched functions with native-looking toString
+	const fakeNativeToString = function (this: any) {
+		if (patchedFunctions.has(this)) {
+			return patchedFunctions.get(this)!;
+		}
+		return nativeToString.call(this);
+	};
+	patchedFunctions.set(fakeNativeToString, "function toString() { [native code] }");
+
+	// Wrap Function.prototype.toString itself
+	const origProtoToString = Function.prototype.toString;
+	Function.prototype.toString = function (this: any) {
+		if (patchedFunctions.has(this)) {
+			return patchedFunctions.get(this)!;
+		}
+		return origProtoToString.call(this);
+	};
+
+	// Register all our patched getters as native
+	const nativeGetterStr = "function get webdriver() { [native code] }";
+	const nativePluginsStr = "function get plugins() { [native code] }";
+	const nativeLangStr = "function get languages() { [native code] }";
+	const nativePlatformStr = "function get platform() { [native code] }";
+	const nativeHwStr = "function get hardwareConcurrency() { [native code] }";
+	const nativeMemStr = "function get deviceMemory() { [native code] }";
+
+	try {
+		const wdDesc = Object.getOwnPropertyDescriptor(navigator, "webdriver");
+		if (wdDesc?.get) patchedFunctions.set(wdDesc.get, nativeGetterStr);
+		const plDesc = Object.getOwnPropertyDescriptor(navigator, "plugins");
+		if (plDesc?.get) patchedFunctions.set(plDesc.get, nativePluginsStr);
+		const laDesc = Object.getOwnPropertyDescriptor(navigator, "languages");
+		if (laDesc?.get) patchedFunctions.set(laDesc.get, nativeLangStr);
+		const pfDesc = Object.getOwnPropertyDescriptor(navigator, "platform");
+		if (pfDesc?.get) patchedFunctions.set(pfDesc.get, nativePlatformStr);
+		const hcDesc = Object.getOwnPropertyDescriptor(navigator, "hardwareConcurrency");
+		if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
+		const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
+		if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
+	} catch (_e) {
+		/* Ignored: non-fatal browser API error */
+	}
+
+	// 16. iframe contentWindow detection — prevent cross-origin iframe checks
+	// Some detectors create an iframe and check contentWindow.chrome vs window.chrome
+	if (typeof document !== "undefined") {
+		const origCreateElement = document.createElement.bind(document);
+		document.createElement = (tag: string) => {
+			const el = origCreateElement(tag);
+			if (tag.toLowerCase() === "iframe") {
+				// Ensure the iframe's contentWindow inherits our chrome object
+				try {
+					Object.defineProperty(el, "contentWindow", {
+						get: () => null,
+					});
+				} catch (_e) {
+					/* NOSONAR — some browsers don't allow this */
+				}
+			}
+			return el;
+		};
+		// Register createElement toString as native
+		patchedFunctions.set(document.createElement, "function createElement() { [native code] }");
+	}
+
+	// 17. Navigator.connection spoofing — consistent with fingerprint profile
+	const navConn = (navigator as any).connection;
+	if (navConn) {
+		try {
+			Object.defineProperty(navConn, "rtt", { get: () => 50 });
+			Object.defineProperty(navConn, "downlink", { get: () => 10 });
+			Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
+			Object.defineProperty(navConn, "saveData", { get: () => false });
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+
+	// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
+	if (typeof window !== "undefined" && window.screen) {
+		try {
+			Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
+			Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+
+	// 19. CDP (Chrome DevTools Protocol) leak protection
+	// Patchright handles most CDP leaks, but belt-and-suspenders for any JS-level checks
+	if (typeof window !== "undefined") {
+		// Delete automation-specific properties that leak through CDP
+		try {
+			delete (window as any).__playwright;
+			delete (window as any).__pw_manual;
+			delete (window as any).__PW_inspect;
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
 	}
 }

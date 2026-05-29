@@ -1,15 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SkillVersioning } from "../../../../src/core/research/SkillVersioning.js";
 import type { RunMetrics } from "../../../../src/core/research/types.js";
-import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
-		iterationsToGoal: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		blockerCount: 0, blockerTypes: [], goalAchieved: true,
-		skillsCreated: 0, strategySuccessRate: 1.0, ...overrides,
+		iterationsToGoal: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		blockerCount: 0,
+		blockerTypes: [],
+		goalAchieved: true,
+		skillsCreated: 0,
+		strategySuccessRate: 1.0,
+		...overrides,
 	};
 }
 
@@ -24,7 +30,9 @@ describe("SkillVersioning — Integration", () => {
 	});
 
 	afterEach(() => {
-		try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	});
 
 	it("commits versions and tracks current", async () => {

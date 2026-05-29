@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { SkillEvaluator } from "../../../src/core/research/SkillEvaluator.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
+import { SkillEvaluator } from "../../../src/core/research/SkillEvaluator.js";
 import type { ExperimentRun, RunMetrics } from "../../../src/core/research/types.js";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {

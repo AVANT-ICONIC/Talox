@@ -82,7 +82,10 @@ describe("BrowserManager", () => {
 		vi.clearAllMocks();
 		// autoDetect: false to prevent autoDetectBrowser() on CI (Linux) where no browsers are installed
 		// adaptiveStealthEnabled: false so launch() uses standard playwright-core chromium mock
-		manager = new BrowserManager({ browser: { preferred: "chromium", headless: true, autoDetect: false } as any, settings: { adaptiveStealthEnabled: false } as any });
+		manager = new BrowserManager({
+			browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+			settings: { adaptiveStealthEnabled: false } as any,
+		});
 	});
 
 	// ─── Constructor & Config ────────────────────────────────────────────────

@@ -381,7 +381,10 @@ describe("SessionManager", () => {
 			const mockPage1 = createMockPage();
 			const mockPage2 = createMockPage();
 
-			sm.pages = [{ collect: vi.fn(), getPage: () => mockPage1, collect: vi.fn() } as any, { getPage: () => mockPage2, collect: vi.fn() } as any];
+			sm.pages = [
+				{ getPage: () => mockPage1, collect: vi.fn() } as any,
+				{ getPage: () => mockPage2, collect: vi.fn() } as any,
+			];
 			sm.activePageIndex = 1;
 			sm.pageMousePositions.set(0, { x: 0, y: 0 });
 			sm.pageMousePositions.set(1, { x: 100, y: 200 });

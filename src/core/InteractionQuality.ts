@@ -14,8 +14,8 @@
  * the interaction fidelity.
  */
 
+import type { AccelerationCurve, MovementStyle, TypingRhythm } from "./controller/ActionExecutor.js";
 import { createLogger } from "./Logger.js";
-import type { MovementStyle, TypingRhythm, AccelerationCurve } from "./controller/ActionExecutor.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,7 +128,8 @@ export function scoreMouse(metrics: MouseMetrics): number {
 
 	const variance = durations.reduce((sum, d) => sum + (d - avgDuration) ** 2, 0) / durations.length;
 	const cv = Math.sqrt(variance) / avgDuration; // Coefficient of variation
-	if (cv > 0.2) score += 10; // Good variance
+	if (cv > 0.2)
+		score += 10; // Good variance
 	else if (cv > 0.1) score += 5;
 	else score -= 5; // Too consistent = robotic
 
@@ -167,8 +168,7 @@ export function scoreTyping(metrics: TypingMetrics): number {
 
 	// 2. Interval variance
 	const avgInterval = keyIntervalsMs.reduce((a, b) => a + b, 0) / keyIntervalsMs.length;
-	const variance =
-		keyIntervalsMs.reduce((sum, i) => sum + (i - avgInterval) ** 2, 0) / keyIntervalsMs.length;
+	const variance = keyIntervalsMs.reduce((sum, i) => sum + (i - avgInterval) ** 2, 0) / keyIntervalsMs.length;
 	const cv = Math.sqrt(variance) / avgInterval;
 	if (cv > 0.3) score += 10;
 	else if (cv > 0.15) score += 5;
@@ -210,8 +210,7 @@ export function scoreScroll(metrics: ScrollMetrics): number {
 	// 1. Distance variance
 	const distances = scrollEvents.map((e) => Math.abs(e.deltaY));
 	const avgDist = distances.reduce((a, b) => a + b, 0) / distances.length;
-	const variance =
-		distances.reduce((sum, d) => sum + (d - avgDist) ** 2, 0) / distances.length;
+	const variance = distances.reduce((sum, d) => sum + (d - avgDist) ** 2, 0) / distances.length;
 	const cv = Math.sqrt(variance) / avgDist;
 	if (cv > 0.3) score += 10;
 	else if (cv > 0.15) score += 5;
@@ -270,9 +269,7 @@ export function scoreClick(metrics: ClickMetrics): number {
  */
 export function computeQuality(partial: Partial<QualityDimensions>): QualityScore {
 	const dimensions: QualityDimensions = { ...NEUTRAL, ...partial };
-	const overall = Math.round(
-		(dimensions.mouse + dimensions.typing + dimensions.scroll + dimensions.click) / 4,
-	);
+	const overall = Math.round((dimensions.mouse + dimensions.typing + dimensions.scroll + dimensions.click) / 4);
 
 	return {
 		dimensions,
@@ -303,9 +300,7 @@ export function scoreInteraction(
 }
 
 function dimensionsStr(dims: Partial<QualityDimensions>): string {
-	return [dims.mouse, dims.typing, dims.scroll, dims.click]
-		.map((d) => (d !== undefined ? `${d}` : "-"))
-		.join("/");
+	return [dims.mouse, dims.typing, dims.scroll, dims.click].map((d) => (d !== undefined ? `${d}` : "-")).join("/");
 }
 
 // ─── Session Tracking ─────────────────────────────────────────────────────────

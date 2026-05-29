@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PromptEvolver } from "../../../../src/core/research/PromptEvolver.js";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
 import type { RunMetrics } from "../../../../src/core/research/types.js";
-import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
-		iterationsToGoal: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		blockerCount: 0, blockerTypes: [], goalAchieved: true,
-		skillsCreated: 0, strategySuccessRate: 1.0, ...overrides,
+		iterationsToGoal: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		blockerCount: 0,
+		blockerTypes: [],
+		goalAchieved: true,
+		skillsCreated: 0,
+		strategySuccessRate: 1.0,
+		...overrides,
 	};
 }
 
@@ -27,7 +33,9 @@ describe("PromptEvolver — Integration", () => {
 	});
 
 	afterEach(() => {
-		try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	});
 
 	it("initializes with seed prompt and creates population", async () => {
@@ -62,10 +70,13 @@ describe("PromptEvolver — Integration", () => {
 		// Score all variants — should trigger evolution
 		for (let idx = 0; idx < pop.length; idx++) {
 			const v = pop[idx]!;
-			await evolver.recordFitness(v.id, makeMetrics({
-				iterationsToGoal: 5 + idx,
-				goalAchieved: idx < 3,
-			}));
+			await evolver.recordFitness(
+				v.id,
+				makeMetrics({
+					iterationsToGoal: 5 + idx,
+					goalAchieved: idx < 3,
+				}),
+			);
 		}
 
 		// After evolution, population should still have 5 variants

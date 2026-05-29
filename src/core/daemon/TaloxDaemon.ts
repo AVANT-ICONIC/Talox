@@ -13,8 +13,8 @@ import * as os from "node:os";
 import type { ProfileClass } from "../../types/index.js";
 import type { BrowserType } from "../BrowserManager.js";
 import { TaloxController } from "../controller/TaloxController.js";
-import { generateSessionId, handleCommand } from "./commandHandler.js";
 import { createLogger } from "../Logger.js";
+import { generateSessionId, handleCommand } from "./commandHandler.js";
 
 // ─── Public Types ─────────────────────────────────────────────────────────────
 

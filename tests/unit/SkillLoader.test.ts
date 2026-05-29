@@ -325,30 +325,30 @@ This is the body content.
 			expect(loader.get("my-skill")).toBe(skill);
 		});
 
-	it("get returns undefined for unknown skill", () => {
-		const loader = new SkillLoader();
-		expect(loader.get("unknown")).toBeUndefined();
-	});
+		it("get returns undefined for unknown skill", () => {
+			const loader = new SkillLoader();
+			expect(loader.get("unknown")).toBeUndefined();
+		});
 
-	it("getAll returns all loaded skills", () => {
-		const loader = new SkillLoader();
-		const s1: LoadedSkill = {
-			manifest: { name: "s1", description: "d1", version: "1", domain: "a.com" },
-			content: "",
-			references: new Map(),
-		};
-		const s2: LoadedSkill = {
-			manifest: { name: "s2", description: "d2", version: "1", domain: "b.com" },
-			content: "",
-			references: new Map(),
-		};
-		(loader as any).skills.set("s1", s1);
-		(loader as any).skills.set("s2", s2);
+		it("getAll returns all loaded skills", () => {
+			const loader = new SkillLoader();
+			const s1: LoadedSkill = {
+				manifest: { name: "s1", description: "d1", version: "1", domain: "a.com" },
+				content: "",
+				references: new Map(),
+			};
+			const s2: LoadedSkill = {
+				manifest: { name: "s2", description: "d2", version: "1", domain: "b.com" },
+				content: "",
+				references: new Map(),
+			};
+			(loader as any).skills.set("s1", s1);
+			(loader as any).skills.set("s2", s2);
 
-		const all = loader.getAll();
-		expect(all).toHaveLength(2);
+			const all = loader.getAll();
+			expect(all).toHaveLength(2);
+		});
 	});
-});
 }); // close describe("SkillLoader")
 
 // ── loadAll tests ────────────────────────────────────────────────────────────

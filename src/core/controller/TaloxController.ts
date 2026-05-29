@@ -53,16 +53,20 @@ import type { TaloxSettings } from "../../types/settings.js";
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; // NOSONAR
 import { formatAgentError } from "../AgentErrors.js";
 import type { BrowserType } from "../BrowserManager.js";
+import { type CaptchaSolver, registerSolver } from "../CaptchaSolver.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
 import type { ChallengeOutcome } from "../ChallengeResolver.js";
 import { ChallengeResolver } from "../ChallengeResolver.js";
+import { type ContentSanitizer, createContentSanitizer } from "../ContentSanitizer.js";
 import type { CrossOriginManager } from "../CrossOriginManager.js";
 import { CrossOriginManager as CrossOriginManagerClass } from "../CrossOriginManager.js";
 import type { HarRecorder, HarRecorderOptions } from "../HarRecorder.js";
 import { HarRecorder as HarRecorderClass } from "../HarRecorder.js";
+import { QualityTracker } from "../InteractionQuality.js";
 import type { InspectServer as InspectServerType } from "../inspect/InspectServer.js";
 import { InspectServer as InspectServerClass } from "../inspect/InspectServer.js";
+import { createLogger } from "../Logger.js";
 import { OriginHeaders } from "../OriginHeaders.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import { SemanticMapper } from "../SemanticMapper.js";
@@ -71,14 +75,17 @@ import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
-import { createLogger } from "../Logger.js";
-import { registerSolver, type CaptchaSolver } from "../CaptchaSolver.js";
-import { ContentSanitizer, createContentSanitizer } from "../ContentSanitizer.js";
-import { setVisualReasoner, resolveVisual, setVisualEmitter, setScreenshotFormat, type VisualReasoner, type ScreenshotFormat } from "../VisualReasoner.js";
-import { QualityTracker } from "../InteractionQuality.js";
+import {
+	resolveVisual,
+	type ScreenshotFormat,
+	setScreenshotFormat,
+	setVisualEmitter,
+	setVisualReasoner,
+	type VisualReasoner,
+} from "../VisualReasoner.js";
 import { ActionExecutor } from "./ActionExecutor.js";
-import { EventBus } from "./EventBus.js";
 import type { EventHandler } from "./EventBus.js";
+import { EventBus } from "./EventBus.js";
 import { SessionManager } from "./SessionManager.js";
 import { TakeoverBridge } from "./TakeoverBridge.js";
 
@@ -367,7 +374,7 @@ export class TaloxController {
 				this.log.info(`HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
 			}
 		} catch (e) {
-				this.log.error(`HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			this.log.error(`HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
 		}
 		this.harRecorder = null;
 	}
@@ -395,7 +402,7 @@ export class TaloxController {
 				this.log.info(`Video recording saved: ${outputPath}`);
 			}
 		} catch (e) {
-				this.log.error(`Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			this.log.error(`Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
 		}
 		this.videoRecorder = null;
 	}
@@ -1341,15 +1348,15 @@ export class TaloxController {
 		setScreenshotFormat(format);
 	}
 
-		useVision(reasoner: VisualReasoner | null): void {
+	useVision(reasoner: VisualReasoner | null): void {
 		setVisualReasoner(reasoner);
 	}
 
-		useSolver(solver: CaptchaSolver): void {
+	useSolver(solver: CaptchaSolver): void {
 		registerSolver(solver);
 	}
 
-		/**
+	/**
 	 * Subscribe to a Talox event.
 	 *
 	 * @example

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { AgentCoordinator } from "../core/AgentCoordinator.js";
 import type { BrowserType } from "../core/BrowserManager.js";
 import { ChatSession } from "../core/chat/ChatSession.js";
 import { TaloxController } from "../core/controller/TaloxController.js";
@@ -17,7 +18,6 @@ import { SkillLoader } from "../core/skills/SkillLoader.js";
 import { SkillWriter } from "../core/skills/SkillWriter.js";
 import type { ProfileClass } from "../types/index.js";
 import { formatDoctorOutput, runDoctor } from "./doctor.js";
-import { AgentCoordinator } from "../core/AgentCoordinator.js";
 
 const PROFILE_CLASSES: ProfileClass[] = ["ops", "qa", "sandbox"];
 const OUTPUT_FORMATS = ["json", "markdown", "both"] as const;
@@ -419,7 +419,7 @@ main().catch((error) => {
 
 const README_TEMPLATE = (name: string) => `# ${name}
 
-This repository demonstrates a **browser lab** profile built on Talox v2.
+This repository demonstrates a **browser lab** profile built on Talox v8.
 
 ## Getting started
 
@@ -1004,7 +1004,7 @@ function parseResearchOptions(args: string[]): ResearchCommandOptions {
 				opts.skillsDir = args[i + 1];
 				i += 2;
 				break;
-						case "--runs-per-variant":
+			case "--runs-per-variant":
 				opts.runsPerVariant = Number(args[i + 1]) || opts.runsPerVariant;
 				i += 2;
 				break;

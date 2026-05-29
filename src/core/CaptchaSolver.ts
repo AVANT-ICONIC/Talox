@@ -90,7 +90,7 @@ export function createVLMCaptchaSolver(): CaptchaSolver {
 			const url = page.url();
 
 			// reCAPTCHA
-			const recaptcha = await page.$('[data-sitekey]');
+			const recaptcha = await page.$("[data-sitekey]");
 			if (recaptcha) {
 				const sitekey = await recaptcha.getAttribute("data-sitekey");
 				if (sitekey) {
@@ -135,7 +135,8 @@ export function createVLMCaptchaSolver(): CaptchaSolver {
 				// Take screenshot of the captcha element if possible
 				let screenshot: Buffer;
 				try {
-					const captchaSelector = '[data-sitekey], .h-captcha, img[src*="captcha"], [id*="captcha"], [class*="captcha"]';
+					const captchaSelector =
+						'[data-sitekey], .h-captcha, img[src*="captcha"], [id*="captcha"], [class*="captcha"]';
 					const captchaEl = await page.$(captchaSelector);
 					if (captchaEl) {
 						screenshot = (await captchaEl.screenshot({ type: "png" })) as Buffer;
@@ -163,7 +164,9 @@ export function createVLMCaptchaSolver(): CaptchaSolver {
 					if (input) {
 						await input.fill(answer.trim());
 						// Try to submit
-						const submitBtn = await page.$('button[type="submit"], input[type="submit"], button:has-text("Submit"), button:has-text("Verify")');
+						const submitBtn = await page.$(
+							'button[type="submit"], input[type="submit"], button:has-text("Submit"), button:has-text("Verify")',
+						);
 						if (submitBtn) await submitBtn.click();
 					}
 				}

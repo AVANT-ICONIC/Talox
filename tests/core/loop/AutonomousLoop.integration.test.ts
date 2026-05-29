@@ -10,15 +10,10 @@
 
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { TaloxController } from "../../../src/core/controller/TaloxController.js";
 import { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
 import type { Planner } from "../../../src/core/loop/Planner.js";
-import type {
-	AutonomousLoopOptions,
-	LoopIteration,
-	PlanStep,
-	TaskPlan,
-} from "../../../src/core/loop/types.js";
-import { TaloxController } from "../../../src/core/controller/TaloxController.js";
+import type { AutonomousLoopOptions, LoopIteration, PlanStep, TaskPlan } from "../../../src/core/loop/types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -109,9 +104,7 @@ describe("AutonomousLoop integration", () => {
 
 	itBrowser("stops immediately on goal achieved with no steps", async () => {
 		await controller.navigate("about:blank");
-		const planner = createMockPlanner([
-			makePlan({ goalAchieved: true, assessment: "Already done", steps: [] }),
-		]);
+		const planner = createMockPlanner([makePlan({ goalAchieved: true, assessment: "Already done", steps: [] })]);
 		const loop = new AutonomousLoop(controller, makeOptions(planner));
 		const result = await loop.run();
 
@@ -123,12 +116,13 @@ describe("AutonomousLoop integration", () => {
 
 	itBrowser("respects maxIterations budget", async () => {
 		await controller.navigate("about:blank");
-		const planner = createMockPlanner([
-			makePlan({ goalAchieved: false, steps: [makeGetStateStep()] }),
-		]);
-		const loop = new AutonomousLoop(controller, makeOptions(planner, {
-			goal: { description: "Budget test", maxIterations: 2 },
-		}));
+		const planner = createMockPlanner([makePlan({ goalAchieved: false, steps: [makeGetStateStep()] })]);
+		const loop = new AutonomousLoop(
+			controller,
+			makeOptions(planner, {
+				goal: { description: "Budget test", maxIterations: 2 },
+			}),
+		);
 		const result = await loop.run();
 
 		expect(result.status).toBe("budget-exhausted");
@@ -144,9 +138,14 @@ describe("AutonomousLoop integration", () => {
 			makePlan({ goalAchieved: false, steps: [makeGetStateStep()] }),
 			makePlan({ goalAchieved: true, steps: [] }),
 		]);
-		const loop = new AutonomousLoop(controller, makeOptions(planner, {
-			onProgress: (iter) => { progress.push(iter); },
-		}));
+		const loop = new AutonomousLoop(
+			controller,
+			makeOptions(planner, {
+				onProgress: (iter) => {
+					progress.push(iter);
+				},
+			}),
+		);
 		const result = await loop.run();
 
 		expect(result.status).toBe("completed");
@@ -157,9 +156,7 @@ describe("AutonomousLoop integration", () => {
 	});
 
 	itBrowser("executes navigate step", async () => {
-		const planner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [makeNavigateStep("about:blank")] }),
-		]);
+		const planner = createMockPlanner([makePlan({ goalAchieved: true, steps: [makeNavigateStep("about:blank")] })]);
 		const loop = new AutonomousLoop(controller, makeOptions(planner));
 		const result = await loop.run();
 
@@ -168,10 +165,12 @@ describe("AutonomousLoop integration", () => {
 	});
 
 	itBrowser("executes click and type steps on real page", async () => {
-		await controller.navigate(dataUri(`<html><body>
+		await controller.navigate(
+			dataUri(`<html><body>
 			<input id="input" type="text" value="" />
 			<button id="btn" onclick="document.title='clicked'">Go</button>
-		</body></html>`));
+		</body></html>`),
+		);
 
 		const planner: Planner = {
 			plan: vi.fn(async (_input) => {
@@ -192,9 +191,11 @@ describe("AutonomousLoop integration", () => {
 	});
 
 	itBrowser("recovery from failed step then success", async () => {
-		await controller.navigate(dataUri(`<html><body>
+		await controller.navigate(
+			dataUri(`<html><body>
 			<button id="btn">Go</button>
-		</body></html>`));
+		</body></html>`),
+		);
 
 		// Use a step tool that actually throws — navigate to an invalid URL
 		// TaloxController.click() swallows errors (returns error state, doesn't throw),
@@ -248,12 +249,13 @@ describe("AutonomousLoop integration", () => {
 	});
 
 	itBrowser("handles startUrl in goal", async () => {
-		const planner = createMockPlanner([
-			makePlan({ goalAchieved: true, steps: [] }),
-		]);
-		const loop = new AutonomousLoop(controller, makeOptions(planner, {
-			goal: { description: "Navigate test", startUrl: "about:blank", maxIterations: 5 },
-		}));
+		const planner = createMockPlanner([makePlan({ goalAchieved: true, steps: [] })]);
+		const loop = new AutonomousLoop(
+			controller,
+			makeOptions(planner, {
+				goal: { description: "Navigate test", startUrl: "about:blank", maxIterations: 5 },
+			}),
+		);
 		const result = await loop.run();
 
 		expect(result.status).toBe("completed");

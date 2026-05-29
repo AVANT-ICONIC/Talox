@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { SkillVersioning } from "../../../src/core/research/SkillVersioning.js";
 import { rm } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { SkillVersioning } from "../../../src/core/research/SkillVersioning.js";
 
 function makeMetrics(goalAchieved = true, iterationsToGoal = 5) {
 	return {

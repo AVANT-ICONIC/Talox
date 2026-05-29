@@ -43,6 +43,7 @@ import type {
 	ExperimentRun,
 	Hypothesis,
 	ResearchResult,
+	SkillEvaluation,
 	StrategyPromotion,
 } from "./types.js";
 
@@ -155,20 +156,8 @@ export class AutoResearchLoop {
 			this.config.runsPerVariant,
 		);
 
-		// 3. Check for cross-domain transfer candidates
-		if (this.config.enableCrossDomainTransfer) {
-			const transferCandidates = this.crossDomainTransfer.findTransferCandidates(domain);
-			for (const candidate of transferCandidates.slice(0, 2)) {
-				// Add transfer candidates as additional hypotheses
-				hypotheses.push({
-					id: `hyp_transfer_${Date.now()}`,
-					description: `Transferred strategy "${candidate.strategyName}" from similar domain`,
-					variant: `transfer_${candidate.strategyName}`,
-					changeDescription: `Cross-domain transfer from ${candidate.domain}`,
-					parameters: candidate.winningParameters,
-				});
-			}
-		}
+		// 3. Add cross-domain transfer hypotheses if any
+		this.addCrossDomainTransferHypotheses(domain, hypotheses);
 
 		// 4. If prompt evolution is enabled, get a variant prompt
 		if (this.promptEvolver) {
@@ -182,6 +171,59 @@ export class AutoResearchLoop {
 		const recentRuns = this.journal.getRecentRuns(domain, hypotheses.length + 5);
 		experiments.push(...recentRuns);
 
+		// 6 & 7. Process experiment outcomes
+		this.processExperimentOutcomes(comparison, experiments, promotions, domain);
+
+		// 8. Discover strategy compositions
+		const compositions = this.composer.discoverCandidates();
+		for (const comp of compositions) {
+			this.composer.recordComposition(comp);
+		}
+
+		// 9. Evaluate existing skills for this domain
+		const evaluations: SkillEvaluation[] = [];
+		await this.evaluateAndRollbackSkills(domain, domainSummary, evaluations);
+
+		// 10. Run regression suite if there were promotions
+		if (promotions.length > 0) {
+			await this.regressionHarness.runSuite(this.loopFactory);
+		}
+
+		// 11. Persist everything
+		await this.journal.flush();
+		await this.regressionHarness.save();
+
+		return {
+			loopResult: experiments.length > 0 ? experiments[experiments.length - 1]!.result : this.emptyLoopResult(),
+			experiments,
+			evaluations,
+			promotions,
+			journal: this.journal.toSnapshot(),
+		};
+	}
+
+	private addCrossDomainTransferHypotheses(domain: string, hypotheses: Hypothesis[]): void {
+		if (this.config.enableCrossDomainTransfer) {
+			const transferCandidates = this.crossDomainTransfer.findTransferCandidates(domain);
+			for (const candidate of transferCandidates.slice(0, 2)) {
+				// Add transfer candidates as additional hypotheses
+				hypotheses.push({
+					id: `hyp_transfer_${Date.now()}`,
+					description: `Transferred strategy "${candidate.strategyName}" from similar domain`,
+					variant: `transfer_${candidate.strategyName}`,
+					changeDescription: `Cross-domain transfer from ${candidate.domain}`,
+					parameters: candidate.winningParameters,
+				});
+			}
+		}
+	}
+
+	private processExperimentOutcomes(
+		comparison: ExperimentComparison | null,
+		experiments: ExperimentRun[],
+		promotions: StrategyPromotion[],
+		domain: string,
+	): void {
 		// 6. Evaluate and promote winners
 		if (comparison && comparison.winner === "treatment") {
 			const promotion: StrategyPromotion = {
@@ -205,15 +247,13 @@ export class AutoResearchLoop {
 			this.priority.registerArm(run.hypothesis.variant);
 			this.priority.recordOutcome(run.hypothesis.variant, run.metrics.goalAchieved);
 		}
+	}
 
-		// 8. Discover strategy compositions
-		const compositions = this.composer.discoverCandidates();
-		for (const comp of compositions) {
-			this.composer.recordComposition(comp);
-		}
-
-		// 9. Evaluate existing skills for this domain
-		const evaluations: import("./types.js").SkillEvaluation[] = [];
+	private async evaluateAndRollbackSkills(
+		domain: string,
+		domainSummary: any,
+		evaluations: SkillEvaluation[],
+	): Promise<void> {
 		if (domainSummary && domainSummary.knownSkills.length > 0) {
 			const allDomainRuns = this.journal.getRecentRuns(domain, 50);
 			for (const skillName of domainSummary.knownSkills) {
@@ -233,23 +273,6 @@ export class AutoResearchLoop {
 				}
 			}
 		}
-
-		// 10. Run regression suite if there were promotions
-		if (promotions.length > 0) {
-			await this.regressionHarness.runSuite(this.loopFactory);
-		}
-
-		// 11. Persist everything
-		await this.journal.flush();
-		await this.regressionHarness.save();
-
-		return {
-			loopResult: experiments.length > 0 ? experiments[experiments.length - 1]!.result : this.emptyLoopResult(),
-			experiments,
-			evaluations,
-			promotions,
-			journal: this.journal.toSnapshot(),
-		};
 	}
 
 	/**

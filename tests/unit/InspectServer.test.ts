@@ -39,7 +39,9 @@ vi.mock("node:crypto", () => ({
 }));
 
 vi.mock("ws", () => ({
-	WebSocketServer: vi.fn().mockImplementation(function (this: any) { return mockWss; }),
+	WebSocketServer: vi.fn().mockImplementation(function (this: any) {
+		return mockWss;
+	}),
 	WebSocket: { OPEN: 1 },
 }));
 

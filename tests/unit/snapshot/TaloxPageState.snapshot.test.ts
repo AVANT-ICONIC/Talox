@@ -9,9 +9,9 @@ import { describe, expect, it } from "vitest";
 import {
 	compactState,
 	diffPageState,
-	type TaloxPageState,
-	type TaloxNode,
 	type TaloxBug,
+	type TaloxNode,
+	type TaloxPageState,
 } from "../../../src/types/index.js";
 
 // ─── Canonical test data ─────────────────────────────────────────────────────
@@ -102,9 +102,7 @@ function makeCanonicalState(overrides: Partial<TaloxPageState> = {}): TaloxPageS
 			logs: ["App initialized", "Data loaded: 42 records"],
 		},
 		network: {
-			failedRequests: [
-				{ url: "https://api.example.com/data", status: 503, type: "fetch" },
-			],
+			failedRequests: [{ url: "https://api.example.com/data", status: 503, type: "fetch" }],
 			exceptions: [{ message: "NetworkError: Load failed" }],
 		},
 		nodes: makeCanonicalNodes(),
@@ -150,9 +148,7 @@ function makeCanonicalState(overrides: Partial<TaloxPageState> = {}): TaloxPageS
 		domainHints: ["dashboard-v2", "filter-panel"],
 		screenshots: {
 			fullPage: "/tmp/shot-full.png",
-			crops: [
-				{ id: "crop-nav", path: "/tmp/shot-nav.png", reason: "navigation region" },
-			],
+			crops: [{ id: "crop-nav", path: "/tmp/shot-nav.png", reason: "navigation region" }],
 		},
 		...overrides,
 	};
@@ -267,10 +263,7 @@ describe("diffPageState — snapshot contracts", () => {
 				},
 			],
 			console: {
-				errors: [
-					"TypeError: Cannot read properties of undefined",
-					"ReferenceError: config is not defined",
-				],
+				errors: ["TypeError: Cannot read properties of undefined", "ReferenceError: config is not defined"],
 				warnings: [],
 				logs: ["Settings page loaded"],
 			},

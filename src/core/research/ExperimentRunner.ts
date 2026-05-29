@@ -71,12 +71,14 @@ export class ExperimentRunner {
 		if (runs.length < 2) return null;
 
 		// Compare: first run is control, find best treatment
-		const control = runs[0]; if (!control) return null;
+		const control = runs[0];
+		if (!control) return null;
 		let bestTreatment: ExperimentRun | null = null;
 		let bestComparison: ExperimentComparison | null = null;
 
 		for (let i = 1; i < runs.length; i++) {
-			const treatment = runs[i]; if (!treatment) continue;
+			const treatment = runs[i];
+			if (!treatment) continue;
 			const comparison = this.compare(control, treatment);
 
 			if (!bestComparison || comparison.confidence > bestComparison.confidence) {

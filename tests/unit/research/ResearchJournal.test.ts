@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
 import type { ExperimentRun, Hypothesis, RunMetrics } from "../../../src/core/research/types.js";
 

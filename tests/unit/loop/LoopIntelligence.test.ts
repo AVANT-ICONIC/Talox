@@ -7,147 +7,133 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskPlan } from "../../../src/core/loop/types.js";
-import type { Planner } from "../../../src/core/loop/Planner.js";
 import { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
+import type { Planner } from "../../../src/core/loop/Planner.js";
 import type {
 	AutonomousLoopOptions,
 	BlockerClassification,
 	DynamicSkill,
 	LoopIteration,
 	PlanStep,
+	TaskPlan,
 } from "../../../src/core/loop/types.js";
 
 // ── Mock Factories ──────────────────────────────────────────────────────────
 
-const {
-	createMockController,
-	createMockPlanner,
-	makeGoal,
-	makePlan,
-	makePageState,
-	makeFailedIteration,
-	makeBlocker,
-} = vi.hoisted(() => {
-	function createMockController() {
-		return {
-			navigate: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			click: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			type: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			scrollTo: vi.fn<(...args: unknown[]) => Promise<void>>(),
-			screenshot: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			getState: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			getChallengeState: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			waitForSelector: vi.fn<(...args: unknown[]) => Promise<void>>(),
-			waitForNavigation: vi.fn<(...args: unknown[]) => Promise<void>>(),
-			waitForTimeout: vi.fn<(...args: unknown[]) => Promise<void>>(),
-			evaluate: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			extractTable: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			findElement: vi.fn<(...args: unknown[]) => Promise<any>>(),
-			on: vi.fn(),
-			off: vi.fn(),
-			_events: { on: vi.fn(), off: vi.fn() },
-			_adapt: {
-				domainMemory: {
-					extractHostname: vi.fn((url: string) => {
-						try {
-							return new URL(url).hostname;
-						} catch {
-							return "unknown";
-						}
-					}),
-					getDomainRecord: vi.fn(() => null),
-					getRankedStrategies: vi.fn(() => []),
+const { createMockController, createMockPlanner, makeGoal, makePlan, makePageState, makeFailedIteration, makeBlocker } =
+	vi.hoisted(() => {
+		function createMockController() {
+			return {
+				navigate: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				click: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				type: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				scrollTo: vi.fn<(...args: unknown[]) => Promise<void>>(),
+				screenshot: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				getState: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				getChallengeState: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				waitForSelector: vi.fn<(...args: unknown[]) => Promise<void>>(),
+				waitForNavigation: vi.fn<(...args: unknown[]) => Promise<void>>(),
+				waitForTimeout: vi.fn<(...args: unknown[]) => Promise<void>>(),
+				evaluate: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				extractTable: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				findElement: vi.fn<(...args: unknown[]) => Promise<any>>(),
+				on: vi.fn(),
+				off: vi.fn(),
+				_events: { on: vi.fn(), off: vi.fn() },
+				_adapt: {
+					domainMemory: {
+						extractHostname: vi.fn((url: string) => {
+							try {
+								return new URL(url).hostname;
+							} catch {
+								return "unknown";
+							}
+						}),
+						getDomainRecord: vi.fn(() => null),
+						getRankedStrategies: vi.fn(() => []),
+					},
 				},
-			},
-		};
-	}
+			};
+		}
 
-	function createMockPlanner(plans: TaskPlan[]) {
-		let callIndex = 0;
+		function createMockPlanner(plans: TaskPlan[]) {
+			let callIndex = 0;
+			return {
+				plan: vi.fn(async () => {
+					const plan = plans[Math.min(callIndex, plans.length - 1)];
+					callIndex++;
+					return plan;
+				}),
+				generateSkill: vi.fn(async () => null as DynamicSkill | null),
+			};
+		}
+
+		function makeGoal(overrides?: Partial<AutonomousLoopOptions["goal"]>): AutonomousLoopOptions["goal"] {
+			return {
+				description: "Test goal",
+				maxIterations: 10,
+				...overrides,
+			};
+		}
+
+		function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
+			return {
+				assessment: "Test assessment",
+				steps: [],
+				goalAchieved: false,
+				...overrides,
+			};
+		}
+
+		function makePageState() {
+			return {
+				url: "https://example.com/page",
+				title: "Example Page",
+				timestamp: new Date().toISOString(),
+				interactiveElements: ["button#search", "input#email"],
+				consoleErrors: [] as string[],
+				bugs: [] as Array<{ type: string; severity: string; description: string }>,
+			};
+		}
+
+		/** Build a LoopIteration with a failed result and optional error. */
+		function makeFailedIteration(iterationNumber: number, overrides?: Partial<LoopIteration>): LoopIteration {
+			return {
+				iteration: iterationNumber,
+				observation: "Test observation",
+				plan: makePlan(),
+				result: { status: "failed", error: "Element not found", durationMs: 10 },
+				timestamp: new Date().toISOString(),
+				...overrides,
+			};
+		}
+
+		/** Build a BlockerClassification for testing. */
+		function makeBlocker(overrides?: Partial<BlockerClassification>): BlockerClassification {
+			return {
+				type: "element-not-found",
+				confidence: 0.9,
+				description: "Element not found on page",
+				evidence: ["selector #submit not found"],
+				autoResolvable: false,
+				...overrides,
+			};
+		}
+
 		return {
-			plan: vi.fn(async () => {
-				const plan = plans[Math.min(callIndex, plans.length - 1)];
-				callIndex++;
-				return plan;
-			}),
-			generateSkill: vi.fn(async () => null as DynamicSkill | null),
+			createMockController,
+			createMockPlanner,
+			makeGoal,
+			makePlan,
+			makePageState,
+			makeFailedIteration,
+			makeBlocker,
 		};
-	}
-
-	function makeGoal(overrides?: Partial<AutonomousLoopOptions["goal"]>): AutonomousLoopOptions["goal"] {
-		return {
-			description: "Test goal",
-			maxIterations: 10,
-			...overrides,
-		};
-	}
-
-	function makePlan(overrides?: Partial<TaskPlan>): TaskPlan {
-		return {
-			assessment: "Test assessment",
-			steps: [],
-			goalAchieved: false,
-			...overrides,
-		};
-	}
-
-	function makePageState() {
-		return {
-			url: "https://example.com/page",
-			title: "Example Page",
-			timestamp: new Date().toISOString(),
-			interactiveElements: ["button#search", "input#email"],
-			consoleErrors: [] as string[],
-			bugs: [] as Array<{ type: string; severity: string; description: string }>,
-		};
-	}
-
-	/** Build a LoopIteration with a failed result and optional error. */
-	function makeFailedIteration(
-		iterationNumber: number,
-		overrides?: Partial<LoopIteration>,
-	): LoopIteration {
-		return {
-			iteration: iterationNumber,
-			observation: "Test observation",
-			plan: makePlan(),
-			result: { status: "failed", error: "Element not found", durationMs: 10 },
-			timestamp: new Date().toISOString(),
-			...overrides,
-		};
-	}
-
-	/** Build a BlockerClassification for testing. */
-	function makeBlocker(
-		overrides?: Partial<BlockerClassification>,
-	): BlockerClassification {
-		return {
-			type: "element-not-found",
-			confidence: 0.9,
-			description: "Element not found on page",
-			evidence: ["selector #submit not found"],
-			autoResolvable: false,
-			...overrides,
-		};
-	}
-
-	return {
-		createMockController,
-		createMockPlanner,
-		makeGoal,
-		makePlan,
-		makePageState,
-		makeFailedIteration,
-		makeBlocker,
-	};
-});
+	});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeOptions(
-	overrides?: Partial<AutonomousLoopOptions>,
-): AutonomousLoopOptions {
+function makeOptions(overrides?: Partial<AutonomousLoopOptions>): AutonomousLoopOptions {
 	return {
 		goal: makeGoal(),
 		planner: { model: "test-model" },
@@ -172,10 +158,7 @@ function makeClickStep(overrides?: Partial<PlanStep>): PlanStep {
  * iterations so private methods like isStuck() can inspect them.
  * Initializes state if it hasn't been created yet (i.e. run() not called).
  */
-function seedLoopState(
-	loop: AutonomousLoop,
-	iterations: LoopIteration[],
-): void {
+function seedLoopState(loop: AutonomousLoop, iterations: LoopIteration[]): void {
 	if (!(loop as any).state) {
 		(loop as any).state = (loop as any).createInitialState();
 	}
@@ -1028,15 +1011,18 @@ describe("LoopIntelligence — convergence detection wired into run()", () => {
 					steps: [],
 				});
 			}),
-			generateSkill: vi.fn(async () => ({
-				name: "auto-fix-element",
-				description: "Auto-generated fix",
-				domain: "example.com",
-				version: "1.0",
-				content: "# Fix\n\nRetry with different selector.",
-				triggerCondition: 'blocker type == "element-not-found"',
-				toolUsage: ["click"],
-			} as DynamicSkill)),
+			generateSkill: vi.fn(
+				async () =>
+					({
+						name: "auto-fix-element",
+						description: "Auto-generated fix",
+						domain: "example.com",
+						version: "1.0",
+						content: "# Fix\n\nRetry with different selector.",
+						triggerCondition: 'blocker type == "element-not-found"',
+						toolUsage: ["click"],
+					}) as DynamicSkill,
+			),
 		};
 
 		const options = makeOptions({

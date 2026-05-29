@@ -125,7 +125,8 @@ export class AdaptiveExperimentPriority {
 
 		for (const promo of promotions) {
 			this.registerArm(promo.strategyName);
-			const arm = this.arms.get(promo.strategyName); if (!arm) continue;
+			const arm = this.arms.get(promo.strategyName);
+			if (!arm) continue;
 			// Promoted strategies get a bonus
 			arm.alpha += 3;
 			arm.sampleCount += 3;

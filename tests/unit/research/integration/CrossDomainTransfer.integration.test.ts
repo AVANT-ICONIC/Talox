@@ -1,13 +1,19 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { CrossDomainTransfer } from "../../../../src/core/research/CrossDomainTransfer.js";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
 import type { ExperimentRun, RunMetrics, StrategyPromotion } from "../../../../src/core/research/types.js";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
-		iterationsToGoal: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		blockerCount: 0, blockerTypes: [], goalAchieved: true,
-		skillsCreated: 0, strategySuccessRate: 1.0, ...overrides,
+		iterationsToGoal: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		blockerCount: 0,
+		blockerTypes: [],
+		goalAchieved: true,
+		skillsCreated: 0,
+		strategySuccessRate: 1.0,
+		...overrides,
 	};
 }
 
@@ -16,7 +22,8 @@ function makeRun(domain: string, variant: string, metrics?: Partial<RunMetrics>)
 		id: `run_${domain}_${variant}`,
 		experimentId: `exp_${domain}`,
 		hypothesis: { id: `hyp_${variant}`, description: "test", variant, changeDescription: "none", parameters: {} },
-		goal: "test goal", domain,
+		goal: "test goal",
+		domain,
 		result: {
 			status: metrics?.goalAchieved === false ? "failed" : "completed",
 			goal: { description: "test", maxIterations: 10 },
@@ -43,14 +50,20 @@ describe("CrossDomainTransfer — Integration", () => {
 	it("finds transfer candidates from similar domains", () => {
 		// Both domains use same strategies and blocker types → high similarity
 		for (let i = 0; i < 3; i++) {
-			journal.recordExperimentRun(makeRun("reddit.com", "control", {
-				goalAchieved: true, blockerTypes: ["captcha" as any, "cloudflare" as any],
-			}));
+			journal.recordExperimentRun(
+				makeRun("reddit.com", "control", {
+					goalAchieved: true,
+					blockerTypes: ["captcha" as any, "cloudflare" as any],
+				}),
+			);
 		}
 		for (let i = 0; i < 3; i++) {
-			journal.recordExperimentRun(makeRun("x.com", "control", {
-				goalAchieved: true, blockerTypes: ["captcha" as any, "cloudflare" as any],
-			}));
+			journal.recordExperimentRun(
+				makeRun("x.com", "control", {
+					goalAchieved: true,
+					blockerTypes: ["captcha" as any, "cloudflare" as any],
+				}),
+			);
 		}
 
 		// Promote a strategy on reddit

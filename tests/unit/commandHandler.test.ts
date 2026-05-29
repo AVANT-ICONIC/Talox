@@ -4,9 +4,9 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { handleCommand, generateSessionId } from "../../src/core/daemon/commandHandler.js";
-import type { DaemonCommand, DaemonResponse } from "../../src/core/daemon/TaloxDaemon.js";
 import type { TaloxController } from "../../src/core/controller/TaloxController.js";
+import { generateSessionId, handleCommand } from "../../src/core/daemon/commandHandler.js";
+import type { DaemonCommand, DaemonResponse } from "../../src/core/daemon/TaloxDaemon.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,11 @@ describe("param validation", () => {
 
 	it("type rejects non-string text", async () => {
 		const ctrl = mockController();
-		const res = await handleCommand(ctrl, { id: "x", action: "type", params: { selector: "input", text: 123 as unknown as string } });
+		const res = await handleCommand(ctrl, {
+			id: "x",
+			action: "type",
+			params: { selector: "input", text: 123 as unknown as string },
+		});
 		expect(res.success).toBe(false);
 	});
 });

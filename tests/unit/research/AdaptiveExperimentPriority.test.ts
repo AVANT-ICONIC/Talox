@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { AdaptiveExperimentPriority } from "../../../src/core/research/AdaptiveExperimentPriority.js";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
 import type { StrategyPromotion } from "../../../src/core/research/types.js";
@@ -85,8 +85,12 @@ describe("AdaptiveExperimentPriority", () => {
 		const p2 = new AdaptiveExperimentPriority(journal, { seed: 42 });
 		p2.registerArm("good");
 		p2.registerArm("bad");
-		for (let i = 0; i < 50; i++) { p2.recordOutcome("good", true); }
-		for (let i = 0; i < 50; i++) { p2.recordOutcome("bad", false); }
+		for (let i = 0; i < 50; i++) {
+			p2.recordOutcome("good", true);
+		}
+		for (let i = 0; i < 50; i++) {
+			p2.recordOutcome("bad", false);
+		}
 
 		let goodCount = 0;
 		for (let i = 0; i < 100; i++) {

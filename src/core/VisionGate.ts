@@ -366,7 +366,10 @@ export class VisionGate {
 
 		// 2. SSIM (Structural Similarity Index)
 		// ssim.js has a weird export structure in ESM
-		const ssimFn = (ssim as { ssim?: typeof ssim; default?: typeof ssim }).ssim || (ssim as { default?: typeof ssim }).default || ssim;
+		const ssimFn =
+			(ssim as { ssim?: typeof ssim; default?: typeof ssim }).ssim ||
+			(ssim as { default?: typeof ssim }).default ||
+			ssim;
 		const ssimResult = ssimFn(png1, png2);
 
 		return {

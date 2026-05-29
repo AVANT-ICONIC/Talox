@@ -1,4 +1,4 @@
-import type { Page, BrowserContext } from "playwright-core";
+import type { BrowserContext, Page } from "playwright-core";
 /**
  * @file ObserveSession.ts
  * @description Orchestrates the full lifecycle of an observe-mode session.
@@ -33,10 +33,10 @@ import type {
 } from "../../types/session-report.js";
 import type { ArtifactBuilder } from "../ArtifactBuilder.js";
 import type { EventBus } from "../controller/EventBus.js";
+import { createLogger } from "../Logger.js";
 import { AnnotationBuffer } from "./AnnotationBuffer.js";
 import { OverlayInjector } from "./OverlayInjector.js";
 import { SessionReporter } from "./SessionReporter.js";
-import { createLogger } from "../Logger.js";
 
 // ─── ObserveSession ───────────────────────────────────────────────────────────
 

@@ -1,11 +1,17 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { createLogger } from "./Logger.js";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { type BrowserContext, type BrowserType as PlaywrightBrowserType, chromium, firefox, webkit } from "playwright-core";
+import {
+	type BrowserContext,
+	chromium,
+	firefox,
+	type BrowserType as PlaywrightBrowserType,
+	webkit,
+} from "playwright-core";
 import type { TaloxProfile, TaloxSettings } from "../types/index.js";
+import { createLogger } from "./Logger.js";
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
 
@@ -383,7 +389,11 @@ export class BrowserManager {
 		return launchOptions;
 	}
 
-	private async tryLaunchContext(launcher: PlaywrightBrowserType, userDataDir: string, launchOptions: Record<string, unknown>): Promise<BrowserContext> {
+	private async tryLaunchContext(
+		launcher: PlaywrightBrowserType,
+		userDataDir: string,
+		launchOptions: Record<string, unknown>,
+	): Promise<BrowserContext> {
 		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 		this.contexts.add(ctx);
 		this.attachCloseHandler(ctx);

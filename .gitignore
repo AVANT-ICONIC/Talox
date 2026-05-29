@@ -28,6 +28,7 @@ stealth-test-credentials.txt
 
 # Test profiles (browser session data from test runs)
 test-profiles/
+test-profile/
 
 # Screenshots & test output
 *.png

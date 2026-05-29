@@ -10,9 +10,9 @@ import type {
 	LoopStatus,
 	LoopStopReason,
 	LoopStrategy,
-	PlanStep,
 	PlannerConfig,
 	PlannerInput,
+	PlanStep,
 	TaskGoal,
 	TaskPlan,
 	TokenUsage,
@@ -113,14 +113,7 @@ describe("loop/types", () => {
 
 	describe("LoopStatus", () => {
 		it("accepts all valid status values", () => {
-			const statuses: LoopStatus[] = [
-				"running",
-				"paused",
-				"completed",
-				"failed",
-				"human-takeover",
-				"budget-exhausted",
-			];
+			const statuses: LoopStatus[] = ["running", "paused", "completed", "failed", "human-takeover", "budget-exhausted"];
 			expect(statuses).toHaveLength(6);
 		});
 	});

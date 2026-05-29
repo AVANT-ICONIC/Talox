@@ -210,7 +210,8 @@ export class ResearchReporter {
 					avgIterationsToGoal: 0,
 				};
 			}
-			const s = summaries[exp.domain]; if (!s) continue;
+			const s = summaries[exp.domain];
+			if (!s) continue;
 			s.totalRuns++;
 			s.successRate = (s.successRate * (s.totalRuns - 1) + (exp.metrics.goalAchieved ? 1 : 0)) / s.totalRuns;
 			s.avgIterationsToGoal = (s.avgIterationsToGoal * (s.totalRuns - 1) + exp.metrics.iterationsToGoal) / s.totalRuns;

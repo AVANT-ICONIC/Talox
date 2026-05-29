@@ -38,18 +38,20 @@ declare global {
 	var __taloxUpdateCursor__: ((x: number, y: number) => void) | undefined;
 
 	// eslint-disable-next-line no-var
-	var chrome: {
-		runtime?: {
-			id?: string;
-			getManifest?: () => Record<string, unknown>;
-			getURL?: (path: string) => string;
-			[key: string]: unknown;
-		};
-		loadTimes?: () => Record<string, unknown>;
-		csi?: () => Record<string, unknown>;
-		app?: Record<string, unknown>;
-		[key: string]: unknown;
-	} | undefined;
+	var chrome:
+		| {
+				runtime?: {
+					id?: string;
+					getManifest?: () => Record<string, unknown>;
+					getURL?: (path: string) => string;
+					[key: string]: unknown;
+				};
+				loadTimes?: () => Record<string, unknown>;
+				csi?: () => Record<string, unknown>;
+				app?: Record<string, unknown>;
+				[key: string]: unknown;
+		  }
+		| undefined;
 
 	interface Navigator {
 		/** Some browser versions expose connection info. Talox reads this during fingerprinting. */

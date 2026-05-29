@@ -18,8 +18,8 @@ import type { AnnotationEntry } from "../../types/annotation.js";
 import type { TaloxEventMap } from "../../types/events.js";
 import type { TaloxInteraction } from "../../types/session.js";
 import type { EventBus } from "../controller/EventBus.js";
-import type { AnnotationBuffer } from "./AnnotationBuffer.js";
 import { createLogger } from "../Logger.js";
+import type { AnnotationBuffer } from "./AnnotationBuffer.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

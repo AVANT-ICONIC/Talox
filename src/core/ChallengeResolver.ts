@@ -39,9 +39,8 @@ import type { Page } from "playwright-core";
  */
 
 import type { TakeoverReason } from "../types/events.js";
-import type { ChallengeType, DetectedChallenge } from "./ChallengeDetector.js";
-
 import { trySolve } from "./CaptchaSolver.js";
+import type { ChallengeType, DetectedChallenge } from "./ChallengeDetector.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ResolutionStrategy =
@@ -214,9 +213,13 @@ export class ChallengeResolver {
 				try {
 					await page.evaluate((token) => {
 						const textareas = document.querySelectorAll('textarea[name="g-recaptcha-response"], #g-recaptcha-response');
-						textareas.forEach((ta) => { (ta as HTMLTextAreaElement).value = token; });
+						textareas.forEach((ta) => {
+							(ta as HTMLTextAreaElement).value = token;
+						});
 						const inputs = document.querySelectorAll('input[name="g-recaptcha-response"]');
-						inputs.forEach((inp) => { (inp as HTMLInputElement).value = token; });
+						inputs.forEach((inp) => {
+							(inp as HTMLInputElement).value = token;
+						});
 						const cfg = (window as any).___grecaptcha_cfg;
 						if (cfg?.clients) {
 							for (const [, client] of Object.entries(cfg.clients)) {
@@ -258,7 +261,7 @@ export class ChallengeResolver {
 		return this.outcome(false, true, attempts, "human-handoff", "captcha-present");
 	}
 
-		// ─── Strategy Implementations ─────────────────────────────────────────────
+	// ─── Strategy Implementations ─────────────────────────────────────────────
 
 	private async resolveCloudflare(page: Page): Promise<ChallengeOutcome> {
 		const attempts: ResolutionAttempt[] = [];

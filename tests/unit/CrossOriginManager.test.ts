@@ -15,17 +15,13 @@ function createMockCDPSession() {
 	};
 }
 
-function createMockFrame(overrides: {
-	name?: string;
-	url?: string;
-	parentFrame?: (() => any) | null;
-}) {
+function createMockFrame(overrides: { name?: string; url?: string; parentFrame?: (() => any) | null }) {
 	return {
 		name: vi.fn().mockReturnValue(overrides.name ?? ""),
 		url: vi.fn().mockReturnValue(overrides.url ?? ""),
-		parentFrame: vi.fn().mockReturnValue(
-			overrides.parentFrame === undefined ? null : overrides.parentFrame?.() ?? null,
-		),
+		parentFrame: vi
+			.fn()
+			.mockReturnValue(overrides.parentFrame === undefined ? null : (overrides.parentFrame?.() ?? null)),
 	};
 }
 
@@ -128,9 +124,7 @@ describe("CrossOriginManager", () => {
 			});
 
 			// Get the frameattached handler
-			const frameAttachedHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const frameAttachedHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			expect(frameAttachedHandler).toBeDefined();
 			await frameAttachedHandler!(childFrame);
 
@@ -161,9 +155,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			const session = manager.getSession("my-iframe");
@@ -188,9 +180,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			expect(manager.getSession("same-origin-frame")).toBeUndefined();
@@ -207,9 +197,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: null,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(mainFrame);
 
 			expect(manager.getAllSessions()).toHaveLength(0);
@@ -234,9 +222,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 
 			// Should not throw
 			await expect(handler!(childFrame)).resolves.toBeUndefined();
@@ -270,17 +256,13 @@ describe("CrossOriginManager", () => {
 			});
 
 			// First, attach the frame
-			const attachHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const attachHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await attachHandler!(childFrame);
 			expect(manager.getSession("nav-frame")).toBeDefined();
 			expect(manager.getSession("nav-frame")?.cdpSession).toBe(mockCdp1);
 
 			// Now navigate the frame
-			const navHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "framenavigated",
-			)?.[1];
+			const navHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "framenavigated")?.[1];
 			await navHandler!(childFrame);
 
 			// Old session should be detached, new one created
@@ -309,16 +291,12 @@ describe("CrossOriginManager", () => {
 			});
 
 			// First attach
-			const attachHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const attachHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await attachHandler!(childFrame);
 			expect(manager.getSession("detach-frame")).toBeDefined();
 
 			// Then detach
-			const detachHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "framedetached",
-			)?.[1];
+			const detachHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "framedetached")?.[1];
 			detachHandler!(childFrame);
 
 			expect(manager.getSession("detach-frame")).toBeUndefined();
@@ -346,9 +324,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const attachHandler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const attachHandler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await attachHandler!(childFrame);
 
 			const result = await manager.executeInFrame("exec-frame", "Runtime.evaluate", {
@@ -379,9 +355,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			const session = manager.getSession("named-frame");
@@ -405,9 +379,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			const session = manager.getSession("frame:https://other.com/embed");
@@ -435,9 +407,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			expect(manager.getSession("cross-domain")).toBeDefined();
@@ -459,9 +429,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			expect(manager.getSession("same-origin")).toBeUndefined();
@@ -483,9 +451,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			expect(manager.getSession("diff-port")).toBeDefined();
@@ -507,9 +473,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(childFrame);
 
 			expect(manager.getSession("http-frame")).toBeDefined();
@@ -541,9 +505,7 @@ describe("CrossOriginManager", () => {
 				parentFrame: () => parentFrame,
 			});
 
-			const handler = mockPage.on.mock.calls.find(
-				(call: any[]) => call[0] === "frameattached",
-			)?.[1];
+			const handler = mockPage.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 			await handler!(frame1);
 			await handler!(frame2);
 

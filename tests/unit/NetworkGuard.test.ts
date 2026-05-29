@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { NetworkGuard, createNetworkGuard } from "../../src/core/NetworkGuard.js";
+import { createNetworkGuard, NetworkGuard } from "../../src/core/NetworkGuard.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

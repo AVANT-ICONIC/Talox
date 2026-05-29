@@ -5,17 +5,17 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	scoreMouse,
-	scoreTyping,
-	scoreScroll,
-	scoreClick,
-	computeQuality,
-	scoreInteraction,
-	QualityTracker,
-	type MouseMetrics,
-	type TypingMetrics,
-	type ScrollMetrics,
 	type ClickMetrics,
+	computeQuality,
+	type MouseMetrics,
+	QualityTracker,
+	type ScrollMetrics,
+	scoreClick,
+	scoreInteraction,
+	scoreMouse,
+	scoreScroll,
+	scoreTyping,
+	type TypingMetrics,
 } from "../../src/core/InteractionQuality.js";
 
 // ─── scoreMouse ───────────────────────────────────────────────────────────────

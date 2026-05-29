@@ -5,12 +5,33 @@
  * All public APIs are re-exported from this file.
  */
 
+// ─── Multi-Agent Coordinator ───────────────────────────────────────────────
+export {
+	AgentCoordinator,
+	type AgentResult,
+	type AgentStatus,
+	type AgentTask,
+	type CoordinatorConfig,
+	type CoordinatorResult,
+} from "./core/AgentCoordinator.js";
 // ─── Auto-Dialog Handling ──────────────────────────────────────────────────────
 export type { DialogRecord } from "./core/AutoDialogHandler.js";
 export { AutoDialogHandler } from "./core/AutoDialogHandler.js";
 // ─── Core Modules ─────────────────────────────────────────────────────────────
 export { BrowserManager, type BrowserType } from "./core/BrowserManager.js";
 export * from "./core/BugEngine.js";
+// ─── CAPTCHA Solver ────────────────────────────────────────────────────────
+export {
+	type CaptchaChallenge,
+	type CaptchaSolution,
+	type CaptchaSolver,
+	type CaptchaVariant,
+	clearSolvers,
+	createVLMCaptchaSolver,
+	getSolvers,
+	registerSolver,
+	trySolve,
+} from "./core/CaptchaSolver.js";
 export type { ChallengeState, ChallengeType, DetectedChallenge } from "./core/ChallengeDetector.js";
 export { ChallengeDetector } from "./core/ChallengeDetector.js";
 export type {
@@ -20,55 +41,6 @@ export type {
 	ResolutionStrategy,
 } from "./core/ChallengeResolver.js";
 export { ChallengeResolver } from "./core/ChallengeResolver.js";
-// ─── CAPTCHA Solver ────────────────────────────────────────────────────────
-export {
-	registerSolver,
-	clearSolvers,
-	getSolvers,
-	trySolve,
-	createVLMCaptchaSolver,
-	type CaptchaSolver,
-	type CaptchaChallenge,
-	type CaptchaSolution,
-	type CaptchaVariant,
-} from "./core/CaptchaSolver.js";
-export {
-	setVisualReasoner,
-	getVisualReasoner,
-	askVisual,
-	resolveVisual,
-	setScreenshotFormat,
-	getScreenshotFormat,
-	createOpenAIVisionReasoner,
-	type VisualReasoner,
-	type ScreenshotFormat,
-	type OpenAIVisionConfig,
-} from "./core/VisualReasoner.js";
-// ─── Multi-Agent Coordinator ───────────────────────────────────────────────
-export {
-	AgentCoordinator,
-	type CoordinatorConfig,
-	type AgentTask,
-	type AgentResult,
-	type CoordinatorResult,
-	type AgentStatus,
-} from "./core/AgentCoordinator.js";
-// ─── Interaction Quality ──────────────────────────────────────────────────
-export {
-	scoreMouse,
-	scoreTyping,
-	scoreScroll,
-	scoreClick,
-	computeQuality,
-	scoreInteraction,
-	QualityTracker,
-	type QualityDimensions,
-	type QualityScore,
-	type MouseMetrics,
-	type TypingMetrics,
-	type ScrollMetrics,
-	type ClickMetrics,
-} from "./core/InteractionQuality.js";
 // ─── Cross-Origin iframe Sessions ────────────────────────────────────────────
 export type { IframeSession } from "./core/CrossOriginManager.js";
 export { CrossOriginManager } from "./core/CrossOriginManager.js";
@@ -101,12 +73,28 @@ export type {
 } from "./core/HarRecorder.js";
 export { HarRecorder } from "./core/HarRecorder.js";
 export * from "./core/HumanMouse.js";
+// ─── Interaction Quality ──────────────────────────────────────────────────
+export {
+	type ClickMetrics,
+	computeQuality,
+	type MouseMetrics,
+	type QualityDimensions,
+	type QualityScore,
+	QualityTracker,
+	type ScrollMetrics,
+	scoreClick,
+	scoreInteraction,
+	scoreMouse,
+	scoreScroll,
+	scoreTyping,
+	type TypingMetrics,
+} from "./core/InteractionQuality.js";
 export type { InteractionAttempt, InteractionFailureMode, ReliabilityOutcome } from "./core/InteractionReliability.js";
 export { InteractionReliability } from "./core/InteractionReliability.js";
-export { createLogger, log, setLogLevel, getLogLevel, type Logger, type LogLevel } from "./core/Logger.js";
 // ─── DevTools Inspect Server ────────────────────────────────────────────────
 export type { InspectServerConfig } from "./core/inspect/InspectServer.js";
 export { InspectServer } from "./core/inspect/InspectServer.js";
+export { createLogger, getLogLevel, type Logger, type LogLevel, log, setLogLevel } from "./core/Logger.js";
 // ─── Autonomous Loop (v6) ───────────────────────────────────────────────────
 export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
 export type { Planner } from "./core/loop/Planner.js";
@@ -153,9 +141,9 @@ export type { LoadedSkill, SkillManifest } from "./core/skills/SkillLoader.js";
 // ─── Skills / Domain Knowledge ──────────────────────────────────────────────
 export { SkillLoader } from "./core/skills/SkillLoader.js";
 export { SkillWriter } from "./core/skills/SkillWriter.js";
+export type { AdaptationRecord } from "./core/smart/AdaptationEngine.js";
 // ─── Smart Mode (now always-on) ──────────────────────────────────────────────
 export { AdaptationEngine } from "./core/smart/AdaptationEngine.js";
-export type { AdaptationRecord } from "./core/smart/AdaptationEngine.js";
 export { BotDetector } from "./core/smart/BotDetector.js";
 export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/smart/DomainMemory.js";
 export { DomainMemory } from "./core/smart/DomainMemory.js";
@@ -164,6 +152,18 @@ export * from "./core/TaloxTools.js";
 // ─── Video Recording ────────────────────────────────────────────────────────
 export type { VideoFormat, VideoRecorderOptions } from "./core/VideoRecorder.js";
 export { VideoRecorder } from "./core/VideoRecorder.js";
+export {
+	askVisual,
+	createOpenAIVisionReasoner,
+	getScreenshotFormat,
+	getVisualReasoner,
+	type OpenAIVisionConfig,
+	resolveVisual,
+	type ScreenshotFormat,
+	setScreenshotFormat,
+	setVisualReasoner,
+	type VisualReasoner,
+} from "./core/VisualReasoner.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
 // ─── v2 Config & Settings ────────────────────────────────────────────────────

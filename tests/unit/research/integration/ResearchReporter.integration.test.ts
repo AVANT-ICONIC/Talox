@@ -1,13 +1,24 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { ResearchReporter } from "../../../../src/core/research/ResearchReporter.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
-import type { ExperimentRun, RunMetrics, StrategyPromotion, SkillEvaluation } from "../../../../src/core/research/types.js";
+import { ResearchReporter } from "../../../../src/core/research/ResearchReporter.js";
+import type {
+	ExperimentRun,
+	RunMetrics,
+	SkillEvaluation,
+	StrategyPromotion,
+} from "../../../../src/core/research/types.js";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
-		iterationsToGoal: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		blockerCount: 0, blockerTypes: [], goalAchieved: true,
-		skillsCreated: 0, strategySuccessRate: 1.0, ...overrides,
+		iterationsToGoal: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		blockerCount: 0,
+		blockerTypes: [],
+		goalAchieved: true,
+		skillsCreated: 0,
+		strategySuccessRate: 1.0,
+		...overrides,
 	};
 }
 
@@ -16,12 +27,16 @@ function makeRun(domain: string, goalAchieved: boolean): ExperimentRun {
 		id: `run_${domain}_${Date.now()}`,
 		experimentId: `exp_${domain}`,
 		hypothesis: { id: "h1", description: "test", variant: "control", changeDescription: "", parameters: {} },
-		goal: "test", domain,
+		goal: "test",
+		domain,
 		result: {
 			status: goalAchieved ? "completed" : "failed",
 			goal: { description: "test", maxIterations: 10 },
-			totalIterations: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-			createdSkills: [], stopReason: goalAchieved ? "goal-achieved" : "max-iterations",
+			totalIterations: 5,
+			totalDurationMs: 1000,
+			totalCostUsd: 0.01,
+			createdSkills: [],
+			stopReason: goalAchieved ? "goal-achieved" : "max-iterations",
 		},
 		metrics: makeMetrics({ goalAchieved }),
 		timestamp: new Date().toISOString(),
@@ -43,8 +58,10 @@ describe("ResearchReporter — Integration", () => {
 		journal.recordExperimentRun(makeRun("x.com", false));
 
 		const promo: StrategyPromotion = {
-			strategyName: "fast-stealth", domain: "reddit.com",
-			winningParameters: {}, evidence: ["e1", "e2"],
+			strategyName: "fast-stealth",
+			domain: "reddit.com",
+			winningParameters: {},
+			evidence: ["e1", "e2"],
 			promotedAt: new Date().toISOString(),
 		};
 		journal.recordStrategyPromotion(promo);
@@ -84,17 +101,21 @@ describe("ResearchReporter — Integration", () => {
 		journal.recordExperimentRun(makeRun("test.com", true));
 
 		const promo: StrategyPromotion = {
-			strategyName: "super-strat", domain: "test.com",
-			winningParameters: {}, evidence: ["e1", "e2", "e3"],
+			strategyName: "super-strat",
+			domain: "test.com",
+			winningParameters: {},
+			evidence: ["e1", "e2", "e3"],
 			promotedAt: new Date().toISOString(),
 		};
 		journal.recordStrategyPromotion(promo);
 
 		const eval_: SkillEvaluation = {
-			skillName: "auto-captcha", domain: "test.com",
+			skillName: "auto-captcha",
+			domain: "test.com",
 			beforeMetrics: makeMetrics({ iterationsToGoal: 10 }),
 			afterMetrics: makeMetrics({ iterationsToGoal: 3 }),
-			improvement: 0.7, verdict: "helped",
+			improvement: 0.7,
+			verdict: "helped",
 			timestamp: new Date().toISOString(),
 		};
 		journal.recordSkillEvaluation(eval_);
@@ -106,11 +127,11 @@ describe("ResearchReporter — Integration", () => {
 		});
 
 		expect(report.topFindings.length).toBeGreaterThan(0);
-		const promoFinding = report.topFindings.find(f => f.description.includes("super-strat"));
+		const promoFinding = report.topFindings.find((f) => f.description.includes("super-strat"));
 		expect(promoFinding).toBeTruthy();
 		expect(promoFinding!.impact).toBe("high");
 
-		const skillFinding = report.topFindings.find(f => f.description.includes("auto-captcha"));
+		const skillFinding = report.topFindings.find((f) => f.description.includes("auto-captcha"));
 		expect(skillFinding).toBeTruthy();
 	});
 
@@ -126,7 +147,7 @@ describe("ResearchReporter — Integration", () => {
 			to: now.toISOString(),
 		});
 
-		const lowRateFinding = report.topFindings.find(f => f.description.includes("bad.com"));
+		const lowRateFinding = report.topFindings.find((f) => f.description.includes("bad.com"));
 		expect(lowRateFinding).toBeTruthy();
 		expect(lowRateFinding!.description).toContain("20%");
 	});
@@ -164,7 +185,8 @@ describe("ResearchReporter — Integration", () => {
 
 	it("generates empty report for period with no data", () => {
 		const report = reporter.generateReport({
-			from: "2020-01-01", to: "2020-01-02",
+			from: "2020-01-01",
+			to: "2020-01-02",
 		});
 
 		expect(report.experimentsConducted).toBe(0);

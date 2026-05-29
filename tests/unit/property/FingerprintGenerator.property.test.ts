@@ -2,10 +2,11 @@
  * Property-based tests for FingerprintGenerator using fast-check.
  * Tests determinism, consistency, and range invariants with arbitrary seeds.
  */
-import { describe, expect, it } from "vitest";
+
 import * as fc from "fast-check";
-import { FingerprintGenerator } from "../../../src/core/FingerprintGenerator.js";
+import { describe, expect, it } from "vitest";
 import type { FingerprintOS } from "../../../src/core/FingerprintGenerator.js";
+import { FingerprintGenerator } from "../../../src/core/FingerprintGenerator.js";
 
 // ─── Arbitraries ─────────────────────────────────────────────────────────────
 
@@ -17,11 +18,7 @@ const seedArb = fc.oneof(
 	fc.string({ minLength: 1, maxLength: 50 }),
 );
 
-const osArb: fc.Arbitrary<FingerprintOS> = fc.constantFrom<FingerprintOS>(
-	"windows",
-	"macos",
-	"linux",
-);
+const osArb: fc.Arbitrary<FingerprintOS> = fc.constantFrom<FingerprintOS>("windows", "macos", "linux");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

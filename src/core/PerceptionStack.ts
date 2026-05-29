@@ -195,7 +195,7 @@ export class PerceptionStack {
 		}
 	}
 
-		async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
+	async collect(preset: PerceptionPreset, options: PerceptionCollectOptions = {}): Promise<PerceivedState> {
 		const cacheKey = `${this.sessionTick}::${preset}`;
 
 		if (this.cache.has(cacheKey)) {

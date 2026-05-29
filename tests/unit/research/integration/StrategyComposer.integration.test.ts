@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { StrategyComposer } from "../../../../src/core/research/StrategyComposer.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
-import type { StrategyPromotion, ComposedStrategy } from "../../../../src/core/research/types.js";
+import { StrategyComposer } from "../../../../src/core/research/StrategyComposer.js";
+import type { ComposedStrategy, StrategyPromotion } from "../../../../src/core/research/types.js";
 
 describe("StrategyComposer — Integration", () => {
 	let journal: ResearchJournal;
@@ -14,7 +14,8 @@ describe("StrategyComposer — Integration", () => {
 
 	function addPromotion(strategyName: string, domain: string) {
 		const promo: StrategyPromotion = {
-			strategyName, domain,
+			strategyName,
+			domain,
 			winningParameters: { stealthLevel: 0.5 },
 			evidence: [`ev_${strategyName}`],
 			promotedAt: new Date().toISOString(),
@@ -29,7 +30,7 @@ describe("StrategyComposer — Integration", () => {
 		const candidates = composer.discoverCandidates();
 		expect(candidates.length).toBeGreaterThan(0);
 
-		const sequential = candidates.filter(c => c.applicationOrder === "sequential");
+		const sequential = candidates.filter((c) => c.applicationOrder === "sequential");
 		expect(sequential.length).toBeGreaterThanOrEqual(2); // A→B and B→A
 	});
 
@@ -38,7 +39,7 @@ describe("StrategyComposer — Integration", () => {
 		addPromotion("strat-b", "x.com");
 
 		const candidates = composer.discoverCandidates();
-		const parallel = candidates.filter(c => c.applicationOrder === "parallel");
+		const parallel = candidates.filter((c) => c.applicationOrder === "parallel");
 		expect(parallel.length).toBeGreaterThan(0);
 	});
 
@@ -47,7 +48,7 @@ describe("StrategyComposer — Integration", () => {
 		addPromotion("fallback", "test.com");
 
 		const candidates = composer.discoverCandidates();
-		const conditional = candidates.filter(c => c.applicationOrder === "conditional");
+		const conditional = candidates.filter((c) => c.applicationOrder === "conditional");
 		expect(conditional.length).toBeGreaterThan(0);
 		expect(conditional[0]!.condition).toBeTruthy();
 	});
@@ -57,7 +58,7 @@ describe("StrategyComposer — Integration", () => {
 		addPromotion("x-strat", "x.com");
 
 		const candidates = composer.discoverCandidates();
-		const crossDomain = candidates.filter(c => c.name.includes("XDomain"));
+		const crossDomain = candidates.filter((c) => c.name.includes("XDomain"));
 		expect(crossDomain.length).toBeGreaterThan(0);
 	});
 
@@ -82,18 +83,27 @@ describe("StrategyComposer — Integration", () => {
 		addPromotion("s1", "target.com");
 
 		composer.recordComposition({
-			id: "comp_1", name: "low fitness", componentStrategies: ["a", "b"],
-			applicationOrder: "sequential", fitnessScore: 0.3,
+			id: "comp_1",
+			name: "low fitness",
+			componentStrategies: ["a", "b"],
+			applicationOrder: "sequential",
+			fitnessScore: 0.3,
 			createdAt: new Date().toISOString(),
 		});
 		composer.recordComposition({
-			id: "comp_2", name: "high fitness", componentStrategies: ["c", "d"],
-			applicationOrder: "parallel", fitnessScore: 0.9,
+			id: "comp_2",
+			name: "high fitness",
+			componentStrategies: ["c", "d"],
+			applicationOrder: "parallel",
+			fitnessScore: 0.9,
 			createdAt: new Date().toISOString(),
 		});
 		composer.recordComposition({
-			id: "comp_3", name: "medium fitness", componentStrategies: ["e", "f"],
-			applicationOrder: "conditional", fitnessScore: 0.75,
+			id: "comp_3",
+			name: "medium fitness",
+			componentStrategies: ["e", "f"],
+			applicationOrder: "conditional",
+			fitnessScore: 0.75,
 			createdAt: new Date().toISOString(),
 		});
 
@@ -104,8 +114,11 @@ describe("StrategyComposer — Integration", () => {
 
 	it("getBestForDomain returns null when no compositions pass threshold", () => {
 		composer.recordComposition({
-			id: "comp_low", name: "low", componentStrategies: ["a"],
-			applicationOrder: "sequential", fitnessScore: 0.2,
+			id: "comp_low",
+			name: "low",
+			componentStrategies: ["a"],
+			applicationOrder: "sequential",
+			fitnessScore: 0.2,
 			createdAt: new Date().toISOString(),
 		});
 

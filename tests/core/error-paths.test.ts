@@ -12,8 +12,9 @@
  * Each test launches and stops its own browser instance.
  * Run: npx vitest run tests/core/error-paths.test.ts --config vitest.config.browser.ts
  */
-import http from "node:http";
+
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -34,7 +35,11 @@ function createHangingServer(port = 0): Promise<{ url: string; close: () => void
 	const server = http.createServer((_req, res) => {
 		// Intentionally never respond — simulate a hanging connection
 		setTimeout(() => {
-			try { res.end(); } catch { /* already closed */ }
+			try {
+				res.end();
+			} catch {
+				/* already closed */
+			}
 		}, 300_000); // 5 min safety
 	});
 
@@ -75,7 +80,11 @@ describe("error-path: network timeout mid-action", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox.stop(); } catch { /* swallow */ }
+		try {
+			await talox.stop();
+		} catch {
+			/* swallow */
+		}
 		await hangingServer.close();
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
@@ -105,7 +114,11 @@ describe("error-path: browser crash recovery", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox.stop(); } catch { /* swallow */ }
+		try {
+			await talox.stop();
+		} catch {
+			/* swallow */
+		}
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
@@ -151,8 +164,16 @@ describe("error-path: concurrent session conflicts", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox1.stop(); } catch { /* swallow */ }
-		try { await talox2.stop(); } catch { /* swallow */ }
+		try {
+			await talox1.stop();
+		} catch {
+			/* swallow */
+		}
+		try {
+			await talox2.stop();
+		} catch {
+			/* swallow */
+		}
 		fs.rmSync(tmpDir1, { recursive: true, force: true });
 		fs.rmSync(tmpDir2, { recursive: true, force: true });
 	});
@@ -202,17 +223,15 @@ describe("error-path: invalid selector handling", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox.stop(); } catch { /* swallow */ }
+		try {
+			await talox.stop();
+		} catch {
+			/* swallow */
+		}
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	const malformedSelectors = [
-		"[[[invalid",
-		">>>><<<<",
-		"#",
-		" ",
-		"!@#$%^&*()",
-	];
+	const malformedSelectors = ["[[[invalid", ">>>><<<<", "#", " ", "!@#$%^&*()"];
 
 	for (const selector of malformedSelectors) {
 		it(`click(${JSON.stringify(selector)}) returns error state with console errors`, async () => {
@@ -249,7 +268,11 @@ describe("error-path: navigate to invalid URL", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox.stop(); } catch { /* swallow */ }
+		try {
+			await talox.stop();
+		} catch {
+			/* swallow */
+		}
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
@@ -287,7 +310,11 @@ describe("error-path: getState on page that navigated away", () => {
 	});
 
 	afterAll(async () => {
-		try { await talox.stop(); } catch { /* swallow */ }
+		try {
+			await talox.stop();
+		} catch {
+			/* swallow */
+		}
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 

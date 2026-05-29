@@ -7,11 +7,16 @@
  * Run: npx vitest run tests/smoke/smoke.test.ts
  */
 import { describe, expect, it } from "vitest";
-
+import { SelfHealingSelector } from "../../dist/core/SelfHealingSelector.js";
+// SemanticMapper and SelfHealingSelector are not re-exported from the barrel —
+// import directly from their dist modules to verify the build artifacts exist.
+import { SemanticMapper } from "../../dist/core/SemanticMapper.js";
 // Import from the *built* output to verify the dist bundle is valid
 import {
 	AutonomousLoop,
 	BrowserManager,
+	compactState,
+	diffPageState,
 	EventBus,
 	FingerprintGenerator,
 	LLMPlanner,
@@ -19,13 +24,7 @@ import {
 	SkillLoader,
 	SkillWriter,
 	TaloxController,
-	compactState,
-	diffPageState,
 } from "../../dist/index.js";
-// SemanticMapper and SelfHealingSelector are not re-exported from the barrel —
-// import directly from their dist modules to verify the build artifacts exist.
-import { SemanticMapper } from "../../dist/core/SemanticMapper.js";
-import { SelfHealingSelector } from "../../dist/core/SelfHealingSelector.js";
 import type { TaloxPageState } from "../../dist/types/index.js";
 
 // ─── Export existence checks ─────────────────────────────────────────────────
@@ -113,15 +112,11 @@ describe("smoke — TaloxController instantiation", () => {
 	});
 
 	it("constructor does not throw with config object", () => {
-		expect(
-			() => new TaloxController({ settings: { verbosity: 0 } }),
-		).not.toThrow();
+		expect(() => new TaloxController({ settings: { verbosity: 0 } })).not.toThrow();
 	});
 
 	it("constructor does not throw with baseDir + config", () => {
-		expect(
-			() => new TaloxController(".", { settings: { verbosity: 0 } }),
-		).not.toThrow();
+		expect(() => new TaloxController(".", { settings: { verbosity: 0 } })).not.toThrow();
 	});
 });
 

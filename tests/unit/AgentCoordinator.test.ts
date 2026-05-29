@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { AgentCoordinator } from "../../src/core/AgentCoordinator.js";
 import type { AgentTask } from "../../src/core/AgentCoordinator.js";
+import { AgentCoordinator } from "../../src/core/AgentCoordinator.js";
 
 // ─── Construction ─────────────────────────────────────────────────────────────
 

@@ -420,8 +420,7 @@ export class PageStateCollector {
 	}
 
 	/**
-	 * Run all cursor-detection passes inside the browser and return raw results.
-	 * Split into separate evaluate calls to reduce per-method cognitive complexity.
+	 * Run all cursor-detection passes inside the browser in a single evaluate call and return raw results.
 	 */
 	private async detectCursorElements(existingIds: string[]): Promise<
 		Array<{
@@ -432,26 +431,7 @@ export class PageStateCollector {
 			detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
 		}>
 	> {
-		const pass1 = await this.collectCursorPointerElements(existingIds);
-		const pass2 = await this.collectOnclickElements(existingIds, pass1.seen);
-		const pass3 = await this.collectTabindexElements(existingIds, pass2.seen);
-		const pass4 = await this.collectHiddenInputParents(pass3.seen);
-		return [...pass1.results, ...pass2.results, ...pass3.results, ...pass4];
-	}
-
-	/** Pass 1: cursor: pointer elements (non-semantic). */
-	private async collectCursorPointerElements(existingIds: string[]): Promise<{
-		results: Array<{
-			selector: string;
-			tagName: string;
-			text: string;
-			boundingBox: { x: number; y: number; width: number; height: number };
-			detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-		}>;
-		seen: string[];
-	}> {
 		return this.page.evaluate((existingIds) => {
-			// NOSONAR — browser-side code
 			const SEMANTIC_TAGS = new Set(["a", "button", "input", "select", "textarea", "details", "summary"]);
 			const results: Array<{
 				selector: string;
@@ -463,7 +443,6 @@ export class PageStateCollector {
 			const seen = [...existingIds];
 
 			function buildSelector(el: Element, tag: string): string {
-				// NOSONAR — browser-side
 				if (el.id) return `#${CSS.escape(el.id)}`;
 				const name = el.getAttribute("name");
 				if (name) return `${tag}[name="${name}"]`;
@@ -481,92 +460,17 @@ export class PageStateCollector {
 				return tag;
 			}
 
-			function tryAdd(el: Element, method: "cursor-style" | "onclick-attr" | "tabindex"): void {
-				// NOSONAR
-				const rect = el.getBoundingClientRect();
-				if (rect.width === 0 || rect.height === 0) return;
-				if ((el as HTMLElement).style.display === "none") return;
-				if ((el as HTMLElement).style.visibility === "hidden") return;
-				if (el.getAttribute("aria-hidden") === "true") return;
-				const tag = el.tagName.toLowerCase();
-				const sel = buildSelector(el, tag);
-				if (seen.includes(sel)) return;
-				seen.push(sel);
-				results.push({
-					selector: sel,
-					tagName: tag,
-					text: el.textContent?.trim().slice(0, 100) || "",
-					boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-					detectionMethod: method,
-				});
-			}
-
+			// Pass 1: cursor: pointer elements (non-semantic).
 			for (const el of Array.from(document.querySelectorAll("*"))) {
 				if (el.id?.startsWith("__talox")) continue;
 				const tag = el.tagName.toLowerCase();
 				if (getComputedStyle(el).cursor === "pointer") {
 					if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
-						tryAdd(el, "cursor-style");
-					}
-				}
-			}
-
-			return { results, seen };
-		}, existingIds);
-	}
-
-	/** Pass 2: onclick attribute elements (non-semantic). */
-	private async collectOnclickElements(
-		existingIds: string[],
-		prevSeen: string[],
-	): Promise<{
-		results: Array<{
-			selector: string;
-			tagName: string;
-			text: string;
-			boundingBox: { x: number; y: number; width: number; height: number };
-			detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-		}>;
-		seen: string[];
-	}> {
-		return this.page.evaluate(
-			({ existingIds, prevSeen }) => {
-				// NOSONAR — browser-side
-				const SEMANTIC_TAGS = new Set(["a", "button", "input", "select", "textarea", "details", "summary"]);
-				const results: Array<{
-					selector: string;
-					tagName: string;
-					text: string;
-					boundingBox: { x: number; y: number; width: number; height: number };
-					detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-				}> = [];
-				const seen = [...prevSeen];
-
-				function buildSelector(el: Element, tag: string): string {
-					// NOSONAR
-					if (el.id) return `#${CSS.escape(el.id)}`;
-					const name = el.getAttribute("name");
-					if (name) return `${tag}[name="${name}"]`;
-					const cls = el.getAttribute("class");
-					if (cls) {
-						const first = cls.trim().split(/\s+/)[0];
-						if (first) return `${tag}.${CSS.escape(first)}`;
-					}
-					const parent = el.parentElement;
-					if (parent) {
-						const sibs = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
-						if (sibs.length === 1) return tag;
-						return `${tag}:nth-of-type(${sibs.indexOf(el) + 1})`;
-					}
-					return tag;
-				}
-
-				for (const el of Array.from(document.querySelectorAll("[onclick]"))) {
-					if (el.id?.startsWith("__talox")) continue;
-					const tag = el.tagName.toLowerCase();
-					if (!SEMANTIC_TAGS.has(tag)) {
 						const rect = el.getBoundingClientRect();
 						if (rect.width === 0 || rect.height === 0) continue;
+						if ((el as HTMLElement).style.display === "none") continue;
+						if ((el as HTMLElement).style.visibility === "hidden") continue;
+						if (el.getAttribute("aria-hidden") === "true") continue;
 						const sel = buildSelector(el, tag);
 						if (seen.includes(sel)) continue;
 						seen.push(sel);
@@ -575,128 +479,53 @@ export class PageStateCollector {
 							tagName: tag,
 							text: el.textContent?.trim().slice(0, 100) || "",
 							boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-							detectionMethod: "onclick-attr",
+							detectionMethod: "cursor-style",
 						});
 					}
 				}
-
-				return { results, seen };
-			},
-			{ existingIds, prevSeen },
-		);
-	}
-
-	/** Pass 3: tabindex elements (non-semantic, no role). */
-	private async collectTabindexElements(
-		existingIds: string[],
-		prevSeen: string[],
-	): Promise<{
-		results: Array<{
-			selector: string;
-			tagName: string;
-			text: string;
-			boundingBox: { x: number; y: number; width: number; height: number };
-			detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-		}>;
-		seen: string[];
-	}> {
-		return this.page.evaluate(
-			({ existingIds, prevSeen }) => {
-				// NOSONAR — browser-side
-				const SEMANTIC_TAGS = new Set(["a", "button", "input", "select", "textarea", "details", "summary"]);
-				const results: Array<{
-					selector: string;
-					tagName: string;
-					text: string;
-					boundingBox: { x: number; y: number; width: number; height: number };
-					detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-				}> = [];
-				const seen = [...prevSeen];
-
-				function buildSelector(el: Element, tag: string): string {
-					// NOSONAR
-					if (el.id) return `#${CSS.escape(el.id)}`;
-					const name = el.getAttribute("name");
-					if (name) return `${tag}[name="${name}"]`;
-					const cls = el.getAttribute("class");
-					if (cls) {
-						const first = cls.trim().split(/\s+/)[0];
-						if (first) return `${tag}.${CSS.escape(first)}`;
-					}
-					const parent = el.parentElement;
-					if (parent) {
-						const sibs = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
-						if (sibs.length === 1) return tag;
-						return `${tag}:nth-of-type(${sibs.indexOf(el) + 1})`;
-					}
-					return tag;
-				}
-
-				for (const el of Array.from(document.querySelectorAll('[tabindex]:not([tabindex="-1"])'))) {
-					if (el.id?.startsWith("__talox")) continue;
-					const tag = el.tagName.toLowerCase();
-					if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
-						const rect = el.getBoundingClientRect();
-						if (rect.width === 0 || rect.height === 0) continue;
-						const sel = buildSelector(el, tag);
-						if (seen.includes(sel)) continue;
-						seen.push(sel);
-						results.push({
-							selector: sel,
-							tagName: tag,
-							text: el.textContent?.trim().slice(0, 100) || "",
-							boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-							detectionMethod: "tabindex",
-						});
-					}
-				}
-
-				return { results, seen };
-			},
-			{ existingIds, prevSeen },
-		);
-	}
-
-	/** Pass 4: Hidden radio/checkbox inside cursor-interactive wrappers. */
-	private async collectHiddenInputParents(prevSeen: string[]): Promise<
-		Array<{
-			selector: string;
-			tagName: string;
-			text: string;
-			boundingBox: { x: number; y: number; width: number; height: number };
-			detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-		}>
-	> {
-		return this.page.evaluate((prevSeen) => {
-			// NOSONAR — browser-side
-			const results: Array<{
-				selector: string;
-				tagName: string;
-				text: string;
-				boundingBox: { x: number; y: number; width: number; height: number };
-				detectionMethod: "cursor-style" | "onclick-attr" | "tabindex";
-			}> = [];
-			const seen = [...prevSeen];
-
-			function buildSelector(el: Element, tag: string): string {
-				// NOSONAR
-				if (el.id) return `#${CSS.escape(el.id)}`;
-				const name = el.getAttribute("name");
-				if (name) return `${tag}[name="${name}"]`;
-				const cls = el.getAttribute("class");
-				if (cls) {
-					const first = cls.trim().split(/\s+/)[0];
-					if (first) return `${tag}.${CSS.escape(first)}`;
-				}
-				const parent = el.parentElement;
-				if (parent) {
-					const sibs = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
-					if (sibs.length === 1) return tag;
-					return `${tag}:nth-of-type(${sibs.indexOf(el) + 1})`;
-				}
-				return tag;
 			}
 
+			// Pass 2: onclick attribute elements (non-semantic).
+			for (const el of Array.from(document.querySelectorAll("[onclick]"))) {
+				if (el.id?.startsWith("__talox")) continue;
+				const tag = el.tagName.toLowerCase();
+				if (!SEMANTIC_TAGS.has(tag)) {
+					const rect = el.getBoundingClientRect();
+					if (rect.width === 0 || rect.height === 0) continue;
+					const sel = buildSelector(el, tag);
+					if (seen.includes(sel)) continue;
+					seen.push(sel);
+					results.push({
+						selector: sel,
+						tagName: tag,
+						text: el.textContent?.trim().slice(0, 100) || "",
+						boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+						detectionMethod: "onclick-attr",
+					});
+				}
+			}
+
+			// Pass 3: tabindex elements (non-semantic, no role).
+			for (const el of Array.from(document.querySelectorAll('[tabindex]:not([tabindex="-1"])'))) {
+				if (el.id?.startsWith("__talox")) continue;
+				const tag = el.tagName.toLowerCase();
+				if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
+					const rect = el.getBoundingClientRect();
+					if (rect.width === 0 || rect.height === 0) continue;
+					const sel = buildSelector(el, tag);
+					if (seen.includes(sel)) continue;
+					seen.push(sel);
+					results.push({
+						selector: sel,
+						tagName: tag,
+						text: el.textContent?.trim().slice(0, 100) || "",
+						boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+						detectionMethod: "tabindex",
+					});
+				}
+			}
+
+			// Pass 4: Hidden radio/checkbox inside cursor-interactive wrappers.
 			for (const input of Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'))) {
 				const htmlInput = input as HTMLInputElement;
 				if (
@@ -724,7 +553,7 @@ export class PageStateCollector {
 			}
 
 			return results;
-		}, prevSeen);
+		}, existingIds);
 	}
 
 	/** Map raw detection results to the final output format. */

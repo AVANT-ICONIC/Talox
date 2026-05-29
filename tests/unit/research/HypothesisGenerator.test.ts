@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HypothesisGenerator } from "../../../src/core/research/HypothesisGenerator.js";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
 import type { ExperimentRun, RunMetrics } from "../../../src/core/research/types.js";

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { CrossDomainTransfer } from "../../../src/core/research/CrossDomainTransfer.js";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
 import type { ExperimentRun, StrategyPromotion } from "../../../src/core/research/types.js";
@@ -68,7 +68,14 @@ describe("CrossDomainTransfer", () => {
 		// Give the target domain some runs so getDomainFeatures returns non-null
 		const targetRun = makeRun({
 			domain: "c.com",
-			hypothesis: { id: "h1", variant: "strat-x", parameters: {}, domain: "c.com", description: "test", changeDescription: "none" },
+			hypothesis: {
+				id: "h1",
+				variant: "strat-x",
+				parameters: {},
+				domain: "c.com",
+				description: "test",
+				changeDescription: "none",
+			},
 			metrics: {
 				iterationsToGoal: 8,
 				totalDurationMs: 2000,
@@ -85,7 +92,14 @@ describe("CrossDomainTransfer", () => {
 		// Give the source domain runs + a promotion
 		const sourceRun = makeRun({
 			domain: "a.com",
-			hypothesis: { id: "h2", variant: "strat-x", parameters: {}, domain: "a.com", description: "test", changeDescription: "none" },
+			hypothesis: {
+				id: "h2",
+				variant: "strat-x",
+				parameters: {},
+				domain: "a.com",
+				description: "test",
+				changeDescription: "none",
+			},
 			metrics: {
 				iterationsToGoal: 3,
 				totalDurationMs: 500,
@@ -100,23 +114,34 @@ describe("CrossDomainTransfer", () => {
 		journal.recordExperimentRun(sourceRun);
 		// Need enough runs for source to have successRate >= 0.6
 		for (let i = 0; i < 5; i++) {
-			journal.recordExperimentRun(makeRun({
-				domain: "a.com",
-				hypothesis: { id: `h-src-${i}`, variant: "strat-x", parameters: {}, domain: "a.com", description: "test", changeDescription: "none" },
-				metrics: {
-					iterationsToGoal: 3,
-					totalDurationMs: 500,
-					totalCostUsd: 0.01,
-					blockerCount: 1,
-					blockerTypes: ["captcha"],
-					goalAchieved: true,
-					skillsCreated: 0,
-					strategySuccessRate: 0.9,
-				},
-			}));
+			journal.recordExperimentRun(
+				makeRun({
+					domain: "a.com",
+					hypothesis: {
+						id: `h-src-${i}`,
+						variant: "strat-x",
+						parameters: {},
+						domain: "a.com",
+						description: "test",
+						changeDescription: "none",
+					},
+					metrics: {
+						iterationsToGoal: 3,
+						totalDurationMs: 500,
+						totalCostUsd: 0.01,
+						blockerCount: 1,
+						blockerTypes: ["captcha"],
+						goalAchieved: true,
+						skillsCreated: 0,
+						strategySuccessRate: 0.9,
+					},
+				}),
+			);
 		}
 
-		journal.recordStrategyPromotion(makePromotion({ strategyName: "speed-v1", domain: "a.com", winningParameters: { retries: 5 } }));
+		journal.recordStrategyPromotion(
+			makePromotion({ strategyName: "speed-v1", domain: "a.com", winningParameters: { retries: 5 } }),
+		);
 
 		const candidates = transfer.findTransferCandidates("c.com");
 		expect(candidates.length).toBeGreaterThan(0);
@@ -125,16 +150,20 @@ describe("CrossDomainTransfer", () => {
 	it("does not include promotions from the target domain itself", () => {
 		// Give both domains runs
 		for (let i = 0; i < 5; i++) {
-			journal.recordExperimentRun(makeRun({
-				domain: "b.com",
-				hypothesis: { id: `ht-${i}`, variant: "s1", parameters: {}, description: "test", changeDescription: "none" },
-			}));
+			journal.recordExperimentRun(
+				makeRun({
+					domain: "b.com",
+					hypothesis: { id: `ht-${i}`, variant: "s1", parameters: {}, description: "test", changeDescription: "none" },
+				}),
+			);
 		}
 		for (let i = 0; i < 5; i++) {
-			journal.recordExperimentRun(makeRun({
-				domain: "a.com",
-				hypothesis: { id: `hs-${i}`, variant: "s1", parameters: {}, description: "test", changeDescription: "none" },
-			}));
+			journal.recordExperimentRun(
+				makeRun({
+					domain: "a.com",
+					hypothesis: { id: `hs-${i}`, variant: "s1", parameters: {}, description: "test", changeDescription: "none" },
+				}),
+			);
 		}
 
 		journal.recordStrategyPromotion(makePromotion({ strategyName: "s1", domain: "a.com" }));

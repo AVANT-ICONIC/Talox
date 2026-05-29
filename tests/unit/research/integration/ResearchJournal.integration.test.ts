@@ -1,9 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
-import type { ExperimentRun, Hypothesis, RunMetrics, SkillEvaluation, StrategyPromotion, TransferRecord } from "../../../../src/core/research/types.js";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
+import type {
+	ExperimentRun,
+	Hypothesis,
+	RunMetrics,
+	SkillEvaluation,
+	StrategyPromotion,
+	TransferRecord,
+} from "../../../../src/core/research/types.js";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
@@ -50,7 +57,9 @@ describe("ResearchJournal — Integration", () => {
 	});
 
 	afterEach(() => {
-		try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	});
 
 	it("persists entries to disk and reloads them faithfully", async () => {
@@ -120,9 +129,13 @@ describe("ResearchJournal — Integration", () => {
 		journal.recordExperimentRun(makeRun("a.com", "control"));
 		journal.recordExperimentRun(makeRun("b.com", "control"));
 		journal.recordSkillEvaluation({
-			skillName: "s1", domain: "a.com",
-			beforeMetrics: makeMetrics(), afterMetrics: makeMetrics(),
-			improvement: 0, verdict: "neutral", timestamp: new Date().toISOString(),
+			skillName: "s1",
+			domain: "a.com",
+			beforeMetrics: makeMetrics(),
+			afterMetrics: makeMetrics(),
+			improvement: 0,
+			verdict: "neutral",
+			timestamp: new Date().toISOString(),
 		});
 
 		expect(journal.getEntries("experiment_run")).toHaveLength(2);

@@ -1,4 +1,4 @@
-import type { Page, BrowserContext } from "playwright-core";
+import type { BrowserContext, Page } from "playwright-core";
 /**
  * @file InteractionReliability.ts
  * @description Interaction reliability gauntlet for Talox.
@@ -509,7 +509,10 @@ export class InteractionReliability {
 		if (bestScore >= 10 && bestNode) {
 			const healedSelector = this.buildCoordinateSelector(bestNode);
 			try {
-				const element = (await page.$(healedSelector) ?? await page.locator(`text=${bestNode.name}`).first()) as ElementHandle<SVGElement | HTMLElement> | null;
+				const element = ((await page.$(healedSelector)) ??
+					(await page.locator(`text=${bestNode.name}`).first().elementHandle())) as ElementHandle<
+					SVGElement | HTMLElement
+				> | null;
 				attempts.push({
 					mode: "detached",
 					strategy: "semantic-re-find",

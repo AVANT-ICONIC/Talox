@@ -1,9 +1,6 @@
-import { describe, expect, it, beforeAll } from "vitest";
-import {
-	formatDoctorOutput,
-	runDoctor,
-} from "../../../src/cli/doctor.js";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { DoctorCheck, DoctorResult } from "../../../src/cli/doctor.js";
+import { formatDoctorOutput, runDoctor } from "../../../src/cli/doctor.js";
 
 // ---------------------------------------------------------------------------
 // formatDoctorOutput

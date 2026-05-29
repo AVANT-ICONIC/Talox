@@ -2,14 +2,15 @@
  * Property-based tests for compactState and diffPageState using fast-check.
  * Tests structural invariants with arbitrary TaloxPageState inputs.
  */
-import { describe, expect, it } from "vitest";
+
 import * as fc from "fast-check";
+import { describe, expect, it } from "vitest";
 import {
 	compactState,
 	diffPageState,
-	type TaloxPageState,
-	type TaloxNode,
 	type TaloxBug,
+	type TaloxNode,
+	type TaloxPageState,
 } from "../../../src/types/index.js";
 
 // ─── Arbitraries ─────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { StrategyComposer } from "../../../src/core/research/StrategyComposer.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
+import { StrategyComposer } from "../../../src/core/research/StrategyComposer.js";
 import type { StrategyPromotion } from "../../../src/core/research/types.js";
 
 function makePromotion(overrides: Partial<StrategyPromotion> = {}): StrategyPromotion {

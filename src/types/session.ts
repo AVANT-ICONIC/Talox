@@ -154,4 +154,3 @@ export interface ObserveSessionOptions {
 	 */
 	recordVideo?: { dir: string; size?: { width: number; height: number } };
 }
-

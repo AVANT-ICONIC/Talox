@@ -5,13 +5,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	setVisualReasoner,
-	getVisualReasoner,
 	askVisual,
-	resolveVisual,
-	setVisualEmitter,
-	setScreenshotFormat,
 	getScreenshotFormat,
+	getVisualReasoner,
+	resolveVisual,
+	setScreenshotFormat,
+	setVisualEmitter,
+	setVisualReasoner,
 	type VisualReasoner,
 } from "../../src/core/VisualReasoner.js";
 
@@ -116,8 +116,7 @@ describe("askVisual with emitter", () => {
 
 describe("resolveVisual", () => {
 	it("is a no-op for unknown IDs", () => {
-		// Should not throw
-		resolveVisual("nonexistent-id", "answer");
+		expect(() => resolveVisual("nonexistent-id", "answer")).not.toThrow();
 	});
 });
 

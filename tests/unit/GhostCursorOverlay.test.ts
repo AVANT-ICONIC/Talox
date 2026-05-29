@@ -3,9 +3,9 @@
  * @description Unit tests for GhostCursorOverlay — cursor injection, callbacks, and ripple effects.
  */
 
-import { describe, expect, it, vi } from "vitest";
-import { GhostCursorOverlay, type GhostCursorOptions } from "../../src/core/GhostCursorOverlay.js";
 import type { Page } from "playwright-core";
+import { describe, expect, it, vi } from "vitest";
+import { type GhostCursorOptions, GhostCursorOverlay } from "../../src/core/GhostCursorOverlay.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

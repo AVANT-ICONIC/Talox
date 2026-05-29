@@ -11,7 +11,10 @@ const CLI_PATH = path.resolve(process.cwd(), "dist", "cli", "talox.js");
 const TMP_ROOT = path.resolve(process.cwd(), ".tmp-cli-test");
 
 /** Spawn the built CLI with given args, return stdout/stderr/exit code. */
-function runCli(args: string[], cwd?: string): Promise<{
+function runCli(
+	args: string[],
+	cwd?: string,
+): Promise<{
 	stdout: string;
 	stderr: string;
 	combined: string;
@@ -140,6 +143,8 @@ describe("talox CLI", () => {
 				expect(fs.existsSync(path.join(targetDir, "package.json"))).toBe(true);
 				expect(fs.existsSync(path.join(targetDir, "tsconfig.json"))).toBe(true);
 				expect(fs.existsSync(path.join(targetDir, "README.md"))).toBe(true);
+				const readmeContent = fs.readFileSync(path.join(targetDir, "README.md"), "utf-8");
+				expect(readmeContent).toContain("Talox v8");
 				expect(fs.existsSync(path.join(targetDir, "src", "browser-lab.ts"))).toBe(true);
 
 				const pkg = JSON.parse(fs.readFileSync(path.join(targetDir, "package.json"), "utf-8"));

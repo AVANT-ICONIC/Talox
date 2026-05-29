@@ -3,10 +3,11 @@
  * Tests invariants for mapNode, mapNodes, filterByType, filterInteractive,
  * sortByPosition, and groupByType with arbitrary inputs.
  */
-import { describe, expect, it } from "vitest";
+
 import * as fc from "fast-check";
+import { describe, expect, it } from "vitest";
+import type { SemanticEntity, SemanticEntityType } from "../../../src/core/SemanticMapper.js";
 import { SemanticMapper } from "../../../src/core/SemanticMapper.js";
-import type { SemanticEntityType, SemanticEntity } from "../../../src/core/SemanticMapper.js";
 import type { TaloxNode } from "../../../src/types/index.js";
 
 // ─── Arbitraries ─────────────────────────────────────────────────────────────
@@ -35,10 +36,7 @@ const fullTaloxNodeArb: fc.Arbitrary<TaloxNode> = fc.record({
 	name: fc.string(),
 	description: fc.option(fc.string(), { nil: undefined }),
 	boundingBox: boundingBoxArb,
-	attributes: fc.option(
-		fc.dictionary(fc.string(), fc.oneof(fc.string(), fc.boolean())),
-		{ nil: undefined },
-	),
+	attributes: fc.option(fc.dictionary(fc.string(), fc.oneof(fc.string(), fc.boolean())), { nil: undefined }),
 });
 
 const semanticEntityTypeArb: fc.Arbitrary<SemanticEntityType> = fc.constantFrom(
@@ -108,9 +106,9 @@ describe("SemanticMapper property tests", () => {
 		// either name has alpha chars, or role is recognized, or attributes provide a fallback
 		const validNodeArb = fullTaloxNodeArb.filter((n) => {
 			const hasAlphaName = /[a-z0-9]/i.test(n.name);
-			const hasTestId = n.attributes && n.attributes["data-testid"];
-			const hasAriaLabel = n.attributes && n.attributes["aria-label"];
-			const hasPlaceholder = n.attributes && n.attributes["placeholder"];
+			const hasTestId = n.attributes?.["data-testid"];
+			const hasAriaLabel = n.attributes?.["aria-label"];
+			const hasPlaceholder = n.attributes?.["placeholder"];
 			return hasAlphaName || hasTestId || hasAriaLabel || hasPlaceholder;
 		});
 
@@ -126,10 +124,30 @@ describe("SemanticMapper property tests", () => {
 
 	it("mapNode always returns a valid SemanticEntityType", () => {
 		const validTypes = new Set<SemanticEntityType>([
-			"navigation", "form", "input", "button", "link", "article",
-			"heading", "image", "list", "listItem", "dialog", "toolbar",
-			"menu", "menuItem", "checkbox", "radio", "combobox", "search",
-			"footer", "header", "main", "aside", "section", "unknown",
+			"navigation",
+			"form",
+			"input",
+			"button",
+			"link",
+			"article",
+			"heading",
+			"image",
+			"list",
+			"listItem",
+			"dialog",
+			"toolbar",
+			"menu",
+			"menuItem",
+			"checkbox",
+			"radio",
+			"combobox",
+			"search",
+			"footer",
+			"header",
+			"main",
+			"aside",
+			"section",
+			"unknown",
 		]);
 
 		fc.assert(
@@ -144,14 +162,10 @@ describe("SemanticMapper property tests", () => {
 
 	it("mapNodes output length equals input length", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 50 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					expect(entities.length).toBe(nodes.length);
-				},
-			),
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 50 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				expect(entities.length).toBe(nodes.length);
+			}),
 		);
 	});
 
@@ -159,16 +173,12 @@ describe("SemanticMapper property tests", () => {
 
 	it("mapNodes[i].id === nodes[i].id for every index", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 20 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					for (let i = 0; i < nodes.length; i++) {
-						expect(entities[i]!.id).toBe(nodes[i]!.id);
-					}
-				},
-			),
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 20 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				for (let i = 0; i < nodes.length; i++) {
+					expect(entities[i]!.id).toBe(nodes[i]!.id);
+				}
+			}),
 		);
 	});
 
@@ -214,35 +224,34 @@ describe("SemanticMapper property tests", () => {
 
 	it("filterInteractive returns only entities with interactive semantic types", () => {
 		const interactiveTypes: SemanticEntityType[] = [
-			"button", "link", "input", "search", "checkbox", "radio", "combobox", "menuItem",
+			"button",
+			"link",
+			"input",
+			"search",
+			"checkbox",
+			"radio",
+			"combobox",
+			"menuItem",
 		];
 
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const interactive = mapper.filterInteractive(entities);
-					for (const entity of interactive) {
-						expect(interactiveTypes).toContain(entity.type);
-					}
-				},
-			),
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const interactive = mapper.filterInteractive(entities);
+				for (const entity of interactive) {
+					expect(interactiveTypes).toContain(entity.type);
+				}
+			}),
 		);
 	});
 
 	it("filterInteractive result is a subset of the input", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const interactive = mapper.filterInteractive(entities);
-					expect(interactive.length).toBeLessThanOrEqual(entities.length);
-				},
-			),
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const interactive = mapper.filterInteractive(entities);
+				expect(interactive.length).toBeLessThanOrEqual(entities.length);
+			}),
 		);
 	});
 
@@ -250,34 +259,26 @@ describe("SemanticMapper property tests", () => {
 
 	it("sortByPosition returns a permutation of the input (same length, same ids)", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const sorted = mapper.sortByPosition(entities);
-					expect(sorted.length).toBe(entities.length);
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const sorted = mapper.sortByPosition(entities);
+				expect(sorted.length).toBe(entities.length);
 
-					const originalIds = entities.map((e) => e.id).sort();
-					const sortedIds = sorted.map((e) => e.id).sort();
-					expect(sortedIds).toEqual(originalIds);
-				},
-			),
+				const originalIds = entities.map((e) => e.id).sort();
+				const sortedIds = sorted.map((e) => e.id).sort();
+				expect(sortedIds).toEqual(originalIds);
+			}),
 		);
 	});
 
 	it("sortByPosition does not modify the original array", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 20 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const originalIds = entities.map((e) => e.id);
-					mapper.sortByPosition(entities);
-					expect(entities.map((e) => e.id)).toEqual(originalIds);
-				},
-			),
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 20 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const originalIds = entities.map((e) => e.id);
+				mapper.sortByPosition(entities);
+				expect(entities.map((e) => e.id)).toEqual(originalIds);
+			}),
 		);
 	});
 
@@ -285,51 +286,43 @@ describe("SemanticMapper property tests", () => {
 
 	it("groupByType partition covers all input entities exactly once", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const groups = mapper.groupByType(entities);
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 0, maxLength: 30 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const groups = mapper.groupByType(entities);
 
-					// Every entity appears exactly once across all groups
-					const allGrouped: SemanticEntity[] = [];
-					for (const entry of Array.from(groups.entries())) {
-						allGrouped.push(...entry[1]);
-					}
-					expect(allGrouped.length).toBe(entities.length);
+				// Every entity appears exactly once across all groups
+				const allGrouped: SemanticEntity[] = [];
+				for (const entry of Array.from(groups.entries())) {
+					allGrouped.push(...entry[1]);
+				}
+				expect(allGrouped.length).toBe(entities.length);
 
-					// Verify ids match
-					const inputIds = new Set(entities.map((e) => e.id));
-					for (const grouped of allGrouped) {
-						expect(inputIds.has(grouped.id)).toBe(true);
-					}
+				// Verify ids match
+				const inputIds = new Set(entities.map((e) => e.id));
+				for (const grouped of allGrouped) {
+					expect(inputIds.has(grouped.id)).toBe(true);
+				}
 
-					// Every entity in a group matches the group's type
-					for (const [type, group] of Array.from(groups.entries())) {
-						for (const entity of group) {
-							expect(entity.type).toBe(type);
-						}
+				// Every entity in a group matches the group's type
+				for (const [type, group] of Array.from(groups.entries())) {
+					for (const entity of group) {
+						expect(entity.type).toBe(type);
 					}
-				},
-			),
+				}
+			}),
 		);
 	});
 
 	it("groupByType group keys cover all types present in input", () => {
 		fc.assert(
-			fc.property(
-				fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 30 }),
-				urlArb,
-				(nodes, url) => {
-					const entities = mapper.mapNodes(nodes, url);
-					const groups = mapper.groupByType(entities);
+			fc.property(fc.array(fullTaloxNodeArb, { minLength: 1, maxLength: 30 }), urlArb, (nodes, url) => {
+				const entities = mapper.mapNodes(nodes, url);
+				const groups = mapper.groupByType(entities);
 
-					const inputTypes = new Set(entities.map((e) => e.type));
-					const groupTypes = new Set(groups.keys());
-					expect(groupTypes).toEqual(inputTypes);
-				},
-			),
+				const inputTypes = new Set(entities.map((e) => e.type));
+				const groupTypes = new Set(groups.keys());
+				expect(groupTypes).toEqual(inputTypes);
+			}),
 		);
 	});
 });

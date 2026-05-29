@@ -112,7 +112,8 @@ export class SkillVersioning {
 			return bScore - aScore;
 		});
 
-		const best = withMetrics[0]; if (!best) throw new Error(`No metrics found for skill ${skillName}`);
+		const best = withMetrics[0];
+		if (!best) throw new Error(`No metrics found for skill ${skillName}`);
 		return this.rollback(skillName, best.version);
 	}
 

@@ -70,26 +70,20 @@ describe("TaloxController E2E — fixture pages", () => {
 
 		it("should click the target and verify score changes", async () => {
 			// Read initial score
-			const beforeScore = await talox.evaluate<string>(
-				`document.getElementById('score').innerText`,
-			);
+			const beforeScore = await talox.evaluate<string>(`document.getElementById('score').innerText`);
 			expect(beforeScore).toContain("Score: 0");
 
 			// Click the target
 			await talox.click("#target");
 
 			// Verify score incremented
-			const afterScore = await talox.evaluate<string>(
-				`document.getElementById('score').innerText`,
-			);
+			const afterScore = await talox.evaluate<string>(`document.getElementById('score').innerText`);
 			expect(afterScore).toContain("Score: 1");
 		});
 
 		it("should type into name input and verify greeting", async () => {
 			await talox.type("#nameInput", "Talox");
-			const greeting = await talox.evaluate<string>(
-				`document.getElementById('greeting').innerText`,
-			);
+			const greeting = await talox.evaluate<string>(`document.getElementById('greeting').innerText`);
 			expect(greeting).toBe("Hello, Talox!");
 		});
 	});
@@ -126,9 +120,7 @@ describe("TaloxController E2E — fixture pages", () => {
 			// Wait briefly for DOM update
 			await talox.waitForTimeout(500);
 
-			const result = await talox.evaluate<string>(
-				`document.getElementById('result').textContent`,
-			);
+			const result = await talox.evaluate<string>(`document.getElementById('result').textContent`);
 
 			expect(result).toContain('"firstName":"Jane"');
 			expect(result).toContain('"lastName":"Doe"');
@@ -189,9 +181,7 @@ describe("TaloxController E2E — fixture pages", () => {
 			// Wait for the content to become ready (1.5s delay + margin)
 			await talox.waitForSelector("#content[data-loaded='true']", 5000);
 
-			const loadedStatus = await talox.evaluate<string>(
-				`document.getElementById('status').textContent`,
-			);
+			const loadedStatus = await talox.evaluate<string>(`document.getElementById('status').textContent`);
 			expect(loadedStatus).toBe("Loaded!");
 
 			const contentLoaded = await talox.evaluate<string>(
@@ -228,16 +218,12 @@ describe("TaloxController E2E — fixture pages", () => {
 		it("should run arbitrary JS and return result", async () => {
 			await talox.navigate(fixtureUrl("table.html"));
 
-			const rowCount = await talox.evaluate<number>(
-				`document.querySelectorAll('#employeeTable tbody tr').length`,
-			);
+			const rowCount = await talox.evaluate<number>(`document.querySelectorAll('#employeeTable tbody tr').length`);
 			expect(rowCount).toBe(5);
 		});
 
 		it("should handle object return values", async () => {
-			const obj = await talox.evaluate<{ page: string }>(
-				`({ page: document.title })`,
-			);
+			const obj = await talox.evaluate<{ page: string }>(`({ page: document.title })`);
 			expect(obj.page).toContain("Table");
 		});
 	});
@@ -248,27 +234,21 @@ describe("TaloxController E2E — fixture pages", () => {
 		it("should navigate between fixture pages", async () => {
 			await talox.navigate(fixtureUrl("navigation.html"));
 
-			let pageId = await talox.evaluate<string>(
-				`document.getElementById('pageId').textContent`,
-			);
+			let pageId = await talox.evaluate<string>(`document.getElementById('pageId').textContent`);
 			expect(pageId).toBe("Page A");
 
 			// Click link to Page B
 			await talox.click("#linkToB");
 			await talox.waitForLoadState("domcontentloaded", 5000);
 
-			pageId = await talox.evaluate<string>(
-				`document.getElementById('pageId').textContent`,
-			);
+			pageId = await talox.evaluate<string>(`document.getElementById('pageId').textContent`);
 			expect(pageId).toBe("Page B");
 
 			// Navigate back to Page A
 			await talox.click("#linkToA");
 			await talox.waitForLoadState("domcontentloaded", 5000);
 
-			pageId = await talox.evaluate<string>(
-				`document.getElementById('pageId').textContent`,
-			);
+			pageId = await talox.evaluate<string>(`document.getElementById('pageId').textContent`);
 			expect(pageId).toBe("Page A");
 		});
 

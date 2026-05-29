@@ -4,11 +4,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
 	BUILT_IN_WARMUPS,
-	type WarmupStrategy,
-	SiteWarmupRegistry,
 	cloudflareWarmup,
 	genericVerificationWarmup,
 	redditWarmup,
+	SiteWarmupRegistry,
+	type WarmupStrategy,
 } from "../../src/core/SiteWarmup.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

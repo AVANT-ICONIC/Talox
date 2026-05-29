@@ -118,7 +118,7 @@ export class AgentCoordinator {
 			const agentSettings = {
 				...this.config.settings,
 				headed: options?.headed ?? this.config.settings.headed ?? false,
-		};
+			};
 
 			const agent = new TaloxController(agentBaseDir, { settings: agentSettings });
 			await agent.launch(profileId, profileClass, "chromium");
@@ -298,11 +298,7 @@ export class AgentCoordinator {
 				return agent.getState();
 			}
 			case "screenshot": {
-				return agent.screenshot(
-					task.params?.["selector"]
-						? { selector: task.params["selector"] }
-						: undefined,
-				);
+				return agent.screenshot(task.params?.["selector"] ? { selector: task.params["selector"] } : undefined);
 			}
 			case "wait": {
 				const ms = Number(task.params?.["ms"] ?? 1000);

@@ -75,6 +75,9 @@ export class VideoRecorder {
 	 * @returns The absolute path to the encoded video or viewer HTML.
 	 */
 	async stop(): Promise<string> {
+		if (!this.recording) {
+			return "";
+		}
 		if (this.interval) {
 			clearInterval(this.interval);
 			this.interval = null;

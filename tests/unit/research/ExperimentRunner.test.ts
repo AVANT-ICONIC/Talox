@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ExperimentRunner } from "../../../src/core/research/ExperimentRunner.js";
-import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
-import type { AutoResearchConfig, Hypothesis, ExperimentRun } from "../../../src/core/research/types.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
 import type { LoopResult } from "../../../src/core/loop/types.js";
+import { ExperimentRunner } from "../../../src/core/research/ExperimentRunner.js";
+import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
+import type { AutoResearchConfig, ExperimentRun, Hypothesis } from "../../../src/core/research/types.js";
 
 const defaultConfig: AutoResearchConfig = {
 	runsPerVariant: 3,
@@ -54,7 +54,12 @@ describe("ExperimentRunner", () => {
 
 	it("returns null when fewer than 2 hypotheses", async () => {
 		const mockFactory = vi.fn();
-		const result = await runner.runExperiment([makeHypothesis("control")], { description: "goal", maxIterations: 10 }, "example.com", mockFactory);
+		const result = await runner.runExperiment(
+			[makeHypothesis("control")],
+			{ description: "goal", maxIterations: 10 },
+			"example.com",
+			mockFactory,
+		);
 		expect(result).toBeNull();
 	});
 

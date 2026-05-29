@@ -1,4 +1,4 @@
-import type { Page, BrowserContext } from "playwright-core";
+import type { BrowserContext, Page } from "playwright-core";
 /**
  * @file SessionSnapshot.ts
  * @description Capture and restore browser session state across restarts.
@@ -175,7 +175,11 @@ async function restoreStorage(
 	}
 }
 
-export async function restoreSessionSnapshot(page: Page, context: BrowserContext, snapshot: SessionSnapshot): Promise<void> {
+export async function restoreSessionSnapshot(
+	page: Page,
+	context: BrowserContext,
+	snapshot: SessionSnapshot,
+): Promise<void> {
 	// 1. Inject cookies before navigation so they travel with the first request
 	if (snapshot.cookies.length > 0) {
 		try {

@@ -78,11 +78,9 @@ interface PendingQuestion {
 const pending = new Map<string, PendingQuestion>();
 
 /** Emit function — set by TaloxController when EventBus is ready. */
-let emitVisual: ((payload: {
-	id: string;
-	question: string;
-	image: { format: ScreenshotFormat; data: string };
-}) => void) | null = null;
+let emitVisual:
+	| ((payload: { id: string; question: string; image: { format: ScreenshotFormat; data: string } }) => void)
+	| null = null;
 
 export function setVisualEmitter(fn: typeof emitVisual): void {
 	emitVisual = fn;
@@ -96,11 +94,7 @@ export function setVisualEmitter(fn: typeof emitVisual): void {
  * @param question  Natural language question
  * @param timeoutMs Max wait for agent response (default: 15000)
  */
-export async function askVisual(
-	screenshot: Buffer,
-	question: string,
-	timeoutMs = 15_000,
-): Promise<string | null> {
+export async function askVisual(screenshot: Buffer, question: string, timeoutMs = 15_000): Promise<string | null> {
 	const id = `vis-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 	// Format the image

@@ -132,7 +132,7 @@ test.describe("Detection Score Suite", () => {
 			if (result.passed < prevScore) {
 				console.warn(
 					`[Sannysoft] REGRESSION: ${result.passed} < previous ${prevScore}. ` +
-					`New failures: ${result.failedChecks.join(", ")}`,
+						`New failures: ${result.failedChecks.join(", ")}`,
 				);
 			} else if (result.passed > prevScore) {
 				console.log(`[Sannysoft] IMPROVEMENT: ${result.passed} > previous ${prevScore}`);
@@ -140,7 +140,7 @@ test.describe("Detection Score Suite", () => {
 		}
 
 		// Save for future comparison
-		const current = loadPreviousResults() || {} as DetectionResults;
+		const current = loadPreviousResults() || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.sannysoft = result;
 		saveResults(current as DetectionResults);
@@ -186,7 +186,7 @@ test.describe("Detection Score Suite", () => {
 		expect(result.loaded).toBe(true);
 
 		// Save for tracking
-		const current = loadPreviousResults() || {} as DetectionResults;
+		const current = loadPreviousResults() || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.creepjs = result;
 		saveResults(current as DetectionResults);
@@ -205,7 +205,7 @@ test.describe("Detection Score Suite", () => {
 
 		expect(loaded).toBe(true);
 
-		const current = loadPreviousResults() || {} as DetectionResults;
+		const current = loadPreviousResults() || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.browserleaks = { loaded, title };
 		saveResults(current as DetectionResults);

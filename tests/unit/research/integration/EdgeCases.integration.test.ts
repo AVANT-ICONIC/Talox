@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { AdaptiveExperimentPriority } from "../../../../src/core/research/AdaptiveExperimentPriority.js";
+import { CrossDomainTransfer } from "../../../../src/core/research/CrossDomainTransfer.js";
+import { HypothesisGenerator } from "../../../../src/core/research/HypothesisGenerator.js";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
 import { SkillEvaluator } from "../../../../src/core/research/SkillEvaluator.js";
-import { AdaptiveExperimentPriority } from "../../../../src/core/research/AdaptiveExperimentPriority.js";
-import { HypothesisGenerator } from "../../../../src/core/research/HypothesisGenerator.js";
-import { CrossDomainTransfer } from "../../../../src/core/research/CrossDomainTransfer.js";
 import type { ExperimentRun, RunMetrics, SkillEvaluation } from "../../../../src/core/research/types.js";
 
 function makeMetrics(overrides: Partial<RunMetrics> = {}): RunMetrics {
 	return {
-		iterationsToGoal: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		blockerCount: 0, blockerTypes: [], goalAchieved: true,
-		skillsCreated: 0, strategySuccessRate: 1.0, ...overrides,
+		iterationsToGoal: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		blockerCount: 0,
+		blockerTypes: [],
+		goalAchieved: true,
+		skillsCreated: 0,
+		strategySuccessRate: 1.0,
+		...overrides,
 	};
 }
 
@@ -19,14 +25,16 @@ function makeRun(domain: string, variant = "control", overrides: Partial<RunMetr
 		id: `run_${Math.random().toString(36).slice(2, 8)}`,
 		experimentId: "exp_1",
 		hypothesis: { id: "h1", description: "test", variant, changeDescription: "", parameters: {} },
-		goal: "test", domain,
+		goal: "test",
+		domain,
 		result: {
 			status: overrides.goalAchieved === false ? "failed" : "completed",
 			goal: { description: "test", maxIterations: 10 },
 			totalIterations: overrides.iterationsToGoal ?? 5,
 			totalDurationMs: overrides.totalDurationMs ?? 1000,
 			totalCostUsd: overrides.totalCostUsd ?? 0.01,
-			createdSkills: [], stopReason: "goal-achieved",
+			createdSkills: [],
+			stopReason: "goal-achieved",
 		},
 		metrics: makeMetrics(overrides),
 		timestamp: new Date().toISOString(),
@@ -53,10 +61,17 @@ describe("Edge Cases — Integration", () => {
 
 		it("handles zero metrics correctly", () => {
 			const j = new ResearchJournal({});
-			j.recordExperimentRun(makeRun("zero.com", "control", {
-				iterationsToGoal: 0, totalDurationMs: 0, totalCostUsd: 0,
-				blockerCount: 0, goalAchieved: false, skillsCreated: 0, strategySuccessRate: 0,
-			}));
+			j.recordExperimentRun(
+				makeRun("zero.com", "control", {
+					iterationsToGoal: 0,
+					totalDurationMs: 0,
+					totalCostUsd: 0,
+					blockerCount: 0,
+					goalAchieved: false,
+					skillsCreated: 0,
+					strategySuccessRate: 0,
+				}),
+			);
 			expect(j.size).toBe(1);
 			const run = j.getRecentRuns("zero.com", 1)[0]!;
 			expect(run.metrics.iterationsToGoal).toBe(0);
@@ -96,7 +111,9 @@ describe("Edge Cases — Integration", () => {
 
 			// Record 2 hurt evaluations
 			for (let i = 0; i < 2; i++) {
-				eval_.evaluate("bad-skill", "t.com",
+				eval_.evaluate(
+					"bad-skill",
+					"t.com",
 					[makeRun("t.com", "control", { iterationsToGoal: 3 })],
 					[makeRun("t.com", "control", { iterationsToGoal: 20 })],
 				);
@@ -152,7 +169,7 @@ describe("Edge Cases — Integration", () => {
 			const gen = new HypothesisGenerator(j);
 
 			const hypotheses = await gen.generate("test.com", "test", {}, 2);
-			const treatments = hypotheses.filter(h => h.variant !== "control");
+			const treatments = hypotheses.filter((h) => h.variant !== "control");
 			expect(treatments.length).toBe(2);
 		});
 	});

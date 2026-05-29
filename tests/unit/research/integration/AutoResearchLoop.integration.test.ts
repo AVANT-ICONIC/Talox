@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "../../../../src/core/research/AutoResearchLoop.js";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } from "../../../../src/core/research/AutoResearchLoop.js";
 
 describe("AutoResearchLoop — Integration", () => {
 	let tmpDir: string;
@@ -12,14 +12,15 @@ describe("AutoResearchLoop — Integration", () => {
 	});
 
 	afterEach(() => {
-		try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
 	});
 
 	it("initializes and creates research directory", async () => {
-		const loop = new AutoResearchLoop(
-			async () => ({ run: async () => makeResult() }) as any,
-			{ config: { researchDir: tmpDir, persistToDisk: true } },
-		);
+		const loop = new AutoResearchLoop(async () => ({ run: async () => makeResult() }) as any, {
+			config: { researchDir: tmpDir, persistToDisk: true },
+		});
 
 		await loop.initialize();
 
@@ -29,20 +30,21 @@ describe("AutoResearchLoop — Integration", () => {
 
 	it("runs a full research cycle with mock loop factory", async () => {
 		let callCount = 0;
-		const loopFactory = async () => ({
-			run: async () => {
-				callCount++;
-				return {
-					status: callCount > 2 ? "completed" : "failed",
-					goal: { description: "test", maxIterations: 10 },
-					totalIterations: callCount,
-					totalDurationMs: callCount * 100,
-					totalCostUsd: 0.01 * callCount,
-					createdSkills: callCount > 3 ? ["skill-1"] : [],
-					stopReason: callCount > 2 ? "goal-achieved" : "max-iterations",
-				};
-			},
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => {
+					callCount++;
+					return {
+						status: callCount > 2 ? "completed" : "failed",
+						goal: { description: "test", maxIterations: 10 },
+						totalIterations: callCount,
+						totalDurationMs: callCount * 100,
+						totalCostUsd: 0.01 * callCount,
+						createdSkills: callCount > 3 ? ["skill-1"] : [],
+						stopReason: callCount > 2 ? "goal-achieved" : "max-iterations",
+					};
+				},
+			}) as any;
 
 		const loop = new AutoResearchLoop(loopFactory, {
 			config: {
@@ -53,10 +55,7 @@ describe("AutoResearchLoop — Integration", () => {
 			},
 		});
 
-		const result = await loop.run(
-			{ description: "Navigate to example.com", maxIterations: 10 },
-			"example.com",
-		);
+		const result = await loop.run({ description: "Navigate to example.com", maxIterations: 10 }, "example.com");
 
 		expect(result).toBeTruthy();
 		expect(result.loopResult).toBeTruthy();
@@ -68,9 +67,10 @@ describe("AutoResearchLoop — Integration", () => {
 	});
 
 	it("generates a report after running experiments", async () => {
-		const loopFactory = async () => ({
-			run: async () => makeResult(),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => makeResult(),
+			}) as any;
 
 		const loop = new AutoResearchLoop(loopFactory, {
 			config: {
@@ -81,10 +81,7 @@ describe("AutoResearchLoop — Integration", () => {
 			},
 		});
 
-		await loop.run(
-			{ description: "test goal", maxIterations: 10 },
-			"test.com",
-		);
+		await loop.run({ description: "test goal", maxIterations: 10 }, "test.com");
 
 		const now = new Date();
 		const report = loop.generateReport({
@@ -97,9 +94,10 @@ describe("AutoResearchLoop — Integration", () => {
 	});
 
 	it("exposes journal, priority, and composer", async () => {
-		const loopFactory = async () => ({
-			run: async () => makeResult(),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => makeResult(),
+			}) as any;
 
 		const loop = new AutoResearchLoop(loopFactory, {
 			config: { researchDir: tmpDir, persistToDisk: false },
@@ -129,19 +127,17 @@ describe("AutoResearchLoop — Integration", () => {
 			},
 		});
 
-		const result = await loop.run(
-			{ description: "test", maxIterations: 10 },
-			"excluded.com",
-		);
+		const result = await loop.run({ description: "test", maxIterations: 10 }, "excluded.com");
 
 		// ExperimentRunner should skip → empty experiments
 		expect(result.experiments.length).toBe(0);
 	});
 
 	it("can run multiple cycles accumulating journal data", async () => {
-		const loopFactory = async () => ({
-			run: async () => makeResult(),
-		}) as any;
+		const loopFactory = async () =>
+			({
+				run: async () => makeResult(),
+			}) as any;
 
 		const loop = new AutoResearchLoop(loopFactory, {
 			config: {
@@ -164,7 +160,10 @@ function makeResult() {
 	return {
 		status: "completed" as const,
 		goal: { description: "test", maxIterations: 10 },
-		totalIterations: 5, totalDurationMs: 1000, totalCostUsd: 0.01,
-		createdSkills: [], stopReason: "goal-achieved" as const,
+		totalIterations: 5,
+		totalDurationMs: 1000,
+		totalCostUsd: 0.01,
+		createdSkills: [],
+		stopReason: "goal-achieved" as const,
 	};
 }

@@ -152,9 +152,7 @@ describe("ChatSession", () => {
 	describe("sendMessage (text-only response)", () => {
 		it("returns assistant text response", async () => {
 			session = new ChatSession(mockTaloxController as any);
-			mockFetch.mockResolvedValue(
-				mockLLMResponse({ content: "Hello! I can help you browse the web." }),
-			);
+			mockFetch.mockResolvedValue(mockLLMResponse({ content: "Hello! I can help you browse the web." }));
 
 			const result = await session.sendMessage("Hello");
 			expect(result).toBe("Hello! I can help you browse the web.");
@@ -206,9 +204,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("navigate", { url: "https://example.com" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "I navigated to example.com" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "I navigated to example.com" }));
 
 			const result = await session.sendMessage("Go to example.com");
 			expect(result).toBe("I navigated to example.com");
@@ -225,9 +221,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("click", { selector: "#btn" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Clicked the button" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Clicked the button" }));
 
 			await session.sendMessage("Click the button");
 			expect(mockTaloxController.click).toHaveBeenCalledWith("#btn");
@@ -243,9 +237,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("type", { selector: "#input", text: "hello" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Typed the text" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Typed the text" }));
 
 			await session.sendMessage("Type hello");
 			expect(mockTaloxController.type).toHaveBeenCalledWith("#input", "hello");
@@ -263,9 +255,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("scroll", { direction: "down" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Scrolled down" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Scrolled down" }));
 
 			await session.sendMessage("Scroll down");
 			expect(mockPage.evaluate).toHaveBeenCalledWith("window.scrollBy(0, 500)");
@@ -283,9 +273,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("scroll", { direction: "up" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Scrolled up" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Scrolled up" }));
 
 			await session.sendMessage("Scroll up");
 			expect(mockPage.evaluate).toHaveBeenCalledWith("window.scrollBy(0, -500)");
@@ -301,9 +289,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("getState")],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Got the state" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Got the state" }));
 
 			await session.sendMessage("Get page state");
 			expect(mockTaloxController.getState).toHaveBeenCalledWith("agent");
@@ -319,9 +305,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("screenshot")],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Took screenshot" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Took screenshot" }));
 
 			await session.sendMessage("Take a screenshot");
 			expect(mockTaloxController.getState).toHaveBeenCalledWith("agent");
@@ -337,9 +321,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("unknown_action")],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "OK, done" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "OK, done" }));
 
 			const result = await session.sendMessage("Do something weird");
 			expect(result).toBe("OK, done");
@@ -364,9 +346,7 @@ describe("ChatSession", () => {
 						toolCalls: [badToolCall],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Fixed that" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Fixed that" }));
 
 			const result = await session.sendMessage("Test bad JSON");
 			expect(result).toBe("Fixed that");
@@ -383,9 +363,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("navigate", { url: "https://fail.com" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Navigation error occurred" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Navigation error occurred" }));
 
 			const result = await session.sendMessage("Navigate to fail.com");
 			expect(result).toBe("Navigation error occurred");
@@ -407,9 +385,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("click", { selector: "#btn" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Done!" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Done!" }));
 
 			const result = await session.sendMessage("Go to example.com and click button");
 			expect(result).toBe("Done!");
@@ -475,9 +451,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("getState")],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Done" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Done" }));
 
 			// Send a large message to trigger compaction
 			const bigMsg = "A".repeat(600);
@@ -513,9 +487,7 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("screenshot")],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "No page available" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "No page available" }));
 
 			await session.sendMessage("Screenshot");
 			// When no page, screenshot returns { error: "No active page" } without calling getState
@@ -537,11 +509,10 @@ describe("ChatSession", () => {
 						toolCalls: [makeToolCall("scroll", { direction: "down" })],
 					}),
 				)
-				.mockResolvedValueOnce(
-					mockLLMResponse({ content: "Scrolled" }),
-				);
+				.mockResolvedValueOnce(mockLLMResponse({ content: "Scrolled" }));
 
-			await session.sendMessage("Scroll down");
+			const response = await session.sendMessage("Scroll down");
+			expect(response).toContain("Scrolled");
 			// No page.evaluate should be called since there's no page
 			// but the tool should still return successfully
 		});

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { RegressionHarness } from "../../../src/core/research/RegressionHarness.js";
-import type { AutoResearchConfig } from "../../../src/core/research/types.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutonomousLoop } from "../../../src/core/loop/AutonomousLoop.js";
 import type { LoopResult } from "../../../src/core/loop/types.js";
+import { RegressionHarness } from "../../../src/core/research/RegressionHarness.js";
+import type { AutoResearchConfig } from "../../../src/core/research/types.js";
 
 const defaultConfig: AutoResearchConfig = {
 	runsPerVariant: 3,

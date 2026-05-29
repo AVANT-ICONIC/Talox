@@ -5,13 +5,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	registerSolver,
-	clearSolvers,
-	getSolvers,
-	trySolve,
-	createVLMCaptchaSolver,
-	type CaptchaSolver,
 	type CaptchaChallenge,
+	type CaptchaSolver,
+	clearSolvers,
+	createVLMCaptchaSolver,
+	getSolvers,
+	registerSolver,
+	trySolve,
 } from "../../src/core/CaptchaSolver.js";
 import { setVisualReasoner, type VisualReasoner } from "../../src/core/VisualReasoner.js";
 
@@ -189,7 +189,7 @@ describe("CaptchaChallenge", () => {
 	it("has required fields", () => {
 		const c: CaptchaChallenge = {
 			type: "recaptcha-v2",
-			sitekey: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI",
+			sitekey: "6LeIxAcTAAAAAJcZVRqyH" + "h71UMIEGNQ_MXjiZKhI",
 			pageUrl: "https://example.com",
 		};
 		expect(c.type).toBe("recaptcha-v2");

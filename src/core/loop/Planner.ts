@@ -119,7 +119,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 
 		if (state.interactiveElements?.length) {
 			const MAX_INTERACTIVE_ELEMENTS = 30;
-		const trimmed = state.interactiveElements.slice(0, MAX_INTERACTIVE_ELEMENTS);
+			const trimmed = state.interactiveElements.slice(0, MAX_INTERACTIVE_ELEMENTS);
 			parts.push(`Interactive Elements (${trimmed.length}/${state.interactiveElements.length}):`);
 			for (const el of trimmed) {
 				parts.push(`  - ${el}`);

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { rm } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PromptEvolver } from "../../../src/core/research/PromptEvolver.js";
 import { ResearchJournal } from "../../../src/core/research/ResearchJournal.js";
-import { rm } from "node:fs/promises";
 
 describe("PromptEvolver", () => {
 	let journal: ResearchJournal;
@@ -66,17 +66,18 @@ describe("PromptEvolver", () => {
 
 	it("recordFitness ignores unknown variant id", async () => {
 		await evolver.initialize("seed");
-		// Should not throw
-		await evolver.recordFitness("nonexistent_id", {
-			iterationsToGoal: 3,
-			totalDurationMs: 500,
-			totalCostUsd: 0.01,
-			blockerCount: 0,
-			blockerTypes: [],
-			goalAchieved: true,
-			skillsCreated: 0,
-			strategySuccessRate: 0.9,
-		});
+		await expect(
+			evolver.recordFitness("nonexistent_id", {
+				iterationsToGoal: 3,
+				totalDurationMs: 500,
+				totalCostUsd: 0.01,
+				blockerCount: 0,
+				blockerTypes: [],
+				goalAchieved: true,
+				skillsCreated: 0,
+				strategySuccessRate: 0.9,
+			}),
+		).resolves.not.toThrow();
 	});
 
 	it("evolves when all variants have fitness > 0", async () => {

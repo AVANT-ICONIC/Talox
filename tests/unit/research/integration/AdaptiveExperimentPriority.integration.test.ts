@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { AdaptiveExperimentPriority } from "../../../../src/core/research/AdaptiveExperimentPriority.js";
 import { ResearchJournal } from "../../../../src/core/research/ResearchJournal.js";
 import type { StrategyPromotion } from "../../../../src/core/research/types.js";
@@ -42,9 +42,9 @@ describe("AdaptiveExperimentPriority — Integration", () => {
 	});
 
 	it("Thompson sampling converges to best arm over many rounds", () => {
-		priority.registerArm("best");   // will get many successes
+		priority.registerArm("best"); // will get many successes
 		priority.registerArm("medium"); // some successes
-		priority.registerArm("worst");  // mostly failures
+		priority.registerArm("worst"); // mostly failures
 
 		// Seeded PRNG for deterministic outcomes (mulberry32)
 		let outcomeSeed = 12345;
@@ -110,12 +110,18 @@ describe("AdaptiveExperimentPriority — Integration", () => {
 	it("initializes from journal history with promoted strategies", () => {
 		// Add some promotions to journal
 		const promo1: StrategyPromotion = {
-			strategyName: "promoted-A", domain: "x.com",
-			winningParameters: {}, evidence: ["e1"], promotedAt: new Date().toISOString(),
+			strategyName: "promoted-A",
+			domain: "x.com",
+			winningParameters: {},
+			evidence: ["e1"],
+			promotedAt: new Date().toISOString(),
 		};
 		const promo2: StrategyPromotion = {
-			strategyName: "promoted-B", domain: "reddit.com",
-			winningParameters: {}, evidence: ["e2"], promotedAt: new Date().toISOString(),
+			strategyName: "promoted-B",
+			domain: "reddit.com",
+			winningParameters: {},
+			evidence: ["e2"],
+			promotedAt: new Date().toISOString(),
 		};
 		journal.recordStrategyPromotion(promo1);
 		journal.recordStrategyPromotion(promo2);

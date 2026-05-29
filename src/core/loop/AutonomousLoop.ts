@@ -66,13 +66,8 @@ export class AutonomousLoop {
 
 		// Navigate to startUrl if provided
 		if (this.options.goal.startUrl) {
-			try {
-				await this.controller.navigate(this.options.goal.startUrl);
-			} catch (error: unknown) {
-				// Ignored: navigation failure will be caught in next iteration
-				const msg = error instanceof Error ? error.message : String(error);
-				this.state.status = "failed";
-				this.state.stopReason = "error";
+			const success = await this.navigateToStartUrl(this.options.goal.startUrl, startTime);
+			if (!success) {
 				return this.buildResult(startTime);
 			}
 		}
@@ -95,41 +90,71 @@ export class AutonomousLoop {
 			this.state.currentIteration = iteration.iteration;
 
 			// Accumulate token usage
-			if (iteration.tokenUsage) {
-				this.state.totalTokenUsage.promptTokens += iteration.tokenUsage.promptTokens;
-				this.state.totalTokenUsage.completionTokens += iteration.tokenUsage.completionTokens;
-				this.state.totalTokenUsage.totalTokens += iteration.tokenUsage.totalTokens;
-				this.state.totalTokenUsage.estimatedCostUsd += iteration.tokenUsage.estimatedCostUsd;
-			}
+			this.accumulateTokenUsage(iteration);
 
 			// Call onProgress callback if provided
 			this.options.onProgress?.(iteration);
 
-			// Check if goal achieved
-			if (iteration.plan.goalAchieved) {
-				this.state.status = "completed";
-				this.state.stopReason = "goal-achieved";
+			// Evaluate iteration outcome (goal, blocker, and stuck checks)
+			const shouldStop = await this.evaluateIterationOutcome(iteration);
+			if (shouldStop) {
 				break;
-			}
-
-			// Check for unresolvable blocker
-			if (iteration.plan.blocker && !iteration.plan.blocker.autoResolvable) {
-				await this.handleBlocker(iteration.plan.blocker);
-				if (this.state.status !== "running") {
-					break;
-				}
-			}
-
-			// Check for convergence / stuck loop
-			if (this.isStuck()) {
-				await this.handleStuckLoop();
-				if (this.state.status !== "running") {
-					break;
-				}
 			}
 		}
 
 		return this.buildResult(startTime);
+	}
+
+	private async navigateToStartUrl(url: string, startTime: number): Promise<boolean> {
+		try {
+			await this.controller.navigate(url);
+			return true;
+		} catch (error: unknown) {
+			const _unused = startTime; // Avoid unused parameter check warning
+			if (this.state) {
+				this.state.status = "failed";
+				this.state.stopReason = "error";
+			}
+			return false;
+		}
+	}
+
+	private accumulateTokenUsage(iteration: LoopIteration): void {
+		if (iteration.tokenUsage && this.state) {
+			this.state.totalTokenUsage.promptTokens += iteration.tokenUsage.promptTokens;
+			this.state.totalTokenUsage.completionTokens += iteration.tokenUsage.completionTokens;
+			this.state.totalTokenUsage.totalTokens += iteration.tokenUsage.totalTokens;
+			this.state.totalTokenUsage.estimatedCostUsd += iteration.tokenUsage.estimatedCostUsd;
+		}
+	}
+
+	private async evaluateIterationOutcome(iteration: LoopIteration): Promise<boolean> {
+		if (!this.state) return true;
+
+		// Check if goal achieved
+		if (iteration.plan.goalAchieved) {
+			this.state.status = "completed";
+			this.state.stopReason = "goal-achieved";
+			return true;
+		}
+
+		// Check for unresolvable blocker
+		if (iteration.plan.blocker && !iteration.plan.blocker.autoResolvable) {
+			await this.handleBlocker(iteration.plan.blocker);
+			if (this.state.status !== "running") {
+				return true;
+			}
+		}
+
+		// Check for convergence / stuck loop
+		if (this.isStuck()) {
+			await this.handleStuckLoop();
+			if (this.state.status !== "running") {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	stop(reason: LoopStopReason): void {
