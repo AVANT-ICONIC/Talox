@@ -73,7 +73,6 @@ export class ExperimentRunner {
 		// Compare: first run is control, find best treatment
 		const control = runs[0];
 		if (!control) return null;
-		let bestTreatment: ExperimentRun | null = null;
 		let bestComparison: ExperimentComparison | null = null;
 
 		for (let i = 1; i < runs.length; i++) {
@@ -82,7 +81,6 @@ export class ExperimentRunner {
 			const comparison = this.compare(control, treatment);
 
 			if (!bestComparison || comparison.confidence > bestComparison.confidence) {
-				bestTreatment = treatment;
 				bestComparison = comparison;
 			}
 		}
@@ -178,7 +176,7 @@ export class ExperimentRunner {
 			blockerTypes,
 			goalAchieved: result.status === "completed",
 			skillsCreated: result.createdSkills.length,
-			strategySuccessRate: result.status === "completed" ? 1.0 : 0.0,
+			strategySuccessRate: result.status === "completed" ? 1 : 0,
 		};
 	}
 

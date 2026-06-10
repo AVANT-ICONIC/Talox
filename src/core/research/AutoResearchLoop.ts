@@ -194,7 +194,7 @@ export class AutoResearchLoop {
 		await this.regressionHarness.save();
 
 		return {
-			loopResult: experiments.length > 0 ? experiments[experiments.length - 1]!.result : this.emptyLoopResult(),
+			loopResult: experiments.length > 0 ? experiments.at(-1)!.result : this.emptyLoopResult(),
 			experiments,
 			evaluations,
 			promotions,
@@ -225,7 +225,7 @@ export class AutoResearchLoop {
 		domain: string,
 	): void {
 		// 6. Evaluate and promote winners
-		if (comparison && comparison.winner === "treatment") {
+		if (comparison?.winner === "treatment") {
 			const promotion: StrategyPromotion = {
 				strategyName: comparison.treatment.hypothesis.variant,
 				domain,
@@ -306,7 +306,6 @@ export class AutoResearchLoop {
 	// ─── Private ───────────────────────────────────────────────────────────
 
 	private getBaseParameters(domain: string): Record<string, unknown> {
-		const summary = this.journal.getDomainSummary(domain);
 		return {
 			stealthLevel: 0.5,
 			humanDelay: true,

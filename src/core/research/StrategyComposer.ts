@@ -9,7 +9,7 @@
  */
 
 import type { ResearchJournal } from "./ResearchJournal.js";
-import type { ComposedStrategy, ExperimentRun, RunMetrics, StrategyPromotion } from "./types.js";
+import type { ComposedStrategy, ExperimentRun, StrategyPromotion } from "./types.js";
 
 type StrategyPromotedEntry = StrategyPromotion;
 
@@ -18,7 +18,7 @@ type StrategyPromotedEntry = StrategyPromotion;
 export class StrategyComposer {
 	private readonly journal: ResearchJournal;
 	private readonly confidenceThreshold: number;
-	private composedStrategies: ComposedStrategy[] = [];
+	private readonly composedStrategies: ComposedStrategy[] = [];
 
 	constructor(journal: ResearchJournal, confidenceThreshold = 0.7) {
 		this.journal = journal;
@@ -87,21 +87,28 @@ export class StrategyComposer {
 		const domains = [...byDomain.keys()];
 		for (let i = 0; i < domains.length - 1; i++) {
 			for (let j = i + 1; j < domains.length; j++) {
-				const dA = domains[i];
-				if (!dA) continue;
-				const domainA = byDomain.get(dA);
-				if (!domainA) continue;
-				const dB = domains[j];
-				if (!dB) continue;
-				const domainB = byDomain.get(dB);
-				if (!domainB) continue;
-				// Cross-domain sequential
-				if (domainA.length > 0 && domainB.length > 0) {
-					pairings.push(this.createCrossDomain(domainA[0]!, domainB[0]!, domains[i]!, domains[j]!));
+				const pairing = this.getCrossDomainPairing(domains[i]!, domains[j]!, byDomain);
+				if (pairing) {
+					pairings.push(pairing);
 				}
 			}
 		}
 		return pairings;
+	}
+
+	private getCrossDomainPairing(
+		dA: string | undefined,
+		dB: string | undefined,
+		byDomain: Map<string, StrategyPromotedEntry[]>,
+	): ComposedStrategy | null {
+		if (!dA || !dB) return null;
+		const domainA = byDomain.get(dA);
+		const domainB = byDomain.get(dB);
+		if (!domainA || !domainB) return null;
+		if (domainA.length > 0 && domainB.length > 0) {
+			return this.createCrossDomain(domainA[0]!, domainB[0]!, dA, dB);
+		}
+		return null;
 	}
 
 	/**

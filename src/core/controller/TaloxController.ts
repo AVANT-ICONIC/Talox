@@ -1040,7 +1040,7 @@ export class TaloxController {
 			planner?: import("../loop/Planner.js").Planner;
 		},
 	): Promise<import("../research/types.js").ResearchResult> {
-		const { AutoResearchLoop, DEFAULT_RESEARCH_CONFIG } = await import("../research/AutoResearchLoop.js");
+		const { AutoResearchLoop } = await import("../research/AutoResearchLoop.js");
 
 		const researchDir = options?.config?.researchDir ?? ".talox/research";
 		const config: Partial<import("../research/types.js").AutoResearchConfig> = {

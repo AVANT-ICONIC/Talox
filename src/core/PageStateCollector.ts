@@ -460,97 +460,140 @@ export class PageStateCollector {
 				return tag;
 			}
 
-			// Pass 1: cursor: pointer elements (non-semantic).
-			for (const el of Array.from(document.querySelectorAll("*"))) {
-				if (el.id?.startsWith("__talox")) continue;
-				const tag = el.tagName.toLowerCase();
-				if (getComputedStyle(el).cursor === "pointer") {
-					if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
-						const rect = el.getBoundingClientRect();
-						if (rect.width === 0 || rect.height === 0) continue;
-						if ((el as HTMLElement).style.display === "none") continue;
-						if ((el as HTMLElement).style.visibility === "hidden") continue;
-						if (el.getAttribute("aria-hidden") === "true") continue;
+			function isElementHidden(el: Element): boolean {
+				if ((el as HTMLElement).style.display === "none") return true;
+				if ((el as HTMLElement).style.visibility === "hidden") return true;
+				if (el.getAttribute("aria-hidden") === "true") return true;
+				return false;
+			}
+
+			function isCursorPointerElement(el: Element, tag: string): boolean {
+				if (el.id?.startsWith("__talox")) return false;
+				if (getComputedStyle(el).cursor !== "pointer") return false;
+				if (SEMANTIC_TAGS.has(tag) || el.getAttribute("role")) return false;
+				const rect = el.getBoundingClientRect();
+				if (rect.width === 0 || rect.height === 0) return false;
+				if (isElementHidden(el)) return false;
+				return true;
+			}
+
+			function checkCursorPointer() {
+				for (const el of Array.from(document.querySelectorAll("*"))) {
+					const tag = el.tagName.toLowerCase();
+					if (isCursorPointerElement(el, tag)) {
 						const sel = buildSelector(el, tag);
-						if (seen.includes(sel)) continue;
-						seen.push(sel);
-						results.push({
-							selector: sel,
-							tagName: tag,
-							text: el.textContent?.trim().slice(0, 100) || "",
-							boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-							detectionMethod: "cursor-style",
-						});
+						if (!seen.includes(sel)) {
+							seen.push(sel);
+							const rect = el.getBoundingClientRect();
+							results.push({
+								selector: sel,
+								tagName: tag,
+								text: el.textContent?.trim().slice(0, 100) || "",
+								boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+								detectionMethod: "cursor-style",
+							});
+						}
 					}
 				}
 			}
 
-			// Pass 2: onclick attribute elements (non-semantic).
-			for (const el of Array.from(document.querySelectorAll("[onclick]"))) {
-				if (el.id?.startsWith("__talox")) continue;
-				const tag = el.tagName.toLowerCase();
-				if (!SEMANTIC_TAGS.has(tag)) {
-					const rect = el.getBoundingClientRect();
-					if (rect.width === 0 || rect.height === 0) continue;
-					const sel = buildSelector(el, tag);
-					if (seen.includes(sel)) continue;
-					seen.push(sel);
-					results.push({
-						selector: sel,
-						tagName: tag,
-						text: el.textContent?.trim().slice(0, 100) || "",
-						boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-						detectionMethod: "onclick-attr",
-					});
+			function isOnclickElement(el: Element, tag: string): boolean {
+				if (el.id?.startsWith("__talox")) return false;
+				if (SEMANTIC_TAGS.has(tag)) return false;
+				const rect = el.getBoundingClientRect();
+				if (rect.width === 0 || rect.height === 0) return false;
+				return true;
+			}
+
+			function checkOnclick() {
+				for (const el of Array.from(document.querySelectorAll("[onclick]"))) {
+					const tag = el.tagName.toLowerCase();
+					if (isOnclickElement(el, tag)) {
+						const sel = buildSelector(el, tag);
+						if (!seen.includes(sel)) {
+							seen.push(sel);
+							const rect = el.getBoundingClientRect();
+							results.push({
+								selector: sel,
+								tagName: tag,
+								text: el.textContent?.trim().slice(0, 100) || "",
+								boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+								detectionMethod: "onclick-attr",
+							});
+						}
+					}
 				}
 			}
 
-			// Pass 3: tabindex elements (non-semantic, no role).
-			for (const el of Array.from(document.querySelectorAll('[tabindex]:not([tabindex="-1"])'))) {
-				if (el.id?.startsWith("__talox")) continue;
-				const tag = el.tagName.toLowerCase();
-				if (!SEMANTIC_TAGS.has(tag) && !el.getAttribute("role")) {
-					const rect = el.getBoundingClientRect();
-					if (rect.width === 0 || rect.height === 0) continue;
-					const sel = buildSelector(el, tag);
-					if (seen.includes(sel)) continue;
-					seen.push(sel);
-					results.push({
-						selector: sel,
-						tagName: tag,
-						text: el.textContent?.trim().slice(0, 100) || "",
-						boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-						detectionMethod: "tabindex",
-					});
+			function isTabindexElement(el: Element, tag: string): boolean {
+				if (el.id?.startsWith("__talox")) return false;
+				if (SEMANTIC_TAGS.has(tag) || el.getAttribute("role")) return false;
+				const rect = el.getBoundingClientRect();
+				if (rect.width === 0 || rect.height === 0) return false;
+				return true;
+			}
+
+			function checkTabindex() {
+				for (const el of Array.from(document.querySelectorAll('[tabindex]:not([tabindex="-1"])'))) {
+					const tag = el.tagName.toLowerCase();
+					if (isTabindexElement(el, tag)) {
+						const sel = buildSelector(el, tag);
+						if (!seen.includes(sel)) {
+							seen.push(sel);
+							const rect = el.getBoundingClientRect();
+							results.push({
+								selector: sel,
+								tagName: tag,
+								text: el.textContent?.trim().slice(0, 100) || "",
+								boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+								detectionMethod: "tabindex",
+							});
+						}
+					}
 				}
 			}
 
-			// Pass 4: Hidden radio/checkbox inside cursor-interactive wrappers.
-			for (const input of Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'))) {
-				const htmlInput = input as HTMLInputElement;
-				if (
-					htmlInput.style.display === "none" ||
-					htmlInput.style.visibility === "hidden" ||
-					input.getAttribute("type") === "hidden"
-				) {
-					const parent = input.parentElement;
-					if (parent && getComputedStyle(parent).cursor === "pointer") {
-						const rect = parent.getBoundingClientRect();
-						if (rect.width === 0 || rect.height === 0) continue;
+			function isHiddenInputWrapper(input: HTMLInputElement): Element | null {
+				const isHidden =
+					input.style.display === "none" ||
+					input.style.visibility === "hidden" ||
+					input.getAttribute("type") === "hidden";
+				if (!isHidden) return null;
+
+				const parent = input.parentElement;
+				if (!parent || getComputedStyle(parent).cursor !== "pointer") return null;
+
+				const rect = parent.getBoundingClientRect();
+				if (rect.width === 0 || rect.height === 0) return null;
+
+				return parent;
+			}
+
+			function checkHiddenInputs() {
+				for (const input of Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'))) {
+					const parent = isHiddenInputWrapper(input as HTMLInputElement);
+					if (parent) {
 						const tag = parent.tagName.toLowerCase();
 						const sel = buildSelector(parent, tag);
-						if (seen.includes(sel)) continue;
-						seen.push(sel);
-						results.push({
-							selector: sel,
-							tagName: tag,
-							text: parent.textContent?.trim().slice(0, 100) || "",
-							boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-							detectionMethod: "cursor-style",
-						});
+						if (!seen.includes(sel)) {
+							seen.push(sel);
+							const rect = parent.getBoundingClientRect();
+							results.push({
+								selector: sel,
+								tagName: tag,
+								text: parent.textContent?.trim().slice(0, 100) || "",
+								boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+								detectionMethod: "cursor-style",
+							});
+						}
 					}
 				}
 			}
+
+			checkCursorPointer();
+			checkOnclick();
+			checkTabindex();
+			checkHiddenInputs();
 
 			return results;
 		}, existingIds);

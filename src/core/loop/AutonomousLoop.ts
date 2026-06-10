@@ -18,7 +18,6 @@ import { LLMPlanner } from "./Planner.js";
 import type {
 	AutonomousLoopOptions,
 	BlockerClassification,
-	DynamicSkill,
 	LoopIteration,
 	LoopResult,
 	LoopState,
@@ -183,7 +182,7 @@ export class AutonomousLoop {
 		// 1. OBSERVE — get compact agent state
 		let pageState: AgentPageState;
 		try {
-			pageState = (await this.controller.getState("agent")) as AgentPageState;
+			pageState = await this.controller.getState("agent");
 		} catch (error: unknown) {
 			// if we can't get state, return a failed iteration
 			const msg = error instanceof Error ? error.message : String(error);
@@ -293,16 +292,17 @@ export class AutonomousLoop {
 					return { status: "success", durationMs: Date.now() - stepStart };
 				}
 				case "screenshot": {
-					const options = step.args.path
-						? { path: step.args.path as string }
-						: step.args.selector
-							? { selector: step.args.selector as string }
-							: undefined;
+					let options: any = undefined;
+					if (step.args.path) {
+						options = { path: step.args.path as string };
+					} else if (step.args.selector) {
+						options = { selector: step.args.selector as string };
+					}
 					await this.controller.screenshot(options);
 					return { status: "success", durationMs: Date.now() - stepStart };
 				}
 				case "getState": {
-					const state = (await this.controller.getState("agent")) as AgentPageState;
+					const state = await this.controller.getState("agent");
 					return { status: "success", state, durationMs: Date.now() - stepStart };
 				}
 				case "waitForSelector": {
@@ -398,7 +398,7 @@ export class AutonomousLoop {
 	 */
 	private async handleStuckLoop(): Promise<void> {
 		if (!this.state) return;
-		const lastIteration = this.state.iterations[this.state.iterations.length - 1];
+		const lastIteration = this.state.iterations.at(-1);
 		if (!lastIteration) return;
 
 		const blocker = lastIteration.plan.blocker;
@@ -443,10 +443,10 @@ export class AutonomousLoop {
 			// Build context for skill generation
 			const recentHistory = this.state.iterations
 				.slice(-3)
-				.map(
-					(it) =>
-						`Iteration ${it.iteration}: ${it.observation} → ${it.result.status}${it.result.error ? ` (${it.result.error})` : ""}`,
-				)
+				.map((it) => {
+					const err = it.result.error ? ` (${it.result.error})` : "";
+					return `Iteration ${it.iteration}: ${it.observation} → ${it.result.status}${err}`;
+				})
 				.join("\n");
 
 			const skill = await this.planner.generateSkill?.({
@@ -460,11 +460,7 @@ export class AutonomousLoop {
 			if (!skill) return false;
 
 			// Determine domain from the last known URL
-			const lastUrl =
-				this.state.iterations
-					.map((it) => it.result.state?.url)
-					.filter(Boolean)
-					.pop() ?? "unknown";
+			const lastUrl = this.state.iterations.map((it) => it.result.state?.url).findLast((url) => !!url) ?? "unknown";
 			const domain = this.extractHostname(lastUrl);
 
 			// Write and validate the skill
@@ -567,7 +563,7 @@ export class AutonomousLoop {
 			try {
 				const hostname =
 					this.state.iterations.length > 0
-						? this.extractHostname(this.state.iterations[this.state.iterations.length - 1]?.plan?.assessment ?? "")
+						? this.extractHostname(this.state.iterations.at(-1)?.plan?.assessment ?? "")
 						: "unknown";
 
 				await this.skillWriter.createSkill({

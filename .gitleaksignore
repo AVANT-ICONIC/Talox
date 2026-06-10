@@ -1,0 +1,5 @@
+# Exclude mock browser profiles and test directories from Gitleaks analysis
+test-profile/
+test/
+tests/temp-profiles/
+smoke-test-profile/

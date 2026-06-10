@@ -99,11 +99,6 @@ export class RegressionHarness {
 
 		try {
 			const loop = await loopFactory({});
-			const goal: TaskGoal = {
-				description: testCase.goal,
-				maxIterations: testCase.expectedMaxIterations * 2,
-				maxDurationSeconds: Math.ceil(this.config.regressionTimeoutMs / 1000),
-			};
 
 			const startTime = Date.now();
 			const result = await loop.run();
@@ -117,7 +112,7 @@ export class RegressionHarness {
 				blockerTypes: [],
 				goalAchieved: result.status === "completed",
 				skillsCreated: result.createdSkills.length,
-				strategySuccessRate: result.status === "completed" ? 1.0 : 0.0,
+				strategySuccessRate: result.status === "completed" ? 1 : 0,
 			};
 
 			// Check for regressions

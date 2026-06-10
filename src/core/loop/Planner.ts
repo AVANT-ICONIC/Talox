@@ -117,27 +117,43 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		parts.push(`URL: ${state.url}`);
 		parts.push(`Title: ${state.title}`);
 
-		if (state.interactiveElements?.length) {
+		this.appendInteractiveElements(parts, state.interactiveElements);
+		this.appendConsoleErrors(parts, state.consoleErrors);
+		this.appendBugs(parts, state.bugs);
+		this.appendChallengeState(parts, challengeState);
+		this.appendSkillsAndHints(parts, skillsContext, domainHints);
+		this.appendRecentIterations(parts, recentIterations);
+
+		return parts.join("\n");
+	}
+
+	private appendInteractiveElements(parts: string[], elements?: any[]): void {
+		if (elements?.length) {
 			const MAX_INTERACTIVE_ELEMENTS = 30;
-			const trimmed = state.interactiveElements.slice(0, MAX_INTERACTIVE_ELEMENTS);
-			parts.push(`Interactive Elements (${trimmed.length}/${state.interactiveElements.length}):`);
+			const trimmed = elements.slice(0, MAX_INTERACTIVE_ELEMENTS);
+			parts.push(`Interactive Elements (${trimmed.length}/${elements.length}):`);
 			for (const el of trimmed) {
 				parts.push(`  - ${el}`);
 			}
 		}
+	}
 
-		if (state.consoleErrors?.length) {
-			parts.push(`Console Errors: ${state.consoleErrors.join("; ")}`);
+	private appendConsoleErrors(parts: string[], errors?: string[]): void {
+		if (errors?.length) {
+			parts.push(`Console Errors: ${errors.join("; ")}`);
 		}
+	}
 
-		if (state.bugs?.length) {
+	private appendBugs(parts: string[], bugs?: Array<{ severity: string; type: string; description: string }>): void {
+		if (bugs?.length) {
 			parts.push("Bugs:");
-			for (const bug of state.bugs) {
+			for (const bug of bugs) {
 				parts.push(`  - [${bug.severity}] ${bug.type}: ${bug.description}`);
 			}
 		}
+	}
 
-		// Challenge state
+	private appendChallengeState(parts: string[], challengeState?: any): void {
 		if (challengeState?.hasChallenge && challengeState.primaryChallenge) {
 			const ch = challengeState.primaryChallenge;
 			parts.push(`\n## Active Challenge`);
@@ -145,18 +161,18 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 			parts.push(`Evidence: ${ch.evidence.join(", ")}`);
 			parts.push(`Can retry: ${ch.canRetry}, Requires human: ${ch.requiresHuman}`);
 		}
+	}
 
-		// Skills context
+	private appendSkillsAndHints(parts: string[], skillsContext?: string, domainHints?: string): void {
 		if (skillsContext) {
 			parts.push(`\n## Skills Context\n${skillsContext}`);
 		}
-
-		// Domain hints
 		if (domainHints) {
 			parts.push(`\n## Domain Memory Hints\n${domainHints}`);
 		}
+	}
 
-		// Recent iteration history
+	private appendRecentIterations(parts: string[], recentIterations: any[]): void {
 		if (recentIterations.length > 0) {
 			const recentSlice = recentIterations.slice(-this.config.contextWindowIterations);
 			parts.push(`\n## Recent Iterations (${recentSlice.length})`);
@@ -168,8 +184,6 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 				}
 			}
 		}
-
-		return parts.join("\n");
 	}
 
 	private async callLLM(userMessage: string): Promise<string> {

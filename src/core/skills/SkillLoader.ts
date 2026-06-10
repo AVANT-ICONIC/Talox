@@ -241,7 +241,7 @@ export class SkillLoader {
 			currentArray = parsed.currentArray;
 
 			if (parsed.value !== undefined) {
-				values[parsed.valueKey!] = parsed.value;
+				values[parsed.valueKey] = parsed.value;
 			}
 		}
 
@@ -308,15 +308,20 @@ export class SkillLoader {
 
 	/** Validate parsed values and build a SkillManifest, or return null. */
 	private buildManifest(values: Record<string, unknown>): SkillManifest | null {
-		if (!values.name || !values.description || !values.version || !values.domain) {
+		if (
+			typeof values.name !== "string" ||
+			typeof values.description !== "string" ||
+			typeof values.version !== "string" ||
+			typeof values.domain !== "string"
+		) {
 			return null;
 		}
 
 		const manifest: SkillManifest = {
-			name: String(values.name),
-			description: String(values.description),
-			version: String(values.version),
-			domain: String(values.domain),
+			name: values.name,
+			description: values.description,
+			version: values.version,
+			domain: values.domain,
 		};
 
 		if (Array.isArray(values.allowedTools)) {

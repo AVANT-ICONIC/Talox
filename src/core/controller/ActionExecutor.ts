@@ -116,33 +116,66 @@ export class ActionExecutor {
 
 		await this.checkRiskyAction("navigate", url);
 
+		this.enforcePolicy(profile, url);
+
+		await this.handleFirstNavigationWarmup(url, isFirstNavigation, setFirstNavigation);
+
+		await this.performNavigation(page, url);
+
+		setFirstNavigation(false);
+
+		await this.handleSiteWarmup(page, url);
+
+		this.densityCache.clear();
+
+		const settleTime = 500;
+		await new Promise((r) => setTimeout(r, settleTime));
+
+		await this.handleAutomaticThinking();
+
+		this.artifactBuilder.addAction("navigate", { url });
+		const state = await this.getActiveStateCollector().collect();
+
+		this.applyRulesAndBugs(state, lastState, rulesEngine);
+
+		this.emitNavigationEvents(state);
+
+		return state;
+	}
+
+	private enforcePolicy(profile: any, url: string): void {
 		if (profile && !this.policyEngine.isAllowed(profile.class, url)) {
 			throw new Error(`Policy Violation: URL ${url} not allowed for ${profile.class} profile`);
 		}
+	}
 
-		// Session Warmup: navigate to a neutral page first
+	private async handleFirstNavigationWarmup(
+		url: string,
+		isFirstNavigation: boolean,
+		setFirstNavigation: (v: boolean) => void,
+	): Promise<void> {
 		if (isFirstNavigation && url !== "about:blank" && !url.includes("google.com")) {
 			try {
+				const page = this.getPage();
 				await page.goto("about:blank");
 				await new Promise((r) => setTimeout(r, 2000 + Math.random() * 1000));
-			} catch (error_) {
-				// NOSONAR
+			} catch {
 				// Ignore warmup failures
 			}
 			setFirstNavigation(false);
 		}
+	}
 
-		// Settle Wait: Ensure hydration before proceeding
+	private async performNavigation(page: any, url: string): Promise<void> {
 		const waitState = this.settings.navigationWaitUntil || "networkidle";
 		const waitOption = { waitUntil: waitState };
 
 		try {
 			await page.goto(url, waitOption);
 		} catch (error: any) {
-			if (
-				waitState === "networkidle" &&
-				(error.name === "TimeoutError" || error.message.includes("timeout") || error.message.includes("Timeout"))
-			) {
+			const isTimeout =
+				error.name === "TimeoutError" || error.message.includes("timeout") || error.message.includes("Timeout");
+			if (waitState === "networkidle" && isTimeout) {
 				if (this.settings.verbosity >= 1) {
 					console.warn(`[Talox] networkidle navigation timed out for ${url}. Falling back to load.`);
 				}
@@ -151,9 +184,9 @@ export class ActionExecutor {
 				throw error;
 			}
 		}
-		setFirstNavigation(false);
+	}
 
-		// Site warmup: bypass bot-detection interstitials (Cloudflare, CAPTCHA pre-screens, etc.)
+	private async handleSiteWarmup(page: any, url: string): Promise<void> {
 		const hostname = (() => {
 			try {
 				return new URL(url).hostname;
@@ -164,30 +197,21 @@ export class ActionExecutor {
 		if (hostname && this.warmupRegistry) {
 			await this.warmupRegistry.runIfNeeded(page, url, hostname);
 		}
-		this.densityCache.clear();
+	}
 
-		const settleTime = 500;
-		await new Promise((r) => setTimeout(r, settleTime));
-
-		// Auto-think right after navigation to pass bot detection
+	private async handleAutomaticThinking(): Promise<void> {
 		if (this.settings.automaticThinkingEnabled) {
 			await this.fidget(2000);
 		}
+	}
 
-		this.artifactBuilder.addAction("navigate", { url });
-		const state = await this.getActiveStateCollector().collect();
-
+	private applyRulesAndBugs(state: TaloxPageState, lastState: TaloxPageState | null, rulesEngine: any): void {
 		if (lastState) {
 			const structuralBugs = rulesEngine.diffStructural(lastState, state);
 			state.bugs.push(...structuralBugs);
 		}
-
 		state.bugs.push(...rulesEngine.analyze(state));
 		this.attachDiff(lastState, state);
-
-		this.emitNavigationEvents(state);
-
-		return state;
 	}
 
 	private emitNavigationEvents(state: TaloxPageState): void {

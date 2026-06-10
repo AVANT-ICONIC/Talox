@@ -1004,121 +1004,137 @@ function injectStealthPart2(data: any): void {
 }
 
 function injectStealthPart3(data: any): void {
+	const patchedFunctions = new Map<any, string>();
+
 	// 14. Permissions API — override to prevent detection via permission state
-	if (navigator.permissions?.query) {
-		const origQuery = navigator.permissions.query.bind(navigator.permissions);
-		navigator.permissions.query = (params: any) => {
-			if (params.name === "notifications") {
-				return Promise.resolve({ state: "prompt" } as PermissionStatus);
-			}
-			return origQuery(params);
-		};
+	function setupPermissions() {
+		if (navigator.permissions?.query) {
+			const origQuery = navigator.permissions.query.bind(navigator.permissions);
+			navigator.permissions.query = (params: any) => {
+				if (params.name === "notifications") {
+					return Promise.resolve({ state: "prompt" } as PermissionStatus);
+				}
+				return origQuery(params);
+			};
+		}
 	}
 
 	// 15. toString leak protection — prevent detection of patched getters
-	// Many bot detectors check: Object.getOwnPropertyDescriptor(navigator, 'webdriver').get.toString()
-	// If it returns "function get webdriver() { ... }" instead of native code, it's detected.
-	const nativeToString = Function.prototype.toString;
-	const patchedFunctions = new Map<any, string>();
+	function setupToStringLeakProtection() {
+		const nativeToString = Function.prototype.toString;
 
-	// Pre-register our patched functions with native-looking toString
-	const fakeNativeToString = function (this: any) {
-		if (patchedFunctions.has(this)) {
-			return patchedFunctions.get(this)!;
+		// Pre-register our patched functions with native-looking toString
+		const fakeNativeToString = function (this: any) {
+			if (patchedFunctions.has(this)) {
+				return patchedFunctions.get(this)!;
+			}
+			return nativeToString.call(this);
+		};
+		patchedFunctions.set(fakeNativeToString, "function toString() { [native code] }");
+
+		// Wrap Function.prototype.toString itself
+		const origProtoToString = Function.prototype.toString;
+		Function.prototype.toString = function (this: any) {
+			if (patchedFunctions.has(this)) {
+				return patchedFunctions.get(this)!;
+			}
+			return origProtoToString.call(this);
+		};
+
+		// Register all our patched getters as native
+		const nativeGetterStr = "function get webdriver() { [native code] }";
+		const nativePluginsStr = "function get plugins() { [native code] }";
+		const nativeLangStr = "function get languages() { [native code] }";
+		const nativePlatformStr = "function get platform() { [native code] }";
+		const nativeHwStr = "function get hardwareConcurrency() { [native code] }";
+		const nativeMemStr = "function get deviceMemory() { [native code] }";
+
+		try {
+			const wdDesc = Object.getOwnPropertyDescriptor(navigator, "webdriver");
+			if (wdDesc?.get) patchedFunctions.set(wdDesc.get, nativeGetterStr);
+			const plDesc = Object.getOwnPropertyDescriptor(navigator, "plugins");
+			if (plDesc?.get) patchedFunctions.set(plDesc.get, nativePluginsStr);
+			const laDesc = Object.getOwnPropertyDescriptor(navigator, "languages");
+			if (laDesc?.get) patchedFunctions.set(laDesc.get, nativeLangStr);
+			const pfDesc = Object.getOwnPropertyDescriptor(navigator, "platform");
+			if (pfDesc?.get) patchedFunctions.set(pfDesc.get, nativePlatformStr);
+			const hcDesc = Object.getOwnPropertyDescriptor(navigator, "hardwareConcurrency");
+			if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
+			const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
+			if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
 		}
-		return nativeToString.call(this);
-	};
-	patchedFunctions.set(fakeNativeToString, "function toString() { [native code] }");
-
-	// Wrap Function.prototype.toString itself
-	const origProtoToString = Function.prototype.toString;
-	Function.prototype.toString = function (this: any) {
-		if (patchedFunctions.has(this)) {
-			return patchedFunctions.get(this)!;
-		}
-		return origProtoToString.call(this);
-	};
-
-	// Register all our patched getters as native
-	const nativeGetterStr = "function get webdriver() { [native code] }";
-	const nativePluginsStr = "function get plugins() { [native code] }";
-	const nativeLangStr = "function get languages() { [native code] }";
-	const nativePlatformStr = "function get platform() { [native code] }";
-	const nativeHwStr = "function get hardwareConcurrency() { [native code] }";
-	const nativeMemStr = "function get deviceMemory() { [native code] }";
-
-	try {
-		const wdDesc = Object.getOwnPropertyDescriptor(navigator, "webdriver");
-		if (wdDesc?.get) patchedFunctions.set(wdDesc.get, nativeGetterStr);
-		const plDesc = Object.getOwnPropertyDescriptor(navigator, "plugins");
-		if (plDesc?.get) patchedFunctions.set(plDesc.get, nativePluginsStr);
-		const laDesc = Object.getOwnPropertyDescriptor(navigator, "languages");
-		if (laDesc?.get) patchedFunctions.set(laDesc.get, nativeLangStr);
-		const pfDesc = Object.getOwnPropertyDescriptor(navigator, "platform");
-		if (pfDesc?.get) patchedFunctions.set(pfDesc.get, nativePlatformStr);
-		const hcDesc = Object.getOwnPropertyDescriptor(navigator, "hardwareConcurrency");
-		if (hcDesc?.get) patchedFunctions.set(hcDesc.get, nativeHwStr);
-		const dmDesc = Object.getOwnPropertyDescriptor(navigator, "deviceMemory");
-		if (dmDesc?.get) patchedFunctions.set(dmDesc.get, nativeMemStr);
-	} catch (_e) {
-		/* Ignored: non-fatal browser API error */
 	}
 
 	// 16. iframe contentWindow detection — prevent cross-origin iframe checks
-	// Some detectors create an iframe and check contentWindow.chrome vs window.chrome
-	if (typeof document !== "undefined") {
-		const origCreateElement = document.createElement.bind(document);
-		document.createElement = (tag: string) => {
-			const el = origCreateElement(tag);
-			if (tag.toLowerCase() === "iframe") {
-				// Ensure the iframe's contentWindow inherits our chrome object
-				try {
-					Object.defineProperty(el, "contentWindow", {
-						get: () => null,
-					});
-				} catch (_e) {
-					/* NOSONAR — some browsers don't allow this */
+	function setupIframeDetection() {
+		if (typeof document !== "undefined") {
+			const origCreateElement = document.createElement.bind(document);
+			document.createElement = (tag: string) => {
+				const el = origCreateElement(tag);
+				if (tag.toLowerCase() === "iframe") {
+					// Ensure the iframe's contentWindow inherits our chrome object
+					try {
+						Object.defineProperty(el, "contentWindow", {
+							get: () => null,
+						});
+					} catch (_e) {
+						/* NOSONAR — some browsers don't allow this */
+					}
 				}
-			}
-			return el;
-		};
-		// Register createElement toString as native
-		patchedFunctions.set(document.createElement, "function createElement() { [native code] }");
+				return el;
+			};
+			// Register createElement toString as native
+			patchedFunctions.set(document.createElement, "function createElement() { [native code] }");
+		}
 	}
 
 	// 17. Navigator.connection spoofing — consistent with fingerprint profile
-	const navConn = (navigator as any).connection;
-	if (navConn) {
-		try {
-			Object.defineProperty(navConn, "rtt", { get: () => 50 });
-			Object.defineProperty(navConn, "downlink", { get: () => 10 });
-			Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
-			Object.defineProperty(navConn, "saveData", { get: () => false });
-		} catch (_e) {
-			/* Ignored: non-fatal browser API error */
+	function setupNavigatorConnection() {
+		const navConn = (navigator as any).connection;
+		if (navConn) {
+			try {
+				Object.defineProperty(navConn, "rtt", { get: () => 50 });
+				Object.defineProperty(navConn, "downlink", { get: () => 10 });
+				Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
+				Object.defineProperty(navConn, "saveData", { get: () => false });
+			} catch (_e) {
+				/* Ignored: non-fatal browser API error */
+			}
 		}
 	}
 
 	// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
-	if (typeof window !== "undefined" && window.screen) {
-		try {
-			Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
-			Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
-		} catch (_e) {
-			/* Ignored: non-fatal browser API error */
+	function setupScreenDimensions() {
+		if (typeof window !== "undefined" && window.screen) {
+			try {
+				Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
+				Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
+			} catch (_e) {
+				/* Ignored: non-fatal browser API error */
+			}
 		}
 	}
 
 	// 19. CDP (Chrome DevTools Protocol) leak protection
-	// Patchright handles most CDP leaks, but belt-and-suspenders for any JS-level checks
-	if (typeof window !== "undefined") {
-		// Delete automation-specific properties that leak through CDP
-		try {
-			delete (window as any).__playwright;
-			delete (window as any).__pw_manual;
-			delete (window as any).__PW_inspect;
-		} catch (_e) {
-			/* Ignored: non-fatal browser API error */
+	function setupCdpLeakProtection() {
+		if (typeof window !== "undefined") {
+			// Delete automation-specific properties that leak through CDP
+			try {
+				delete (window as any).__playwright;
+				delete (window as any).__pw_manual;
+				delete (window as any).__PW_inspect;
+			} catch (_e) {
+				/* Ignored: non-fatal browser API error */
+			}
 		}
 	}
+
+	setupPermissions();
+	setupToStringLeakProtection();
+	setupIframeDetection();
+	setupNavigatorConnection();
+	setupScreenDimensions();
+	setupCdpLeakProtection();
 }
