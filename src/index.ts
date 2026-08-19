@@ -13,6 +13,9 @@ export {
 	type AgentTask,
 	type CoordinatorConfig,
 	type CoordinatorResult,
+	type SharedStateConflict,
+	type SharedStateConflictStrategy,
+	type SharedStateWriteResult,
 } from "./core/AgentCoordinator.js";
 // ─── Auto-Dialog Handling ──────────────────────────────────────────────────────
 export type { DialogRecord } from "./core/AutoDialogHandler.js";
