@@ -9,8 +9,15 @@
 - [ ] LLMPlanner integration: break goals into subtasks dynamically
 - [ ] Auto-distribute subtasks to agents via AgentCoordinator
 - [ ] Observe results, adapt plan mid-execution
-- [ ] Shared state bag between agents
-- [ ] Result merging with conflict resolution
+- [x] Shared state bag between agents
+- [x] Result merging with conflict resolution
+
+### Coordinator foundation now in place
+
+- Successful tasks can publish output through `resultKey`.
+- Shared-state collisions support `last-write-wins`, `first-write-wins`, or `reject`.
+- Result merging is deterministic in original task order even though agents execute concurrently.
+- Coordinator status now tracks live `busy`, `currentUrl`, and `lastResult` values instead of placeholder status data.
 
 ---
 
