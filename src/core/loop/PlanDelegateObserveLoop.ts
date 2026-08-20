@@ -10,6 +10,7 @@ import type {
 	MultiAgentPlannerConflict,
 	MultiAgentPlannerContext,
 	MultiAgentPlannerWaveSummary,
+	PlanStep,
 	PlannerConfig,
 	PlannerInput,
 	TaskGoal,
@@ -45,6 +46,8 @@ export type CoordinationStopReason =
 	| "goal-achieved"
 	| "max-waves"
 	| "planner-stalled"
+	| "planner-error"
+	| "execution-error"
 	| "unresolvable-blocker"
 	| "no-executable-steps"
 	| "bootstrap-failed";
@@ -58,6 +61,7 @@ export interface PlanDelegateObserveResult {
 	totalDurationMs: number;
 	sharedState: Readonly<Record<string, unknown>>;
 	finalPlan?: TaskPlan;
+	error?: string;
 }
 
 const SUPPORTED_ACTIONS = new Set<AgentTask["action"]>(["navigate", "click", "type", "getState", "screenshot", "wait"]);
@@ -92,12 +96,17 @@ export class PlanDelegateObserveLoop {
 
 		try {
 			observation = await this.bootstrap();
-		} catch {
-			return this.buildResult("failed", "bootstrap-failed", startTime);
+		} catch (error: unknown) {
+			return this.buildResult("failed", "bootstrap-failed", startTime, undefined, this.errorMessage(error));
 		}
 
 		for (let waveNumber = 1; waveNumber <= this.maxWaves; waveNumber++) {
-			const plan = await this.planNextWave(observation, waveNumber);
+			let plan: TaskPlan;
+			try {
+				plan = await this.planNextWave(observation, waveNumber);
+			} catch (error: unknown) {
+				return this.buildResult("failed", "planner-error", startTime, undefined, this.errorMessage(error));
+			}
 
 			if (plan.goalAchieved) {
 				return this.buildResult("completed", "goal-achieved", startTime, plan);
@@ -109,11 +118,17 @@ export class PlanDelegateObserveLoop {
 
 			const tasks = this.toAgentTasks(plan);
 			if (tasks.length === 0) {
-				const reason: CoordinationStopReason = plan.steps.length === 0 ? "planner-stalled" : "no-executable-steps";
+				const rawSteps = this.rawSteps(plan);
+				const reason: CoordinationStopReason = rawSteps.length === 0 ? "planner-stalled" : "no-executable-steps";
 				return this.buildResult("failed", reason, startTime, plan);
 			}
 
-			observation = await this.runtime.run(tasks);
+			try {
+				observation = await this.runtime.run(tasks);
+			} catch (error: unknown) {
+				return this.buildResult("failed", "execution-error", startTime, plan, this.errorMessage(error));
+			}
+
 			const wave: CoordinationWave = {
 				wave: waveNumber,
 				plan,
@@ -128,7 +143,13 @@ export class PlanDelegateObserveLoop {
 		// One read-only verification pass after the final execution wave. This
 		// avoids reporting max-waves when the last delegated action actually
 		// completed the goal.
-		const finalPlan = await this.planNextWave(observation, this.maxWaves + 1);
+		let finalPlan: TaskPlan;
+		try {
+			finalPlan = await this.planNextWave(observation, this.maxWaves + 1);
+		} catch (error: unknown) {
+			return this.buildResult("failed", "planner-error", startTime, undefined, this.errorMessage(error));
+		}
+
 		if (finalPlan.goalAchieved) {
 			return this.buildResult("completed", "goal-achieved", startTime, finalPlan);
 		}
@@ -141,12 +162,13 @@ export class PlanDelegateObserveLoop {
 	}
 
 	private async bootstrap(): Promise<CoordinatorResult> {
+		const startUrl = this.options.goal.startUrl;
 		const tasks: AgentTask[] = Array.from({ length: this.runtime.agentCount }, (_, agentId) => {
-			if (this.options.goal.startUrl) {
+			if (startUrl) {
 				return {
 					agentId,
 					action: "navigate",
-					params: { url: this.options.goal.startUrl },
+					params: { url: startUrl },
 				};
 			}
 			return { agentId, action: "getState" };
@@ -227,7 +249,10 @@ export class PlanDelegateObserveLoop {
 	private toAgentTasks(plan: TaskPlan): AgentTask[] {
 		const tasks: AgentTask[] = [];
 
-		for (const [stepIndex, step] of plan.steps.entries()) {
+		for (const [stepIndex, rawStep] of this.rawSteps(plan).entries()) {
+			const step = this.normalizePlanStep(rawStep, stepIndex);
+			if (!step) continue;
+
 			const action = this.normalizeAction(step.tool);
 			if (!action) continue;
 
@@ -256,6 +281,29 @@ export class PlanDelegateObserveLoop {
 		}
 
 		return tasks;
+	}
+
+	private rawSteps(plan: TaskPlan): unknown[] {
+		const candidate = (plan as unknown as { steps?: unknown }).steps;
+		return Array.isArray(candidate) ? candidate : [];
+	}
+
+	private normalizePlanStep(rawStep: unknown, fallbackIndex: number): PlanStep | null {
+		if (!rawStep || typeof rawStep !== "object" || Array.isArray(rawStep)) return null;
+		const raw = rawStep as Record<string, unknown>;
+		if (typeof raw["tool"] !== "string" || !raw["tool"]) return null;
+
+		const rawArgs = raw["args"];
+		const args = rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs) ? (rawArgs as Record<string, unknown>) : {};
+
+		return {
+			index: typeof raw["index"] === "number" && Number.isInteger(raw["index"]) ? raw["index"] : fallbackIndex,
+			action: typeof raw["action"] === "string" ? raw["action"] : raw["tool"],
+			tool: raw["tool"],
+			args,
+			reasoning: typeof raw["reasoning"] === "string" ? raw["reasoning"] : "",
+			retryable: typeof raw["retryable"] === "boolean" ? raw["retryable"] : true,
+		};
 	}
 
 	private normalizeAction(tool: string): AgentTask["action"] | null {
@@ -288,11 +336,16 @@ export class PlanDelegateObserveLoop {
 		return stepIndex % this.runtime.agentCount;
 	}
 
+	private errorMessage(error: unknown): string {
+		return error instanceof Error ? error.message : String(error);
+	}
+
 	private buildResult(
 		status: PlanDelegateObserveResult["status"],
 		stopReason: CoordinationStopReason,
 		startTime: number,
 		finalPlan?: TaskPlan,
+		error?: string,
 	): PlanDelegateObserveResult {
 		const result: PlanDelegateObserveResult = {
 			status,
@@ -304,6 +357,7 @@ export class PlanDelegateObserveLoop {
 			sharedState: this.runtime.getSharedState(),
 		};
 		if (finalPlan) result.finalPlan = finalPlan;
+		if (error) result.error = error;
 		return result;
 	}
 }
