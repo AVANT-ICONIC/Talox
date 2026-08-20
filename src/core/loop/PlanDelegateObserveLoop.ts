@@ -98,6 +98,7 @@ export class PlanDelegateObserveLoop {
 
 	async run(): Promise<PlanDelegateObserveResult> {
 		const startTime = Date.now();
+		this.waves.length = 0;
 		let observation: CoordinatorResult;
 
 		await this.ensureSkillsLoaded();
