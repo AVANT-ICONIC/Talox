@@ -4,6 +4,7 @@ import type {
 	CoordinatorResult,
 	SharedStateConflictStrategy,
 } from "../AgentCoordinator.js";
+import { SkillLoader } from "../skills/SkillLoader.js";
 import { LLMPlanner, type Planner } from "./Planner.js";
 import type {
 	MultiAgentPlannerAgentState,
@@ -28,9 +29,11 @@ export interface PlanDelegateObserveOptions {
 	planner: PlannerConfig;
 	/** Override the internally-created planner. Intended for tests or custom planners. */
 	plannerOverride?: Planner;
+	/** Optional skill directory for domain-specific planner context. */
+	skillsDir?: string;
 	/** Maximum execution waves. Defaults to goal.maxIterations. */
 	maxWaves?: number;
-	/** Called after each executed coordination wave. */
+	/** Called after each executed coordination wave. Observer errors are isolated from the run. */
 	onProgress?: (wave: CoordinationWave) => void;
 }
 
@@ -80,6 +83,8 @@ export class PlanDelegateObserveLoop {
 	private readonly options: PlanDelegateObserveOptions;
 	private readonly maxWaves: number;
 	private readonly waves: CoordinationWave[] = [];
+	private readonly skillLoader: SkillLoader;
+	private skillsLoaded = false;
 
 	constructor(runtime: CoordinationRuntime, options: PlanDelegateObserveOptions) {
 		if (runtime.agentCount < 1) throw new Error("PlanDelegateObserveLoop requires at least one agent");
@@ -88,11 +93,14 @@ export class PlanDelegateObserveLoop {
 		this.options = options;
 		this.maxWaves = Math.max(1, options.maxWaves ?? options.goal.maxIterations);
 		this.planner = options.plannerOverride ?? new LLMPlanner(options.planner);
+		this.skillLoader = new SkillLoader(options.skillsDir ? [options.skillsDir] : undefined);
 	}
 
 	async run(): Promise<PlanDelegateObserveResult> {
 		const startTime = Date.now();
 		let observation: CoordinatorResult;
+
+		await this.ensureSkillsLoaded();
 
 		try {
 			observation = await this.bootstrap();
@@ -137,7 +145,11 @@ export class PlanDelegateObserveLoop {
 				timestamp: new Date().toISOString(),
 			};
 			this.waves.push(wave);
-			this.options.onProgress?.(wave);
+			try {
+				this.options.onProgress?.(wave);
+			} catch {
+				// Progress observers must never interrupt browser coordination.
+			}
 		}
 
 		// One read-only verification pass after the final execution wave. This
@@ -159,6 +171,16 @@ export class PlanDelegateObserveLoop {
 
 	getWaves(): CoordinationWave[] {
 		return [...this.waves];
+	}
+
+	private async ensureSkillsLoaded(): Promise<void> {
+		if (this.skillsLoaded) return;
+		this.skillsLoaded = true;
+		try {
+			await this.skillLoader.loadAll();
+		} catch {
+			// Skills are optional context. A bad directory must not block execution.
+		}
 	}
 
 	private async bootstrap(): Promise<CoordinatorResult> {
@@ -183,10 +205,20 @@ export class PlanDelegateObserveLoop {
 			state,
 			goal: this.options.goal,
 			recentIterations: [],
-			skillsContext: "",
+			skillsContext: this.skillsContextForState(state),
 			multiAgent: this.buildPlannerContext(observation, waveNumber),
 		};
 		return this.planner.plan(input);
+	}
+
+	private skillsContextForState(state: PlannerInput["state"]): string {
+		try {
+			const hostname = new URL(state.url).hostname;
+			if (!hostname) return "";
+			return this.skillLoader.toContextForDomain(hostname);
+		} catch {
+			return "";
+		}
 	}
 
 	private selectPrimaryState(observation: CoordinatorResult): PlannerInput["state"] {
