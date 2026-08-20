@@ -3,6 +3,8 @@ name: Skill Fix Temp
 on:
   push:
     branches: [fix/single-agent-skill-loading]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
