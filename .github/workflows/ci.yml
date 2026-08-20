@@ -14,11 +14,11 @@ on:
         required: false
         default: ''
 
-# Cancel in-progress runs on the same branch when a new push arrives.
-# This prevents the "cancelled" cascade from rapid consecutive pushes.
+# Cancel superseded runs on the same branch/ref when a newer commit arrives.
+# This keeps PR feedback focused on the current head instead of stale intermediates.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
