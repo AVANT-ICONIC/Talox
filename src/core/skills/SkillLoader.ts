@@ -22,7 +22,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { FAILSAFE_SCHEMA, load as loadYaml } from "js-yaml";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -42,6 +42,11 @@ export interface LoadedSkill {
 	references: Map<string, string>; // name -> content
 }
 
+interface LoadedSkillFile {
+	skill: LoadedSkill;
+	sourcePath: string;
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const SKILL_FILENAME = "SKILL.md";
@@ -55,6 +60,7 @@ const FRONTMATTER_DELIMITER = "---";
  */
 export class SkillLoader {
 	private readonly skills: Map<string, LoadedSkill> = new Map();
+	private readonly skillSources: Map<string, string> = new Map();
 	private readonly searchPaths: string[];
 
 	constructor(searchPaths?: string[]) {
@@ -68,24 +74,47 @@ export class SkillLoader {
 	// ─── Loading ──────────────────────────────────────────────────────────
 
 	/**
-	 * Scan all search paths and load every discoverable SKILL.md.
-	 * Returns the number of skills successfully loaded.
+	 * Scan all configured search paths and reconcile the managed registry with
+	 * the filesystem. Explicitly loaded skills outside those roots are preserved.
+	 * The registry is swapped only after the scan completes successfully.
+	 * Returns the number of discoverable managed skills successfully loaded.
 	 */
 	async loadAll(): Promise<number> {
+		const managedRoots = this.searchPaths.map((rawPath) => this.resolvePath(rawPath));
+		const nextSkills = new Map<string, LoadedSkill>();
+		const nextSources = new Map<string, string>();
+
+		// Preserve explicitly loaded skills that live outside configured search roots.
+		for (const [name, skill] of this.skills) {
+			const sourcePath = this.skillSources.get(name);
+			if (!sourcePath || !managedRoots.some((root) => this.isPathWithinRoot(sourcePath, root))) {
+				nextSkills.set(name, skill);
+				if (sourcePath) nextSources.set(name, sourcePath);
+			}
+		}
+
 		let loaded = 0;
-		for (const rawPath of this.searchPaths) {
-			const dir = this.resolvePath(rawPath);
+		for (const dir of managedRoots) {
 			if (!existsSync(dir)) continue;
 			if (!statSync(dir).isDirectory()) continue;
 
 			const entries = readdirSync(dir, { withFileTypes: true });
 			for (const entry of entries) {
 				if (!entry.isDirectory()) continue;
-				const skillFile = join(dir, entry.name, SKILL_FILENAME);
-				const skill = await this.load(skillFile);
-				if (skill) loaded++;
+				const loadedFile = await this.readSkillFile(join(dir, entry.name, SKILL_FILENAME));
+				if (!loadedFile) continue;
+
+				nextSkills.set(loadedFile.skill.manifest.name, loadedFile.skill);
+				nextSources.set(loadedFile.skill.manifest.name, loadedFile.sourcePath);
+				loaded++;
 			}
 		}
+
+		this.skills.clear();
+		this.skillSources.clear();
+		for (const [name, skill] of nextSkills) this.skills.set(name, skill);
+		for (const [name, sourcePath] of nextSources) this.skillSources.set(name, sourcePath);
+
 		return loaded;
 	}
 
@@ -94,24 +123,12 @@ export class SkillLoader {
 	 * Returns null if the file cannot be read or parsed.
 	 */
 	async load(path: string): Promise<LoadedSkill | null> {
-		const resolved = this.resolvePath(path);
-		if (!existsSync(resolved)) return null;
+		const loadedFile = await this.readSkillFile(path);
+		if (!loadedFile) return null;
 
-		let raw: string;
-		try {
-			raw = readFileSync(resolved, "utf-8");
-		} catch {
-			// NOSONAR — gracefully skip unreadable files
-			return null;
-		}
-
-		const manifest = this.parseFrontmatter(raw);
-		if (!manifest) return null;
-
-		const references = await this.loadReferences(resolved, manifest);
-		const skill: LoadedSkill = { manifest, content: raw, references };
-		this.skills.set(manifest.name, skill);
-		return skill;
+		this.skills.set(loadedFile.skill.manifest.name, loadedFile.skill);
+		this.skillSources.set(loadedFile.skill.manifest.name, loadedFile.sourcePath);
+		return loadedFile.skill;
 	}
 
 	// ─── Query ────────────────────────────────────────────────────────────
@@ -204,6 +221,28 @@ export class SkillLoader {
 	}
 
 	// ─── Private Helpers ──────────────────────────────────────────────────
+
+	private async readSkillFile(path: string): Promise<LoadedSkillFile | null> {
+		const resolved = this.resolvePath(path);
+		if (!existsSync(resolved)) return null;
+
+		let raw: string;
+		try {
+			raw = readFileSync(resolved, "utf-8");
+		} catch {
+			// NOSONAR — gracefully skip unreadable files
+			return null;
+		}
+
+		const manifest = this.parseFrontmatter(raw);
+		if (!manifest) return null;
+
+		const references = await this.loadReferences(resolved, manifest);
+		return {
+			skill: { manifest, content: raw, references },
+			sourcePath: resolved,
+		};
+	}
 
 	/**
 	 * Parse YAML frontmatter from SKILL.md content.
@@ -301,6 +340,12 @@ export class SkillLoader {
 		}
 
 		return refs;
+	}
+
+	/** Check whether a source path lives inside a configured search root. */
+	private isPathWithinRoot(sourcePath: string, root: string): boolean {
+		const rel = relative(root, sourcePath);
+		return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 	}
 
 	/**
