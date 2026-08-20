@@ -1,0 +1,197 @@
+import path from "node:path";
+import { AgentCoordinator } from "../core/AgentCoordinator.js";
+import { PlanDelegateObserveLoop } from "../core/loop/PlanDelegateObserveLoop.js";
+import type { LoopStrategy, PlannerConfig, TaskGoal } from "../core/loop/types.js";
+
+export interface MultiAgentRunOptions {
+	goal: string;
+	url?: string;
+	model: string;
+	apiKey?: string;
+	baseUrl?: string;
+	maxIterations: number;
+	strategy: LoopStrategy;
+	skillsDir?: string;
+	agents: number;
+}
+
+const VALID_STRATEGIES = new Set<LoopStrategy>(["conservative", "balanced", "aggressive"]);
+
+function parsePositiveInteger(raw: string | undefined, fallback: number): number {
+	if (raw === undefined) return fallback;
+	const value = Number(raw);
+	return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+/** Read --agents without fully parsing the run command. Supports --agents=N too. */
+export function readAgentCount(args: string[]): number {
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--agents") return parsePositiveInteger(args[i + 1], 1);
+		if (arg?.startsWith("--agents=")) return parsePositiveInteger(arg.slice("--agents=".length), 1);
+	}
+	return 1;
+}
+
+/** True when the top-level CLI should route a run command into multi-agent mode. */
+export function shouldUseMultiAgentRun(argv: string[]): boolean {
+	if (argv[0] !== "run") return false;
+	if (argv.includes("--help") || argv.includes("-h")) return false;
+	return readAgentCount(argv.slice(1)) > 1;
+}
+
+/** Parse the subset of `talox run` options shared by the multi-agent runtime. */
+export function parseMultiAgentRunOptions(args: string[]): MultiAgentRunOptions {
+	const opts: MultiAgentRunOptions = {
+		goal: "",
+		model: "gpt-4o",
+		maxIterations: 10,
+		strategy: "balanced",
+		agents: 1,
+	};
+	const positional: string[] = [];
+
+	let i = 0;
+	while (i < args.length) {
+		const arg = args[i];
+		if (!arg) {
+			i += 1;
+			continue;
+		}
+
+		if (arg.startsWith("--agents=")) {
+			opts.agents = parsePositiveInteger(arg.slice("--agents=".length), opts.agents);
+			i += 1;
+			continue;
+		}
+
+		switch (arg) {
+			case "--url":
+				opts.url = args[i + 1];
+				i += 2;
+				break;
+			case "--model":
+				opts.model = args[i + 1] ?? opts.model;
+				i += 2;
+				break;
+			case "--api-key":
+				opts.apiKey = args[i + 1];
+				i += 2;
+				break;
+			case "--base-url":
+				opts.baseUrl = args[i + 1];
+				i += 2;
+				break;
+			case "--max-iterations":
+				opts.maxIterations = parsePositiveInteger(args[i + 1], opts.maxIterations);
+				i += 2;
+				break;
+			case "--strategy": {
+				const raw = args[i + 1] as LoopStrategy | undefined;
+				if (raw && VALID_STRATEGIES.has(raw)) opts.strategy = raw;
+				i += 2;
+				break;
+			}
+			case "--skills-dir":
+				opts.skillsDir = args[i + 1];
+				i += 2;
+				break;
+			case "--agents":
+				opts.agents = parsePositiveInteger(args[i + 1], opts.agents);
+				i += 2;
+				break;
+			default:
+				if (!arg.startsWith("-")) positional.push(arg);
+				i += 1;
+				break;
+		}
+	}
+
+	opts.goal = positional.join(" ").trim();
+	return opts;
+}
+
+export async function runMultiAgentRun(args: string[]): Promise<void> {
+	const opts = parseMultiAgentRunOptions(args);
+	if (!opts.goal) {
+		console.error('[Talox CLI] Error: No goal provided. Usage: talox run "<goal>" --agents <N> [options]');
+		process.exitCode = 1;
+		return;
+	}
+	if (opts.agents < 2) {
+		throw new Error("Multi-agent run requires at least 2 agents");
+	}
+
+	const apiKey = opts.apiKey ?? process.env["OPENAI_API_KEY"];
+	if (!apiKey) {
+		console.error("[Talox CLI] Error: Multi-agent run requires an API key. Use --api-key or set OPENAI_API_KEY.");
+		process.exitCode = 1;
+		return;
+	}
+
+	if (opts.skillsDir) {
+		console.warn("[Talox Run] --skills-dir is not yet applied to coordinated multi-agent planning.");
+	}
+
+	console.log(`[Talox Run] Starting coordinated run with ${opts.agents} agents: "${opts.goal}"`);
+
+	const coordinator = new AgentCoordinator({
+		agents: opts.agents,
+		baseDir: path.join(process.cwd(), ".talox", "profiles", "run"),
+		settings: {
+			headed: false,
+			verbosity: 1,
+		},
+	});
+
+	const planner: PlannerConfig = {
+		model: opts.model,
+		apiKey,
+	};
+	if (opts.baseUrl) planner.apiBaseUrl = opts.baseUrl;
+
+	const goal: TaskGoal = {
+		description: opts.goal,
+		maxIterations: opts.maxIterations,
+		strategy: opts.strategy,
+	};
+	if (opts.url) goal.startUrl = opts.url;
+
+	let interrupting = false;
+	const interrupt = () => {
+		if (interrupting) return;
+		interrupting = true;
+		console.log("[Talox Run] Interrupt received — stopping agents...");
+		void coordinator.stop().finally(() => process.exit(130));
+	};
+	process.on("SIGINT", interrupt);
+
+	try {
+		await coordinator.launch({ profileClass: "ops", headed: false });
+
+		const loop = new PlanDelegateObserveLoop(coordinator, {
+			goal,
+			planner,
+			maxWaves: opts.maxIterations,
+			onProgress(wave) {
+				const successful = wave.result.results.filter((result) => result.success).length;
+				console.log(
+					`[ wave ${wave.wave} ] ${successful}/${wave.tasks.length} tasks succeeded · ${wave.result.conflicts.length} conflicts`,
+				);
+			},
+		});
+
+		const result = await loop.run();
+		console.log("");
+		console.log(`[Talox CLI] Multi-agent run completed: ${result.status}`);
+		console.log(`[Talox CLI] Stop reason: ${result.stopReason}`);
+		console.log(`[Talox CLI] Waves: ${result.totalWaves}`);
+		console.log(`[Talox CLI] Duration: ${(result.totalDurationMs / 1000).toFixed(1)}s`);
+		const sharedKeys = Object.keys(result.sharedState);
+		console.log(`[Talox CLI] Shared state keys: ${sharedKeys.join(", ") || "none"}`);
+		if (result.status === "failed") process.exitCode = 1;
+	} finally {
+		process.off("SIGINT", interrupt);
+		if (!interrupting) await coordinator.stop();
+	}
+}
