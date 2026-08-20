@@ -231,6 +231,11 @@ export class AgentCoordinator {
 
 		this.agents = [];
 		this.lastStates = Array.from({ length: this.config.agents }, () => null);
+		for (const status of this.statuses) {
+			status.busy = false;
+			delete status.currentUrl;
+			delete status.lastResult;
+		}
 		this.launched = false;
 	}
 
@@ -296,8 +301,8 @@ export class AgentCoordinator {
 					this.lastStates[agentId] = state;
 					if (status) status.currentUrl = state.url;
 				} catch {
-					states[agentId] = null;
-					this.lastStates[agentId] = null;
+					// Keep the previous known state. A transient state-collection failure
+					// after a non-state action must not erase useful planner context.
 				}
 			} finally {
 				if (status) status.busy = false;
