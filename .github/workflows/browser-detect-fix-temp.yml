@@ -1,3 +1,4 @@
+# Temporary branch-only patch runner; removed after the validated fix lands.
 name: Browser Detect Fix Temp
 
 on:
