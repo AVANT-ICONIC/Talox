@@ -296,7 +296,13 @@ export class AgentCoordinator {
 
 				try {
 					const stateFromResult = lastResult?.success ? this.asPageState(lastResult.data) : null;
-					const state = stateFromResult ?? (await agent.getState());
+					let state = stateFromResult;
+					if (!state) {
+						const collected = await agent.getState();
+						const collectionError = this.controllerErrorMessage(collected);
+						if (collectionError && this.lastStates[agentId]) return;
+						state = collected;
+					}
 					states[agentId] = state;
 					this.lastStates[agentId] = state;
 					if (status) status.currentUrl = state.url;
@@ -422,6 +428,17 @@ export class AgentCoordinator {
 		const t0 = Date.now();
 		try {
 			const data = await this.executeTask(agent, task);
+			const controllerError = this.controllerErrorMessage(data);
+			if (controllerError) {
+				return {
+					agentId: task.agentId,
+					task,
+					success: false,
+					data,
+					error: controllerError,
+					durationMs: Date.now() - t0,
+				};
+			}
 			return {
 				agentId: task.agentId,
 				task,
@@ -446,6 +463,14 @@ export class AgentCoordinator {
 		return typeof candidate.url === "string" && typeof candidate.title === "string" && typeof candidate.timestamp === "string"
 			? (value as TaloxPageState)
 			: null;
+	}
+
+	private controllerErrorMessage(value: unknown): string | null {
+		const state = this.asPageState(value);
+		if (!state || state.url !== "" || state.title !== "Error") return null;
+		const consoleErrors = (state as TaloxPageState & { console?: { errors?: unknown[] } }).console?.errors;
+		const firstError = consoleErrors?.find((entry): entry is string => typeof entry === "string" && entry.length > 0);
+		return firstError ?? "Talox controller action failed";
 	}
 
 	private mergeResultsIntoSharedState(results: AgentResult[]): SharedStateConflict[] {
