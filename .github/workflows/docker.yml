@@ -42,7 +42,7 @@ jobs:
         run: test "$(docker run --rm --entrypoint id talox:ci -u)" != "0"
 
       - name: Smoke Talox CLI
-        run: docker run --rm --init talox:ci --help
+        run: docker run --rm --init talox:ci init --help
 
       - name: Detect bundled Chromium through Talox
         run: |
