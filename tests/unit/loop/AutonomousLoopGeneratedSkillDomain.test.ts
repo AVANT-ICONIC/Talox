@@ -61,8 +61,7 @@ describe("AutonomousLoop generated skill domain", () => {
 		expect(result.status).toBe("human-takeover");
 		expect(domains).toContain("app.example.com");
 		expect(domains).not.toContain("unknown");
-		expect(result.createdSkills).toHaveLength(1);
-		expect(result.createdSkills[0]).toMatch(/^blocker-login-wall-\d+$/);
-		expect(persistedSkill).toContain(`name: ${result.createdSkills[0]}`);
+		expect(result.createdSkills).toEqual(["blocker-login-wall"]);
+		expect(persistedSkill).toContain("name: blocker-login-wall");
 	});
 });
