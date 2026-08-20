@@ -64,7 +64,7 @@ describe("PlanDelegateObserveLoop skills and callbacks", () => {
 		mkdirSync(skillDir, { recursive: true });
 		writeFileSync(
 			path.join(skillDir, "SKILL.md"),
-			`---\nname: example-skill\ndescription: Example domain strategy\nversion: 1.0\ndomain: example.com\n---\n\nUse the magic button when example.com is open.\n`,
+			`---\nname: example-skill\ndescription: Example domain strategy\nversion: "1.0"\ndomain: example.com\n---\n\nUse the magic button when example.com is open.\n`,
 			"utf-8",
 		);
 
