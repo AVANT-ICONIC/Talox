@@ -67,7 +67,7 @@ export class SkillWriter {
 		];
 
 		if (skill.toolUsage.length > 0) {
-			lines.push("tools:");
+			lines.push("allowedTools:");
 			for (const tool of skill.toolUsage) {
 				lines.push(`  - ${tool}`);
 			}
