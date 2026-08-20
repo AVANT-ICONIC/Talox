@@ -44,6 +44,20 @@ jobs:
       - name: Smoke Talox CLI
         run: docker run --rm --init talox:ci init --help
 
+      - name: Probe Playwright-managed Chromium
+        run: |
+          docker run --rm --init --entrypoint node talox:ci --input-type=module -e '
+            import { chromium } from "/opt/talox/node_modules/playwright-core/index.js";
+            console.log(`PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "unset"}`);
+            console.log(`chromium.executablePath=${chromium.executablePath()}`);
+            const browser = await chromium.launch({ headless: true, timeout: 10000 });
+            try {
+              console.log(`Direct Chromium version: ${browser.version()}`);
+            } finally {
+              await browser.close();
+            }
+          '
+
       - name: Detect bundled Chromium through Talox
         run: |
           docker run --rm --init --entrypoint node talox:ci --input-type=module -e '
