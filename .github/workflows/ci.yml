@@ -60,10 +60,29 @@ jobs:
         run: npm run test:unit
 
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
-  browser:
-    name: Browser Integration Tests
+  # The browser suite is intentionally serial inside each shard because multiple
+  # Chromium launches in one Vitest worker can deadlock resources. Separate CI
+  # runners let independent test areas execute concurrently without weakening
+  # that isolation. The aggregate `browser` job below preserves the stable check
+  # name used by branch protection.
+  browser-shard:
+    name: Browser Integration · ${{ matrix.group }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: root
+            target: 'tests/core/*.test.ts'
+          - group: loop
+            target: 'tests/core/loop/*.test.ts'
+          - group: controller
+            target: 'tests/core/controller/*.test.ts'
+          - group: observe
+            target: 'tests/core/observe/*.test.ts'
+          - group: smart
+            target: 'tests/core/smart/*.test.ts'
     steps:
       - uses: actions/checkout@v4
 
@@ -79,8 +98,23 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser integration tests
-        run: npm run test:browser
+      - name: Run browser integration shard
+        run: npx vitest run --config vitest.config.browser.ts ${{ matrix.target }}
+
+  browser:
+    name: Browser Integration Tests
+    needs: browser-shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all browser shards passed
+        run: |
+          if [ "${{ needs.browser-shard.result }}" != "success" ]; then
+            echo "One or more browser integration shards failed or were cancelled."
+            exit 1
+          fi
+          echo "All browser integration shards passed."
 
   # ─── Real-world tests — nightly + manual only ────────────────────────────────
   real-world:
