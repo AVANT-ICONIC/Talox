@@ -1,6 +1,8 @@
 name: Browser Detect Fix Temp
 
 on:
+  push:
+    branches: [fix/playwright-browser-autodetect]
   pull_request:
     branches: [main]
 
