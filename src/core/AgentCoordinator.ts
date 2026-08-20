@@ -103,7 +103,7 @@ export interface SharedStateWriteResult {
 export interface CoordinatorResult {
 	/** All individual agent results in the same order as the input task list. */
 	results: AgentResult[];
-	/** Aggregated page states from all agents. */
+	/** Latest known page state for every agent, including agents idle in this run. */
 	states: Array<TaloxPageState | null>;
 	/** Snapshot of the shared state bag after deterministic result merging. */
 	sharedState: Readonly<Record<string, unknown>>;
@@ -135,6 +135,7 @@ export class AgentCoordinator {
 	private agents: TaloxController[] = [];
 	private readonly statuses: AgentStatus[];
 	private readonly sharedState = new Map<string, unknown>();
+	private lastStates: Array<TaloxPageState | null>;
 	private launched = false;
 
 	constructor(config: CoordinatorConfig = {}) {
@@ -160,6 +161,7 @@ export class AgentCoordinator {
 			profileId: `agent-${id}`,
 			busy: false,
 		}));
+		this.lastStates = Array.from({ length: this.config.agents }, () => null);
 	}
 
 	// ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -228,6 +230,7 @@ export class AgentCoordinator {
 		}
 
 		this.agents = [];
+		this.lastStates = Array.from({ length: this.config.agents }, () => null);
 		this.launched = false;
 	}
 
@@ -249,7 +252,7 @@ export class AgentCoordinator {
 
 		const startTime = Date.now();
 		const resultSlots: Array<AgentResult | undefined> = new Array(tasks.length);
-		const states: Array<TaloxPageState | null> = Array.from({ length: this.config.agents }, () => null);
+		const states: Array<TaloxPageState | null> = [...this.lastStates];
 
 		const byAgent = new Map<number, IndexedTask[]>();
 		for (const [index, task] of tasks.entries()) {
@@ -278,18 +281,23 @@ export class AgentCoordinator {
 			if (status) status.busy = true;
 
 			try {
+				let lastResult: AgentResult | undefined;
 				for (const { index, task } of indexedTasks) {
 					const result = await this.runTask(agent, task);
 					resultSlots[index] = result;
+					lastResult = result;
 					if (status) status.lastResult = result;
 				}
 
 				try {
-					const state = await agent.getState();
+					const stateFromResult = lastResult?.success ? this.asPageState(lastResult.data) : null;
+					const state = stateFromResult ?? (await agent.getState());
 					states[agentId] = state;
+					this.lastStates[agentId] = state;
 					if (status) status.currentUrl = state.url;
 				} catch {
 					states[agentId] = null;
+					this.lastStates[agentId] = null;
 				}
 			} finally {
 				if (status) status.busy = false;
@@ -425,6 +433,14 @@ export class AgentCoordinator {
 				durationMs: Date.now() - t0,
 			};
 		}
+	}
+
+	private asPageState(value: unknown): TaloxPageState | null {
+		if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+		const candidate = value as Partial<TaloxPageState>;
+		return typeof candidate.url === "string" && typeof candidate.title === "string" && typeof candidate.timestamp === "string"
+			? (value as TaloxPageState)
+			: null;
 	}
 
 	private mergeResultsIntoSharedState(results: AgentResult[]): SharedStateConflict[] {
