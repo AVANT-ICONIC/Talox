@@ -23,6 +23,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import { FAILSAFE_SCHEMA, load as loadYaml } from "js-yaml";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -220,90 +221,18 @@ export class SkillLoader {
 	}
 
 	/**
-	 * Minimal YAML parser for the skill manifest. Handles the flat key-value
-	 * structure and simple arrays used in SKILL.md frontmatter.
+	 * Parse skill frontmatter with the YAML parser Talox already ships.
+	 * FAILSAFE_SCHEMA keeps scalar identifiers such as `version: 1.0` as strings
+	 * while still supporting arrays and nested mappings such as `references`.
 	 */
 	private parseYamlManifest(yaml: string): SkillManifest | null {
-		const lines = yaml.split("\n");
-		const values: Record<string, unknown> = {};
-		let currentKey: string | null = null;
-		let currentArray: string[] | null = null;
-
-		for (const line of lines) {
-			const trimmedLine = line.trim();
-			if (trimmedLine === "" || trimmedLine.startsWith("#")) continue;
-
-			const parsed = this.parseYamlLine(trimmedLine, currentKey, currentArray);
-			if (parsed.flushKey && parsed.flushArray) {
-				values[parsed.flushKey] = parsed.flushArray;
-			}
-			currentKey = parsed.currentKey;
-			currentArray = parsed.currentArray;
-
-			if (parsed.value !== undefined) {
-				values[parsed.valueKey] = parsed.value;
-			}
+		try {
+			const parsed = loadYaml(yaml, { schema: FAILSAFE_SCHEMA });
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+			return this.buildManifest(parsed as Record<string, unknown>);
+		} catch {
+			return null;
 		}
-
-		// Flush final array if any
-		if (currentKey && currentArray) {
-			values[currentKey] = currentArray;
-		}
-
-		return this.buildManifest(values);
-	}
-
-	/** Parse a single YAML line and return the updated parse state. */
-	private parseYamlLine(
-		trimmedLine: string,
-		currentKey: string | null,
-		currentArray: string[] | null,
-	): {
-		flushKey: string | undefined;
-		flushArray: string[] | undefined;
-		currentKey: string | null;
-		currentArray: string[] | null;
-		value: unknown;
-		valueKey: string;
-	} {
-		// Array item: "- value"
-		if (trimmedLine.startsWith("- ") && currentKey && currentArray) {
-			currentArray.push(trimmedLine.slice(2).trim());
-			return { flushKey: undefined, flushArray: undefined, currentKey, currentArray, value: undefined, valueKey: "" };
-		}
-
-		let flushKey: string | undefined;
-		let flushArray: string[] | undefined;
-
-		// Flush any in-progress array
-		if (currentKey && currentArray) {
-			flushKey = currentKey;
-			flushArray = currentArray;
-			currentKey = null;
-			currentArray = null;
-		}
-
-		// Key-value pair: "key: value"
-		const colonIdx = trimmedLine.indexOf(":");
-		if (colonIdx === -1) {
-			return { flushKey, flushArray, currentKey, currentArray, value: undefined, valueKey: "" };
-		}
-
-		const key = trimmedLine.slice(0, colonIdx).trim();
-		const val = trimmedLine.slice(colonIdx + 1).trim();
-
-		if (val === "") {
-			return { flushKey, flushArray, currentKey: key, currentArray: [], value: undefined, valueKey: "" };
-		}
-
-		return {
-			flushKey,
-			flushArray,
-			currentKey,
-			currentArray,
-			value: key === "version" ? this.parseVersion(val) : this.parseScalar(val),
-			valueKey: key,
-		};
 	}
 
 	/** Validate parsed values and build a SkillManifest, or return null. */
@@ -325,34 +254,18 @@ export class SkillLoader {
 		};
 
 		if (Array.isArray(values.allowedTools)) {
-			manifest.allowedTools = values.allowedTools as string[];
+			const allowedTools = values.allowedTools.filter((tool): tool is string => typeof tool === "string");
+			if (allowedTools.length > 0) manifest.allowedTools = allowedTools;
 		}
-		if (values.references && typeof values.references === "object") {
-			manifest.references = values.references as Record<string, string>;
+		if (values.references && typeof values.references === "object" && !Array.isArray(values.references)) {
+			const references: Record<string, string> = {};
+			for (const [name, referencePath] of Object.entries(values.references as Record<string, unknown>)) {
+				if (typeof referencePath === "string") references[name] = referencePath;
+			}
+			if (Object.keys(references).length > 0) manifest.references = references;
 		}
 
 		return manifest;
-	}
-
-	/** Parse version as an opaque string, preserving values such as unquoted 1.0. */
-	private parseVersion(val: string): string {
-		if ((val.startsWith('\"') && val.endsWith('\"')) || (val.startsWith("'") && val.endsWith("'"))) {
-			return val.slice(1, -1);
-		}
-		return val;
-	}
-
-	/** Parse a scalar YAML value (string, number, boolean). */
-	private parseScalar(val: string): unknown {
-		if (val === "true") return true;
-		if (val === "false") return false;
-		if (/^-?\d+$/.test(val)) return Number.parseInt(val, 10);
-		if (/^-?\d+\.\d+$/.test(val)) return Number.parseFloat(val);
-		// Strip surrounding quotes
-		if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-			return val.slice(1, -1);
-		}
-		return val;
 	}
 
 	/** Strip the frontmatter block from markdown content, returning only the body. */
