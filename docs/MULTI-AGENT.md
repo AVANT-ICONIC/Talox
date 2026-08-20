@@ -98,6 +98,10 @@ Each status entry tracks:
 - `currentUrl` after state collection.
 - `lastResult` from the most recently completed task.
 
+## Lifecycle guarantees
+
+`AgentCoordinator` rejects non-positive or fractional agent counts before starting browser work. Multi-agent launch is atomic from the coordinator's perspective: if a later agent fails to launch, Talox stops the failing controller and every controller that already started before rethrowing the original launch error.
+
 ## Plan → Delegate → Observe → Replan
 
 `PlanDelegateObserveLoop` turns the coordinator into an adaptive multi-agent runtime. It asks the existing `LLMPlanner` for one coordination wave at a time, executes that wave through `AgentCoordinator`, feeds fresh browser state and shared state back to the planner, and repeats until the planner reports the goal is complete or the execution budget is exhausted.
@@ -125,6 +129,7 @@ try {
       model: "gpt-4o",
       apiKey: process.env.OPENAI_API_KEY,
     },
+    skillsDir: "./skills",
     onProgress(wave) {
       console.log(
         `wave ${wave.wave}: ${wave.result.results.filter((r) => r.success).length}/${wave.tasks.length} tasks succeeded`,
@@ -139,6 +144,8 @@ try {
 }
 ```
 
+Progress callbacks are observers only. If an `onProgress` callback throws, Talox isolates that reporting failure and continues browser coordination.
+
 ### What the planner sees
 
 When `LLMPlanner` receives multi-agent context, the prompt includes:
@@ -148,6 +155,7 @@ When `LLMPlanner` receives multi-agent context, the prompt includes:
 - the coordinator shared-state snapshot;
 - merge conflicts from the previous wave;
 - compact summaries of recent coordination waves;
+- matching domain skills loaded from `skillsDir` or the default Talox skill search paths;
 - explicit instructions to return independent parallel steps when useful.
 
 Planner steps can assign work with `args.agentId`. Missing or invalid IDs fall back to deterministic round-robin assignment so malformed planner output cannot accidentally target a nonexistent agent.
@@ -168,6 +176,18 @@ Planner steps can assign work with `args.agentId`. Missing or invalid IDs fall b
 ```
 
 The coordinated runtime currently accepts these planner tools: `navigate`, `click`, `type`, `getState`, `screenshot`, and `wait`. Aliases such as `open`, `goto`, `fill`, `state`, and `waitForTimeout` are normalized before delegation.
+
+Malformed planner step entries are ignored rather than crashing the run. Bootstrap, planning, and execution failures produce explicit fail-closed stop reasons such as `bootstrap-failed`, `planner-error`, and `execution-error`.
+
+### CLI
+
+The published `talox` binary routes `run` into coordinated mode whenever `--agents` is greater than one:
+
+```bash
+talox run "compare three CRM products" --agents 3 --max-iterations 6
+```
+
+Both `--agents 3` and `--agents=3` are supported. Single-agent `run` and all other commands continue through the existing CLI implementation. Coordinated runs honor `--model`, `--api-key`, `--base-url`, `--url`, `--strategy`, `--max-iterations`, and `--skills-dir`; environment fallbacks include `OPENAI_API_KEY` and `OPENAI_BASE_URL`.
 
 ### Coordination lifecycle
 
@@ -194,6 +214,10 @@ Replan with new evidence
 ```
 
 A final read-only planner verification happens after the last permitted execution wave. This prevents a false `max-waves` result when the final delegated action actually completed the goal.
+
+## Verification
+
+The browser integration suite contains a real two-agent coordination scenario. Two Chromium-backed Talox agents navigate to isolated pages, publish shared evidence, perform separate interactions, and then replan against both resulting page states until the goal is verified complete.
 
 ## Coordination pattern
 
