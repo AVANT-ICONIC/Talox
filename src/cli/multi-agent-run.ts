@@ -171,7 +171,12 @@ export async function runMultiAgentRun(args: string[]): Promise<void> {
 		if (interrupting) return;
 		interrupting = true;
 		console.log("[Talox Run] Interrupt received — stopping agents...");
-		void coordinator.stop().finally(() => process.exit(130));
+		void coordinator
+			.stop()
+			.catch((error: unknown) => {
+				console.error(`[Talox Run] Shutdown error: ${error instanceof Error ? error.message : String(error)}`);
+			})
+			.finally(() => process.exit(130));
 	};
 	process.on("SIGINT", interrupt);
 
