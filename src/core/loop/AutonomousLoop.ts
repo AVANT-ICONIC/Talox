@@ -571,9 +571,10 @@ export class AutonomousLoop {
 		if (this.skillWriter && blocker.suggestedApproach) {
 			try {
 				const hostname = this.lastObservedUrl ? this.extractHostname(this.lastObservedUrl) : "unknown";
+				const skillName = `blocker-${blocker.type}-${Date.now()}`;
 
 				await this.skillWriter.createSkill({
-					name: `blocker-${blocker.type}-${Date.now()}`,
+					name: skillName,
 					description: blocker.description,
 					domain: hostname,
 					version: "1.0",
@@ -582,7 +583,7 @@ export class AutonomousLoop {
 					toolUsage: [],
 				});
 
-				this.state.createdSkills.push(`blocker-${blocker.type}`);
+				this.state.createdSkills.push(skillName);
 			} catch {
 				// Ignored: non-fatal error
 				// Skill creation failed, continue to escalation
