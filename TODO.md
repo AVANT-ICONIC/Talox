@@ -6,18 +6,24 @@
 
 ## 🟡 v8.1.0 — Plan-Delegate-Observe Loop
 
-- [ ] LLMPlanner integration: break goals into subtasks dynamically
-- [ ] Auto-distribute subtasks to agents via AgentCoordinator
-- [ ] Observe results, adapt plan mid-execution
+- [x] LLMPlanner integration: break goals into subtasks dynamically
+- [x] Auto-distribute subtasks to agents via AgentCoordinator
+- [x] Observe results, adapt plan mid-execution
 - [x] Shared state bag between agents
 - [x] Result merging with conflict resolution
+- [ ] Wire `talox run --agents N` to `PlanDelegateObserveLoop` when `N > 1`
+- [ ] Add browser-backed E2E coverage for a real two-agent coordination run
 
-### Coordinator foundation now in place
+### Runtime foundation now in place
 
+- `PlanDelegateObserveLoop` performs observe → plan → delegate → merge → observe → replan waves.
+- `LLMPlanner` receives agent IDs, per-agent browser state, shared state, recent wave summaries, and prior merge conflicts.
+- Planner steps can target `args.agentId`; missing or invalid assignments fall back to deterministic round-robin distribution.
 - Successful tasks can publish output through `resultKey`.
 - Shared-state collisions support `last-write-wins`, `first-write-wins`, or `reject`.
 - Result merging is deterministic in original task order even though agents execute concurrently.
-- Coordinator status now tracks live `busy`, `currentUrl`, and `lastResult` values instead of placeholder status data.
+- Coordinator status tracks live `busy`, `currentUrl`, and `lastResult` values instead of placeholder status data.
+- A final read-only planner verification avoids false `max-waves` failures when the last execution wave completed the goal.
 
 ---
 
