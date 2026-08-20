@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 ARG NODE_VERSION=22
-ARG PLAYWRIGHT_VERSION=1.58.2
+# Keep this aligned with package-lock.json -> node_modules/playwright-core.
+ARG PLAYWRIGHT_VERSION=1.59.1
 
 FROM node:${NODE_VERSION}-bookworm-slim AS build
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
