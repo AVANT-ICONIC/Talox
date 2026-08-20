@@ -3,6 +3,8 @@ name: Skill Contract Fix Temp
 on:
   push:
     branches: [fix/skill-manifest-contract]
+  pull_request:
+    branches: [fix/single-agent-skill-loading]
 
 permissions:
   contents: write
