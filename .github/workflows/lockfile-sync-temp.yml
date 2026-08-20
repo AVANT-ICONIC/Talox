@@ -1,0 +1,24 @@
+name: Lockfile Sync Temp
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Regenerate package lock metadata
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Upload regenerated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-package-lock
+          path: package-lock.json
+          retention-days: 1
