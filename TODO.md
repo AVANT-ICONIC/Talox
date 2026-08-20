@@ -13,6 +13,8 @@
 - [x] Result merging with conflict resolution
 - [ ] Wire `talox run --agents N` to `PlanDelegateObserveLoop` when `N > 1`
 - [ ] Add browser-backed E2E coverage for a real two-agent coordination run
+- [ ] Validate `AgentCoordinator({ agents })` as a positive integer before launch/distribution
+- [ ] Make multi-agent launch atomic: clean up already-started agents if a later launch fails
 
 ### Runtime foundation now in place
 
@@ -23,6 +25,7 @@
 - Shared-state collisions support `last-write-wins`, `first-write-wins`, or `reject`.
 - Result merging is deterministic in original task order even though agents execute concurrently.
 - Coordinator status tracks live `busy`, `currentUrl`, and `lastResult` values instead of placeholder status data.
+- Coordinated planning now fails closed on malformed steps, planner errors, bootstrap failures, and runtime execution errors instead of throwing out of the loop.
 - A final read-only planner verification avoids false `max-waves` failures when the last execution wave completed the goal.
 
 ---
