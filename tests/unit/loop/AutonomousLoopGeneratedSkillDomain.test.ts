@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 
 describe("AutonomousLoop generated skill domain", () => {
-	it("writes blocker-generated skills under the currently observed hostname", async () => {
+	it("writes blocker-generated skills under the observed hostname and reports the persisted skill name", async () => {
 		const skillsDir = await mkdtemp(join(tmpdir(), "talox-generated-domain-"));
 		tempDirs.push(skillsDir);
 
@@ -56,9 +56,13 @@ describe("AutonomousLoop generated skill domain", () => {
 		const result = await loop.run();
 		loop.dispose();
 		const domains = await readdir(skillsDir);
+		const persistedSkill = await readFile(join(skillsDir, "app.example.com", "SKILL.md"), "utf-8");
 
 		expect(result.status).toBe("human-takeover");
 		expect(domains).toContain("app.example.com");
 		expect(domains).not.toContain("unknown");
+		expect(result.createdSkills).toHaveLength(1);
+		expect(result.createdSkills[0]).toMatch(/^blocker-login-wall-\d+$/);
+		expect(persistedSkill).toContain(`name: ${result.createdSkills[0]}`);
 	});
 });
