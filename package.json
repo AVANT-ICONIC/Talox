@@ -28,7 +28,7 @@
     "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
     "test:browser": "vitest run --config vitest.config.browser.ts",
     "test:all": "vitest",
-    "observe": "node ./dist/cli/talox.js observe",
+    "observe": "node ./dist/cli/entry.js observe",
     "prepublishOnly": "npm run build",
     "smoke": "npm run build && node -e \"console.log('Talox smoke test OK')\"",
     "test:real": "npm run build && playwright test",
