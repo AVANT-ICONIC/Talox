@@ -64,25 +64,25 @@ describe("SkillWriter", () => {
 			expect(raw).toContain("domain: sub.example.com");
 		});
 
-		it("includes toolUsage as tools in frontmatter", async () => {
+		it("includes toolUsage as allowedTools in frontmatter", async () => {
 			const skill = makeSkill({ toolUsage: ["click", "scroll", "screenshot"] });
 			await writer.createSkill(skill);
 
 			const filePath = join(tempDir, skill.domain, "SKILL.md");
 			const raw = await readFile(filePath, "utf-8");
-			expect(raw).toContain("tools:");
+			expect(raw).toContain("allowedTools:");
 			expect(raw).toContain("  - click");
 			expect(raw).toContain("  - scroll");
 			expect(raw).toContain("  - screenshot");
 		});
 
-		it("omits tools section when toolUsage is empty", async () => {
+		it("omits allowedTools section when toolUsage is empty", async () => {
 			const skill = makeSkill({ toolUsage: [] });
 			await writer.createSkill(skill);
 
 			const filePath = join(tempDir, skill.domain, "SKILL.md");
 			const raw = await readFile(filePath, "utf-8");
-			expect(raw).not.toContain("tools:");
+			expect(raw).not.toContain("allowedTools:");
 		});
 
 		it("includes triggerCondition in frontmatter", async () => {
@@ -166,7 +166,7 @@ describe("SkillWriter", () => {
 			expect(formatted).toContain("domain: example.com");
 			expect(formatted).toContain('version: "1.0"');
 			expect(formatted).toContain("trigger: url contains example.com");
-			expect(formatted).toContain("tools:");
+			expect(formatted).toContain("allowedTools:");
 			expect(formatted).toContain("  - click");
 			expect(formatted).toContain("  - type");
 			expect(formatted).toContain("---");
@@ -182,11 +182,11 @@ describe("SkillWriter", () => {
 			expect(afterFrontmatter.startsWith("\n\n")).toBe(true);
 		});
 
-		it("formats skill without tools correctly", () => {
+		it("formats skill without allowedTools correctly", () => {
 			const skill = makeSkill({ toolUsage: [] });
 			const formatted = writer.formatSkillFile(skill);
 
-			expect(formatted).not.toContain("tools:");
+			expect(formatted).not.toContain("allowedTools:");
 			expect(formatted).toContain("trigger:");
 		});
 
