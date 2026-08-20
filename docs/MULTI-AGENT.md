@@ -98,9 +98,106 @@ Each status entry tracks:
 - `currentUrl` after state collection.
 - `lastResult` from the most recently completed task.
 
+## Plan → Delegate → Observe → Replan
+
+`PlanDelegateObserveLoop` turns the coordinator into an adaptive multi-agent runtime. It asks the existing `LLMPlanner` for one coordination wave at a time, executes that wave through `AgentCoordinator`, feeds fresh browser state and shared state back to the planner, and repeats until the planner reports the goal is complete or the execution budget is exhausted.
+
+```ts
+import {
+  AgentCoordinator,
+  PlanDelegateObserveLoop,
+} from "talox";
+
+const coordinator = new AgentCoordinator({
+  agents: 3,
+  baseDir: ".talox/profiles",
+});
+
+await coordinator.launch({ profileClass: "ops", headed: false });
+
+try {
+  const loop = new PlanDelegateObserveLoop(coordinator, {
+    goal: {
+      description: "Compare pricing and core features for three CRM products",
+      maxIterations: 6,
+    },
+    planner: {
+      model: "gpt-4o",
+      apiKey: process.env.OPENAI_API_KEY,
+    },
+    onProgress(wave) {
+      console.log(
+        `wave ${wave.wave}: ${wave.result.results.filter((r) => r.success).length}/${wave.tasks.length} tasks succeeded`,
+      );
+    },
+  });
+
+  const result = await loop.run();
+  console.log(result.status, result.stopReason, result.sharedState);
+} finally {
+  await coordinator.stop();
+}
+```
+
+### What the planner sees
+
+When `LLMPlanner` receives multi-agent context, the prompt includes:
+
+- the number of available browser agents and valid agent IDs;
+- current URL/title plus the latest task outcome for every agent;
+- the coordinator shared-state snapshot;
+- merge conflicts from the previous wave;
+- compact summaries of recent coordination waves;
+- explicit instructions to return independent parallel steps when useful.
+
+Planner steps can assign work with `args.agentId`. Missing or invalid IDs fall back to deterministic round-robin assignment so malformed planner output cannot accidentally target a nonexistent agent.
+
+```json
+{
+  "index": 0,
+  "action": "Research vendor A",
+  "tool": "navigate",
+  "args": {
+    "agentId": 0,
+    "url": "https://vendor-a.example",
+    "resultKey": "vendorA"
+  },
+  "reasoning": "Run independent research in parallel",
+  "retryable": true
+}
+```
+
+The coordinated runtime currently accepts these planner tools: `navigate`, `click`, `type`, `getState`, `screenshot`, and `wait`. Aliases such as `open`, `goto`, `fill`, `state`, and `waitForTimeout` are normalized before delegation.
+
+### Coordination lifecycle
+
+```text
+Goal
+  ↓
+Observe all agents
+  ↓
+LLMPlanner
+  ↓
+Plan one parallel wave
+  ↓
+AgentCoordinator
+  ├─ Agent 0 ─┐
+  ├─ Agent 1 ─┼─ concurrent execution
+  └─ Agent 2 ─┘
+  ↓
+Ordered results + fresh page states
+  ↓
+Shared-state merge + conflict report
+  ↓
+Replan with new evidence
+  ↺
+```
+
+A final read-only planner verification happens after the last permitted execution wave. This prevents a false `max-waves` result when the final delegated action actually completed the goal.
+
 ## Coordination pattern
 
-A planner can use the coordinator in waves:
+For custom orchestration without `PlanDelegateObserveLoop`, a planner can use the coordinator directly in waves:
 
 1. Read `sharedState` and split the current goal into independent tasks.
 2. Run those tasks in parallel.
@@ -108,4 +205,4 @@ A planner can use the coordinator in waves:
 4. Update shared state with conclusions or constraints.
 5. Re-plan the next wave.
 
-This is the foundation for the v8.1 Plan-Delegate-Observe loop: browser execution stays parallel, while planning and shared state remain deterministic and inspectable.
+The low-level coordinator remains available for custom planners while `PlanDelegateObserveLoop` provides the standard Talox v8.1 adaptive orchestration path.
