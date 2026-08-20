@@ -138,8 +138,13 @@ export class AgentCoordinator {
 	private launched = false;
 
 	constructor(config: CoordinatorConfig = {}) {
+		const agentCount = config.agents ?? 2;
+		if (!Number.isInteger(agentCount) || agentCount < 1) {
+			throw new Error(`AgentCoordinator requires a positive integer agent count; received ${agentCount}`);
+		}
+
 		this.config = {
-			agents: config.agents ?? 2,
+			agents: agentCount,
 			baseDir: config.baseDir ?? "./profiles",
 			settings: (config.settings ?? {}) as TaloxSettings,
 			initialSharedState: config.initialSharedState ?? {},
@@ -162,6 +167,8 @@ export class AgentCoordinator {
 	/**
 	 * Launch all agents with separate browser profiles.
 	 * Each agent gets `{baseDir}/agent-{N}` as its profile directory.
+	 * Launch is atomic from the coordinator's perspective: if any agent fails,
+	 * the failing controller and all previously started controllers are stopped.
 	 */
 	async launch(options?: { profileClass?: ProfileClass; headed?: boolean }): Promise<void> {
 		if (this.launched) {
@@ -171,23 +178,39 @@ export class AgentCoordinator {
 
 		const profileClass = options?.profileClass ?? "ops";
 
-		for (let i = 0; i < this.config.agents; i++) {
-			const profileId = `agent-${i}`;
-			const agentBaseDir = `${this.config.baseDir}/${profileId}`;
-			const agentSettings = {
-				...this.config.settings,
-				headed: options?.headed ?? this.config.settings.headed ?? false,
-			};
+		try {
+			for (let i = 0; i < this.config.agents; i++) {
+				const profileId = `agent-${i}`;
+				const agentBaseDir = `${this.config.baseDir}/${profileId}`;
+				const agentSettings = {
+					...this.config.settings,
+					headed: options?.headed ?? this.config.settings.headed ?? false,
+				};
 
-			const agent = new TaloxController(agentBaseDir, { settings: agentSettings });
-			await agent.launch(profileId, profileClass, "chromium");
+				const agent = new TaloxController(agentBaseDir, { settings: agentSettings });
+				try {
+					await agent.launch(profileId, profileClass, "chromium");
+				} catch (error) {
+					try {
+						await agent.stop();
+					} catch (stopError) {
+						log.error(
+							`Agent ${i} cleanup after launch failure failed: ${stopError instanceof Error ? stopError.message : String(stopError)}`,
+						);
+					}
+					throw error;
+				}
 
-			this.agents.push(agent);
-			log.info(`Agent ${i} launched (profile: ${profileId})`);
+				this.agents.push(agent);
+				log.info(`Agent ${i} launched (profile: ${profileId})`);
+			}
+
+			this.launched = true;
+			log.info(`All ${this.config.agents} agents launched`);
+		} catch (error) {
+			await this.stop();
+			throw error;
 		}
-
-		this.launched = true;
-		log.info(`All ${this.config.agents} agents launched`);
 	}
 
 	/** Stop all agents and clean up browser processes. */
