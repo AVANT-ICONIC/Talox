@@ -1,0 +1,128 @@
+name: Skill Contract Test Sync Temp
+
+on:
+  push:
+    branches: [fix/skill-manifest-contract]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/skill-manifest-contract
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Synchronize legacy tests with the skill contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # The parser is now js-yaml. Remove white-box tests for the deleted private
+          # scalar helper and keep behavior-level manifest tests instead.
+          loader_test_path = Path("tests/unit/SkillLoader.test.ts")
+          loader_test = loader_test_path.read_text()
+          start = loader_test.find("// ── parseScalar edge cases")
+          end = loader_test.find("// ── toPrompt without allowedTools", start)
+          if start == -1 or end == -1 or end <= start:
+              raise SystemExit("SkillLoader parseScalar test block anchors not found")
+          loader_test = loader_test[:start] + loader_test[end:]
+
+          old_bad_line = '''\tit("handles YAML line without colon", async () => {
+\t\t// A line without a colon that is not a list item should be skipped
+\t\tconst { existsSync, readFileSync } = await import("node:fs");
+\t\tconst SKILL_BAD_LINE = `---
+name: bad-line
+description: Has bad line
+version: "1.0"
+domain: example.com
+orphanline
+---
+
+Body.
+`;
+\t\tvi.mocked(existsSync as any).mockReturnValue(true);
+\t\tvi.mocked(readFileSync as any).mockReturnValue(SKILL_BAD_LINE);
+
+\t\tconst { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+\t\tconst loader = new SL();
+\t\tconst skill = await loader.load("/skills/badline/SKILL.md");
+
+\t\texpect(skill).not.toBeNull();
+\t\texpect(skill!.manifest.name).toBe("bad-line");
+\t});'''
+          new_bad_line = '''\tit("rejects malformed YAML lines instead of silently skipping them", async () => {
+\t\tconst { existsSync, readFileSync } = await import("node:fs");
+\t\tconst SKILL_BAD_LINE = `---
+name: bad-line
+description: Has bad line
+version: "1.0"
+domain: example.com
+orphanline
+---
+
+Body.
+`;
+\t\tvi.mocked(existsSync as any).mockReturnValue(true);
+\t\tvi.mocked(readFileSync as any).mockReturnValue(SKILL_BAD_LINE);
+
+\t\tconst { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
+\t\tconst loader = new SL();
+\t\tconst skill = await loader.load("/skills/badline/SKILL.md");
+
+\t\texpect(skill).toBeNull();
+\t});'''
+          if loader_test.count(old_bad_line) != 1:
+              raise SystemExit(f"SkillLoader malformed YAML anchor count: {loader_test.count(old_bad_line)}")
+          loader_test_path.write_text(loader_test.replace(old_bad_line, new_bad_line, 1))
+
+          writer_test_path = Path("tests/unit/skills/SkillWriter.test.ts")
+          writer_test = writer_test_path.read_text()
+          count = writer_test.count('"tools:"')
+          if count != 2:
+              raise SystemExit(f"SkillWriter tools expectation count: {count}")
+          writer_test_path.write_text(writer_test.replace('"tools:"', '"allowedTools:"'))
+
+          loop_test_path = Path("tests/unit/loop/AutonomousLoop.test.ts")
+          loop_test = loop_test_path.read_text()
+          old_created = '''\t\t// createdSkills should track the blocker skill
+\t\tconst state = loop.getState();
+\t\texpect(state!.createdSkills).toContain("blocker-captcha");'''
+          new_created = '''\t\t// createdSkills should report the exact persisted skill name.
+\t\tconst state = loop.getState();
+\t\texpect(state!.createdSkills).toHaveLength(1);
+\t\texpect(state!.createdSkills[0]).toMatch(/^blocker-captcha-\\d+$/);'''
+          if loop_test.count(old_created) != 1:
+              raise SystemExit(f"AutonomousLoop createdSkills anchor count: {loop_test.count(old_created)}")
+          loop_test_path.write_text(loop_test.replace(old_created, new_created, 1))
+
+          loop_path = Path("src/core/loop/AutonomousLoop.ts")
+          loop = loop_path.read_text()
+          old_domain = '\t\t\tconst domain = this.lastObservedUrl ? this.extractHostname(this.lastObservedUrl) : "unknown";'
+          new_domain = '''\t\t\tconst fallbackUrl = this.state.iterations.map((it) => it.result.state?.url).findLast((url) => !!url) ?? "unknown";
+\t\t\tconst domain = this.extractHostname(this.lastObservedUrl ?? fallbackUrl);'''
+          if loop.count(old_domain) != 2:
+              raise SystemExit(f"AutonomousLoop observed-domain anchor count: {loop.count(old_domain)}")
+          loop_path.write_text(loop.replace(old_domain, new_domain, 1))
+          PY
+      - run: npm ci
+      - run: npm run build
+      - name: Run focused regressions
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/SkillLoader.test.ts tests/unit/skills/SkillWriter.test.ts tests/unit/loop/AutonomousLoop.test.ts tests/unit/loop/LoopIntelligence.test.ts tests/unit/skills/SkillLoaderNumericVersion.test.ts tests/unit/skills/SkillManifestContract.test.ts tests/unit/loop/AutonomousLoopGeneratedSkillDomain.test.ts
+      - name: Commit synchronized contract tests
+        run: |
+          if git diff --quiet -- src/core/loop/AutonomousLoop.ts tests/unit/SkillLoader.test.ts tests/unit/skills/SkillWriter.test.ts tests/unit/loop/AutonomousLoop.test.ts; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/loop/AutonomousLoop.ts tests/unit/SkillLoader.test.ts tests/unit/skills/SkillWriter.test.ts tests/unit/loop/AutonomousLoop.test.ts
+          git commit -m "test: align skill contract regressions"
+          git push origin HEAD:fix/skill-manifest-contract
