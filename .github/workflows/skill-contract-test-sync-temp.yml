@@ -1,3 +1,4 @@
+# Temporary branch-only sync runner. Remove after the validated patch commit lands.
 name: Skill Contract Test Sync Temp
 
 on:
