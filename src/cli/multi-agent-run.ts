@@ -1,6 +1,9 @@
 import path from "node:path";
 import { AgentCoordinator } from "../core/AgentCoordinator.js";
-import { PlanDelegateObserveLoop } from "../core/loop/PlanDelegateObserveLoop.js";
+import {
+	PlanDelegateObserveLoop,
+	type PlanDelegateObserveOptions,
+} from "../core/loop/PlanDelegateObserveLoop.js";
 import type { LoopStrategy, PlannerConfig, TaskGoal } from "../core/loop/types.js";
 import type { TaloxSettings } from "../types/settings.js";
 
@@ -138,10 +141,6 @@ export async function runMultiAgentRun(args: string[]): Promise<void> {
 		return;
 	}
 
-	if (opts.skillsDir) {
-		console.warn("[Talox Run] --skills-dir is not yet applied to coordinated multi-agent planning.");
-	}
-
 	console.log(`[Talox Run] Starting coordinated run with ${opts.agents} agents: "${opts.goal}"`);
 
 	const coordinator = new AgentCoordinator({
@@ -179,7 +178,7 @@ export async function runMultiAgentRun(args: string[]): Promise<void> {
 	try {
 		await coordinator.launch({ profileClass: "ops", headed: false });
 
-		const loop = new PlanDelegateObserveLoop(coordinator, {
+		const loopOptions: PlanDelegateObserveOptions = {
 			goal,
 			planner,
 			maxWaves: opts.maxIterations,
@@ -189,8 +188,10 @@ export async function runMultiAgentRun(args: string[]): Promise<void> {
 					`[ wave ${wave.wave} ] ${successful}/${wave.tasks.length} tasks succeeded · ${wave.result.conflicts.length} conflicts`,
 				);
 			},
-		});
+		};
+		if (opts.skillsDir) loopOptions.skillsDir = opts.skillsDir;
 
+		const loop = new PlanDelegateObserveLoop(coordinator, loopOptions);
 		const result = await loop.run();
 		console.log("");
 		console.log(`[Talox CLI] Multi-agent run completed: ${result.status}`);
