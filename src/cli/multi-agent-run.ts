@@ -2,6 +2,7 @@ import path from "node:path";
 import { AgentCoordinator } from "../core/AgentCoordinator.js";
 import { PlanDelegateObserveLoop } from "../core/loop/PlanDelegateObserveLoop.js";
 import type { LoopStrategy, PlannerConfig, TaskGoal } from "../core/loop/types.js";
+import type { TaloxSettings } from "../types/settings.js";
 
 export interface MultiAgentRunOptions {
 	goal: string;
@@ -66,22 +67,28 @@ export function parseMultiAgentRunOptions(args: string[]): MultiAgentRunOptions 
 		}
 
 		switch (arg) {
-			case "--url":
-				opts.url = args[i + 1];
+			case "--url": {
+				const value = args[i + 1];
+				if (value !== undefined) opts.url = value;
 				i += 2;
 				break;
+			}
 			case "--model":
 				opts.model = args[i + 1] ?? opts.model;
 				i += 2;
 				break;
-			case "--api-key":
-				opts.apiKey = args[i + 1];
+			case "--api-key": {
+				const value = args[i + 1];
+				if (value !== undefined) opts.apiKey = value;
 				i += 2;
 				break;
-			case "--base-url":
-				opts.baseUrl = args[i + 1];
+			}
+			case "--base-url": {
+				const value = args[i + 1];
+				if (value !== undefined) opts.baseUrl = value;
 				i += 2;
 				break;
+			}
 			case "--max-iterations":
 				opts.maxIterations = parsePositiveInteger(args[i + 1], opts.maxIterations);
 				i += 2;
@@ -92,10 +99,12 @@ export function parseMultiAgentRunOptions(args: string[]): MultiAgentRunOptions 
 				i += 2;
 				break;
 			}
-			case "--skills-dir":
-				opts.skillsDir = args[i + 1];
+			case "--skills-dir": {
+				const value = args[i + 1];
+				if (value !== undefined) opts.skillsDir = value;
 				i += 2;
 				break;
+			}
 			case "--agents":
 				opts.agents = parsePositiveInteger(args[i + 1], opts.agents);
 				i += 2;
@@ -141,14 +150,15 @@ export async function runMultiAgentRun(args: string[]): Promise<void> {
 		settings: {
 			headed: false,
 			verbosity: 1,
-		},
+		} as TaloxSettings,
 	});
 
 	const planner: PlannerConfig = {
 		model: opts.model,
 		apiKey,
 	};
-	if (opts.baseUrl) planner.apiBaseUrl = opts.baseUrl;
+	const apiBaseUrl = opts.baseUrl ?? process.env["OPENAI_BASE_URL"];
+	if (apiBaseUrl) planner.apiBaseUrl = apiBaseUrl;
 
 	const goal: TaskGoal = {
 		description: opts.goal,
