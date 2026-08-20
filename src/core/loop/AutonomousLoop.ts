@@ -470,7 +470,8 @@ export class AutonomousLoop {
 
 			if (!skill) return false;
 
-			const domain = this.lastObservedUrl ? this.extractHostname(this.lastObservedUrl) : "unknown";
+			const fallbackUrl = this.state.iterations.map((it) => it.result.state?.url).findLast((url) => !!url) ?? "unknown";
+			const domain = this.extractHostname(this.lastObservedUrl ?? fallbackUrl);
 
 			// Write and validate the skill
 			await this.skillWriter.createSkill({
@@ -571,7 +572,7 @@ export class AutonomousLoop {
 		if (this.skillWriter && blocker.suggestedApproach) {
 			try {
 				const hostname = this.lastObservedUrl ? this.extractHostname(this.lastObservedUrl) : "unknown";
-				const skillName = `blocker-${blocker.type}-${Date.now()}`;
+				const skillName = `blocker-${blocker.type}`;
 
 				await this.skillWriter.createSkill({
 					name: skillName,
