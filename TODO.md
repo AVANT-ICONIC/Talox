@@ -38,6 +38,7 @@
 ## 🟢 Later
 
 - [ ] Ensure single-agent `AutonomousLoop` calls `SkillLoader.loadAll()` before domain matching; the loader is constructed today but discovered skills are not explicitly loaded in the loop.
+- [ ] Accept unquoted numeric-looking skill manifest versions such as `version: 1.0`; the current mini-YAML parser converts them to numbers while `SkillManifest.version` requires a string.
 - [ ] Refresh `package-lock.json` root package metadata during the next dependency/install maintenance pass (its package version/bin metadata predates current `package.json`).
 - [ ] Docker image
 - [ ] MCP server
