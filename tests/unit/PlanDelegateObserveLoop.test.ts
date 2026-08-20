@@ -24,7 +24,13 @@ class FakeRuntime implements CoordinationRuntime {
 	}
 
 	async run(tasks: AgentTask[]): Promise<CoordinatorResult> {
-		this.calls.push(tasks.map((task) => ({ ...task, params: task.params ? { ...task.params } : undefined })));
+		this.calls.push(
+			tasks.map((task) => {
+				const clone: AgentTask = { ...task };
+				if (task.params) clone.params = { ...task.params };
+				return clone;
+			}),
+		);
 
 		const results: AgentResult[] = [];
 		for (const task of tasks) {
