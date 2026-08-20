@@ -63,6 +63,14 @@ export class AutonomousLoop {
 		this.state = this.createInitialState();
 		this.abortController = new AbortController();
 
+		// Skills are optional context, but they must be discovered before the first plan.
+		// Reload on every run so a reused loop can see skills added between runs.
+		try {
+			await this.skillLoader.loadAll();
+		} catch {
+			// Skill discovery is non-fatal; autonomous browsing can continue without it.
+		}
+
 		// Navigate to startUrl if provided
 		if (this.options.goal.startUrl) {
 			const success = await this.navigateToStartUrl(this.options.goal.startUrl, startTime);
