@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentResult, AgentTask, CoordinatorResult } from "../../src/core/AgentCoordinator.js";
-import type {
-	CoordinationRuntime,
-	PlanDelegateObserveOptions,
-} from "../../src/core/loop/PlanDelegateObserveLoop.js";
+import type { CoordinationRuntime, PlanDelegateObserveOptions } from "../../src/core/loop/PlanDelegateObserveLoop.js";
 import { PlanDelegateObserveLoop } from "../../src/core/loop/PlanDelegateObserveLoop.js";
 import type { Planner } from "../../src/core/loop/Planner.js";
 import type { PlannerInput, TaskPlan } from "../../src/core/loop/types.js";
@@ -83,7 +80,10 @@ class SequencePlanner implements Planner {
 	}
 }
 
-function options(plannerOverride: Planner, extra: Partial<PlanDelegateObserveOptions> = {}): PlanDelegateObserveOptions {
+function options(
+	plannerOverride: Planner,
+	extra: Partial<PlanDelegateObserveOptions> = {},
+): PlanDelegateObserveOptions {
 	return {
 		goal: {
 			description: "Compare two sites",

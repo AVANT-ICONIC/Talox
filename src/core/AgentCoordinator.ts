@@ -460,7 +460,9 @@ export class AgentCoordinator {
 	private asPageState(value: unknown): TaloxPageState | null {
 		if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 		const candidate = value as Partial<TaloxPageState>;
-		return typeof candidate.url === "string" && typeof candidate.title === "string" && typeof candidate.timestamp === "string"
+		return typeof candidate.url === "string" &&
+			typeof candidate.title === "string" &&
+			typeof candidate.timestamp === "string"
 			? (value as TaloxPageState)
 			: null;
 	}

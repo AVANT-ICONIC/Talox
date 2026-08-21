@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentTask, CoordinatorResult } from "../../src/core/AgentCoordinator.js";
-import {
-	PlanDelegateObserveLoop,
-	type CoordinationRuntime,
-} from "../../src/core/loop/PlanDelegateObserveLoop.js";
+import { type CoordinationRuntime, PlanDelegateObserveLoop } from "../../src/core/loop/PlanDelegateObserveLoop.js";
 import type { Planner } from "../../src/core/loop/Planner.js";
 import type { PlannerInput, TaskPlan } from "../../src/core/loop/types.js";
 

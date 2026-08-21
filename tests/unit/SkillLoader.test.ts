@@ -111,7 +111,6 @@ describe("SkillLoader", () => {
 
 	describe("load (YAML frontmatter parsing)", () => {
 		it("parses a valid SKILL.md file", async () => {
-
 			// Need to re-import with mock
 			const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
 			const loader = new SL();

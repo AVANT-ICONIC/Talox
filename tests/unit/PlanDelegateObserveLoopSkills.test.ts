@@ -1,12 +1,9 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentTask, CoordinatorResult } from "../../src/core/AgentCoordinator.js";
-import {
-	type CoordinationRuntime,
-	PlanDelegateObserveLoop,
-} from "../../src/core/loop/PlanDelegateObserveLoop.js";
+import { type CoordinationRuntime, PlanDelegateObserveLoop } from "../../src/core/loop/PlanDelegateObserveLoop.js";
 import type { Planner } from "../../src/core/loop/Planner.js";
 import type { PlannerInput, TaskPlan } from "../../src/core/loop/types.js";
 

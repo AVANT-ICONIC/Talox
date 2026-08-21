@@ -39,7 +39,12 @@ describe("SkillLoader registry reconciliation", () => {
 		const loader = new SkillLoader([managedRoot]);
 		await loader.load(externalPath);
 		expect(await loader.loadAll()).toBe(2);
-		expect(loader.getAll().map((skill) => skill.manifest.name).sort()).toEqual(["alpha", "beta", "external"]);
+		expect(
+			loader
+				.getAll()
+				.map((skill) => skill.manifest.name)
+				.sort(),
+		).toEqual(["alpha", "beta", "external"]);
 
 		await rm(join(managedRoot, "beta"), { recursive: true, force: true });
 		await writeSkill(managedRoot, "alpha", "alpha-renamed", "alpha.example");

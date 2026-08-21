@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	parseMultiAgentRunOptions,
-	readAgentCount,
-	shouldUseMultiAgentRun,
-} from "../../../src/cli/multi-agent-run.js";
+import { parseMultiAgentRunOptions, readAgentCount, shouldUseMultiAgentRun } from "../../../src/cli/multi-agent-run.js";
 
 describe("multi-agent run CLI routing", () => {
 	it("routes run commands with more than one agent", () => {
@@ -52,14 +48,7 @@ describe("multi-agent run CLI routing", () => {
 	});
 
 	it("falls back safely for invalid numeric and strategy options", () => {
-		const opts = parseMultiAgentRunOptions([
-			"goal",
-			"--agents=-10",
-			"--max-iterations",
-			"0",
-			"--strategy",
-			"chaos",
-		]);
+		const opts = parseMultiAgentRunOptions(["goal", "--agents=-10", "--max-iterations", "0", "--strategy", "chaos"]);
 
 		expect(opts.agents).toBe(1);
 		expect(opts.maxIterations).toBe(10);

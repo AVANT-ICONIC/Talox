@@ -1,9 +1,6 @@
 import path from "node:path";
 import { AgentCoordinator } from "../core/AgentCoordinator.js";
-import {
-	PlanDelegateObserveLoop,
-	type PlanDelegateObserveOptions,
-} from "../core/loop/PlanDelegateObserveLoop.js";
+import { PlanDelegateObserveLoop, type PlanDelegateObserveOptions } from "../core/loop/PlanDelegateObserveLoop.js";
 import type { LoopStrategy, PlannerConfig, TaskGoal } from "../core/loop/types.js";
 import type { TaloxSettings } from "../types/settings.js";
 

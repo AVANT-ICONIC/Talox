@@ -303,7 +303,7 @@ export class AutonomousLoop {
 					return { status: "success", durationMs: Date.now() - stepStart };
 				}
 				case "screenshot": {
-					let options: any = undefined;
+					let options: any;
 					if (step.args.path) {
 						options = { path: step.args.path as string };
 					} else if (step.args.selector) {

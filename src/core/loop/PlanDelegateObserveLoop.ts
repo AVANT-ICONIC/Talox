@@ -1,9 +1,4 @@
-import type {
-	AgentResult,
-	AgentTask,
-	CoordinatorResult,
-	SharedStateConflictStrategy,
-} from "../AgentCoordinator.js";
+import type { AgentResult, AgentTask, CoordinatorResult, SharedStateConflictStrategy } from "../AgentCoordinator.js";
 import { SkillLoader } from "../skills/SkillLoader.js";
 import { LLMPlanner, type Planner } from "./Planner.js";
 import type {
@@ -11,9 +6,9 @@ import type {
 	MultiAgentPlannerConflict,
 	MultiAgentPlannerContext,
 	MultiAgentPlannerWaveSummary,
-	PlanStep,
 	PlannerConfig,
 	PlannerInput,
+	PlanStep,
 	TaskGoal,
 	TaskPlan,
 } from "./types.js";
@@ -327,7 +322,8 @@ export class PlanDelegateObserveLoop {
 		if (typeof raw["tool"] !== "string" || !raw["tool"]) return null;
 
 		const rawArgs = raw["args"];
-		const args = rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs) ? (rawArgs as Record<string, unknown>) : {};
+		const args =
+			rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs) ? (rawArgs as Record<string, unknown>) : {};
 
 		return {
 			index: typeof raw["index"] === "number" && Number.isInteger(raw["index"]) ? raw["index"] : fallbackIndex,

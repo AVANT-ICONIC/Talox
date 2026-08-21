@@ -32,9 +32,7 @@ describe("AgentCoordinator lifecycle state hardening", () => {
 		await coordinator.launch({ profileClass: "sandbox", headed: false });
 
 		try {
-			const first = await coordinator.run([
-				{ agentId: 0, action: "navigate", params: { url: known.url } },
-			]);
+			const first = await coordinator.run([{ agentId: 0, action: "navigate", params: { url: known.url } }]);
 			expect(first.states[0]?.url).toBe(known.url);
 			expect(getState).not.toHaveBeenCalled();
 

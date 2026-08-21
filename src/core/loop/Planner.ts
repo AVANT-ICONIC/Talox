@@ -189,14 +189,21 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		parts.push(`Every executable step must set args.agentId to an integer from 0 to ${context.agentCount - 1}.`);
 		parts.push("Use args.resultKey only when a task result should be retained in shared state for later waves.");
 		parts.push("Supported tools in coordinated waves: navigate, click, type, getState, screenshot, wait.");
-		parts.push("Tasks assigned to different agents run concurrently; tasks assigned to the same agent run sequentially.");
-		parts.push("After this wave you will receive fresh agent states, ordered task results, shared state, and merge conflicts, then you can replan.");
+		parts.push(
+			"Tasks assigned to different agents run concurrently; tasks assigned to the same agent run sequentially.",
+		);
+		parts.push(
+			"After this wave you will receive fresh agent states, ordered task results, shared state, and merge conflicts, then you can replan.",
+		);
 
 		if (context.agents.length > 0) {
 			parts.push("Agent states:");
 			for (const agent of context.agents) {
-				const status = agent.lastTaskSucceeded === undefined ? "unknown" : agent.lastTaskSucceeded ? "success" : "failed";
-				parts.push(`  - agent ${agent.agentId}: url=${agent.url ?? "unknown"}, title=${agent.title ?? "unknown"}, lastTask=${status}`);
+				const status =
+					agent.lastTaskSucceeded === undefined ? "unknown" : agent.lastTaskSucceeded ? "success" : "failed";
+				parts.push(
+					`  - agent ${agent.agentId}: url=${agent.url ?? "unknown"}, title=${agent.title ?? "unknown"}, lastTask=${status}`,
+				);
 			}
 		}
 

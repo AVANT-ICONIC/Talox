@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TaloxPageState } from "../../src/types/index.js";
 import { AgentCoordinator } from "../../src/core/AgentCoordinator.js";
 import { TaloxController } from "../../src/core/controller/TaloxController.js";
+import type { TaloxPageState } from "../../src/types/index.js";
 
 function pageState(url: string, title: string): TaloxPageState {
 	return {

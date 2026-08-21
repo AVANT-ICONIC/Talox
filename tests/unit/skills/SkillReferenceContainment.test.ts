@@ -67,15 +67,18 @@ describe("SkillLoader reference containment", () => {
 		expect(skill?.references.has("secret")).toBe(false);
 	});
 
-	it.skipIf(process.platform === "win32")("skips symlinks whose canonical target escapes the skill directory", async () => {
-		const { root, skillDir, skillPath } = await makeFixture({ secret: "linked-secret.md" });
-		const outsidePath = join(root, "outside-secret.md");
-		await writeFile(outsidePath, "symlink outside secret", "utf-8");
-		await symlink(outsidePath, join(skillDir, "linked-secret.md"));
+	it.skipIf(process.platform === "win32")(
+		"skips symlinks whose canonical target escapes the skill directory",
+		async () => {
+			const { root, skillDir, skillPath } = await makeFixture({ secret: "linked-secret.md" });
+			const outsidePath = join(root, "outside-secret.md");
+			await writeFile(outsidePath, "symlink outside secret", "utf-8");
+			await symlink(outsidePath, join(skillDir, "linked-secret.md"));
 
-		const skill = await new SkillLoader().load(skillPath);
+			const skill = await new SkillLoader().load(skillPath);
 
-		expect(skill).not.toBeNull();
-		expect(skill?.references.has("secret")).toBe(false);
-	});
+			expect(skill).not.toBeNull();
+			expect(skill?.references.has("secret")).toBe(false);
+		},
+	);
 });

@@ -102,10 +102,10 @@ export { createLogger, getLogLevel, type Logger, type LogLevel, log, setLogLevel
 export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
 // ─── Multi-Agent Plan → Delegate → Observe Loop ─────────────────────────────
 export {
-	PlanDelegateObserveLoop,
 	type CoordinationRuntime,
 	type CoordinationStopReason,
 	type CoordinationWave,
+	PlanDelegateObserveLoop,
 	type PlanDelegateObserveOptions,
 	type PlanDelegateObserveResult,
 } from "./core/loop/PlanDelegateObserveLoop.js";
