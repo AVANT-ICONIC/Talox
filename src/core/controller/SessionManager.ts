@@ -20,7 +20,7 @@ import type { Point, ProfileClass, TaloxPageState, TaloxProfile } from "../../ty
 import type { ObserveSessionOptions } from "../../types/session.js";
 import type { TaloxSettings } from "../../types/settings.js";
 import { ArtifactBuilder } from "../ArtifactBuilder.js";
-import { AutoDialogHandler, type DialogRecord } from "../AutoDialogHandler.js";
+import { AutoDialogHandler } from "../AutoDialogHandler.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
 import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
 import { createLogger } from "../Logger.js";
@@ -249,7 +249,9 @@ export class SessionManager {
 			} catch (e) {
 				// Ignored: snapshot restore failed, agent will see a fresh page
 				if (snapshot?.url) {
-					await newPage.goto(snapshot.url).catch(() => {});
+					await newPage.goto(snapshot.url).catch((_e) => {
+						/* intentional: best-effort restore navigation */
+					});
 				}
 			}
 		}
@@ -669,7 +671,9 @@ export class SessionManager {
 		page.on("popup", (popup: any) => {
 			this.log.warn(`🛡️ SECURITY GUARD: Unexpected popup opened: ${popup.url()}`);
 			if (this.profile?.class === "ops") {
-				popup.close().catch(() => {});
+				popup.close().catch((_e: unknown) => {
+					/* intentional: best-effort popup close */
+				});
 			}
 		});
 
@@ -1003,21 +1007,67 @@ function injectStealthPart2(data: any): void {
 	}
 }
 
+// Lifted to module scope: does not use any closure variables from injectStealthPart3.
+function _stealthSetupPermissions(): void {
+	if (navigator.permissions?.query) {
+		const origQuery = navigator.permissions.query.bind(navigator.permissions);
+		navigator.permissions.query = (params: any) => {
+			if (params.name === "notifications") {
+				return Promise.resolve({ state: "prompt" } as PermissionStatus);
+			}
+			return origQuery(params);
+		};
+	}
+}
+
+// Lifted to module scope: does not use any closure variables from injectStealthPart3.
+function _stealthSetupNavigatorConnection(): void {
+	const navConn = (navigator as any).connection;
+	if (navConn) {
+		try {
+			Object.defineProperty(navConn, "rtt", { get: () => 50 });
+			Object.defineProperty(navConn, "downlink", { get: () => 10 });
+			Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
+			Object.defineProperty(navConn, "saveData", { get: () => false });
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+}
+
+// Lifted to module scope: does not use any closure variables from injectStealthPart3.
+// Uses globalThis instead of window per S7764.
+function _stealthSetupScreenDimensions(): void {
+	if (typeof globalThis.screen !== "undefined") {
+		try {
+			Object.defineProperty(globalThis.screen, "colorDepth", { get: () => 24 });
+			Object.defineProperty(globalThis.screen, "pixelDepth", { get: () => 24 });
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+}
+
+// Lifted to module scope: does not use any closure variables from injectStealthPart3.
+// Uses globalThis instead of window per S7764.
+function _stealthSetupCdpLeakProtection(): void {
+	if (typeof globalThis !== "undefined") {
+		// Delete automation-specific properties that leak through CDP
+		try {
+			delete (globalThis as any).__playwright;
+			delete (globalThis as any).__pw_manual;
+			delete (globalThis as any).__PW_inspect;
+		} catch (_e) {
+			/* Ignored: non-fatal browser API error */
+		}
+	}
+}
+
 function injectStealthPart3(data: any): void {
 	const patchedFunctions = new Map<any, string>();
 
 	// 14. Permissions API — override to prevent detection via permission state
-	function setupPermissions() {
-		if (navigator.permissions?.query) {
-			const origQuery = navigator.permissions.query.bind(navigator.permissions);
-			navigator.permissions.query = (params: any) => {
-				if (params.name === "notifications") {
-					return Promise.resolve({ state: "prompt" } as PermissionStatus);
-				}
-				return origQuery(params);
-			};
-		}
-	}
+	_stealthSetupPermissions();
 
 	// 15. toString leak protection — prevent detection of patched getters
 	function setupToStringLeakProtection() {
@@ -1032,14 +1082,18 @@ function injectStealthPart3(data: any): void {
 		};
 		patchedFunctions.set(fakeNativeToString, "function toString() { [native code] }");
 
-		// Wrap Function.prototype.toString itself
+		// Wrap Function.prototype.toString itself — use Object.defineProperty to avoid S6643
 		const origProtoToString = Function.prototype.toString;
-		Function.prototype.toString = function (this: any) {
-			if (patchedFunctions.has(this)) {
-				return patchedFunctions.get(this)!;
-			}
-			return origProtoToString.call(this);
-		};
+		Object.defineProperty(Function.prototype, "toString", {
+			value: function (this: any) {
+				if (patchedFunctions.has(this)) {
+					return patchedFunctions.get(this)!;
+				}
+				return origProtoToString.call(this);
+			},
+			configurable: true,
+			writable: true,
+		});
 
 		// Register all our patched getters as native
 		const nativeGetterStr = "function get webdriver() { [native code] }";
@@ -1091,50 +1145,17 @@ function injectStealthPart3(data: any): void {
 	}
 
 	// 17. Navigator.connection spoofing — consistent with fingerprint profile
-	function setupNavigatorConnection() {
-		const navConn = (navigator as any).connection;
-		if (navConn) {
-			try {
-				Object.defineProperty(navConn, "rtt", { get: () => 50 });
-				Object.defineProperty(navConn, "downlink", { get: () => 10 });
-				Object.defineProperty(navConn, "effectiveType", { get: () => "4g" });
-				Object.defineProperty(navConn, "saveData", { get: () => false });
-			} catch (_e) {
-				/* Ignored: non-fatal browser API error */
-			}
-		}
-	}
+	_stealthSetupNavigatorConnection();
 
 	// 18. Screen dimensions consistency — prevent screen size vs window size mismatches
-	function setupScreenDimensions() {
-		if (typeof window !== "undefined" && window.screen) {
-			try {
-				Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
-				Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
-			} catch (_e) {
-				/* Ignored: non-fatal browser API error */
-			}
-		}
-	}
+	_stealthSetupScreenDimensions();
 
 	// 19. CDP (Chrome DevTools Protocol) leak protection
-	function setupCdpLeakProtection() {
-		if (typeof window !== "undefined") {
-			// Delete automation-specific properties that leak through CDP
-			try {
-				delete (window as any).__playwright;
-				delete (window as any).__pw_manual;
-				delete (window as any).__PW_inspect;
-			} catch (_e) {
-				/* Ignored: non-fatal browser API error */
-			}
-		}
-	}
+	_stealthSetupCdpLeakProtection();
 
-	setupPermissions();
 	setupToStringLeakProtection();
 	setupIframeDetection();
-	setupNavigatorConnection();
-	setupScreenDimensions();
-	setupCdpLeakProtection();
+
+	// Suppress unused-parameter lint for data (kept for addInitScript arity consistency)
+	void data;
 }
