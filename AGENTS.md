@@ -102,16 +102,14 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
-### Current Status (2026-05-29) — v8.0.0
+### Current Status (2026-08-21) — v8.1.0
 
-- **148 open issues** (0 blocker, 2 critical, 28 major, 118 minor)
-- Quality gate: **OK**
-- **99 test files** | **1,816 tests** (all unit tests verified passing)
+- **Quality gate: OK** (lint warnings only — pre-existing `noBannedTypes` in test doubles)
+- **117 unit test files | 1858 unit tests** (all passing)
 - **Key Updates**:
-  - Refactored cognitive complexity issues in `src/core/PageStateCollector.ts` (`detectCursorElements`), `src/core/controller/SessionManager.ts` (`injectStealthPart3`), `src/core/research/StrategyComposer.ts` (`discoverCrossDomainPairings`), `src/core/loop/Planner.ts` (`buildUserMessage`), and `src/core/controller/ActionExecutor.ts` (`navigate`) to be modular and below 15.
-  - Excluded `test-profile/` and `test/` mock browser profile directories from Gitleaks analysis via `.gitleaksignore` and `.gitleaks.toml` in the repository root, which successfully dropped Gitleaks-related critical issues from 30 to 2.
-  - Added unit test assertion in `tests/unit/cli/talox.test.ts` to verify the generated README contains "Talox v8".
-  - Verified that `npm run build`, `npm run test:unit`, and `radar status` all run and pass perfectly.
+  - Merged 7 PRs (#13–#19): multi-agent `PlanDelegateObserveLoop`, `AgentCoordinator` shared state, CLI `--agents N` routing, Playwright bundled browser autodetect, skill manifest contract, skill registry reconciliation, skill reference containment sandbox, Docker runtime + CI workflow.
+  - Fixed failing `SkillLoader.test.ts` unit test: hoisted `vi.mock("node:fs")` to module scope and added `realpathSync` stub aligned with `canonicalizeExistingPath` logic.
+  - Bumped package version to `8.1.0`; CHANGELOG updated; tag `v8.1.0` pushed; GitHub release created at https://github.com/AVANT-ICONIC/Talox/releases/tag/v8.1.0
 
 
 ### Current Status (2026-05-26) — v8.0.0
