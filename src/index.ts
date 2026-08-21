@@ -13,6 +13,9 @@ export {
 	type AgentTask,
 	type CoordinatorConfig,
 	type CoordinatorResult,
+	type SharedStateConflict,
+	type SharedStateConflictStrategy,
+	type SharedStateWriteResult,
 } from "./core/AgentCoordinator.js";
 // ─── Auto-Dialog Handling ──────────────────────────────────────────────────────
 export type { DialogRecord } from "./core/AutoDialogHandler.js";
@@ -97,6 +100,15 @@ export { InspectServer } from "./core/inspect/InspectServer.js";
 export { createLogger, getLogLevel, type Logger, type LogLevel, log, setLogLevel } from "./core/Logger.js";
 // ─── Autonomous Loop (v6) ───────────────────────────────────────────────────
 export { AutonomousLoop } from "./core/loop/AutonomousLoop.js";
+// ─── Multi-Agent Plan → Delegate → Observe Loop ─────────────────────────────
+export {
+	PlanDelegateObserveLoop,
+	type CoordinationRuntime,
+	type CoordinationStopReason,
+	type CoordinationWave,
+	type PlanDelegateObserveOptions,
+	type PlanDelegateObserveResult,
+} from "./core/loop/PlanDelegateObserveLoop.js";
 export type { Planner } from "./core/loop/Planner.js";
 export { LLMPlanner } from "./core/loop/Planner.js";
 export type * from "./core/loop/types.js";

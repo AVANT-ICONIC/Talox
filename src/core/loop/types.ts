@@ -113,6 +113,43 @@ export interface LoopEventMap {
 
 // ── Planner Interface ──
 
+export interface MultiAgentPlannerAgentState {
+	agentId: number;
+	url?: string;
+	title?: string;
+	lastTaskSucceeded?: boolean;
+}
+
+export interface MultiAgentPlannerConflict {
+	key: string;
+	strategy: string;
+	accepted: boolean;
+	agentId?: number;
+}
+
+export interface MultiAgentPlannerWaveSummary {
+	wave: number;
+	assessment: string;
+	successes: number;
+	failures: number;
+	conflicts: number;
+}
+
+export interface MultiAgentPlannerContext {
+	/** Number of browser agents available for this planning wave. */
+	agentCount: number;
+	/** 1-based coordination wave number. */
+	wave: number;
+	/** Shared coordinator state accumulated across prior waves. */
+	sharedState: Readonly<Record<string, unknown>>;
+	/** Compact latest state summary for every browser agent. */
+	agents: MultiAgentPlannerAgentState[];
+	/** Merge conflicts from the previous coordination wave. */
+	conflicts: MultiAgentPlannerConflict[];
+	/** Compact summaries of recent coordination waves. */
+	recentWaves: MultiAgentPlannerWaveSummary[];
+}
+
 export interface PlannerInput {
 	state: import("../../types/index.js").AgentPageState;
 	goal: TaskGoal;
@@ -120,6 +157,8 @@ export interface PlannerInput {
 	skillsContext: string;
 	challengeState?: import("../ChallengeDetector.js").ChallengeState;
 	domainHints?: string;
+	/** Present when the planner is delegating one wave across multiple browser agents. */
+	multiAgent?: MultiAgentPlannerContext;
 }
 
 export interface PlannerConfig {

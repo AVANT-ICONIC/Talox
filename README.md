@@ -189,12 +189,12 @@ See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste st
 ## Talox CLI & Packaging
 
 > **npm package coming soon.** Until then, run the CLI from the repo:
-> `node dist/cli/talox.js observe --help`
+> `node dist/cli/entry.js observe --help`
 
-- `node dist/cli/talox.js observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
-- `node dist/cli/talox.js run` starts the autonomous task execution loop with an LLM planner for self-driving browser workflows.
-- `node dist/cli/talox.js skill create` interactively creates a new SKILL.md file for per-site strategies.
-- `node dist/cli/talox.js init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
+- `node dist/cli/entry.js observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
+- `node dist/cli/entry.js run` starts the autonomous task execution loop with an LLM planner for self-driving browser workflows.
+- `node dist/cli/entry.js skill create` interactively creates a new SKILL.md file for per-site strategies.
+- `node dist/cli/entry.js init` (aka the `create-talox-app` workflow) scaffolds a clean `talox-app` starter project with `PRESETS.observe`, `ts-node`/`typescript` tooling, Playwright install scripts, and `examples/browser-lab.ts`.
 - Exported presets (`ops`, `qa`, `observe`, `research`, `login-heavy`) live in `src/presets.ts` so you can reuse curated verbosity, headedness, and human-takeover posture with a single spread or merge.
 - The practical tools from `getPracticalTools(talox)` demonstrate background tabs, API response capture, Markdown snapshot export, on-site search, and visible structured content extraction, so your packaged profiles already include actionable browser lab helpers.
 
@@ -678,7 +678,7 @@ If you just want to launch an ad-hoc observe session, the bundled CLI makes it o
 
 ```bash
 # From the repo (npm package coming soon)
-node dist/cli/talox.js observe --profile my-observe-run --class qa --browser chromium --output-dir ./talox-sessions --format both
+node dist/cli/entry.js observe --profile my-observe-run --class qa --browser chromium --output-dir ./talox-sessions --format both
 ```
 
 That command opens a headed Chromium session with the overlay + annotation buffer already armed, logs console/network errors, and writes JSON/Markdown reports. Run `talox observe --help` to tune the profile class, browser, verbosity, or report directory without touching code.
