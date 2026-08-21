@@ -104,12 +104,13 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
 ### Current Status (2026-08-21) — v8.1.0
 
-- **Quality gate: OK** (lint warnings only — pre-existing `noBannedTypes` in test doubles)
+- **Quality gate: OK** (0 errors, 0 warnings across all 248 source and test files)
 - **117 unit test files | 1858 unit tests** (all passing)
 - **Key Updates**:
   - Merged 7 PRs (#13–#19): multi-agent `PlanDelegateObserveLoop`, `AgentCoordinator` shared state, CLI `--agents N` routing, Playwright bundled browser autodetect, skill manifest contract, skill registry reconciliation, skill reference containment sandbox, Docker runtime + CI workflow.
   - Fixed failing `SkillLoader.test.ts` unit test: hoisted `vi.mock("node:fs")` to module scope and added `realpathSync` stub aligned with `canonicalizeExistingPath` logic.
-  - Bumped package version to `8.1.0`; CHANGELOG updated; tag `v8.1.0` pushed; GitHub release created at https://github.com/AVANT-ICONIC/Talox/releases/tag/v8.1.0
+  - Resolved all 47 `noBannedTypes` warnings across test doubles for 0-warning pristine lint status.
+  - Bumped package version to `8.1.0`; CHANGELOG updated; tag `v8.1.0` pushed; GitHub release published at https://github.com/AVANT-ICONIC/Talox/releases/tag/v8.1.0
 
 
 ### Current Status (2026-05-26) — v8.0.0
