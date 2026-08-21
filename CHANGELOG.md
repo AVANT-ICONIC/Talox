@@ -4,9 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.1.0] - 2026-08-21
 
+### Added
+
+- **`PlanDelegateObserveLoop`** — deterministic multi-agent orchestration layer: observe → plan → delegate → merge → replan waves. Agents work concurrently; evidence merges in original task order. (#13)
+- **`AgentCoordinator` shared state** — shared state bag between agents with `last-write-wins`, `first-write-wins`, and `reject` conflict strategies. Deterministic result merging and conflict reporting. (#13)
+- **CLI `talox run --agents N`** — routes to `PlanDelegateObserveLoop` when `N > 1`; preserves single-agent path otherwise. (#13)
+- **`docs/MULTI-AGENT.md`** — full reference for multi-agent coordination runtime. (#13)
+- **Playwright bundled browser autodetect** — `BrowserManager` now detects the Playwright-managed Chromium executable via a real `BrowserType.launch()` probe before falling back to fixed system paths. Reports path and version. (#15)
+- **Skill manifest contract** — generated skills are bound to their observed page domain; `allowedTools` is written in manifests; `js-yaml` parses full SKILL.md manifests. (#16)
+- **Skill registry reconciliation** — `SkillLoader` reconciles its in-memory registry with the filesystem on each `loadAll()` so deleted or moved skills are removed automatically. (#17)
+- **Skill reference containment** — `SkillLoader.loadReferences()` sandboxes reference paths to the skill directory via canonical `realpathSync` resolution; `..`, absolute, and symlink escapes are blocked. (#18)
+- **Docker runtime** — production-oriented `Dockerfile` with bundled Playwright Chromium; `.dockerignore` and `docs/DOCKER.md` included. GitHub Actions `docker.yml` CI workflow validates the image on every push. (#19)
+- **Browser integration CI sharding** — browser suite split into parallel `root`, `loop`, `controller`, `observe`, and `smart` shards with an aggregate gate. (#13)
+
+### Fixed
+
+- **Single-agent skill loading** — `AutonomousLoop` now calls `SkillLoader.loadAll()` before the first planning iteration and on each `run()` call so reused loop instances pick up newly added skills. (#14)
+- **Unquoted numeric skill versions** — YAML `version: 1.0` is preserved as a string identifier instead of being converted to a float. (#14)
+- **Coordinator lifecycle hardening** — validates agent count before launch; cleans up atomically on partial launch failures; clears lifecycle status correctly across stop/relaunch cycles. (#13)
+- **`SkillLoader` test mock** — `node:fs` vi.mock hoisted to module scope; `realpathSync` stub added so `canonicalizeExistingPath` behaves correctly in unit tests. (#18)
+- **Stealth refactor** — `injectStealthPart3` helper functions lifted to module scope; `Function.prototype.toString` patched via `Object.defineProperty`; `globalThis` used instead of `window`.
+
+### Tests
+
+- 1858 unit tests passing across 117 test files.
+- New coverage: `AgentCoordinator` state continuity, lifecycle, controller-error, and loop-reuse regressions; `PlanDelegateObserveLoop` success, alias, bootstrap, blocker, final-verification, malformed-plan, and failure paths; multi-agent planner prompt context and bounds; real two-browser integration scenario; CLI multi-agent routing; bundled browser detection; skill manifest contract, registry reconciliation, and reference containment.
+
+---
 
 ## [8.0.2] - 2026-06-28
+
 
 ### Fixed
 
