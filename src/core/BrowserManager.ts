@@ -281,6 +281,19 @@ export class BrowserManager {
 				} catch {
 					// Try without channel
 				}
+			} else {
+				// Playwright-managed browsers live outside the fixed system paths below.
+				// A successful default launch is the most reliable proof that the
+				// browser package/cache is actually usable.
+				try {
+					const browser = await launcher.launch({ timeout: 5000, headless: true });
+					const version = browser.version();
+					const executablePath = launcher.executablePath();
+					await browser.close().catch(() => {});
+					return { path: executablePath, version };
+				} catch {
+					// Fall through to explicit system/cache path probing.
+				}
 			}
 
 			for (const searchPath of searchPaths) {

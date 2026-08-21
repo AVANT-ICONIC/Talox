@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+dist
+coverage
+artifacts
+reports
+test-results
+playwright-report
+.talox
+.talox-profiles
+*.log
+.env
+.env.*
+.DS_Store
+npm-debug.log*
