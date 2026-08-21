@@ -301,7 +301,7 @@ export class SkillLoader {
 			flushArray,
 			currentKey,
 			currentArray,
-			value: this.parseScalar(val),
+			value: key === "version" ? this.parseVersion(val) : this.parseScalar(val),
 			valueKey: key,
 		};
 	}
@@ -332,6 +332,14 @@ export class SkillLoader {
 		}
 
 		return manifest;
+	}
+
+	/** Parse version as an opaque string, preserving values such as unquoted 1.0. */
+	private parseVersion(val: string): string {
+		if ((val.startsWith('\"') && val.endsWith('\"')) || (val.startsWith("'") && val.endsWith("'"))) {
+			return val.slice(1, -1);
+		}
+		return val;
 	}
 
 	/** Parse a scalar YAML value (string, number, boolean). */
