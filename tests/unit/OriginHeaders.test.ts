@@ -4,11 +4,11 @@ import { OriginHeaders } from "../../src/core/OriginHeaders";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function createMockPage() {
-	const handlers: Record<string, Function[]> = {};
+	const handlers: Record<string, ((...args: any[]) => any)[]> = {};
 	const page = {
 		on: vi.fn(),
 		off: vi.fn(),
-		route: vi.fn().mockImplementation((_pattern: string, handler: Function) => {
+		route: vi.fn().mockImplementation((_pattern: string, handler: (...args: any[]) => any) => {
 			handlers["route"] = handlers["route"] || [];
 			handlers["route"].push(handler);
 		}),
@@ -142,7 +142,7 @@ describe("OriginHeaders", () => {
 			const page = createMockPage();
 			oh.install(page as any);
 
-			const handler = page.route.mock.calls[0]![1] as Function;
+			const handler = page.route.mock.calls[0]![1] as (route: any) => Promise<void>;
 			const route = createMockRoute("https://example.com/api", {
 				"content-type": "application/json",
 			});
@@ -165,7 +165,7 @@ describe("OriginHeaders", () => {
 			const page = createMockPage();
 			oh.install(page as any);
 
-			const handler = page.route.mock.calls[0]![1] as Function;
+			const handler = page.route.mock.calls[0]![1] as (route: any) => Promise<void>;
 			const route = createMockRoute("https://other.com/page", {});
 
 			await handler(route);

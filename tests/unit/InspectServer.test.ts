@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ─── Mock factories using vi.hoisted for hoisted mock objects ────────────────
 
 const { mockHttpServer, mockWss, mockCreateServer } = vi.hoisted(() => {
-	let capturedHandler: Function | undefined;
+	let capturedHandler: ((...args: any[]) => any) | undefined;
 	const mockHttpServer = {
 		listen: vi.fn(),
 		close: vi.fn(),
@@ -16,7 +16,7 @@ const { mockHttpServer, mockWss, mockCreateServer } = vi.hoisted(() => {
 		on: vi.fn(),
 		address: vi.fn(),
 	};
-	const mockCreateServer = vi.fn().mockImplementation((handler: Function) => {
+	const mockCreateServer = vi.fn().mockImplementation((handler: (...args: any[]) => any) => {
 		capturedHandler = handler;
 		return mockHttpServer;
 	});
@@ -56,15 +56,15 @@ describe("InspectServer", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		// Set up default mock behaviors for each test
-		mockHttpServer.listen.mockImplementation((_port: number, _host: string, cb: Function) => {
+		mockHttpServer.listen.mockImplementation((_port: number, _host: string, cb: (...args: any[]) => any) => {
 			if (cb) cb();
 			return mockHttpServer;
 		});
-		mockHttpServer.close.mockImplementation((cb?: Function) => {
+		mockHttpServer.close.mockImplementation((cb?: (...args: any[]) => any) => {
 			if (cb) cb();
 			return mockHttpServer;
 		});
-		mockHttpServer.once.mockImplementation((_event: string, _cb: Function) => {
+		mockHttpServer.once.mockImplementation((_event: string, _cb: (...args: any[]) => any) => {
 			return mockHttpServer;
 		});
 		mockHttpServer.removeListener.mockReturnValue(mockHttpServer);

@@ -13,7 +13,7 @@ function makePage(
 	return {
 		url: vi.fn().mockReturnValue("https://example.com/dashboard"),
 		title: vi.fn().mockResolvedValue("Dashboard"),
-		evaluate: vi.fn().mockImplementation(async (fn: Function | string) => {
+		evaluate: vi.fn().mockImplementation(async (fn: ((...args: any[]) => any) | string) => {
 			// Default: return empty storage objects
 			if (typeof fn === "function") {
 				// For scrollX/scrollY queries return { x: 0, y: 100 }
@@ -72,7 +72,7 @@ describe("captureSessionSnapshot", () => {
 
 	it("captures scroll position", async () => {
 		const page = makePage({
-			evaluate: vi.fn().mockImplementation(async (fn: Function | string) => {
+			evaluate: vi.fn().mockImplementation(async (fn: ((...args: any[]) => any) | string) => {
 				const src = fn.toString();
 				if (src.includes("scrollX")) return { x: 50, y: 200 };
 				return {};

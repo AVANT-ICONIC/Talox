@@ -32,13 +32,13 @@ function makeMockPage(
 		evaluateResult = [],
 	} = overrides;
 
-	const listeners: Record<string, Function[]> = {};
+	const listeners: Record<string, ((...args: any[]) => any)[]> = {};
 
 	const page: any = {
 		url: vi.fn(() => url),
 		title: vi.fn(() => Promise.resolve(title)),
 		isClosed: vi.fn(() => isClosed),
-		on: vi.fn((event: string, handler: Function) => {
+		on: vi.fn((event: string, handler: (...args: any[]) => any) => {
 			if (!listeners[event]) listeners[event] = [];
 			listeners[event].push(handler);
 		}),

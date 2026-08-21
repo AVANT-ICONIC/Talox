@@ -62,7 +62,7 @@ vi.mock("node:os", () => ({
 }));
 
 vi.mock("node:net", () => ({
-	createServer: vi.fn().mockImplementation((handler: Function) => {
+	createServer: vi.fn().mockImplementation((handler: (...args: any[]) => any) => {
 		(mockNetServer as any)._connectionHandler = handler;
 		return mockNetServer;
 	}),
@@ -80,21 +80,21 @@ function setupNetServer() {
 		if (cb) cb();
 		return mockNetServer;
 	});
-	mockNetServer.close.mockImplementation((cb?: Function) => {
+	mockNetServer.close.mockImplementation((cb?: (...args: any[]) => any) => {
 		if (cb) cb();
 		return mockNetServer;
 	});
-	mockNetServer.once.mockImplementation((_event: string, _cb: Function) => mockNetServer);
+	mockNetServer.once.mockImplementation((_event: string, _cb: (...args: any[]) => any) => mockNetServer);
 	mockNetServer.removeListener.mockReturnValue(mockNetServer);
 	mockNetServer.on.mockReturnValue(mockNetServer);
 	mockNetServer.address.mockReturnValue({ address: "127.0.0.1", port: 9222, family: "IPv4" });
 }
 
 function createMockSocket() {
-	let dataHandler: Function | undefined;
-	let errorHandler: Function | undefined;
+	let dataHandler: ((...args: any[]) => any) | undefined;
+	let errorHandler: ((...args: any[]) => any) | undefined;
 	const socket = {
-		on: vi.fn().mockImplementation((event: string, handler: Function) => {
+		on: vi.fn().mockImplementation((event: string, handler: (...args: any[]) => any) => {
 			if (event === "data") dataHandler = handler;
 			if (event === "error") errorHandler = handler;
 		}),
@@ -391,7 +391,7 @@ describe("TaloxDaemon", () => {
 		// Returns the socket so tests can read socket.write after yielding to async handlers.
 		async function sendCommandGetSocket(daemon: TaloxDaemon, commandLine: string) {
 			await daemon.start();
-			const handler = (mockNetServer as any)._connectionHandler as Function;
+			const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 			const socket = createMockSocket();
 			handler(socket);
 			const dataHandler = socket._getDataHandler();
@@ -451,7 +451,7 @@ describe("TaloxDaemon", () => {
 
 		it("responds to stop session command", async () => {
 			await daemon.start();
-			const handler = (mockNetServer as any)._connectionHandler as Function;
+			const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 			const socket = createMockSocket();
 			handler(socket);
 			const dataHandler = socket._getDataHandler();
@@ -486,7 +486,7 @@ describe("TaloxDaemon", () => {
 
 		it("does not write to destroyed sockets", async () => {
 			await daemon.start();
-			const handler = (mockNetServer as any)._connectionHandler as Function;
+			const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 			const socket = createMockSocket();
 			socket.destroyed = true;
 			handler(socket);
@@ -497,7 +497,7 @@ describe("TaloxDaemon", () => {
 
 		it("handles socket error event", async () => {
 			await daemon.start();
-			const handler = (mockNetServer as any)._connectionHandler as Function;
+			const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 			const socket = createMockSocket();
 			handler(socket);
 
@@ -514,7 +514,7 @@ describe("TaloxDaemon", () => {
 	describe("session management", () => {
 		it("lists active sessions after launch", async () => {
 			await daemon.start();
-			const handler = (mockNetServer as any)._connectionHandler as Function;
+			const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 			const socket = createMockSocket();
 			handler(socket);
 			const dataHandler = socket._getDataHandler();
@@ -538,7 +538,7 @@ describe("TaloxDaemon", () => {
 		it("returns error for stop with missing sessionId", async () => {
 			const socket = await (async () => {
 				await daemon.start();
-				const handler = (mockNetServer as any)._connectionHandler as Function;
+				const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();
@@ -559,7 +559,7 @@ describe("TaloxDaemon", () => {
 		it("returns error for stop with unknown sessionId", async () => {
 			const socket = await (async () => {
 				await daemon.start();
-				const handler = (mockNetServer as any)._connectionHandler as Function;
+				const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();
@@ -581,7 +581,7 @@ describe("TaloxDaemon", () => {
 			mockController.launch.mockRejectedValueOnce(new Error("Browser launch failed"));
 			const socket = await (async () => {
 				await daemon.start();
-				const handler = (mockNetServer as any)._connectionHandler as Function;
+				const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();
@@ -604,7 +604,7 @@ describe("TaloxDaemon", () => {
 		it("returns error when sessionId is missing for session action", async () => {
 			const socket = await (async () => {
 				await daemon.start();
-				const handler = (mockNetServer as any)._connectionHandler as Function;
+				const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();
@@ -625,7 +625,7 @@ describe("TaloxDaemon", () => {
 		it("returns error for unknown session", async () => {
 			const socket = await (async () => {
 				await daemon.start();
-				const handler = (mockNetServer as any)._connectionHandler as Function;
+				const handler = (mockNetServer as any)._connectionHandler as (socket: any) => void;
 				const sock = createMockSocket();
 				handler(sock);
 				const dataHandler = sock._getDataHandler();

@@ -30,12 +30,12 @@ function makeEntry(overrides: Partial<AnnotationEntry> = {}): AnnotationEntry {
 }
 
 function createMockPage() {
-	const listeners: Record<string, Function[]> = {};
+	const listeners: Record<string, ((...args: any[]) => any)[]> = {};
 	return {
 		exposeFunction: vi.fn().mockResolvedValue(undefined),
 		addInitScript: vi.fn().mockResolvedValue(undefined),
 		evaluate: vi.fn().mockResolvedValue(undefined),
-		on: vi.fn((event: string, handler: Function) => {
+		on: vi.fn((event: string, handler: (...args: any[]) => any) => {
 			if (!listeners[event]) listeners[event] = [];
 			listeners[event].push(handler);
 		}),
@@ -140,7 +140,7 @@ describe("OverlayInjector", () => {
 		await injector.inject(page);
 
 		// Grab the __taloxEmit__ handler that was registered
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 		const entry = makeEntry();
 		(buffer as any).size = 1;
 
@@ -161,7 +161,7 @@ describe("OverlayInjector", () => {
 		(buffer as any).size = 0;
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		await emitHandler("annotation:undo", {});
 
@@ -178,7 +178,7 @@ describe("OverlayInjector", () => {
 		(buffer.undo as any).mockReturnValue(undefined);
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		await emitHandler("annotation:undo", {});
 
@@ -190,7 +190,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		const clickPayload = {
 			index: 1,
@@ -216,7 +216,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		const clickPayload = {
 			index: 2,
@@ -239,7 +239,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		await emitHandler("session:end", {});
 
@@ -253,7 +253,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		// Should not throw
 		await expect(emitHandler("session:end", {})).resolves.toBeUndefined();
@@ -264,7 +264,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		const payload = { url: "https://example.com", nodes: [] };
 		await emitHandler("snapshot:request", payload);
@@ -277,7 +277,7 @@ describe("OverlayInjector", () => {
 		const page = createMockPage();
 
 		await injector.inject(page);
-		const emitHandler = page.exposeFunction.mock.calls[0][1] as Function;
+		const emitHandler = page.exposeFunction.mock.calls[0][1] as (event: string, data: any) => Promise<void>;
 
 		// Should not throw — just warns to console
 		await expect(emitHandler("unknown:event", {})).resolves.toBeUndefined();

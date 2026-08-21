@@ -47,9 +47,9 @@ function createMockResponse(
 }
 
 function createMockPage() {
-	const listeners: Record<string, Function[]> = {};
+	const listeners: Record<string, ((...args: any[]) => any)[]> = {};
 	return {
-		on: vi.fn().mockImplementation((event: string, handler: Function) => {
+		on: vi.fn().mockImplementation((event: string, handler: (...args: any[]) => any) => {
 			listeners[event] = listeners[event] || [];
 			listeners[event].push(handler);
 		}),

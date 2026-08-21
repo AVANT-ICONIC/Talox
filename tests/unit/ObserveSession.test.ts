@@ -68,13 +68,13 @@ import type { TaloxEventMap } from "../../src/types/events";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function makeMockPage(overrides: Record<string, any> = {}) {
-	const listeners: Record<string, Function[]> = {};
+	const listeners: Record<string, ((...args: any[]) => any)[]> = {};
 
 	const mainFrameObj = { url: () => overrides.url ?? "https://example.com" };
 
 	const page: any = {
 		url: vi.fn(() => overrides.url ?? "https://example.com"),
-		on: vi.fn((event: string, handler: Function) => {
+		on: vi.fn((event: string, handler: (...args: any[]) => any) => {
 			if (!listeners[event]) listeners[event] = [];
 			listeners[event].push(handler);
 		}),
@@ -96,9 +96,9 @@ function makeMockPage(overrides: Record<string, any> = {}) {
 }
 
 function makeMockContext(overrides: Record<string, any> = {}) {
-	const listeners: Record<string, Function[]> = {};
+	const listeners: Record<string, ((...args: any[]) => any)[]> = {};
 	return {
-		on: vi.fn((event: string, handler: Function) => {
+		on: vi.fn((event: string, handler: (...args: any[]) => any) => {
 			if (!listeners[event]) listeners[event] = [];
 			listeners[event].push(handler);
 		}),

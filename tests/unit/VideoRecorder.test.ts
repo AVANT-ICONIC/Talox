@@ -37,7 +37,7 @@ function createMockPage(screenshotBuffer?: Buffer) {
 describe("VideoRecorder", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.mocked(execFile).mockImplementation((_cmd: string, _args: string[], cb: Function) => {
+		vi.mocked(execFile).mockImplementation((_cmd: string, _args: string[], cb: (...args: any[]) => any) => {
 			// Mock ffmpeg check: first call is -version check
 			const proc = {
 				stdin: {
