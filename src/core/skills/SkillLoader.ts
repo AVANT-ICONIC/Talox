@@ -22,7 +22,8 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { FAILSAFE_SCHEMA, load as loadYaml } from "js-yaml";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,11 @@ export interface LoadedSkill {
 	references: Map<string, string>; // name -> content
 }
 
+interface LoadedSkillFile {
+	skill: LoadedSkill;
+	sourcePath: string;
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const SKILL_FILENAME = "SKILL.md";
@@ -54,6 +60,7 @@ const FRONTMATTER_DELIMITER = "---";
  */
 export class SkillLoader {
 	private readonly skills: Map<string, LoadedSkill> = new Map();
+	private readonly skillSources: Map<string, string> = new Map();
 	private readonly searchPaths: string[];
 
 	constructor(searchPaths?: string[]) {
@@ -67,24 +74,47 @@ export class SkillLoader {
 	// ─── Loading ──────────────────────────────────────────────────────────
 
 	/**
-	 * Scan all search paths and load every discoverable SKILL.md.
-	 * Returns the number of skills successfully loaded.
+	 * Scan all configured search paths and reconcile the managed registry with
+	 * the filesystem. Explicitly loaded skills outside those roots are preserved.
+	 * The registry is swapped only after the scan completes successfully.
+	 * Returns the number of discoverable managed skills successfully loaded.
 	 */
 	async loadAll(): Promise<number> {
+		const managedRoots = this.searchPaths.map((rawPath) => this.resolvePath(rawPath));
+		const nextSkills = new Map<string, LoadedSkill>();
+		const nextSources = new Map<string, string>();
+
+		// Preserve explicitly loaded skills that live outside configured search roots.
+		for (const [name, skill] of this.skills) {
+			const sourcePath = this.skillSources.get(name);
+			if (!sourcePath || !managedRoots.some((root) => this.isPathWithinRoot(sourcePath, root))) {
+				nextSkills.set(name, skill);
+				if (sourcePath) nextSources.set(name, sourcePath);
+			}
+		}
+
 		let loaded = 0;
-		for (const rawPath of this.searchPaths) {
-			const dir = this.resolvePath(rawPath);
+		for (const dir of managedRoots) {
 			if (!existsSync(dir)) continue;
 			if (!statSync(dir).isDirectory()) continue;
 
 			const entries = readdirSync(dir, { withFileTypes: true });
 			for (const entry of entries) {
 				if (!entry.isDirectory()) continue;
-				const skillFile = join(dir, entry.name, SKILL_FILENAME);
-				const skill = await this.load(skillFile);
-				if (skill) loaded++;
+				const loadedFile = await this.readSkillFile(join(dir, entry.name, SKILL_FILENAME));
+				if (!loadedFile) continue;
+
+				nextSkills.set(loadedFile.skill.manifest.name, loadedFile.skill);
+				nextSources.set(loadedFile.skill.manifest.name, loadedFile.sourcePath);
+				loaded++;
 			}
 		}
+
+		this.skills.clear();
+		this.skillSources.clear();
+		for (const [name, skill] of nextSkills) this.skills.set(name, skill);
+		for (const [name, sourcePath] of nextSources) this.skillSources.set(name, sourcePath);
+
 		return loaded;
 	}
 
@@ -93,24 +123,12 @@ export class SkillLoader {
 	 * Returns null if the file cannot be read or parsed.
 	 */
 	async load(path: string): Promise<LoadedSkill | null> {
-		const resolved = this.resolvePath(path);
-		if (!existsSync(resolved)) return null;
+		const loadedFile = await this.readSkillFile(path);
+		if (!loadedFile) return null;
 
-		let raw: string;
-		try {
-			raw = readFileSync(resolved, "utf-8");
-		} catch {
-			// NOSONAR — gracefully skip unreadable files
-			return null;
-		}
-
-		const manifest = this.parseFrontmatter(raw);
-		if (!manifest) return null;
-
-		const references = await this.loadReferences(resolved, manifest);
-		const skill: LoadedSkill = { manifest, content: raw, references };
-		this.skills.set(manifest.name, skill);
-		return skill;
+		this.skills.set(loadedFile.skill.manifest.name, loadedFile.skill);
+		this.skillSources.set(loadedFile.skill.manifest.name, loadedFile.sourcePath);
+		return loadedFile.skill;
 	}
 
 	// ─── Query ────────────────────────────────────────────────────────────
@@ -204,6 +222,28 @@ export class SkillLoader {
 
 	// ─── Private Helpers ──────────────────────────────────────────────────
 
+	private async readSkillFile(path: string): Promise<LoadedSkillFile | null> {
+		const resolved = this.resolvePath(path);
+		if (!existsSync(resolved)) return null;
+
+		let raw: string;
+		try {
+			raw = readFileSync(resolved, "utf-8");
+		} catch {
+			// NOSONAR — gracefully skip unreadable files
+			return null;
+		}
+
+		const manifest = this.parseFrontmatter(raw);
+		if (!manifest) return null;
+
+		const references = await this.loadReferences(resolved, manifest);
+		return {
+			skill: { manifest, content: raw, references },
+			sourcePath: resolved,
+		};
+	}
+
 	/**
 	 * Parse YAML frontmatter from SKILL.md content.
 	 * Returns null if frontmatter is missing or invalid.
@@ -220,90 +260,18 @@ export class SkillLoader {
 	}
 
 	/**
-	 * Minimal YAML parser for the skill manifest. Handles the flat key-value
-	 * structure and simple arrays used in SKILL.md frontmatter.
+	 * Parse skill frontmatter with the YAML parser Talox already ships.
+	 * FAILSAFE_SCHEMA keeps scalar identifiers such as `version: 1.0` as strings
+	 * while still supporting arrays and nested mappings such as `references`.
 	 */
 	private parseYamlManifest(yaml: string): SkillManifest | null {
-		const lines = yaml.split("\n");
-		const values: Record<string, unknown> = {};
-		let currentKey: string | null = null;
-		let currentArray: string[] | null = null;
-
-		for (const line of lines) {
-			const trimmedLine = line.trim();
-			if (trimmedLine === "" || trimmedLine.startsWith("#")) continue;
-
-			const parsed = this.parseYamlLine(trimmedLine, currentKey, currentArray);
-			if (parsed.flushKey && parsed.flushArray) {
-				values[parsed.flushKey] = parsed.flushArray;
-			}
-			currentKey = parsed.currentKey;
-			currentArray = parsed.currentArray;
-
-			if (parsed.value !== undefined) {
-				values[parsed.valueKey] = parsed.value;
-			}
+		try {
+			const parsed = loadYaml(yaml, { schema: FAILSAFE_SCHEMA });
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+			return this.buildManifest(parsed as Record<string, unknown>);
+		} catch {
+			return null;
 		}
-
-		// Flush final array if any
-		if (currentKey && currentArray) {
-			values[currentKey] = currentArray;
-		}
-
-		return this.buildManifest(values);
-	}
-
-	/** Parse a single YAML line and return the updated parse state. */
-	private parseYamlLine(
-		trimmedLine: string,
-		currentKey: string | null,
-		currentArray: string[] | null,
-	): {
-		flushKey: string | undefined;
-		flushArray: string[] | undefined;
-		currentKey: string | null;
-		currentArray: string[] | null;
-		value: unknown;
-		valueKey: string;
-	} {
-		// Array item: "- value"
-		if (trimmedLine.startsWith("- ") && currentKey && currentArray) {
-			currentArray.push(trimmedLine.slice(2).trim());
-			return { flushKey: undefined, flushArray: undefined, currentKey, currentArray, value: undefined, valueKey: "" };
-		}
-
-		let flushKey: string | undefined;
-		let flushArray: string[] | undefined;
-
-		// Flush any in-progress array
-		if (currentKey && currentArray) {
-			flushKey = currentKey;
-			flushArray = currentArray;
-			currentKey = null;
-			currentArray = null;
-		}
-
-		// Key-value pair: "key: value"
-		const colonIdx = trimmedLine.indexOf(":");
-		if (colonIdx === -1) {
-			return { flushKey, flushArray, currentKey, currentArray, value: undefined, valueKey: "" };
-		}
-
-		const key = trimmedLine.slice(0, colonIdx).trim();
-		const val = trimmedLine.slice(colonIdx + 1).trim();
-
-		if (val === "") {
-			return { flushKey, flushArray, currentKey: key, currentArray: [], value: undefined, valueKey: "" };
-		}
-
-		return {
-			flushKey,
-			flushArray,
-			currentKey,
-			currentArray,
-			value: this.parseScalar(val),
-			valueKey: key,
-		};
 	}
 
 	/** Validate parsed values and build a SkillManifest, or return null. */
@@ -325,26 +293,18 @@ export class SkillLoader {
 		};
 
 		if (Array.isArray(values.allowedTools)) {
-			manifest.allowedTools = values.allowedTools as string[];
+			const allowedTools = values.allowedTools.filter((tool): tool is string => typeof tool === "string");
+			if (allowedTools.length > 0) manifest.allowedTools = allowedTools;
 		}
-		if (values.references && typeof values.references === "object") {
-			manifest.references = values.references as Record<string, string>;
+		if (values.references && typeof values.references === "object" && !Array.isArray(values.references)) {
+			const references: Record<string, string> = {};
+			for (const [name, referencePath] of Object.entries(values.references as Record<string, unknown>)) {
+				if (typeof referencePath === "string") references[name] = referencePath;
+			}
+			if (Object.keys(references).length > 0) manifest.references = references;
 		}
 
 		return manifest;
-	}
-
-	/** Parse a scalar YAML value (string, number, boolean). */
-	private parseScalar(val: string): unknown {
-		if (val === "true") return true;
-		if (val === "false") return false;
-		if (/^-?\d+$/.test(val)) return Number.parseInt(val, 10);
-		if (/^-?\d+\.\d+$/.test(val)) return Number.parseFloat(val);
-		// Strip surrounding quotes
-		if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-			return val.slice(1, -1);
-		}
-		return val;
 	}
 
 	/** Strip the frontmatter block from markdown content, returning only the body. */
@@ -360,26 +320,49 @@ export class SkillLoader {
 
 	/**
 	 * Load reference files declared in the manifest.
-	 * Reference paths are relative to the SKILL.md file's parent directory.
+	 * References are sandboxed to the skill directory after canonical path
+	 * resolution so `..`, absolute paths, and symlinks cannot escape it.
 	 */
 	private async loadReferences(skillPath: string, manifest: SkillManifest): Promise<Map<string, string>> {
 		const refs = new Map<string, string>();
 		if (!manifest.references) return refs;
 
 		const skillDir = resolve(skillPath, "..");
+		const canonicalSkillDir = await this.canonicalizeExistingPath(skillDir);
+		if (!canonicalSkillDir) return refs;
 
-		for (const [name, relativePath] of Object.entries(manifest.references)) {
-			const absPath = resolve(skillDir, relativePath);
+		for (const [name, referencePath] of Object.entries(manifest.references)) {
 			try {
-				if (existsSync(absPath)) {
-					refs.set(name, readFileSync(absPath, "utf-8"));
-				}
+				const canonicalReference = await this.canonicalizeExistingPath(resolve(skillDir, referencePath));
+				if (!canonicalReference || !this.isPathWithinRoot(canonicalReference, canonicalSkillDir)) continue;
+				refs.set(name, readFileSync(canonicalReference, "utf-8"));
 			} catch {
-				// NOSONAR — skip unreadable references
+				// NOSONAR — skip missing, unreadable, or escaping references
 			}
 		}
 
 		return refs;
+	}
+
+	/**
+	 * Resolve an existing path to its canonical filesystem target. Real Node
+	 * always exposes realpathSync; the resolved fallback supports intentionally
+	 * incomplete node:fs test doubles that omit that built-in export.
+	 */
+	private async canonicalizeExistingPath(path: string): Promise<string | null> {
+		try {
+			const fs = await import("node:fs");
+			if (typeof fs.realpathSync === "function") return fs.realpathSync(path);
+			return existsSync(path) ? resolve(path) : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/** Check whether a source path lives inside a configured search root. */
+	private isPathWithinRoot(sourcePath: string, root: string): boolean {
+		const rel = relative(root, sourcePath);
+		return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 	}
 
 	/**

@@ -37,6 +37,7 @@ export class AutonomousLoop {
 	private readonly options: AutonomousLoopOptions;
 	private state: LoopState | null = null;
 	private abortController: AbortController | null = null;
+	private lastObservedUrl: string | null = null;
 
 	constructor(controller: TaloxController, options: AutonomousLoopOptions) {
 		this.controller = controller;
@@ -62,6 +63,15 @@ export class AutonomousLoop {
 		const startTime = Date.now();
 		this.state = this.createInitialState();
 		this.abortController = new AbortController();
+		this.lastObservedUrl = null;
+
+		// Skills are optional context, but they must be discovered before the first plan.
+		// Reload on every run so a reused loop can see skills added between runs.
+		try {
+			await this.skillLoader.loadAll();
+		} catch {
+			// Skill discovery is non-fatal; autonomous browsing can continue without it.
+		}
 
 		// Navigate to startUrl if provided
 		if (this.options.goal.startUrl) {
@@ -183,6 +193,7 @@ export class AutonomousLoop {
 		let pageState: AgentPageState;
 		try {
 			pageState = await this.controller.getState("agent");
+			this.lastObservedUrl = pageState.url;
 		} catch (error: unknown) {
 			// if we can't get state, return a failed iteration
 			const msg = error instanceof Error ? error.message : String(error);
@@ -459,9 +470,8 @@ export class AutonomousLoop {
 
 			if (!skill) return false;
 
-			// Determine domain from the last known URL
-			const lastUrl = this.state.iterations.map((it) => it.result.state?.url).findLast((url) => !!url) ?? "unknown";
-			const domain = this.extractHostname(lastUrl);
+			const fallbackUrl = this.state.iterations.map((it) => it.result.state?.url).findLast((url) => !!url) ?? "unknown";
+			const domain = this.extractHostname(this.lastObservedUrl ?? fallbackUrl);
 
 			// Write and validate the skill
 			await this.skillWriter.createSkill({
@@ -561,13 +571,11 @@ export class AutonomousLoop {
 		// Try skill creation if we have a SkillWriter
 		if (this.skillWriter && blocker.suggestedApproach) {
 			try {
-				const hostname =
-					this.state.iterations.length > 0
-						? this.extractHostname(this.state.iterations.at(-1)?.plan?.assessment ?? "")
-						: "unknown";
+				const hostname = this.lastObservedUrl ? this.extractHostname(this.lastObservedUrl) : "unknown";
+				const skillName = `blocker-${blocker.type}`;
 
 				await this.skillWriter.createSkill({
-					name: `blocker-${blocker.type}-${Date.now()}`,
+					name: skillName,
 					description: blocker.description,
 					domain: hostname,
 					version: "1.0",
@@ -576,7 +584,7 @@ export class AutonomousLoop {
 					toolUsage: [],
 				});
 
-				this.state.createdSkills.push(`blocker-${blocker.type}`);
+				this.state.createdSkills.push(skillName);
 			} catch {
 				// Ignored: non-fatal error
 				// Skill creation failed, continue to escalation
