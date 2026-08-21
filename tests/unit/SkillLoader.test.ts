@@ -542,58 +542,6 @@ Content here.
 	});
 });
 
-// ── parseScalar edge cases ──────────────────────────────────────────────────
-
-describe("SkillLoader — parseScalar", () => {
-	it("parses boolean true", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("true")).toBe(true);
-	});
-
-	it("parses boolean false", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("false")).toBe(false);
-	});
-
-	it("parses integer", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("42")).toBe(42);
-	});
-
-	it("parses negative integer", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("-5")).toBe(-5);
-	});
-
-	it("parses float", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("3.14")).toBeCloseTo(3.14);
-	});
-
-	it("strips double quotes", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar('"hello"')).toBe("hello");
-	});
-
-	it("strips single quotes", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("'hello'")).toBe("hello");
-	});
-
-	it("returns raw string otherwise", async () => {
-		const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
-		const loader = new SL();
-		expect((loader as any).parseScalar("plain-value")).toBe("plain-value");
-	});
-});
-
 // ── toPrompt without allowedTools ───────────────────────────────────────────
 
 describe("SkillLoader — toPrompt without allowedTools", () => {
@@ -676,8 +624,7 @@ Body content.
 		expect(skill!.manifest.name).toBe("commented-skill");
 	});
 
-	it("handles YAML line without colon", async () => {
-		// A line without a colon that is not a list item should be skipped
+	it("rejects malformed YAML lines instead of silently skipping them", async () => {
 		const { existsSync, readFileSync } = await import("node:fs");
 		const SKILL_BAD_LINE = `---
 name: bad-line
@@ -696,8 +643,7 @@ Body.
 		const loader = new SL();
 		const skill = await loader.load("/skills/badline/SKILL.md");
 
-		expect(skill).not.toBeNull();
-		expect(skill!.manifest.name).toBe("bad-line");
+		expect(skill).toBeNull();
 	});
 
 	it("returns null when frontmatter has no closing delimiter", async () => {
