@@ -1,6 +1,13 @@
 // src/core/loop/Planner.ts
 
-import type { DynamicSkill, PlannerConfig, PlannerInput, SkillGenerationInput, TaskPlan } from "./types.js";
+import type {
+	DynamicSkill,
+	MultiAgentPlannerContext,
+	PlannerConfig,
+	PlannerInput,
+	SkillGenerationInput,
+	TaskPlan,
+} from "./types.js";
 
 const DEFAULT_SYSTEM_PROMPT = `You are an autonomous browser agent that plans the next actions to achieve a user goal.
 Analyze the current page state and decide what to do next.
@@ -103,7 +110,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 	}
 
 	private buildUserMessage(input: PlannerInput): string {
-		const { state, goal, recentIterations, skillsContext, challengeState, domainHints } = input;
+		const { state, goal, recentIterations, skillsContext, challengeState, domainHints, multiAgent } = input;
 		const parts: string[] = [];
 
 		// Goal
@@ -122,6 +129,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		this.appendBugs(parts, state.bugs);
 		this.appendChallengeState(parts, challengeState);
 		this.appendSkillsAndHints(parts, skillsContext, domainHints);
+		this.appendMultiAgentContext(parts, multiAgent);
 		this.appendRecentIterations(parts, recentIterations);
 
 		return parts.join("\n");
@@ -169,6 +177,58 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		}
 		if (domainHints) {
 			parts.push(`\n## Domain Memory Hints\n${domainHints}`);
+		}
+	}
+
+	private appendMultiAgentContext(parts: string[], context?: MultiAgentPlannerContext): void {
+		if (!context) return;
+
+		parts.push(`\n## Multi-Agent Coordination`);
+		parts.push(`You are planning coordination wave ${context.wave} for ${context.agentCount} browser agents.`);
+		parts.push("Return multiple independent steps when parallel work is useful.");
+		parts.push(`Every executable step must set args.agentId to an integer from 0 to ${context.agentCount - 1}.`);
+		parts.push("Use args.resultKey only when a task result should be retained in shared state for later waves.");
+		parts.push("Supported tools in coordinated waves: navigate, click, type, getState, screenshot, wait.");
+		parts.push("Tasks assigned to different agents run concurrently; tasks assigned to the same agent run sequentially.");
+		parts.push("After this wave you will receive fresh agent states, ordered task results, shared state, and merge conflicts, then you can replan.");
+
+		if (context.agents.length > 0) {
+			parts.push("Agent states:");
+			for (const agent of context.agents) {
+				const status = agent.lastTaskSucceeded === undefined ? "unknown" : agent.lastTaskSucceeded ? "success" : "failed";
+				parts.push(`  - agent ${agent.agentId}: url=${agent.url ?? "unknown"}, title=${agent.title ?? "unknown"}, lastTask=${status}`);
+			}
+		}
+
+		const sharedState = this.compactJson(context.sharedState, 5000);
+		parts.push(`Shared state: ${sharedState}`);
+
+		if (context.conflicts.length > 0) {
+			parts.push("Previous merge conflicts:");
+			for (const conflict of context.conflicts.slice(-10)) {
+				parts.push(
+					`  - key=${conflict.key}, strategy=${conflict.strategy}, accepted=${conflict.accepted}, agent=${conflict.agentId ?? "unknown"}`,
+				);
+			}
+		}
+
+		if (context.recentWaves.length > 0) {
+			parts.push("Recent coordination waves:");
+			for (const wave of context.recentWaves.slice(-this.config.contextWindowIterations)) {
+				parts.push(
+					`  - wave ${wave.wave}: ${wave.assessment} | successes=${wave.successes}, failures=${wave.failures}, conflicts=${wave.conflicts}`,
+				);
+			}
+		}
+	}
+
+	private compactJson(value: unknown, maxChars: number): string {
+		try {
+			const json = JSON.stringify(value);
+			if (json.length <= maxChars) return json;
+			return `${json.slice(0, maxChars)}…`;
+		} catch {
+			return "[unserializable]";
 		}
 	}
 
