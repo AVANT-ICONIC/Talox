@@ -320,26 +320,43 @@ export class SkillLoader {
 
 	/**
 	 * Load reference files declared in the manifest.
-	 * Reference paths are relative to the SKILL.md file's parent directory.
+	 * References are sandboxed to the skill directory after canonical path
+	 * resolution so `..`, absolute paths, and symlinks cannot escape it.
 	 */
 	private async loadReferences(skillPath: string, manifest: SkillManifest): Promise<Map<string, string>> {
 		const refs = new Map<string, string>();
 		if (!manifest.references) return refs;
 
 		const skillDir = resolve(skillPath, "..");
+		const canonicalSkillDir = await this.canonicalizeExistingPath(skillDir);
+		if (!canonicalSkillDir) return refs;
 
-		for (const [name, relativePath] of Object.entries(manifest.references)) {
-			const absPath = resolve(skillDir, relativePath);
+		for (const [name, referencePath] of Object.entries(manifest.references)) {
 			try {
-				if (existsSync(absPath)) {
-					refs.set(name, readFileSync(absPath, "utf-8"));
-				}
+				const canonicalReference = await this.canonicalizeExistingPath(resolve(skillDir, referencePath));
+				if (!canonicalReference || !this.isPathWithinRoot(canonicalReference, canonicalSkillDir)) continue;
+				refs.set(name, readFileSync(canonicalReference, "utf-8"));
 			} catch {
-				// NOSONAR — skip unreadable references
+				// NOSONAR — skip missing, unreadable, or escaping references
 			}
 		}
 
 		return refs;
+	}
+
+	/**
+	 * Resolve an existing path to its canonical filesystem target. Real Node
+	 * always exposes realpathSync; the resolved fallback supports intentionally
+	 * incomplete node:fs test doubles that omit that built-in export.
+	 */
+	private async canonicalizeExistingPath(path: string): Promise<string | null> {
+		try {
+			const fs = await import("node:fs");
+			if (typeof fs.realpathSync === "function") return fs.realpathSync(path);
+			return existsSync(path) ? resolve(path) : null;
+		} catch {
+			return null;
+		}
 	}
 
 	/** Check whether a source path lives inside a configured search root. */

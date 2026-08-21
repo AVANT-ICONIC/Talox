@@ -5,7 +5,7 @@ import type { LoadedSkill } from "../../src/core/skills/SkillLoader";
 
 // vi.mock() factories are hoisted above imports, so we use vi.hoisted()
 // to ensure these constants are available when the factory runs.
-const { VALID_SKILL_MD, WILDCARD_SKILL_MD, INVALID_SKILL_MD, INCOMPLETE_SKILL_MD } = vi.hoisted(() => {
+const fsMocks = vi.hoisted(() => {
 	const VALID = `---
 name: slack-navigation
 description: Navigation strategies for Slack web app
@@ -43,13 +43,33 @@ name: incomplete-skill
 Missing required fields.
 `;
 
+	const exists = vi.fn().mockReturnValue(true);
+	const read = vi.fn().mockReturnValue(VALID);
+	const stat = vi.fn().mockReturnValue({ isDirectory: () => true });
+	const readdir = vi.fn().mockReturnValue([]);
+	const realpath = vi.fn().mockImplementation((p: string) => {
+		if (!exists(p)) {
+			const err = new Error(`ENOENT: no such file or directory, realpath '${p}'`);
+			(err as any).code = "ENOENT";
+			throw err;
+		}
+		return p;
+	});
+
 	return {
 		VALID_SKILL_MD: VALID,
 		WILDCARD_SKILL_MD: WILDCARD,
 		INVALID_SKILL_MD: INVALID,
 		INCOMPLETE_SKILL_MD: INCOMPLETE,
+		readFileSync: read,
+		existsSync: exists,
+		statSync: stat,
+		readdirSync: readdir,
+		realpathSync: realpath,
 	};
 });
+
+const { VALID_SKILL_MD, WILDCARD_SKILL_MD, INVALID_SKILL_MD, INCOMPLETE_SKILL_MD } = fsMocks;
 
 const MINIMAL_SKILL_MD = `---
 name: minimal
@@ -60,6 +80,14 @@ domain: example.com
 
 Minimal content.
 `;
+
+vi.mock("node:fs", () => ({
+	readFileSync: fsMocks.readFileSync,
+	existsSync: fsMocks.existsSync,
+	statSync: fsMocks.statSync,
+	readdirSync: fsMocks.readdirSync,
+	realpathSync: fsMocks.realpathSync,
+}));
 
 // Re-import SkillLoader dynamically where needed (top-level import works for basic tests)
 import { SkillLoader } from "../../src/core/skills/SkillLoader";
@@ -83,12 +111,6 @@ describe("SkillLoader", () => {
 
 	describe("load (YAML frontmatter parsing)", () => {
 		it("parses a valid SKILL.md file", async () => {
-			vi.mock("node:fs", () => ({
-				readFileSync: vi.fn().mockReturnValue(VALID_SKILL_MD),
-				existsSync: vi.fn().mockReturnValue(true),
-				statSync: vi.fn().mockReturnValue({ isDirectory: () => true }),
-				readdirSync: vi.fn().mockReturnValue([]),
-			}));
 
 			// Need to re-import with mock
 			const { SkillLoader: SL } = await import("../../src/core/skills/SkillLoader");
