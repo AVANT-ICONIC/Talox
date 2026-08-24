@@ -1,5 +1,6 @@
+import { Readable, Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { TaloxMcpSession, TALOX_MCP_TOOLS } from "../../src/core/mcp/TaloxMcpServer.js";
+import { TaloxMcpSession, TaloxMcpStdioServer, TALOX_MCP_TOOLS } from "../../src/core/mcp/TaloxMcpServer.js";
 
 class FakeController {
 	launchCalls: Array<[string, string, string | undefined]> = [];
@@ -7,6 +8,7 @@ class FakeController {
 	navigateCalls: string[] = [];
 	clickCalls: string[] = [];
 	typeCalls: Array<[string, string]> = [];
+	stateVariants: Array<"full" | "agent" | "debug" | undefined> = [];
 
 	async launch(profileId: string, profileClass: "ops" | "qa" | "sandbox", browser?: "chromium" | "firefox" | "webkit") {
 		this.launchCalls.push([profileId, profileClass, browser]);
@@ -31,8 +33,9 @@ class FakeController {
 		return { url: "https://example.com/form", title: "Form" };
 	}
 
-	async getState() {
-		return { url: "https://example.com", title: "Example", nodes: [] };
+	async getState(variant?: "full" | "agent" | "debug") {
+		this.stateVariants.push(variant);
+		return { url: "https://example.com", title: "Example", nodes: [], variant };
 	}
 
 	async screenshot() {
@@ -102,7 +105,7 @@ describe("TaloxMcpSession", () => {
 	it("stamps modern results when the request carries the protocol envelope directly", async () => {
 		const session = new TaloxMcpSession(() => new FakeController());
 		const response = await session.handle(
-			request(1, "ping", {
+			request(1, "tools/list", {
 				_meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
 			}),
 		);
@@ -115,6 +118,17 @@ describe("TaloxMcpSession", () => {
 		});
 	});
 
+	it("rejects legacy ping in the modern protocol era", async () => {
+		const session = new TaloxMcpSession(() => new FakeController());
+		const response = await session.handle(
+			request(1, "ping", {
+				_meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
+			}),
+		);
+
+		expect(response).toMatchObject({ error: { code: -32601 } });
+	});
+
 	it("requires launch before browser-scoped tool calls", async () => {
 		const session = new TaloxMcpSession(() => new FakeController());
 		const response = await session.handle(toolCall(1, "talox_navigate", { url: "https://example.com" }));
@@ -125,6 +139,16 @@ describe("TaloxMcpSession", () => {
 				content: [{ type: "text", text: expect.stringContaining("talox_launch") }],
 			},
 		});
+	});
+
+	it("defaults talox_state to the compact agent variant", async () => {
+		const fake = new FakeController();
+		const session = new TaloxMcpSession(() => fake);
+		await session.handle(toolCall(1, "talox_launch"));
+		const response = await session.handle(toolCall(2, "talox_state"));
+
+		expect(fake.stateVariants).toEqual(["agent"]);
+		expect(response).toMatchObject({ result: { content: [{ type: "text", text: expect.stringContaining('"variant": "agent"') }] } });
 	});
 
 	it("runs a persistent browser session across MCP tool calls", async () => {
@@ -157,6 +181,49 @@ describe("TaloxMcpSession", () => {
 			jsonrpc: "2.0",
 			id: 7,
 			error: { code: -32601, message: "Method not found: made/up" },
+		});
+	});
+});
+
+describe("TaloxMcpStdioServer", () => {
+	it("emits newline-delimited JSON-RPC and stays silent for notifications", async () => {
+		const input = Readable.from([
+			`${JSON.stringify(request(1, "server/discover"))}\n`,
+			`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } })}\n`,
+		]);
+		let output = "";
+		const sink = new Writable({
+			write(chunk, _encoding, callback) {
+				output += chunk.toString();
+				callback();
+			},
+		});
+		const server = new TaloxMcpStdioServer(new TaloxMcpSession(() => new FakeController()), input, sink);
+
+		await server.run();
+
+		const lines = output.trim().split("\n");
+		expect(lines).toHaveLength(1);
+		expect(JSON.parse(lines[0] ?? "{}")).toMatchObject({ id: 1, result: { supportedVersions: ["2026-07-28"] } });
+	});
+
+	it("returns a JSON-RPC parse error for malformed input", async () => {
+		const input = Readable.from(["{definitely-not-json}\n"]);
+		let output = "";
+		const sink = new Writable({
+			write(chunk, _encoding, callback) {
+				output += chunk.toString();
+				callback();
+			},
+		});
+		const server = new TaloxMcpStdioServer(new TaloxMcpSession(() => new FakeController()), input, sink);
+
+		await server.run();
+
+		expect(JSON.parse(output.trim())).toEqual({
+			jsonrpc: "2.0",
+			id: null,
+			error: { code: -32700, message: "Parse error" },
 		});
 	});
 });
