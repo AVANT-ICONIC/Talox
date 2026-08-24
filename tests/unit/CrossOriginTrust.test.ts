@@ -32,14 +32,15 @@ async function attach(
 	frameUrl: string,
 	parentUrl = "https://app.example.com/page",
 	frameName = "child",
+	cdpSession = createMockCDPSession(),
 ) {
-	const page = createMockPage();
+	const page = createMockPage(cdpSession);
 	manager.install(page as any);
 	const parent = createMockFrame({ name: "parent", url: parentUrl, parent: null });
 	const child = createMockFrame({ name: frameName, url: frameUrl, parent });
 	const handler = page.on.mock.calls.find((call: any[]) => call[0] === "frameattached")?.[1];
 	await handler!(child);
-	return { page, child, parent };
+	return { page, child, parent, cdpSession };
 }
 
 describe("CrossOriginManager trust detection", () => {
@@ -148,9 +149,9 @@ describe("CrossOriginManager trust detection", () => {
 	});
 
 	it("blocks trusted-frame execution for default-denied origins", async () => {
+		const cdp = createMockCDPSession();
 		const manager = new CrossOriginManager();
-		const { page } = await attach(manager, "https://unknown.example.org/embed");
-		const cdp = await page.newCDPSession.mock.results[0]!.value;
+		await attach(manager, "https://unknown.example.org/embed", undefined, undefined, cdp);
 
 		await expect(manager.executeInTrustedFrame("child", "Runtime.evaluate", { expression: "1+1" })).rejects.toThrow(
 			"Refusing trusted-frame execution",
@@ -180,7 +181,7 @@ describe("CrossOriginManager trust detection", () => {
 		const newCDPSession = vi.fn().mockResolvedValueOnce(firstCdp).mockResolvedValueOnce(secondCdp);
 		const page = createMockPage();
 		page.context.mockReturnValue({ newCDPSession });
-		manager = new CrossOriginManager({ trustedDomains: ["trusted.example.net"] });
+		const manager = new CrossOriginManager({ trustedDomains: ["trusted.example.net"] });
 		manager.install(page as any);
 
 		const parent = createMockFrame({ name: "parent", url: "https://app.example.com", parent: null });
