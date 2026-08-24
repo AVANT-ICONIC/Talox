@@ -170,10 +170,12 @@ export function createTaloxMcpServer(runtime = new TaloxMcpRuntime()): McpServer
 		"get_state",
 		{
 			title: "Get Talox page state",
-			description: "Return Talox's fused structured page state for an existing browser session.",
+			description:
+				"Return Talox's compact, content-sanitized agent page state for an existing browser session.",
 			inputSchema: z.object({ sessionId: sessionIdSchema }),
 		},
-		async ({ sessionId }) => daemonResponseToMcpToolResult(await runtime.execute(sessionId, "getState")),
+		async ({ sessionId }) =>
+			daemonResponseToMcpToolResult(await runtime.execute(sessionId, "getState", { variant: "agent" })),
 	);
 
 	server.registerTool(
