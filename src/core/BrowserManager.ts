@@ -124,6 +124,42 @@ interface LaunchOptions {
 
 const processCleanupCallbacks = new Set<() => void>();
 let processCleanupHandlersInstalled = false;
+const reservedXvfbDisplays = new Set<string>();
+const activeXvfbDisplays: Array<{ child: ChildProcess; display: string }> = [];
+let baseDisplayEnv: string | undefined;
+let baseDisplayEnvCaptured = false;
+
+function activateXvfbDisplay(child: ChildProcess, display: string): void {
+	if (activeXvfbDisplays.some((entry) => entry.child === child)) return;
+	if (activeXvfbDisplays.length === 0) {
+		baseDisplayEnv = process.env.DISPLAY;
+		baseDisplayEnvCaptured = true;
+	}
+	activeXvfbDisplays.push({ child, display });
+	process.env.DISPLAY = display;
+}
+
+function deactivateXvfbDisplay(child: ChildProcess): void {
+	const index = activeXvfbDisplays.findIndex((entry) => entry.child === child);
+	if (index < 0) return;
+	const wasActiveDisplay = index === activeXvfbDisplays.length - 1;
+	activeXvfbDisplays.splice(index, 1);
+	if (!wasActiveDisplay) return;
+
+	const previous = activeXvfbDisplays.at(-1);
+	if (previous) {
+		process.env.DISPLAY = previous.display;
+		return;
+	}
+
+	if (baseDisplayEnvCaptured && baseDisplayEnv !== undefined) {
+		process.env.DISPLAY = baseDisplayEnv;
+	} else {
+		delete process.env.DISPLAY;
+	}
+	baseDisplayEnv = undefined;
+	baseDisplayEnvCaptured = false;
+}
 
 function runProcessCleanupCallbacks(): void {
 	const callbacks = Array.from(processCleanupCallbacks);
@@ -159,7 +195,6 @@ export class BrowserManager {
 	// Xvfb virtual display state
 	private xvfbProcess: ChildProcess | null = null;
 	private xvfbDisplay: string | null = null;
-	private savedDisplayEnv: string | undefined;
 
 	constructor(config?: Partial<TaloxConfig>) {
 		this.config = { ...getDefaultConfig(), ...config };
@@ -525,23 +560,21 @@ export class BrowserManager {
 	 */
 	private static findFreeDisplay(): number {
 		for (let display = 99; display < 200; display++) {
+			const displayName = `:${display}`;
+			if (reservedXvfbDisplays.has(displayName)) continue;
 			const lockFile = `/tmp/.X${display}-lock`;
 			try {
 				fs.accessSync(lockFile, fs.constants.F_OK);
 			} catch {
+				reservedXvfbDisplays.add(displayName);
 				return display;
 			}
 		}
-		return 99; // fallback
+		throw new Error("No free X display available in the :99-:199 range.");
 	}
 
 	/** Release Xvfb state only when the supplied child still owns it. */
-	private releaseXvfbOwnership(
-		child: ChildProcess,
-		display: string,
-		savedDisplayEnv: string | undefined,
-		terminate: boolean,
-	): void {
+	private releaseXvfbOwnership(child: ChildProcess, display: string, terminate: boolean): void {
 		// Child events can arrive after a failed start has already been retried.
 		// Only the process that still owns the manager state may clear it.
 		if (this.xvfbProcess !== child) return;
@@ -556,13 +589,9 @@ export class BrowserManager {
 
 		this.xvfbProcess = null;
 		if (this.xvfbDisplay === display) {
-			if (savedDisplayEnv !== undefined) {
-				process.env.DISPLAY = savedDisplayEnv;
-			} else {
-				delete process.env.DISPLAY;
-			}
+			deactivateXvfbDisplay(child);
+			reservedXvfbDisplays.delete(display);
 			this.xvfbDisplay = null;
-			this.savedDisplayEnv = undefined;
 		}
 		this.unregisterProcessCleanupIfIdle();
 	}
@@ -586,9 +615,7 @@ export class BrowserManager {
 
 		const displayNum = BrowserManager.findFreeDisplay();
 		const display = `:${displayNum}`;
-		const savedDisplayEnv = process.env.DISPLAY;
 		this.xvfbDisplay = display;
-		this.savedDisplayEnv = savedDisplayEnv;
 
 		const child = spawn(xvfbPath, [display, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
 			stdio: "ignore",
@@ -609,7 +636,7 @@ export class BrowserManager {
 				if (settled) return;
 				settled = true;
 				clearTimeout(timeout);
-				this.releaseXvfbOwnership(child, display, savedDisplayEnv, true);
+				this.releaseXvfbOwnership(child, display, true);
 				reject(error);
 			};
 
@@ -618,7 +645,7 @@ export class BrowserManager {
 					failStartup(new Error(`Failed to start Xvfb: ${err.message}`));
 					return;
 				}
-				this.releaseXvfbOwnership(child, display, savedDisplayEnv, false);
+				this.releaseXvfbOwnership(child, display, false);
 			});
 
 			child.on("exit", (code, signal) => {
@@ -629,14 +656,14 @@ export class BrowserManager {
 					failStartup(error);
 					return;
 				}
-				this.releaseXvfbOwnership(child, display, savedDisplayEnv, false);
+				this.releaseXvfbOwnership(child, display, false);
 			});
 		});
 
 		if (this.xvfbProcess !== child) {
 			throw new Error("Xvfb startup was interrupted before readiness.");
 		}
-		process.env.DISPLAY = display;
+		activateXvfbDisplay(child, display);
 	}
 
 	/**
@@ -645,10 +672,9 @@ export class BrowserManager {
 	stopXvfb(): void {
 		const child = this.xvfbProcess;
 		const display = this.xvfbDisplay;
-		const savedDisplayEnv = this.savedDisplayEnv;
 
 		if (child && display) {
-			this.releaseXvfbOwnership(child, display, savedDisplayEnv, true);
+			this.releaseXvfbOwnership(child, display, true);
 			return;
 		}
 
@@ -658,16 +684,12 @@ export class BrowserManager {
 			} catch {
 				/* NOSONAR — process may have already exited */
 			}
+			deactivateXvfbDisplay(child);
 			this.xvfbProcess = null;
 		}
 		if (display) {
-			if (savedDisplayEnv !== undefined) {
-				process.env.DISPLAY = savedDisplayEnv;
-			} else {
-				delete process.env.DISPLAY;
-			}
+			reservedXvfbDisplays.delete(display);
 			this.xvfbDisplay = null;
-			this.savedDisplayEnv = undefined;
 		}
 		this.unregisterProcessCleanupIfIdle();
 	}

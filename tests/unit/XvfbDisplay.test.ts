@@ -341,6 +341,67 @@ describe("Xvfb Virtual Display", () => {
 			vi.useRealTimers();
 		});
 
+		it("restores the previous active Xvfb when overlapping managers stop in LIFO order", async () => {
+			mockPlatform("linux");
+			process.env.DISPLAY = ":42";
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const firstManager = new BrowserManager();
+			const secondManager = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = firstManager.startXvfb();
+			const secondStart = secondManager.startXvfb();
+			await vi.advanceTimersByTimeAsync(600);
+			await Promise.all([firstStart, secondStart]);
+
+			const firstDisplay = (mockSpawn.mock.calls[0]?.[1] as string[])[0];
+			const secondDisplay = (mockSpawn.mock.calls[1]?.[1] as string[])[0];
+			expect(firstDisplay).toBe(":99");
+			expect(secondDisplay).toBe(":100");
+			expect(process.env.DISPLAY).toBe(":100");
+
+			secondManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":99");
+			firstManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":42");
+			vi.useRealTimers();
+		});
+
+		it("keeps the current Xvfb DISPLAY when an older manager stops first", async () => {
+			mockPlatform("linux");
+			process.env.DISPLAY = ":42";
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const firstManager = new BrowserManager();
+			const secondManager = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = firstManager.startXvfb();
+			const secondStart = secondManager.startXvfb();
+			await vi.advanceTimersByTimeAsync(600);
+			await Promise.all([firstStart, secondStart]);
+			expect(process.env.DISPLAY).toBe(":100");
+
+			firstManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":100");
+			secondManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":42");
+			vi.useRealTimers();
+		});
+
 		it("restores previous DISPLAY value", async () => {
 			mockPlatform("linux");
 			process.env.DISPLAY = ":42";
