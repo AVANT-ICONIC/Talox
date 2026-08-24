@@ -161,7 +161,6 @@ describe("Xvfb Virtual Display", () => {
 			mockSpawn.mockReturnValue(mock.process);
 			const onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
 			const mgr = new BrowserManager();
-			const stopSpy = vi.spyOn(mgr, "stopXvfb");
 
 			const promise = mgr.startXvfb();
 			const exitRegistration = onceSpy.mock.calls.find(([event]) => event === "exit");
@@ -171,13 +170,44 @@ describe("Xvfb Virtual Display", () => {
 
 			mock.triggerError(new Error("spawn failed"));
 			await expect(promise).rejects.toThrow("Failed to start Xvfb");
-			expect(stopSpy).toHaveBeenCalledTimes(1);
+			expect(mgr.isXvfbRunning()).toBe(false);
+			const killCount = mockKill.mock.calls.length;
 
-			stopSpy.mockClear();
 			const exitHandler = exitRegistration?.[1] as (() => void) | undefined;
 			exitHandler?.();
-			expect(stopSpy).not.toHaveBeenCalled();
+			expect(mockKill).toHaveBeenCalledTimes(killCount);
 			onceSpy.mockRestore();
+		});
+
+		it("ignores a delayed exit from a failed child after a retry owns Xvfb", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const mgr = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = mgr.startXvfb();
+			first.triggerError(new Error("first spawn failed"));
+			await expect(firstStart).rejects.toThrow("Failed to start Xvfb");
+
+			const secondStart = mgr.startXvfb();
+			expect(mgr.isXvfbRunning()).toBe(true);
+			first.triggerExit(1);
+			expect(mgr.isXvfbRunning()).toBe(true);
+
+			await vi.advanceTimersByTimeAsync(600);
+			await secondStart;
+			expect(mgr.isXvfbRunning()).toBe(true);
+			expect(process.env.DISPLAY).toMatch(/^:\\d+$/);
+
+			mgr.stopXvfb();
+			vi.useRealTimers();
 		});
 
 		it("spawns Xvfb and sets DISPLAY", async () => {

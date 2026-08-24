@@ -541,6 +541,37 @@ export class BrowserManager {
 	 *
 	 * @throws Error if not on Linux, Xvfb is not installed, or spawn fails
 	 */
+	private releaseXvfbOwnership(
+		child: ChildProcess,
+		display: string,
+		savedDisplayEnv: string | undefined,
+		terminate: boolean,
+	): void {
+		// Child events can arrive after a failed start has already been retried.
+		// Only the process that still owns the manager state may clear it.
+		if (this.xvfbProcess !== child) return;
+
+		if (terminate) {
+			try {
+				child.kill("SIGTERM");
+			} catch {
+				/* NOSONAR — process may already be gone */
+			}
+		}
+
+		this.xvfbProcess = null;
+		if (this.xvfbDisplay === display) {
+			if (savedDisplayEnv !== undefined) {
+				process.env.DISPLAY = savedDisplayEnv;
+			} else {
+				delete process.env.DISPLAY;
+			}
+			this.xvfbDisplay = null;
+			this.savedDisplayEnv = undefined;
+		}
+		this.unregisterProcessCleanupIfIdle();
+	}
+
 	async startXvfb(): Promise<void> {
 		if (process.platform !== "linux") {
 			throw new Error("Xvfb virtual display is only supported on Linux.");
@@ -555,63 +586,84 @@ export class BrowserManager {
 		}
 
 		const displayNum = BrowserManager.findFreeDisplay();
-		this.xvfbDisplay = `:${displayNum}`;
-		this.savedDisplayEnv = process.env.DISPLAY;
+		const display = `:${displayNum}`;
+		const savedDisplayEnv = process.env.DISPLAY;
+		this.xvfbDisplay = display;
+		this.savedDisplayEnv = savedDisplayEnv;
 
-		this.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
+		const child = spawn(xvfbPath, [display, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
 			stdio: "ignore",
 			detached: false,
 		});
-		// Register as soon as the child exists. The 500 ms readiness wait below
-		// must not leave a SIGINT/process-exit window where Xvfb can be orphaned.
+		this.xvfbProcess = child;
 		this.registerProcessCleanup();
 
-		// Give Xvfb a moment to bind the display socket
 		await new Promise<void>((resolve, reject) => {
+			let settled = false;
 			const timeout = setTimeout(() => {
-				// If we reach here without error, Xvfb started successfully
+				if (settled) return;
+				settled = true;
 				resolve();
 			}, 500);
 
-			this.xvfbProcess!.on("error", (err) => {
+			const failStartup = (error: Error) => {
+				if (settled) return;
+				settled = true;
 				clearTimeout(timeout);
-				this.xvfbProcess = null;
-				this.stopXvfb();
-				reject(new Error(`Failed to start Xvfb: ${err.message}`));
+				this.releaseXvfbOwnership(child, display, savedDisplayEnv, true);
+				reject(error);
+			};
+
+			child.on("error", (err) => {
+				if (!settled) {
+					failStartup(new Error(`Failed to start Xvfb: ${err.message}`));
+					return;
+				}
+				this.releaseXvfbOwnership(child, display, savedDisplayEnv, false);
 			});
 
-			this.xvfbProcess!.on("exit", (code) => {
-				if (code !== null && code !== 0) {
-					clearTimeout(timeout);
-					this.xvfbProcess = null;
-					this.stopXvfb();
-					reject(new Error(`Xvfb exited with code ${code}`));
+			child.on("exit", (code, signal) => {
+				if (!settled) {
+					const error = code !== null
+						? new Error(`Xvfb exited with code ${code}`)
+						: new Error(`Xvfb exited before readiness with signal ${signal ?? "unknown"}`);
+					failStartup(error);
+					return;
 				}
+				this.releaseXvfbOwnership(child, display, savedDisplayEnv, false);
 			});
 		});
 
-		// The original DISPLAY was snapshotted before spawn so cleanup is safe
-		// even if startup is interrupted during the readiness window.
-		process.env.DISPLAY = this.xvfbDisplay;
+		if (this.xvfbProcess !== child) {
+			throw new Error("Xvfb startup was interrupted before readiness.");
+		}
+		process.env.DISPLAY = display;
 	}
 
 	/**
 	 * Kill the Xvfb process and restore the original DISPLAY environment.
 	 */
 	stopXvfb(): void {
-		if (this.xvfbProcess) {
+		const child = this.xvfbProcess;
+		const display = this.xvfbDisplay;
+		const savedDisplayEnv = this.savedDisplayEnv;
+
+		if (child && display) {
+			this.releaseXvfbOwnership(child, display, savedDisplayEnv, true);
+			return;
+		}
+
+		if (child) {
 			try {
-				this.xvfbProcess.kill("SIGTERM");
+				child.kill("SIGTERM");
 			} catch {
 				/* NOSONAR — process may have already exited */
 			}
 			this.xvfbProcess = null;
 		}
-
-		if (this.xvfbDisplay) {
-			// Restore original DISPLAY
-			if (this.savedDisplayEnv !== undefined) {
-				process.env.DISPLAY = this.savedDisplayEnv;
+		if (display) {
+			if (savedDisplayEnv !== undefined) {
+				process.env.DISPLAY = savedDisplayEnv;
 			} else {
 				delete process.env.DISPLAY;
 			}
