@@ -62,6 +62,13 @@ describe("TaloxMcpRuntime", () => {
 		expect(controller.navigate).toHaveBeenCalledWith("https://example.com");
 	});
 
+	it("forwards compact state variants through daemon dispatch", async () => {
+		await runtime.launch();
+		await runtime.execute("session-1", "getState", { variant: "agent" }, "request-state");
+
+		expect(controller.getState).toHaveBeenCalledWith("agent");
+	});
+
 	it("returns a structured error for an unknown session", async () => {
 		const response = await runtime.execute("missing", "getState", undefined, "request-2");
 
@@ -106,6 +113,34 @@ describe("TaloxMcpRuntime", () => {
 
 		expect(first.launch).toHaveBeenCalledWith("mcp-one", "ops", "chromium", { headed: false });
 		expect(second.launch).toHaveBeenCalledWith("mcp-two", "ops", "chromium", { headed: false });
+	});
+
+	it("waits for an in-flight launch and cleans it up when shutdown begins", async () => {
+		let finishLaunch!: () => void;
+		controller.launch.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					finishLaunch = resolve;
+				}),
+		);
+
+		const launchPromise = runtime.launch();
+		await vi.waitFor(() => expect(controller.launch).toHaveBeenCalledTimes(1));
+
+		const stopPromise = runtime.stopAll();
+		finishLaunch();
+
+		await expect(launchPromise).rejects.toThrow("shutting down");
+		await expect(stopPromise).resolves.toBeUndefined();
+		expect(controller.stop).toHaveBeenCalledTimes(1);
+		expect(runtime.listSessions()).toEqual([]);
+	});
+
+	it("rejects new launches after shutdown starts", async () => {
+		await runtime.stopAll();
+
+		await expect(runtime.launch()).rejects.toThrow("shutting down");
+		expect(controller.launch).not.toHaveBeenCalled();
 	});
 
 	it("best-effort stops every active session", async () => {
