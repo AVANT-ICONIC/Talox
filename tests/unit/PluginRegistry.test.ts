@@ -128,14 +128,114 @@ describe("community rules", () => {
 		expect(bugs[0].metadata?.taloxPlugin).toEqual({ name: "a11y-pack", version: "3.2.1", ruleId: "button-label" });
 	});
 
+	it("encodes namespace components so embedded colons cannot collide", () => {
+		registerTaloxPlugin({
+			name: "vendor:pack",
+			version: "1.0.0",
+			rules: [
+				{
+					id: "rule:one",
+					analyze: () => [
+						{
+							id: "finding:42",
+							type: "CUSTOM",
+							severity: "MINOR",
+							description: "Namespaced finding",
+							evidence: {},
+						},
+					],
+				},
+			],
+		});
+
+		const [bug] = new RulesEngine().analyze(makeState());
+		expect(bug.id).toBe("plugin:vendor%3Apack:rule%3Aone:finding%3A42");
+	});
+
+	it("deep-freezes isolated state snapshots so one plugin cannot poison later rules", () => {
+		registerTaloxPlugin({
+			name: "mutator",
+			version: "1.0.0",
+			rules: [
+				{
+					id: "tries-mutation",
+					analyze: (state) => {
+						(state.console.errors as unknown as string[]).push("poisoned");
+						return [];
+					},
+			],
+		});
+		registerTaloxPlugin({
+			name: "observer",
+			version: "1.0.0",
+			rules: [
+				{
+					id: "sees-clean-state",
+					analyze: (state) =>
+						state.console.errors.length === 0
+							? [
+								{
+									id: "clean",
+									type: "CUSTOM",
+									severity: "MINOR",
+									description: "State stayed clean",
+									evidence: {},
+								},
+							]
+							: [],
+				},
+			],
+		});
+
+		const state = makeState();
+		const bugs = new RulesEngine().analyze(state);
+		expect(state.console.errors).toEqual([]);
+		expect(bugs.some((bug) => bug.id.endsWith(":clean"))).toBe(true);
+	});
+
+	it("rejects plugin findings with invalid confidence values", () => {
+		registerTaloxPlugin({
+			name: "bad-confidence",
+			version: "1.0.0",
+			rules: [
+				{
+					id: "invalid-confidence",
+					analyze: () => [
+						{
+							id: "too-high",
+							type: "CUSTOM",
+							severity: "MINOR",
+							description: "Invalid confidence",
+							confidence: 2,
+							evidence: {},
+						},
+						{
+							id: "nan",
+							type: "CUSTOM",
+							severity: "MINOR",
+							description: "Invalid confidence",
+							confidence: Number.NaN,
+							evidence: {},
+						},
+					],
+				},
+			],
+		});
+
+		expect(new RulesEngine().analyze(makeState())).toEqual([]);
+	});
+
 	it("isolates throwing and malformed plugin rules without suppressing built-in bugs", () => {
 		registerTaloxPlugin({
 			name: "broken-pack",
 			version: "1.0.0",
 			rules: [
-				{ id: "throws", analyze: () => {
-					throw new Error("plugin exploded");
-				} },
+				{
+					id: "throws",
+					analyze: () => {
+						throw new Error("plugin exploded");
+					},
+				},
 			],
 		});
 		registerTaloxPlugin({
