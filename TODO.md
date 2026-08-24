@@ -1,6 +1,6 @@
 # TODO
 
-> v8.0.0 shipped. 106 test files, 1946 tests, CI green.
+> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, headless-first execution, Docker packaging, sandboxed Chromium support, and dependency-audit maintenance are in place.
 
 ---
 
@@ -32,17 +32,17 @@
 - Progress observers are isolated so reporting failures cannot terminate browser coordination.
 - Multi-agent browser launch is atomic and rejects invalid agent counts before starting browsers.
 - Browser integration coverage exercises two real Chromium-backed Talox agents across navigation, shared evidence, independent interaction, and replanning.
+- Single-agent `AutonomousLoop` loads configured skills before domain matching.
+- Skill manifests preserve numeric-looking versions such as `version: 1.0` as strings.
+- Autonomous `run` execution is headless-first by default; interactive `observe`/`chat` flows opt into headed mode explicitly.
+- Docker packaging uses Playwright-managed Chromium, a non-root runtime, and an opt-in sandbox path proven with a matching seccomp profile.
+- Dependency maintenance keeps both the production and full npm graphs free of known advisories.
 
 ---
 
 ## 🟢 Later
 
-- [ ] Ensure single-agent `AutonomousLoop` calls `SkillLoader.loadAll()` before domain matching; the loader is constructed today but discovered skills are not explicitly loaded in the loop.
-- [ ] Accept unquoted numeric-looking skill manifest versions such as `version: 1.0`; the current mini-YAML parser converts them to numbers while `SkillManifest.version` requires a string.
-- [ ] Refresh `package-lock.json` root package metadata during the next dependency/install maintenance pass (its package version/bin metadata predates current `package.json`).
-- [ ] Docker image
 - [ ] MCP server
-- [ ] Headless-first mode
 - [ ] Plugin architecture (community rules + vision detectors)
 - [ ] Replay UI (interactive session replay)
 - [ ] Cross-origin iframe trust detection (leverages `trust` field from v8.0.0)
