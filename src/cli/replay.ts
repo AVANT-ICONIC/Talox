@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadReplayBundle } from "../core/replay/ReplayLoader.js";
+import { loadReplayBundle, type ReplayBundle } from "../core/replay/ReplayLoader.js";
 import { renderReplayHtml } from "../core/replay/ReplayRenderer.js";
 
 export interface ReplayCommandOptions {
@@ -23,7 +23,8 @@ Options:
   --help, -h           Show this help
 
 When no session path is supplied, Talox uses the newest session directory in
-./talox-sessions.
+./talox-sessions. When a custom output directory is used, referenced replay
+screenshots are copied into a sibling .talox-replay-assets directory.
 `;
 
 export function shouldUseReplayCommand(argv: readonly string[]): boolean {
@@ -99,6 +100,69 @@ function openInBrowser(filePath: string): void {
 	child.unref();
 }
 
+function isEmbeddedScreenshot(value: string): boolean {
+	return value.startsWith("data:image/png;base64,") || /^[A-Za-z0-9+/=]{100,}$/.test(value);
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+	const relative = path.relative(root, candidate);
+	return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+async function copyScreenshotReference(
+	reference: string | undefined,
+	bundle: ReplayBundle,
+	outputDir: string,
+	assetDir: string,
+	assetName: string,
+): Promise<string | undefined> {
+	if (!reference || isEmbeddedScreenshot(reference)) return reference;
+	if (path.isAbsolute(reference) || reference.includes(":")) return undefined;
+
+	const source = path.resolve(bundle.sessionDir, reference);
+	if (!isPathInside(bundle.sessionDir, source)) return undefined;
+	try {
+		const stat = await fs.stat(source);
+		if (!stat.isFile()) return undefined;
+	} catch {
+		return undefined;
+	}
+
+	const extension = path.extname(source).toLowerCase();
+	if (extension !== ".png") return undefined;
+	await fs.mkdir(assetDir, { recursive: true });
+	const destination = path.join(assetDir, `${assetName}.png`);
+	await fs.copyFile(source, destination);
+	return path.relative(outputDir, destination).split(path.sep).join("/");
+}
+
+async function prepareBundleForOutput(bundle: ReplayBundle, outputPath: string): Promise<ReplayBundle> {
+	const outputDir = path.dirname(outputPath);
+	if (path.resolve(outputDir) === path.resolve(bundle.sessionDir)) return bundle;
+
+	const copied: ReplayBundle = structuredClone(bundle);
+	const assetDir = path.join(outputDir, ".talox-replay-assets");
+	for (let i = 0; i < copied.report.interactions.length; i += 1) {
+		const interaction = copied.report.interactions[i]!;
+		const original = bundle.report.interactions[i]!;
+		interaction.screenshotBefore = await copyScreenshotReference(
+			original.screenshotBefore,
+			bundle,
+			outputDir,
+			assetDir,
+			`${interaction.index}-before`,
+		);
+		interaction.screenshotAfter = await copyScreenshotReference(
+			original.screenshotAfter,
+			bundle,
+			outputDir,
+			assetDir,
+			`${interaction.index}-after`,
+		);
+	}
+	return copied;
+}
+
 export async function runReplayCommand(argv: readonly string[]): Promise<void> {
 	const options = parseReplayArgs(argv);
 	if (options.help) {
@@ -110,7 +174,8 @@ export async function runReplayCommand(argv: readonly string[]): Promise<void> {
 	const bundle = await loadReplayBundle(input);
 	const outputPath = path.resolve(options.outputPath ?? path.join(bundle.sessionDir, "replay.html"));
 	await fs.mkdir(path.dirname(outputPath), { recursive: true });
-	await fs.writeFile(outputPath, renderReplayHtml(bundle), "utf-8");
+	const renderBundle = await prepareBundleForOutput(bundle, outputPath);
+	await fs.writeFile(outputPath, renderReplayHtml(renderBundle), "utf-8");
 
 	const replayUrl = pathToFileURL(outputPath).href;
 	process.stdout.write(`[Talox] Replay ready: ${replayUrl}\n`);
