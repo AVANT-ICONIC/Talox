@@ -1,10 +1,32 @@
 import type { TaloxBug, TaloxPageState } from "../types/index.js";
+import { createLogger } from "./Logger.js";
+import { getTaloxPluginRules } from "./plugins/PluginRegistry.js";
+
+const logger = createLogger("Rules");
+const BUG_SEVERITIES = new Set(["CRITICAL", "MAJOR", "MINOR"]);
+
+function isTaloxBug(value: unknown): value is TaloxBug {
+	if (!value || typeof value !== "object") return false;
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.id === "string" &&
+		candidate.id.length > 0 &&
+		typeof candidate.type === "string" &&
+		candidate.type.length > 0 &&
+		typeof candidate.severity === "string" &&
+		BUG_SEVERITIES.has(candidate.severity) &&
+		typeof candidate.description === "string" &&
+		candidate.description.length > 0 &&
+		candidate.evidence !== null &&
+		typeof candidate.evidence === "object"
+	);
+}
 
 /**
  * Analyzes page states for quality-assurance bugs. Detects structural
  * regressions (missing AX-tree nodes or interactive elements between two
- * states), JavaScript console errors, overlapping UI elements, and viewport
- * clipping issues.
+ * states), JavaScript console errors, overlapping UI elements, viewport
+ * clipping issues, and registered synchronous community rules.
  */
 export class RulesEngine {
 	/**
@@ -100,6 +122,38 @@ export class RulesEngine {
 		}
 	}
 
+	private runPluginRules(state: TaloxPageState, bugs: TaloxBug[]): void {
+		for (const registration of getTaloxPluginRules()) {
+			const { pluginName, pluginVersion, rule } = registration;
+			try {
+				const result = rule.analyze(state);
+				if (result == null) continue;
+				if (!Array.isArray(result)) {
+					logger.warn(`Plugin rule ${pluginName}/${rule.id} returned a non-array result; ignoring it.`);
+					continue;
+				}
+
+				for (const bug of result) {
+					if (!isTaloxBug(bug)) {
+						logger.warn(`Plugin rule ${pluginName}/${rule.id} returned an invalid bug; ignoring it.`);
+						continue;
+					}
+					bugs.push({
+						...bug,
+						id: `plugin:${pluginName}:${rule.id}:${bug.id}`,
+						metadata: {
+							...bug.metadata,
+							taloxPlugin: { name: pluginName, version: pluginVersion, ruleId: rule.id },
+						},
+					});
+				}
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				logger.warn(`Plugin rule ${pluginName}/${rule.id} failed: ${message}`);
+			}
+		}
+	}
+
 	analyze(state: TaloxPageState): TaloxBug[] {
 		const bugs: TaloxBug[] = [];
 
@@ -120,6 +174,9 @@ export class RulesEngine {
 
 		// 3. Clipping Detection (Dynamic Viewport)
 		this.detectClipping(state.interactiveElements, bugs);
+
+		// 4. Community plugin rules (isolated per plugin rule)
+		this.runPluginRules(state, bugs);
 
 		return bugs;
 	}
