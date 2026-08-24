@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TaloxController } from "../../src/core/controller/TaloxController.js";
 import { generateSessionId, handleCommand } from "../../src/core/daemon/commandHandler.js";
-import type { DaemonCommand, DaemonResponse } from "../../src/core/daemon/TaloxDaemon.js";
+import type { DaemonCommand } from "../../src/core/daemon/TaloxDaemon.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,11 +50,26 @@ describe("handleCommand", () => {
 		expect(ctrl.type).toHaveBeenCalledWith("input", "hello");
 	});
 
-	it("dispatches getState action", async () => {
+	it("dispatches getState action with the default full state", async () => {
 		const ctrl = mockController();
 		const res = await handleCommand(ctrl, cmd("getState"));
 		expect(res.success).toBe(true);
-		expect(ctrl.getState).toHaveBeenCalled();
+		expect(ctrl.getState).toHaveBeenCalledWith();
+	});
+
+	it.each(["full", "agent", "debug"] as const)("dispatches getState variant %s", async (variant) => {
+		const ctrl = mockController();
+		const res = await handleCommand(ctrl, cmd("getState", { variant }));
+		expect(res.success).toBe(true);
+		expect(ctrl.getState).toHaveBeenCalledWith(variant);
+	});
+
+	it("rejects an invalid getState variant", async () => {
+		const ctrl = mockController();
+		const res = await handleCommand(ctrl, cmd("getState", { variant: "huge" }));
+		expect(res.success).toBe(false);
+		expect(res.error).toContain("variant");
+		expect(ctrl.getState).not.toHaveBeenCalled();
 	});
 
 	it("dispatches screenshot action", async () => {
@@ -99,7 +114,7 @@ describe("param validation", () => {
 
 	it("navigate rejects non-string url", async () => {
 		const ctrl = mockController();
-		const res = await handleCommand(ctrl, { id: "x", action: "navigate", params: { url: 123 as unknown as string } });
+		const res = await handleCommand(ctrl, { id: "x", action: "navigate", params: { url: 123 } });
 		expect(res.success).toBe(false);
 	});
 
@@ -135,7 +150,7 @@ describe("param validation", () => {
 		const res = await handleCommand(ctrl, {
 			id: "x",
 			action: "type",
-			params: { selector: "input", text: 123 as unknown as string },
+			params: { selector: "input", text: 123 },
 		});
 		expect(res.success).toBe(false);
 	});
