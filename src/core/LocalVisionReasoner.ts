@@ -117,7 +117,11 @@ function endpoint(baseUrl: URL, path: string): string {
 async function requestJson(url: string, init: RequestInit, timeoutMs: number): Promise<unknown> {
 	let response: Response;
 	try {
-		response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+		response = await fetch(url, {
+			...init,
+			redirect: "manual",
+			signal: AbortSignal.timeout(timeoutMs),
+		});
 	} catch (error) {
 		if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
 			throw new Error(`Local vision request timed out after ${timeoutMs}ms.`);
