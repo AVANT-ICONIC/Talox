@@ -36,13 +36,13 @@
 - Skill manifests preserve numeric-looking versions such as `version: 1.0` as strings.
 - Docker packaging uses Playwright-managed Chromium, a non-root runtime, and an opt-in sandbox path proven with a matching seccomp profile.
 - Dependency maintenance keeps both the production and full npm graphs free of known advisories.
+- BrowserManager is headless-first by default; autonomous single- and multi-agent `run` paths stay headless while interactive `observe`/`chat` explicitly opt into headed mode.
 
 ---
 
 ## 🟢 Later
 
 - [ ] MCP server
-- [ ] Headless-first mode
 - [ ] Plugin architecture (community rules + vision detectors)
 - [ ] Replay UI (interactive session replay)
 - [ ] Cross-origin iframe trust detection (leverages `trust` field from v8.0.0)
