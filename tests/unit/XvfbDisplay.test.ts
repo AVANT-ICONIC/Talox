@@ -150,6 +150,36 @@ describe("Xvfb Virtual Display", () => {
 			await expect(mgr.startXvfb()).rejects.toThrow("Xvfb not found");
 		});
 
+		it("registers cleanup immediately after spawn and removes it when startup fails", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const mock = createMockChildProcess();
+			mockSpawn.mockReturnValue(mock.process);
+			const onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
+			const mgr = new BrowserManager();
+			const stopSpy = vi.spyOn(mgr, "stopXvfb");
+
+			const promise = mgr.startXvfb();
+			const exitRegistration = onceSpy.mock.calls.find(([event]) => event === "exit");
+			expect(mockSpawn).toHaveBeenCalledTimes(1);
+			expect(exitRegistration).toBeDefined();
+			expect(onceSpy.mock.calls.some(([event]) => event === "SIGINT")).toBe(true);
+
+			mock.triggerError(new Error("spawn failed"));
+			await expect(promise).rejects.toThrow("Failed to start Xvfb");
+			expect(stopSpy).toHaveBeenCalledTimes(1);
+
+			stopSpy.mockClear();
+			const exitHandler = exitRegistration?.[1] as (() => void) | undefined;
+			exitHandler?.();
+			expect(stopSpy).not.toHaveBeenCalled();
+			onceSpy.mockRestore();
+		});
+
 		it("spawns Xvfb and sets DISPLAY", async () => {
 			mockPlatform("linux");
 			// Xvfb found at /usr/bin/Xvfb

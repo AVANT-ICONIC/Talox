@@ -18,11 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - **Local VLM redirect privacy boundary** — automatic redirects are disabled so loopback 307/308 responses cannot replay screenshot payloads to remote hosts.
-- **BrowserManager process cleanup listeners** — active managers share one process-level `exit` and `SIGINT` listener pair instead of registering two listeners per instance.
+- **BrowserManager process cleanup listeners** — active managers share one process-level `exit` and `SIGINT` listener pair instead of registering two listeners per instance; Xvfb registers immediately after spawn so the readiness window cannot orphan the child on process exit.
 
 ### Tests
 
-- 127 unit test files / 1,950 tests passing after Local VLM security coverage and BrowserManager shared-listener regression coverage.
+- 127 unit test files / 1,951 tests passing after Local VLM security coverage and BrowserManager shared-listener regression coverage.
 
 ---
 

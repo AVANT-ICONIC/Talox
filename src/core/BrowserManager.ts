@@ -556,11 +556,15 @@ export class BrowserManager {
 
 		const displayNum = BrowserManager.findFreeDisplay();
 		this.xvfbDisplay = `:${displayNum}`;
+		this.savedDisplayEnv = process.env.DISPLAY;
 
 		this.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
 			stdio: "ignore",
 			detached: false,
 		});
+		// Register as soon as the child exists. The 500 ms readiness wait below
+		// must not leave a SIGINT/process-exit window where Xvfb can be orphaned.
+		this.registerProcessCleanup();
 
 		// Give Xvfb a moment to bind the display socket
 		await new Promise<void>((resolve, reject) => {
@@ -572,7 +576,7 @@ export class BrowserManager {
 			this.xvfbProcess!.on("error", (err) => {
 				clearTimeout(timeout);
 				this.xvfbProcess = null;
-				this.xvfbDisplay = null;
+				this.stopXvfb();
 				reject(new Error(`Failed to start Xvfb: ${err.message}`));
 			});
 
@@ -580,16 +584,15 @@ export class BrowserManager {
 				if (code !== null && code !== 0) {
 					clearTimeout(timeout);
 					this.xvfbProcess = null;
-					this.xvfbDisplay = null;
+					this.stopXvfb();
 					reject(new Error(`Xvfb exited with code ${code}`));
 				}
 			});
 		});
 
-		// Save original DISPLAY and set the new one
-		this.savedDisplayEnv = process.env.DISPLAY;
+		// The original DISPLAY was snapshotted before spawn so cleanup is safe
+		// even if startup is interrupted during the readiness window.
 		process.env.DISPLAY = this.xvfbDisplay;
-		this.registerProcessCleanup();
 	}
 
 	/**
