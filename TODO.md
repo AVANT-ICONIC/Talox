@@ -1,6 +1,6 @@
 # TODO
 
-> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, and dependency-audit maintenance are in place.
+> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, dependency-audit maintenance, MCP, community plugins, Replay UI, and cross-origin iframe trust are now on `main`.
 
 ---
 
@@ -40,19 +40,27 @@
 
 ---
 
-## 🟢 Later
+## ✅ Post-v8.1 work landed on main
 
-- [ ] MCP server
-- [ ] Plugin architecture (community rules + vision detectors)
-- [ ] Replay UI (interactive session replay)
-- [ ] Cross-origin iframe trust detection (leverages `trust` field from v8.0.0)
+- [x] MCP stdio server with modern + legacy protocol handshakes and persistent Talox controller tools (#28)
+- [x] Plugin architecture for community rules + vision detectors with isolation and validation (#29)
+- [x] Offline Replay UI with timeline, screenshots, action inspection, playback controls, and hardened artifact loading (#30)
+- [x] Cross-origin iframe trust detection using existing `trustedDomains`, stable frame identity, and frame-scoped CDP enforcement (#31)
+
+---
+
+## 🟢 Next
+
+- [ ] Platform Adapters: pre-built adapters for common sites and CMSes
+- [ ] Local VLM Integration: optional quantized local vision provider(s) behind the existing `VisualReasoner` interface
 
 ---
 
 ## ✅ Done
 
-| Version | What | When |
+| Version / state | What | When |
 |---------|------|------|
+| main after v8.1.0 | **MCP + Plugins + Replay + Iframe Trust** — agent integration, community extension points, offline debugging, trust-gated cross-origin frame execution | 2026-08-24 |
 | v8.1.0 | **Plan-Delegate-Observe** — deterministic multi-agent planning, shared state, CLI routing, domain skills, lifecycle hardening, real two-browser coverage | 2026-08-20 |
 | v8.0.0 | **Content Trust Annotations** — trust field on nodes/elements, ContentSanitizer integration | 2026-05-21 |
 | v7.9.0 | **NetworkGuard** — client-side JS egress filtering + Token Benchmarks | 2026-05-21 |
