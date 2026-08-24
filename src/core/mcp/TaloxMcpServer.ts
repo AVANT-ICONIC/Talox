@@ -83,7 +83,15 @@ export function createTaloxMcpServer(runtime = new TaloxMcpRuntime()): McpServer
 				headed: z.boolean().default(false),
 			}),
 		},
-		async (args) => safeToolCall(() => runtime.launch(args)),
+		async (args) =>
+			safeToolCall(() =>
+				runtime.launch({
+					profileClass: args.profileClass,
+					browser: args.browser,
+					headed: args.headed,
+					...(args.profileId !== undefined ? { profileId: args.profileId } : {}),
+				}),
+			),
 	);
 
 	server.registerTool(
