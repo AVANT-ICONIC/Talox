@@ -28,18 +28,18 @@ describe("TaloxMcpRuntime", () => {
 		});
 	});
 
-	it("launches headless by default and tracks session metadata", async () => {
+	it("launches headless with a session-isolated profile by default", async () => {
 		const session = await runtime.launch();
 
 		expect(session).toEqual({
 			sessionId: "session-1",
-			profileId: "mcp",
+			profileId: "mcp-session-1",
 			profileClass: "ops",
 			browser: "chromium",
 			headed: false,
 			createdAt: 1234,
 		});
-		expect(controller.launch).toHaveBeenCalledWith("mcp", "ops", "chromium", { headed: false });
+		expect(controller.launch).toHaveBeenCalledWith("mcp-session-1", "ops", "chromium", { headed: false });
 		expect(runtime.listSessions()).toEqual([session]);
 		expect(runtime.health().activeSessions).toBe(1);
 	});
@@ -89,16 +89,36 @@ describe("TaloxMcpRuntime", () => {
 		expect(runtime.listSessions()).toEqual([]);
 	});
 
+	it("uses distinct default profiles for concurrent sessions", async () => {
+		const first = makeController();
+		const second = makeController();
+		let controllerIndex = 0;
+		let idIndex = 0;
+		const ids = ["one", "two"];
+		const controllers = [first, second];
+		const multi = new TaloxMcpRuntime({
+			controllerFactory: () => controllers[controllerIndex++] as unknown as TaloxController,
+			idFactory: () => ids[idIndex++] ?? `session-${idIndex}`,
+		});
+
+		await multi.launch();
+		await multi.launch();
+
+		expect(first.launch).toHaveBeenCalledWith("mcp-one", "ops", "chromium", { headed: false });
+		expect(second.launch).toHaveBeenCalledWith("mcp-two", "ops", "chromium", { headed: false });
+	});
+
 	it("best-effort stops every active session", async () => {
 		const first = makeController();
 		const second = makeController();
 		second.stop.mockRejectedValueOnce(new Error("already gone"));
-		let index = 0;
+		let controllerIndex = 0;
+		let idIndex = 0;
 		const ids = ["one", "two"];
 		const controllers = [first, second];
 		const multi = new TaloxMcpRuntime({
-			controllerFactory: () => controllers[index++] as unknown as TaloxController,
-			idFactory: () => ids[index] ?? `session-${index}`,
+			controllerFactory: () => controllers[controllerIndex++] as unknown as TaloxController,
+			idFactory: () => ids[idIndex++] ?? `session-${idIndex}`,
 		});
 
 		await multi.launch();
