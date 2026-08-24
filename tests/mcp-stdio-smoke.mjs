@@ -9,6 +9,7 @@ const child = spawn(process.execPath, ["dist/cli/entry.js", "mcp"], {
 
 let stdoutBuffer = "";
 let stderrBuffer = "";
+let stdoutProtocolViolation;
 const pending = new Map();
 
 function failPending(error) {
@@ -38,7 +39,9 @@ child.stdout.on("data", (chunk) => {
 		try {
 			message = JSON.parse(line);
 		} catch (error) {
-			failPending(new Error(`Talox MCP wrote non-JSON data to stdout: ${line}`, { cause: error }));
+			const violation = new Error(`Talox MCP wrote non-JSON data to stdout: ${line}`, { cause: error });
+			stdoutProtocolViolation ??= violation;
+			failPending(violation);
 			continue;
 		}
 
@@ -142,6 +145,7 @@ try {
 	assert.equal(disconnected.timedOut, false, `Talox MCP did not exit after stdin closed. stderr: ${stderrBuffer}`);
 	assert.equal(disconnected.signal, null);
 	assert.equal(disconnected.code, 0);
+	assert.equal(stdoutProtocolViolation, undefined, stdoutProtocolViolation?.message);
 
 	console.log("Talox MCP stdio smoke passed");
 } finally {
