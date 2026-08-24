@@ -8,6 +8,15 @@ const BUG_SEVERITIES = new Set(["CRITICAL", "MAJOR", "MINOR"]);
 function isTaloxBug(value: unknown): value is TaloxBug {
 	if (!value || typeof value !== "object") return false;
 	const candidate = value as Record<string, unknown>;
+	if (
+		candidate.confidence !== undefined &&
+		(typeof candidate.confidence !== "number" ||
+			!Number.isFinite(candidate.confidence) ||
+			candidate.confidence < 0 ||
+			candidate.confidence > 1)
+	) {
+		return false;
+	}
 	return (
 		typeof candidate.id === "string" &&
 		candidate.id.length > 0 &&
@@ -20,6 +29,25 @@ function isTaloxBug(value: unknown): value is TaloxBug {
 		candidate.evidence !== null &&
 		typeof candidate.evidence === "object"
 	);
+}
+
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+	if (value === null || typeof value !== "object") return value;
+	const object = value as object;
+	if (seen.has(object)) return value;
+	seen.add(object);
+	for (const nested of Object.values(value as Record<string, unknown>)) {
+		deepFreeze(nested, seen);
+	}
+	return Object.freeze(value);
+}
+
+function clonePluginState(state: TaloxPageState): TaloxPageState {
+	return deepFreeze(structuredClone(state));
+}
+
+function encodeIdComponent(value: string): string {
+	return encodeURIComponent(value);
 }
 
 /**
@@ -126,7 +154,10 @@ export class RulesEngine {
 		for (const registration of getTaloxPluginRules()) {
 			const { pluginName, pluginVersion, rule } = registration;
 			try {
-				const result = rule.analyze(state);
+				// Every plugin receives an isolated, recursively frozen snapshot. This
+				// protects later rules and the caller even when a JavaScript plugin
+				// ignores the TypeScript read-only contract.
+				const result = rule.analyze(clonePluginState(state));
 				if (result == null) continue;
 				if (!Array.isArray(result)) {
 					logger.warn(`Plugin rule ${pluginName}/${rule.id} returned a non-array result; ignoring it.`);
@@ -140,7 +171,7 @@ export class RulesEngine {
 					}
 					bugs.push({
 						...bug,
-						id: `plugin:${pluginName}:${rule.id}:${bug.id}`,
+						id: `plugin:${encodeIdComponent(pluginName)}:${encodeIdComponent(rule.id)}:${encodeIdComponent(bug.id)}`,
 						metadata: {
 							...bug.metadata,
 							taloxPlugin: { name: pluginName, version: pluginVersion, ruleId: rule.id },
