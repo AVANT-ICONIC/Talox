@@ -149,6 +149,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isJsonRpcId(value: unknown): value is JsonRpcId {
+	return value === null || typeof value === "string" || (typeof value === "number" && Number.isFinite(value));
+}
+
+function unexpectedArgument(args: Record<string, unknown>, allowed: readonly string[]): string | null {
+	const extra = Object.keys(args).filter((key) => !allowed.includes(key));
+	return extra.length > 0 ? `Unexpected argument${extra.length === 1 ? "" : "s"}: ${extra.join(", ")}.` : null;
+}
+
 function textResult(value: unknown): ToolCallResult {
 	const serialized = JSON.stringify(value, null, 2);
 	const text = typeof value === "string" ? value : (serialized ?? String(value));
@@ -188,7 +197,10 @@ export class TaloxMcpSession {
 	async handle(input: unknown): Promise<JsonRpcResponse | null> {
 		if (!isRecord(input)) return rpcError(null, -32600, "Invalid Request");
 
-		const id = Object.hasOwn(input, "id") ? (input["id"] as JsonRpcId) : undefined;
+		const hasId = Object.hasOwn(input, "id");
+		const rawId = hasId ? input["id"] : undefined;
+		if (hasId && !isJsonRpcId(rawId)) return rpcError(null, -32600, "Invalid Request");
+		const id = rawId as JsonRpcId | undefined;
 		const method = input["method"];
 		if (input["jsonrpc"] !== "2.0" || typeof method !== "string") {
 			return rpcError(id ?? null, -32600, "Invalid Request");
@@ -222,6 +234,13 @@ export class TaloxMcpSession {
 			case "tools/list":
 				return rpcResult(request.id, this.completeResult(this.handleToolsList(request.params), request.params));
 			case "tools/call":
+				if (!isRecord(request.params) || typeof request.params["name"] !== "string") {
+					return rpcError(request.id, -32602, "Invalid tools/call parameters: missing tool name.");
+				}
+				const toolName = request.params["name"];
+				if (!TALOX_MCP_TOOLS.some((tool) => tool.name === toolName)) {
+					return rpcError(request.id, -32602, `Unknown Talox tool: ${toolName}`);
+				}
 				return rpcResult(request.id, this.completeResult(await this.handleToolCall(request.params), request.params));
 			default:
 				return rpcError(request.id, -32601, `Method not found: ${request.method}`);
@@ -339,6 +358,8 @@ export class TaloxMcpSession {
 	}
 
 	private async launch(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["profileId", "profileClass", "browser"]);
+		if (extra) return toolError(extra);
 		if (this.controller) return toolError("A Talox MCP browser session is already active. Stop it before relaunching.");
 
 		const profileId = args["profileId"] ?? "mcp";
@@ -364,6 +385,8 @@ export class TaloxMcpSession {
 	}
 
 	private async navigate(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["url"]);
+		if (extra) return toolError(extra);
 		const controller = this.requireController();
 		const url = args["url"];
 		if (typeof url !== "string" || url.length === 0) return toolError("url must be a non-empty string.");
@@ -371,6 +394,8 @@ export class TaloxMcpSession {
 	}
 
 	private async click(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["selector"]);
+		if (extra) return toolError(extra);
 		const controller = this.requireController();
 		const selector = args["selector"];
 		if (typeof selector !== "string" || selector.length === 0) return toolError("selector must be a non-empty string.");
@@ -378,6 +403,8 @@ export class TaloxMcpSession {
 	}
 
 	private async type(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["selector", "text"]);
+		if (extra) return toolError(extra);
 		const controller = this.requireController();
 		const selector = args["selector"];
 		const text = args["text"];
@@ -387,6 +414,8 @@ export class TaloxMcpSession {
 	}
 
 	private async state(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["variant"]);
+		if (extra) return toolError(extra);
 		const variant = args["variant"] ?? "agent";
 		if (variant !== "agent" && variant !== "debug" && variant !== "full") {
 			return toolError("variant must be one of: agent, debug, full.");
@@ -395,6 +424,8 @@ export class TaloxMcpSession {
 	}
 
 	private async screenshot(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const extra = unexpectedArgument(args, ["selector"]);
+		if (extra) return toolError(extra);
 		const controller = this.requireController();
 		const selector = args["selector"];
 		if (selector !== undefined && (typeof selector !== "string" || selector.length === 0)) {
