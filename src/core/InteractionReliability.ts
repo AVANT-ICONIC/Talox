@@ -93,6 +93,17 @@ const VIEWPORT_PATTERNS = [
 ];
 
 const WRONG_TAB_PATTERNS = [/target.*closed/i, /execution context.*destroyed/i, /page.*closed/i];
+const INVALID_SELECTOR_PATTERNS = [
+	/while parsing css selector/i,
+	/unexpected token.*css selector/i,
+	/unknown engine .* while parsing selector/i,
+	/malformed selector/i,
+];
+
+function isSelectorSyntaxError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return INVALID_SELECTOR_PATTERNS.some((pattern) => pattern.test(message));
+}
 
 // ─── Dismiss patterns for common overlay types ─────────────────────────────
 
@@ -201,7 +212,10 @@ export class InteractionReliability {
 				});
 			}
 		} catch (e: unknown) {
-			// Not a fatal pre-flight error — the element might still be findable
+			// Invalid selector syntax is deterministic. Propagate it immediately so
+			// callers do not pay the full action timeout for an impossible retry.
+			if (isSelectorSyntaxError(e)) throw e;
+			// Other pre-flight errors are non-fatal — the element might still be findable.
 			attempts.push({
 				mode: "viewport",
 				strategy: "scrollIntoViewIfNeeded",

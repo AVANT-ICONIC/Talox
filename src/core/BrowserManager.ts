@@ -190,6 +190,13 @@ export class BrowserManager {
 		}
 	}
 
+	private assertPersistentProfileAvailable(userDataDir: string): void {
+		const profileDir = canonicalProfileDir(userDataDir);
+		if (this.ownedProfileDir !== profileDir && activePersistentProfileDirs.has(profileDir)) {
+			throw new Error(`PROFILE_IN_USE: Persistent profile is already active in this process: ${userDataDir}`);
+		}
+	}
+
 	private claimPersistentProfileOwnership(userDataDir: string): void {
 		const profileDir = canonicalProfileDir(userDataDir);
 		if (this.ownedProfileDir === profileDir) return;
@@ -716,6 +723,9 @@ export class BrowserManager {
 		browserType?: BrowserType,
 		extraOptions?: any,
 	): Promise<BrowserContext> {
+		// Duplicate persistent profiles are a deterministic local conflict. Check
+		// before browser discovery or Xvfb startup so the error is genuinely fast.
+		this.assertPersistentProfileAvailable(profile.userDataDir);
 		const actualBrowserType = await this.resolveBrowserType(browserType);
 
 		// Start Xvfb if virtualDisplay is enabled — runs Chromium in "headed"
