@@ -12,7 +12,7 @@ describe("formatDoctorOutput", () => {
 	it("formats an all-passing result", () => {
 		const checks: DoctorCheck[] = [
 			{ name: "Node.js version", status: "ok", message: "v20.11.0" },
-			{ name: "Playwright installed", status: "ok", message: "v1.58.2" },
+			{ name: "Playwright runtime", status: "ok", message: "v1.58.2" },
 			{ name: "Browser binaries", status: "ok", message: "Chromium available" },
 		];
 
@@ -30,7 +30,6 @@ describe("formatDoctorOutput", () => {
 		expect(output).toContain("3 passed");
 		expect(output).not.toContain("warning");
 		expect(output).not.toContain("error");
-		// Every check name should appear
 		for (const check of checks) {
 			expect(output).toContain(check.name);
 			expect(output).toContain(check.message);
@@ -41,10 +40,10 @@ describe("formatDoctorOutput", () => {
 		const checks: DoctorCheck[] = [
 			{ name: "Node.js version", status: "ok", message: "v20.11.0" },
 			{
-				name: "Playwright installed",
+				name: "Playwright runtime",
 				status: "error",
-				message: "@playwright/test not found",
-				fixHint: "npm install -D @playwright/test",
+				message: "playwright-core not found",
+				fixHint: "npm install playwright-core",
 			},
 			{
 				name: "Display server",
@@ -67,8 +66,7 @@ describe("formatDoctorOutput", () => {
 		expect(output).toContain("1 passed");
 		expect(output).toContain("1 warning");
 		expect(output).toContain("1 error");
-		// Fix hints should appear
-		expect(output).toContain("npm install -D @playwright/test");
+		expect(output).toContain("npm install playwright-core");
 		expect(output).toContain("Set DISPLAY environment variable");
 	});
 
@@ -84,7 +82,6 @@ describe("formatDoctorOutput", () => {
 		const output = formatDoctorOutput(result, VERSION);
 
 		expect(output).toContain(`Talox Doctor — v${VERSION}`);
-		// Summary line is present but has no parts (all counts zero)
 		const lines = output.split("\n");
 		const separatorLines = lines.filter((l) => l.includes("━"));
 		expect(separatorLines.length).toBeGreaterThanOrEqual(2);
@@ -120,9 +117,7 @@ describe("formatDoctorOutput", () => {
 
 		const output = formatDoctorOutput(result, VERSION);
 
-		// "2 warnings" (plural)
 		expect(output).toContain("2 warnings");
-		// "3 errors" (plural)
 		expect(output).toContain("3 errors");
 	});
 
@@ -150,7 +145,6 @@ describe("formatDoctorOutput", () => {
 // ---------------------------------------------------------------------------
 
 describe("runDoctor", () => {
-	// Run doctor once — these diagnostics are slow (browser/network checks)
 	let result: DoctorResult;
 
 	beforeAll(async () => {
@@ -169,6 +163,12 @@ describe("runDoctor", () => {
 		expect(typeof result.warnings).toBe("number");
 		expect(typeof result.errors).toBe("number");
 		expect(typeof result.timestamp).toBe("string");
+	});
+
+	it("checks the production Playwright runtime", () => {
+		const playwrightCheck = result.checks.find((check) => check.name === "Playwright runtime");
+		expect(playwrightCheck).toBeDefined();
+		expect(result.checks.some((check) => check.name === "Playwright installed")).toBe(false);
 	});
 
 	it("has consistent check counts", () => {
