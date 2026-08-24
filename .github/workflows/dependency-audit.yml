@@ -1,0 +1,39 @@
+name: Production Dependency Audit
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/dependency-audit.yml
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/dependency-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  production-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install production dependency graph
+        run: npm ci --omit=dev --omit=optional
+
+      - name: Report production advisories
+        continue-on-error: true
+        run: npm audit --omit=dev --omit=optional --json
+
+      - name: Enforce no high-or-critical production advisories
+        run: npm audit --omit=dev --omit=optional --audit-level=high
