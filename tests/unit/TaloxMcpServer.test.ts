@@ -129,6 +129,28 @@ describe("TaloxMcpSession", () => {
 		expect(response).toMatchObject({ error: { code: -32601 } });
 	});
 
+	it("rejects unknown tools as protocol InvalidParams", async () => {
+		const session = new TaloxMcpSession(() => new FakeController());
+		const response = await session.handle(toolCall(1, "talox_definitely_missing"));
+
+		expect(response).toMatchObject({
+			jsonrpc: "2.0",
+			id: 1,
+			error: { code: -32602, message: expect.stringContaining("Unknown Talox tool") },
+		});
+	});
+
+	it("rejects invalid JSON-RPC ids", async () => {
+		const session = new TaloxMcpSession(() => new FakeController());
+		const response = await session.handle({ jsonrpc: "2.0", id: { nope: true }, method: "tools/list" });
+
+		expect(response).toEqual({
+			jsonrpc: "2.0",
+			id: null,
+			error: { code: -32600, message: "Invalid Request" },
+		});
+	});
+
 	it("requires launch before browser-scoped tool calls", async () => {
 		const session = new TaloxMcpSession(() => new FakeController());
 		const response = await session.handle(toolCall(1, "talox_navigate", { url: "https://example.com" }));
@@ -149,6 +171,21 @@ describe("TaloxMcpSession", () => {
 
 		expect(fake.stateVariants).toEqual(["agent"]);
 		expect(response).toMatchObject({ result: { content: [{ type: "text", text: expect.stringContaining('"variant": "agent"') }] } });
+	});
+
+	it("rejects extra tool arguments declared outside the schema", async () => {
+		const fake = new FakeController();
+		const session = new TaloxMcpSession(() => fake);
+		await session.handle(toolCall(1, "talox_launch"));
+		const response = await session.handle(toolCall(2, "talox_state", { surprise: true }));
+
+		expect(response).toMatchObject({
+			result: {
+				isError: true,
+				content: [{ type: "text", text: expect.stringContaining("Unexpected argument") }],
+			},
+		});
+		expect(fake.stateVariants).toEqual([]);
 	});
 
 	it("runs a persistent browser session across MCP tool calls", async () => {
