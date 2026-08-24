@@ -53,8 +53,33 @@ The image intentionally relies on Playwright's bundled Chromium rather than inst
 
 The Docker CI workflow verifies this by starting the built image and calling `BrowserManager.detectBrowsers()` as the unprivileged runtime user.
 
+## Chromium sandbox mode
+
+Talox keeps Chromium sandboxing disabled by default for compatibility with Docker and Linux hosts that do not permit unprivileged user namespaces. The runtime exposes an explicit `browser.chromiumSandbox` setting and the equivalent `TALOX_CHROMIUM_SANDBOX=true` environment override.
+
+For crawling or other untrusted-web workloads, enable the Chromium sandbox together with Playwright's seccomp profile. The profile is the Docker default seccomp policy extended with the user-namespace syscalls Chromium needs. Keep the profile version aligned with the locked `playwright-core` version:
+
+```bash
+PLAYWRIGHT_VERSION=$(node -p 'require("./package-lock.json").packages["node_modules/playwright-core"].version')
+curl -fsSL \
+  "https://raw.githubusercontent.com/microsoft/playwright/v${PLAYWRIGHT_VERSION}/utils/docker/seccomp_profile.json" \
+  -o playwright-seccomp.json
+
+docker run --rm --init --ipc=host \
+  --security-opt seccomp="$PWD/playwright-seccomp.json" \
+  -e TALOX_CHROMIUM_SANDBOX=true \
+  -e OPENAI_API_KEY \
+  -v talox-profiles:/workspace/.talox-profiles \
+  -v talox-state:/home/talox/.talox \
+  talox:local run "Inspect the target page"
+```
+
+When sandbox mode is enabled, Talox requests Playwright's Chromium sandbox and omits its compatibility `--no-sandbox` and `--disable-setuid-sandbox` flags. Docker CI downloads the seccomp profile from the exact locked Playwright tag and proves that the bundled Chromium starts sandboxed as the non-root `talox` user.
+
+Do not enable sandbox mode without configuring the host/container runtime to support it. Talox intentionally fails the browser launch instead of silently falling back to an unsandboxed browser.
+
 ## Security boundary
 
-The container process runs as the non-root `talox` user. That reduces host/container damage from a compromised browser process, but it is not yet a complete Chromium sandbox boundary: Talox currently passes Chromium's `--no-sandbox` flags in its general launch path. Treat the container itself as the isolation boundary until browser-sandbox hardening lands.
+Running the process as the non-root `talox` user reduces the impact of a compromised browser process. For untrusted targets, use the sandboxed invocation above so Chromium's own process sandbox remains active in addition to Docker's isolation.
 
 Do not bake API keys, cookies, profile directories, or `.env` files into images. The repository `.dockerignore` excludes the common local state and secret paths for this reason.

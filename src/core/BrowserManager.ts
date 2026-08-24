@@ -32,6 +32,7 @@ export interface TaloxConfig {
 		autoDetect: boolean;
 		preferred: BrowserType;
 		headless: boolean;
+		chromiumSandbox: boolean;
 		proxy?: {
 			server: string;
 			username?: string;
@@ -50,6 +51,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		autoDetect: true,
 		preferred: "chromium",
 		headless: true,
+		chromiumSandbox: false,
 	},
 	profile: {
 		vaultDir: ".talox-profiles",
@@ -92,6 +94,11 @@ export function getDefaultConfig(): TaloxConfig {
 	// regardless of mode. Prefer using { headed: true } in launch() options instead.
 	if (process.env.TALOX_HEADLESS === "false") {
 		cfg.browser.headless = false;
+	}
+	if (process.env.TALOX_CHROMIUM_SANDBOX === "true") {
+		cfg.browser.chromiumSandbox = true;
+	} else if (process.env.TALOX_CHROMIUM_SANDBOX === "false") {
+		cfg.browser.chromiumSandbox = false;
 	}
 	return cfg;
 }
@@ -364,15 +371,20 @@ export class BrowserManager {
 		return { chromium, firefox, webkit }[actualBrowserType];
 	}
 
-	private buildLaunchOptions(extraOptions: any): any {
+	private buildLaunchOptions(extraOptions: any, actualBrowserType: BrowserType): any {
 		const effectiveHeadless = extraOptions?.headless ?? this.config.browser.headless;
 		const isAdaptive = this.config.settings.adaptiveStealthEnabled !== false;
+		const chromiumSandbox =
+			actualBrowserType === "chromium"
+				? (extraOptions?.chromiumSandbox ?? this.config.browser.chromiumSandbox)
+				: false;
 
 		const launchOptions: Record<string, unknown> = {
 			headless: effectiveHeadless,
 			args: [
-				"--no-sandbox",
-				"--disable-setuid-sandbox",
+				...(actualBrowserType === "chromium" && !chromiumSandbox
+					? ["--no-sandbox", "--disable-setuid-sandbox"]
+					: []),
 				"--disable-dev-shm-usage",
 				// Use new headless mode on macOS to prevent ghost window flicker
 				...(effectiveHeadless && process.platform === "darwin" ? ["--headless=new"] : []),
@@ -387,6 +399,7 @@ export class BrowserManager {
 				// Consistent window size for fingerprinting
 				"--window-size=1280,720",
 			],
+			...(actualBrowserType === "chromium" ? { chromiumSandbox } : {}),
 			// When using Patchright (adaptive stealth), prefer system Chrome over bundled
 			// Chromium. System Chrome has a real TLS fingerprint and browser version (e.g. 147)
 			// instead of Patchright's bundled Chromium (e.g. 134) which is instantly flagged
@@ -606,7 +619,7 @@ export class BrowserManager {
 			extraOptions = { ...extraOptions, headless: false };
 		}
 
-		const launchOptions = this.buildLaunchOptions(extraOptions);
+		const launchOptions = this.buildLaunchOptions(extraOptions, actualBrowserType);
 
 		// Compute hash of launch options to detect config changes
 		const newHash = this.computeLaunchHash({
