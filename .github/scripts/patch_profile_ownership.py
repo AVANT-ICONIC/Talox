@@ -134,8 +134,8 @@ anchor = '''\tprivate async tryLaunchContext(
 \t): Promise<BrowserContext> {
 \t\tconst ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 \t\tthis.contexts.add(ctx);
-\t\tthis.attachCloseHandler(ctx);
 \t\tthis.registerProcessCleanup();
+\t\tthis.attachCloseHandler(ctx);
 \t\treturn ctx;
 \t}
 '''
@@ -147,8 +147,8 @@ replacement = '''\tprivate async tryLaunchContext(
 \t\tconst ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 \t\tthis.contexts.add(ctx);
 \t\tthis.profileOwnerContext = ctx;
-\t\tthis.attachCloseHandler(ctx);
 \t\tthis.registerProcessCleanup();
+\t\tthis.attachCloseHandler(ctx);
 \t\treturn ctx;
 \t}
 '''
@@ -215,8 +215,6 @@ if anchor not in text:
 text = text.replace(anchor, replacement, 1)
 manager.write_text(text)
 
-# Make BrowserManager test profile paths unique by default so individual unit
-# tests do not intentionally share ownership across their independent managers.
 tests = Path("tests/unit/BrowserManager.test.ts")
 test_text = tests.read_text()
 anchor = '''function createTestProfile() {
