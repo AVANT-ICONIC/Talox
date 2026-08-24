@@ -244,6 +244,30 @@ describe("Xvfb Virtual Display", () => {
 			vi.useRealTimers();
 		});
 
+		it("releases the reserved display when spawn throws synchronously", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+			mockSpawn.mockImplementationOnce(() => {
+				throw new Error("spawn exploded");
+			});
+			const mgr = new BrowserManager();
+			await expect(mgr.startXvfb()).rejects.toThrow("Failed to start Xvfb: spawn exploded");
+			expect(mgr.isXvfbRunning()).toBe(false);
+
+			const retry = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(retry.process);
+			vi.useFakeTimers();
+			const retryStart = mgr.startXvfb();
+			expect((mockSpawn.mock.calls[1]?.[1] as string[])[0]).toBe(":99");
+			await vi.advanceTimersByTimeAsync(600);
+			await retryStart;
+			mgr.stopXvfb();
+			vi.useRealTimers();
+		});
+
 		it("rejects if Xvfb process emits an error", async () => {
 			mockPlatform("linux");
 			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {

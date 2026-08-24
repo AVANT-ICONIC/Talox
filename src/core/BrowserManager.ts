@@ -617,10 +617,17 @@ export class BrowserManager {
 		const display = `:${displayNum}`;
 		this.xvfbDisplay = display;
 
-		const child = spawn(xvfbPath, [display, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
-			stdio: "ignore",
-			detached: false,
-		});
+		let child: ChildProcess;
+		try {
+			child = spawn(xvfbPath, [display, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
+				stdio: "ignore",
+				detached: false,
+			});
+		} catch (error) {
+			reservedXvfbDisplays.delete(display);
+			this.xvfbDisplay = null;
+			throw new Error(`Failed to start Xvfb: ${error instanceof Error ? error.message : String(error)}`);
+		}
 		this.xvfbProcess = child;
 		this.registerProcessCleanup();
 
