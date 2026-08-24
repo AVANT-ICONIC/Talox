@@ -20,6 +20,10 @@
     "./adapters": {
       "import": "./dist/adapters.js",
       "types": "./dist/adapters.d.ts"
+    },
+    "./local-vision": {
+      "import": "./dist/local-vision.js",
+      "types": "./dist/local-vision.d.ts"
     }
   },
   "files": [
