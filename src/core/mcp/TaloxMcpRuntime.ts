@@ -59,10 +59,12 @@ function createController(baseDir: string, headed: boolean): TaloxController {
  */
 export class TaloxMcpRuntime {
 	private readonly sessions = new Map<string, SessionRecord>();
+	private readonly pendingLaunches = new Set<Promise<TaloxMcpSessionInfo>>();
 	private readonly baseDir: string;
 	private readonly controllerFactory: TaloxMcpControllerFactory;
 	private readonly idFactory: () => string;
 	private readonly now: () => number;
+	private shuttingDown = false;
 
 	constructor(options: TaloxMcpRuntimeOptions = {}) {
 		this.baseDir = options.baseDir ?? path.join(process.cwd(), ".talox", "profiles", "mcp");
@@ -72,6 +74,10 @@ export class TaloxMcpRuntime {
 	}
 
 	async launch(options: TaloxMcpLaunchOptions = {}): Promise<TaloxMcpSessionInfo> {
+		if (this.shuttingDown) {
+			throw new Error("Talox MCP runtime is shutting down");
+		}
+
 		const sessionId = this.idFactory();
 		// A unique default profile prevents concurrent MCP sessions from fighting
 		// over Chromium's persistent user-data-dir lock. Callers can still opt into
@@ -82,24 +88,40 @@ export class TaloxMcpRuntime {
 		const headed = options.headed ?? false;
 		const controller = this.controllerFactory(this.baseDir, headed);
 
-		try {
-			await controller.launch(profileId, profileClass, browser, { headed });
-		} catch (error) {
-			await controller.stop().catch(() => {});
-			throw error;
-		}
+		const launchPromise = (async (): Promise<TaloxMcpSessionInfo> => {
+			try {
+				await controller.launch(profileId, profileClass, browser, { headed });
+			} catch (error) {
+				await controller.stop().catch(() => {});
+				throw error;
+			}
 
-		const record: SessionRecord = {
-			sessionId,
-			profileId,
-			profileClass,
-			browser,
-			headed,
-			createdAt: this.now(),
-			controller,
-		};
-		this.sessions.set(sessionId, record);
-		return this.toInfo(record);
+			// Shutdown may have started while Chromium was launching. Never register
+			// a session after cleanup has begun; stop it before allowing launch() to settle.
+			if (this.shuttingDown) {
+				await controller.stop().catch(() => {});
+				throw new Error("Talox MCP runtime is shutting down");
+			}
+
+			const record: SessionRecord = {
+				sessionId,
+				profileId,
+				profileClass,
+				browser,
+				headed,
+				createdAt: this.now(),
+				controller,
+			};
+			this.sessions.set(sessionId, record);
+			return this.toInfo(record);
+		})();
+
+		this.pendingLaunches.add(launchPromise);
+		try {
+			return await launchPromise;
+		} finally {
+			this.pendingLaunches.delete(launchPromise);
+		}
 	}
 
 	async stop(sessionId: string): Promise<TaloxMcpSessionInfo> {
@@ -110,6 +132,14 @@ export class TaloxMcpRuntime {
 	}
 
 	async stopAll(): Promise<void> {
+		this.shuttingDown = true;
+
+		// A launch can be awaiting browser startup while shutdown begins. Wait for
+		// every such launch to either fail or observe shuttingDown and stop itself.
+		await Promise.allSettled([...this.pendingLaunches]);
+
+		// Perform a final pass over sessions that were registered just before the
+		// shutdown flag was set. This makes cleanup deterministic across races.
 		const records = [...this.sessions.values()];
 		this.sessions.clear();
 		await Promise.allSettled(records.map((record) => record.controller.stop()));
