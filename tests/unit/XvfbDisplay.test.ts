@@ -204,7 +204,7 @@ describe("Xvfb Virtual Display", () => {
 			await vi.advanceTimersByTimeAsync(600);
 			await secondStart;
 			expect(mgr.isXvfbRunning()).toBe(true);
-			expect(process.env.DISPLAY).toMatch(/^:\\d+$/);
+			expect(process.env.DISPLAY).toMatch(/^:\d+$/);
 
 			mgr.stopXvfb();
 			vi.useRealTimers();

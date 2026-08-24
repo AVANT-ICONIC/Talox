@@ -535,12 +535,7 @@ export class BrowserManager {
 		return 99; // fallback
 	}
 
-	/**
-	 * Start Xvfb and set DISPLAY environment variable so subsequent Chromium
-	 * launches run in "headed" mode against the virtual framebuffer.
-	 *
-	 * @throws Error if not on Linux, Xvfb is not installed, or spawn fails
-	 */
+	/** Release Xvfb state only when the supplied child still owns it. */
 	private releaseXvfbOwnership(
 		child: ChildProcess,
 		display: string,
@@ -572,6 +567,10 @@ export class BrowserManager {
 		this.unregisterProcessCleanupIfIdle();
 	}
 
+	/**
+	 * Start Xvfb and set DISPLAY for headed Chromium on a virtual framebuffer.
+	 * @throws Error if Linux/Xvfb prerequisites fail or startup is interrupted.
+	 */
 	async startXvfb(): Promise<void> {
 		if (process.platform !== "linux") {
 			throw new Error("Xvfb virtual display is only supported on Linux.");
