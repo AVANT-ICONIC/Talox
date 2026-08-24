@@ -1,0 +1,155 @@
+name: Patch Xvfb cleanup race
+
+on:
+  push:
+    branches:
+      - fix/browser-process-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/browser-process-cleanup
+          fetch-depth: 0
+      - name: Apply Xvfb lifecycle hardening
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          path = Path("src/core/BrowserManager.ts")
+          text = path.read_text()
+
+          old = '''\t\tconst displayNum = BrowserManager.findFreeDisplay();
+          \t\tthis.xvfbDisplay = `:${displayNum}`;
+
+          \t\tthis.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
+          \t\t\tstdio: "ignore",
+          \t\t\tdetached: false,
+          \t\t});
+
+          \t\t// Give Xvfb a moment to bind the display socket'''
+          new = '''\t\tconst displayNum = BrowserManager.findFreeDisplay();
+          \t\tthis.xvfbDisplay = `:${displayNum}`;
+          \t\tthis.savedDisplayEnv = process.env.DISPLAY;
+
+          \t\tthis.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
+          \t\t\tstdio: "ignore",
+          \t\t\tdetached: false,
+          \t\t});
+          \t\t// Register as soon as the child exists. The 500 ms readiness wait below
+          \t\t// must not leave a SIGINT/process-exit window where Xvfb can be orphaned.
+          \t\tthis.registerProcessCleanup();
+
+          \t\t// Give Xvfb a moment to bind the display socket'''
+          text = replace_once(text, old, new, "register immediately after spawn")
+
+          old = '''\t\t\tthis.xvfbProcess!.on("error", (err) => {
+          \t\t\t\tclearTimeout(timeout);
+          \t\t\t\tthis.xvfbProcess = null;
+          \t\t\t\tthis.xvfbDisplay = null;
+          \t\t\t\treject(new Error(`Failed to start Xvfb: ${err.message}`));
+          \t\t\t});
+
+          \t\t\tthis.xvfbProcess!.on("exit", (code) => {
+          \t\t\t\tif (code !== null && code !== 0) {
+          \t\t\t\t\tclearTimeout(timeout);
+          \t\t\t\t\tthis.xvfbProcess = null;
+          \t\t\t\t\tthis.xvfbDisplay = null;
+          \t\t\t\t\treject(new Error(`Xvfb exited with code ${code}`));
+          \t\t\t\t}
+          \t\t\t});'''
+          new = '''\t\t\tthis.xvfbProcess!.on("error", (err) => {
+          \t\t\t\tclearTimeout(timeout);
+          \t\t\t\tthis.xvfbProcess = null;
+          \t\t\t\tthis.stopXvfb();
+          \t\t\t\treject(new Error(`Failed to start Xvfb: ${err.message}`));
+          \t\t\t});
+
+          \t\t\tthis.xvfbProcess!.on("exit", (code) => {
+          \t\t\t\tif (code !== null && code !== 0) {
+          \t\t\t\t\tclearTimeout(timeout);
+          \t\t\t\t\tthis.xvfbProcess = null;
+          \t\t\t\t\tthis.stopXvfb();
+          \t\t\t\t\treject(new Error(`Xvfb exited with code ${code}`));
+          \t\t\t\t}
+          \t\t\t});'''
+          text = replace_once(text, old, new, "cleanup failed start")
+
+          old = '''\t\t// Save original DISPLAY and set the new one
+          \t\tthis.savedDisplayEnv = process.env.DISPLAY;
+          \t\tprocess.env.DISPLAY = this.xvfbDisplay;
+          \t\tthis.registerProcessCleanup();'''
+          new = '''\t\t// The original DISPLAY was snapshotted before spawn so cleanup is safe
+          \t\t// even if startup is interrupted during the readiness window.
+          \t\tprocess.env.DISPLAY = this.xvfbDisplay;'''
+          text = replace_once(text, old, new, "remove late registration")
+          path.write_text(text)
+
+          path = Path("tests/unit/XvfbDisplay.test.ts")
+          text = path.read_text()
+          marker = '''\t\tit("spawns Xvfb and sets DISPLAY", async () => {'''
+          new_test = '''\t\tit("registers cleanup immediately after spawn and removes it when startup fails", async () => {
+          \t\t\tmockPlatform("linux");
+          \t\t\t(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+          \t\t\t\tif (p === "/usr/bin/Xvfb") return;
+          \t\t\t\tthrow new Error("not found");
+          \t\t\t});
+
+          \t\t\tconst mock = createMockChildProcess();
+          \t\t\tmockSpawn.mockReturnValue(mock.process);
+          \t\t\tconst onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
+          \t\t\tconst mgr = new BrowserManager();
+          \t\t\tconst stopSpy = vi.spyOn(mgr, "stopXvfb");
+
+          \t\t\tconst promise = mgr.startXvfb();
+          \t\t\tconst exitRegistration = onceSpy.mock.calls.find(([event]) => event === "exit");
+          \t\t\texpect(mockSpawn).toHaveBeenCalledTimes(1);
+          \t\t\texpect(exitRegistration).toBeDefined();
+          \t\t\texpect(onceSpy.mock.calls.some(([event]) => event === "SIGINT")).toBe(true);
+
+          \t\t\tmock.triggerError(new Error("spawn failed"));
+          \t\t\tawait expect(promise).rejects.toThrow("Failed to start Xvfb");
+          \t\t\texpect(stopSpy).toHaveBeenCalledTimes(1);
+
+          \t\t\tstopSpy.mockClear();
+          \t\t\tconst exitHandler = exitRegistration?.[1] as (() => void) | undefined;
+          \t\t\texitHandler?.();
+          \t\t\texpect(stopSpy).not.toHaveBeenCalled();
+          \t\t\tonceSpy.mockRestore();
+          \t\t});
+
+          \t\tit("spawns Xvfb and sets DISPLAY", async () => {'''
+          text = replace_once(text, marker, new_test, "add startup cleanup regression")
+          path.write_text(text)
+
+          path = Path("CHANGELOG.md")
+          text = path.read_text()
+          text = replace_once(
+              text,
+              "- **BrowserManager process cleanup listeners** — active managers share one process-level `exit` and `SIGINT` listener pair instead of registering two listeners per instance.\n",
+              "- **BrowserManager process cleanup listeners** — active managers share one process-level `exit` and `SIGINT` listener pair instead of registering two listeners per instance; Xvfb registers immediately after spawn so the readiness window cannot orphan the child on process exit.\n",
+              "expand changelog lifecycle note",
+          )
+          text = replace_once(text, "127 unit test files / 1,950 tests passing", "127 unit test files / 1,951 tests passing", "increment test count")
+          path.write_text(text)
+          PY
+
+          git rm .github/workflows/patch-xvfb-cleanup-race.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/BrowserManager.ts tests/unit/XvfbDisplay.test.ts CHANGELOG.md
+          git commit -m "fix: cover Xvfb startup cleanup window"
+          git push origin HEAD:fix/browser-process-cleanup
