@@ -51,14 +51,14 @@ jobs:
       - name: Smoke Talox CLI
         run: docker run --rm --init talox:ci init --help
 
-      - name: Probe Playwright-managed Chromium
+      - name: Probe sandboxed Playwright-managed Chromium
         run: |
           docker run --rm --init --entrypoint node talox:ci -e '
             const { chromium } = require("/opt/talox/node_modules/playwright-core");
             console.log(`PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "unset"}`);
             console.log(`chromium.executablePath=${chromium.executablePath()}`);
             (async () => {
-              const browser = await chromium.launch({ headless: true, timeout: 10000 });
+              const browser = await chromium.launch({ headless: true, timeout: 10000, chromiumSandbox: true });
               try {
                 console.log(`Direct Chromium version: ${browser.version()}`);
               } finally {
@@ -73,7 +73,9 @@ jobs:
       - name: Detect bundled Chromium through Talox
         run: |
           docker run --rm --init --entrypoint node talox:ci --input-type=module -e '
-            import { BrowserManager } from "/opt/talox/dist/core/BrowserManager.js";
+            import { BrowserManager, getDefaultConfig } from "/opt/talox/dist/core/BrowserManager.js";
+            const defaults = getDefaultConfig();
+            if (!defaults.browser.chromiumSandbox) throw new Error("Docker runtime did not enable Talox Chromium sandbox mode");
             const manager = new BrowserManager();
             try {
               const browsers = await manager.detectBrowsers();
