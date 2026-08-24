@@ -38,7 +38,7 @@ interface McpController {
 	navigate(url: string): Promise<{ url: string; title?: string }>;
 	click(selector: string): Promise<{ url: string; title?: string }>;
 	type(selector: string, text: string): Promise<{ url: string; title?: string }>;
-	getState(): Promise<unknown>;
+	getState(variant?: "full" | "agent" | "debug"): Promise<unknown>;
 	screenshot(options?: { selector?: string; path?: string }): Promise<Buffer | string>;
 }
 
@@ -112,8 +112,18 @@ export const TALOX_MCP_TOOLS = [
 	},
 	{
 		name: "talox_state",
-		description: "Return Talox's current structured page state for the active session.",
-		inputSchema: { type: "object", properties: {}, additionalProperties: false },
+		description: "Return Talox's structured page state. Defaults to compact agent state to minimize context usage.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				variant: {
+					type: "string",
+					enum: ["agent", "debug", "full"],
+					description: "State detail level. Defaults to agent.",
+				},
+			},
+			additionalProperties: false,
+		},
 	},
 	{
 		name: "talox_screenshot",
@@ -205,7 +215,10 @@ export class TaloxMcpSession {
 			case "initialize":
 				return this.handleInitialize(request.id, request.params);
 			case "ping":
-				return rpcResult(request.id, this.completeResult({}, request.params));
+				if (this.isModern(request.params)) {
+					return rpcError(request.id, -32601, "Method not supported by MCP 2026-07-28: ping");
+				}
+				return rpcResult(request.id, {});
 			case "tools/list":
 				return rpcResult(request.id, this.completeResult(this.handleToolsList(request.params), request.params));
 			case "tools/call":
@@ -312,7 +325,7 @@ export class TaloxMcpSession {
 				case "talox_type":
 					return await this.type(input);
 				case "talox_state":
-					return await this.state();
+					return await this.state(input);
 				case "talox_screenshot":
 					return await this.screenshot(input);
 				case "talox_stop":
@@ -373,8 +386,12 @@ export class TaloxMcpSession {
 		return textResult(await controller.type(selector, text));
 	}
 
-	private async state(): Promise<ToolCallResult> {
-		return textResult(await this.requireController().getState());
+	private async state(args: Record<string, unknown>): Promise<ToolCallResult> {
+		const variant = args["variant"] ?? "agent";
+		if (variant !== "agent" && variant !== "debug" && variant !== "full") {
+			return toolError("variant must be one of: agent, debug, full.");
+		}
+		return textResult(await this.requireController().getState(variant));
 	}
 
 	private async screenshot(args: Record<string, unknown>): Promise<ToolCallResult> {
