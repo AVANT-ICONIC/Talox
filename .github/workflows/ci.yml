@@ -21,47 +21,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Temporary branch-scoped bootstrap. It restores this workflow from main before
-  # committing, so the generated dependency commit contains no CI plumbing.
-  mcp-deps-bootstrap:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/mcp-server'
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: feat/mcp-server
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Generate MCP dependency graph
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const path = 'package.json';
-          const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
-          pkg.engines = { ...(pkg.engines ?? {}), node: '>=20.0.0' };
-          pkg.scripts = { ...(pkg.scripts ?? {}), mcp: 'node ./dist/cli/entry.js mcp' };
-          fs.writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
-          NODE
-          npm install --save --package-lock-only --ignore-scripts @modelcontextprotocol/server@2.0.0 zod@4.3.6
-          npm ci --ignore-scripts
-
-      - name: Commit generated package metadata
-        run: |
-          git fetch origin main
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json .github/workflows/ci.yml
-          git commit -m "feat(mcp): add MCP v2 dependencies and Node 20 floor"
-          git push origin HEAD:feat/mcp-server
-
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
   lint-typecheck:
     name: Lint & Typecheck
