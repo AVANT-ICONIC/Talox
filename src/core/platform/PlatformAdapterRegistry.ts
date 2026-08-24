@@ -91,12 +91,14 @@ function normalizeAdapter(adapter: PlatformAdapter): PlatformAdapter {
 	) {
 		throw new TypeError("adapter.routes must contain valid route hints.");
 	}
-	return {
+	const normalized: PlatformAdapter = {
 		...adapter,
 		name: adapter.name.trim(),
 		guidance: [...adapter.guidance],
-		routes: adapter.routes ? [...adapter.routes] : undefined,
 	};
+	if (adapter.routes) normalized.routes = [...adapter.routes];
+	else delete normalized.routes;
+	return normalized;
 }
 
 export const wordpressAdminAdapter: PlatformAdapter = {
@@ -231,11 +233,12 @@ export class PlatformAdapterRegistry {
 	}
 
 	list(): PlatformAdapter[] {
-		return [...this.adapters.values()].map((adapter) => ({
-			...adapter,
-			guidance: [...adapter.guidance],
-			routes: adapter.routes ? [...adapter.routes] : undefined,
-		}));
+		return [...this.adapters.values()].map((adapter) => {
+			const copy: PlatformAdapter = { ...adapter, guidance: [...adapter.guidance] };
+			if (adapter.routes) copy.routes = [...adapter.routes];
+			else delete copy.routes;
+			return copy;
+		});
 	}
 
 	match(url: string, title?: string): PlatformAdapterMatch[] {
