@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseReplayArgs, shouldUseReplayCommand } from "../../src/cli/replay";
+import { parseReplayArgs, runReplayCommand, shouldUseReplayCommand } from "../../src/cli/replay";
 import { loadReplayBundle } from "../../src/core/replay/ReplayLoader";
 import { renderReplayHtml } from "../../src/core/replay/ReplayRenderer";
 import type { TaloxSessionReport } from "../../src/types/session";
@@ -89,7 +89,16 @@ describe("ReplayLoader", () => {
 		);
 		await fs.writeFile(
 			path.join(dir, "trace.json"),
-			JSON.stringify([{ frameIndex: 0, timestamp: "2026-08-24T20:00:01.000Z", relativeTimeMs: 1000, type: "CLICK", action: "Click Action", details: {} }]),
+			JSON.stringify([
+				{
+					frameIndex: 0,
+					timestamp: "2026-08-24T20:00:01.000Z",
+					relativeTimeMs: 1000,
+					type: "CLICK",
+					action: "Click Action",
+					details: {},
+				},
+			]),
 		);
 
 		const bundle = await loadReplayBundle(dir);
@@ -104,6 +113,20 @@ describe("ReplayLoader", () => {
 		tempDirs.push(dir);
 		await fs.writeFile(path.join(dir, "report.json"), JSON.stringify({ id: "not-enough" }));
 		await expect(loadReplayBundle(dir)).rejects.toThrow("Invalid Talox session report");
+	});
+
+	it("rejects malformed nested interaction data before rendering", async () => {
+		const dir = await makeSession();
+		const malformed = report();
+		(malformed.interactions[0]!.element!.boundingBox as unknown as { width: string }).width = "huge";
+		await fs.writeFile(path.join(dir, "report.json"), JSON.stringify(malformed));
+		await expect(loadReplayBundle(dir)).rejects.toThrow("Invalid Talox session report");
+	});
+
+	it("rejects malformed optional replay artifacts", async () => {
+		const dir = await makeSession();
+		await fs.writeFile(path.join(dir, "bugs.json"), JSON.stringify([{ id: "missing-fields" }]));
+		await expect(loadReplayBundle(dir)).rejects.toThrow("Invalid Talox replay artifact");
 	});
 });
 
@@ -130,6 +153,12 @@ describe("ReplayRenderer", () => {
 		expect(html).not.toContain("</script><script>alert(1)</script>");
 		expect(html).toContain("\\u003c/script>");
 	});
+
+	it("HTML-encodes values before inserting them through innerHTML", () => {
+		const html = renderReplayHtml({ sessionDir: "/tmp/session", report: report(), extras: {} });
+		expect(html).toContain('replaceAll("&","&amp;")');
+		expect(html).toContain('replaceAll("<","&lt;")');
+	});
 });
 
 describe("Replay CLI", () => {
@@ -150,5 +179,24 @@ describe("Replay CLI", () => {
 	it("rejects unknown options and duplicate positional paths", () => {
 		expect(() => parseReplayArgs(["--wat"])).toThrow("Unknown replay option");
 		expect(() => parseReplayArgs(["one", "two"])).toThrow("Unexpected replay argument");
+	});
+
+	it("copies session screenshots beside a custom replay output", async () => {
+		const sessionDir = await makeSession();
+		const screenshots = path.join(sessionDir, "screenshots");
+		await fs.mkdir(screenshots, { recursive: true });
+		await fs.writeFile(path.join(screenshots, "interaction-1-before.png"), Buffer.from("before"));
+		await fs.writeFile(path.join(screenshots, "interaction-1-after.png"), Buffer.from("after"));
+
+		const outputDir = await fs.mkdtemp(path.join(os.tmpdir(), "talox-replay-output-"));
+		tempDirs.push(outputDir);
+		const output = path.join(outputDir, "replay.html");
+		await runReplayCommand([sessionDir, "--output", output]);
+
+		const html = await fs.readFile(output, "utf-8");
+		expect(html).toContain(".talox-replay-assets/1-before.png");
+		expect(html).toContain(".talox-replay-assets/1-after.png");
+		await expect(fs.stat(path.join(outputDir, ".talox-replay-assets", "1-before.png"))).resolves.toBeDefined();
+		await expect(fs.stat(path.join(outputDir, ".talox-replay-assets", "1-after.png"))).resolves.toBeDefined();
 	});
 });
