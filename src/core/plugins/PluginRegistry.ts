@@ -1,8 +1,17 @@
-import { createLogger } from "../Logger.js";
 import type { TaloxBug, TaloxPageState } from "../../types/index.js";
+import { createLogger } from "../Logger.js";
 
 const logger = createLogger("Plugins");
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
+
+/** Recursively marks object graphs as read-only for community plugin contracts. */
+export type DeepReadonly<T> = T extends (...args: any[]) => unknown
+	? T
+	: T extends readonly (infer U)[]
+		? readonly DeepReadonly<U>[]
+		: T extends object
+			? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+			: T;
 
 /** Context supplied to opt-in plugin vision detectors. */
 export interface TaloxVisionContext {
@@ -22,7 +31,7 @@ export interface TaloxVisualDetection {
 /** A synchronous rule that participates in the normal RulesEngine QA pass. */
 export interface TaloxRule {
 	id: string;
-	analyze(state: Readonly<TaloxPageState>): readonly TaloxBug[] | null | undefined;
+	analyze(state: DeepReadonly<TaloxPageState>): readonly TaloxBug[] | null | undefined;
 }
 
 /** An opt-in visual detector. It is never run implicitly by getState(). */
