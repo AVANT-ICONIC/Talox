@@ -59,60 +59,101 @@ async function checkNodeVersion(): Promise<DoctorCheck> {
 
 async function checkPlaywrightInstalled(): Promise<DoctorCheck> {
 	try {
-		const modPath = require.resolve("@playwright/test");
+		const modPath = require.resolve("playwright-core");
 		let version = "unknown";
 		try {
-			const pkgPath = require.resolve("@playwright/test/package.json");
+			const pkgPath = require.resolve("playwright-core/package.json");
 			const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 			version = pkg.version ?? "unknown";
 		} catch {
-			// Ignored: version detection is best-effort
+			// Version detection is best-effort.
 		}
 		const dir = modPath.split("/").slice(0, -2).join("/");
-		return { name: "Playwright installed", status: "ok", message: `v${version} (${dir})` };
+		return { name: "Playwright runtime", status: "ok", message: `v${version} (${dir})` };
 	} catch {
-		// Ignored: @playwright/test not found, report as error below
 		return {
-			name: "Playwright installed",
+			name: "Playwright runtime",
 			status: "error",
-			message: "@playwright/test not found",
-			fixHint: "npm install -D @playwright/test",
+			message: "playwright-core not found",
+			fixHint: "npm install playwright-core",
 		};
 	}
 }
 
-async function checkBrowserBinaries(): Promise<DoctorCheck> {
+function chromiumCandidates(): string[] {
+	const candidates: string[] = [];
 	try {
-		const output = await execAsync("npx", ["playwright", "install", "--dry-run"]);
-		if (output.toLowerCase().includes("chromium")) {
-			return { name: "Browser binaries", status: "ok", message: "Chromium available" };
-		}
+		const bundled = chromium.executablePath();
+		if (bundled) candidates.push(bundled);
 	} catch {
-		// Ignored: dry-run failed, try fallback detection
+		// Fall through to system browser candidates.
 	}
 
-	const candidates = [
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-		"/snap/bin/chromium",
-		join(homedir(), ".cache/ms-playwright"),
-	];
+	if (platform() === "darwin") {
+		candidates.push(
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+		);
+	} else if (platform() === "win32") {
+		const programFiles = process.env["PROGRAMFILES"] ?? String.raw`C:\Program Files`;
+		const programFilesX86 = process.env["PROGRAMFILES(X86)"] ?? String.raw`C:\Program Files (x86)`;
+		const localAppData = process.env["LOCALAPPDATA"];
+		candidates.push(
+			join(programFiles, "Google/Chrome/Application/chrome.exe"),
+			join(programFiles, "Chromium/Application/chrome.exe"),
+			join(programFiles, "Microsoft/Edge/Application/msedge.exe"),
+			join(programFilesX86, "Google/Chrome/Application/chrome.exe"),
+			join(programFilesX86, "Microsoft/Edge/Application/msedge.exe"),
+		);
+		if (localAppData) candidates.push(join(localAppData, "Google/Chrome/Application/chrome.exe"));
+	} else {
+		candidates.push(
+			"/usr/bin/google-chrome",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+			"/snap/bin/chromium",
+			"/opt/google/chrome/chrome",
+		);
+	}
 
-	for (const candidate of candidates) {
+	return [...new Set(candidates)];
+}
+
+async function resolveChromiumExecutable(): Promise<string | null> {
+	for (const candidate of chromiumCandidates()) {
 		try {
 			await access(candidate);
-			return { name: "Browser binaries", status: "ok", message: candidate };
+			return candidate;
 		} catch {
-			// Ignored: candidate not found, continue searching
+			// Candidate does not exist or is inaccessible.
 		}
 	}
+	return null;
+}
 
+function checkBrowserBinaries(executablePath: string | null): DoctorCheck {
+	if (executablePath) {
+		return { name: "Browser binaries", status: "ok", message: executablePath };
+	}
 	return {
 		name: "Browser binaries",
 		status: "error",
 		message: "Chromium not found",
 		fixHint: "npx playwright install chromium",
 	};
+}
+
+async function installChromium(): Promise<void> {
+	console.log(`${DIM}  Fixing: Installing Chromium binaries...${RESET}`);
+	try {
+		await execAsync("npx", ["playwright", "install", "chromium"]);
+		console.log(`${GREEN}  ✓ Chromium installed${RESET}`);
+	} catch (err) {
+		console.error(
+			`${RED}  ✗ Failed to install Chromium: ${err instanceof Error ? err.message : String(err)}${RESET}`,
+		);
+	}
 }
 
 async function checkProfileDirectory(fix: boolean): Promise<DoctorCheck> {
@@ -122,13 +163,12 @@ async function checkProfileDirectory(fix: boolean): Promise<DoctorCheck> {
 		await access(profileDir, 2);
 		return { name: "Profile directory", status: "ok", message: profileDir };
 	} catch {
-		// Ignored: profile directory access check failed
 		if (fix) {
 			try {
 				await mkdir(profileDir, { recursive: true });
 				return { name: "Profile directory", status: "ok", message: `${profileDir} (created)` };
 			} catch {
-				// Ignored: mkdir failed, will report error below
+				// mkdir failed; report the original error below.
 			}
 		}
 		return {
@@ -146,7 +186,6 @@ async function checkTempDirectory(): Promise<DoctorCheck> {
 		await access(tmp, 2);
 		return { name: "Temp directory", status: "ok", message: tmp };
 	} catch {
-		// Ignored: temp directory access check failed, will report error
 		return {
 			name: "Temp directory",
 			status: "error",
@@ -171,7 +210,6 @@ async function checkNetworkConnectivity(): Promise<DoctorCheck> {
 			fixHint: "Check your network connection or proxy settings",
 		};
 	} catch {
-		// Ignored: network connectivity check failed, report error
 		return {
 			name: "Network connectivity",
 			status: "error",
@@ -215,7 +253,6 @@ async function checkDependencies(): Promise<DoctorCheck> {
 		try {
 			require.resolve(pkg);
 		} catch {
-			// Ignored: package not resolvable, will be reported as missing
 			missing.push(pkg);
 		}
 	}
@@ -240,7 +277,7 @@ async function checkConfigFile(fix: boolean): Promise<DoctorCheck> {
 			await access(join(cwd, candidate));
 			return { name: "Config file", status: "ok", message: join(cwd, candidate) };
 		} catch {
-			// Ignored: config candidate not found, continue searching
+			// Continue searching.
 		}
 	}
 
@@ -256,7 +293,7 @@ async function checkConfigFile(fix: boolean): Promise<DoctorCheck> {
 			await writeFile(target, `${JSON.stringify(defaultConfig, null, 2)}\n`, "utf-8");
 			return { name: "Config file", status: "ok", message: `${target} (created)` };
 		} catch {
-			// Ignored: config file write failed, will report warning below
+			// Write failed; report warning below.
 		}
 	}
 
@@ -268,10 +305,19 @@ async function checkConfigFile(fix: boolean): Promise<DoctorCheck> {
 	};
 }
 
-async function checkLiveLaunch(): Promise<DoctorCheck> {
+async function checkLiveLaunch(executablePath: string | null): Promise<DoctorCheck> {
+	if (!executablePath) {
+		return {
+			name: "Live launch test",
+			status: "error",
+			message: "Browser launch skipped because no Chromium executable was found",
+			fixHint: "Run 'npx playwright install chromium' to install browser binaries",
+		};
+	}
+
 	let browser: Browser | undefined;
 	try {
-		browser = await chromium.launch({ headless: true });
+		browser = await chromium.launch({ headless: true, executablePath });
 		const context: BrowserContext = await browser.newContext();
 		const page = await context.newPage();
 		await page.goto("about:blank");
@@ -280,7 +326,7 @@ async function checkLiveLaunch(): Promise<DoctorCheck> {
 		return {
 			name: "Live launch test",
 			status: "ok",
-			message: "Headless browser launched and navigated to about:blank",
+			message: `Headless browser launched from ${executablePath} and navigated to about:blank`,
 		};
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : String(error);
@@ -288,48 +334,36 @@ async function checkLiveLaunch(): Promise<DoctorCheck> {
 			name: "Live launch test",
 			status: "error",
 			message: `Browser launch failed: ${msg}`,
-			fixHint: "Run 'npx playwright install chromium' to install browser binaries",
+			fixHint: "Verify the Chromium executable and required system dependencies",
 		};
 	} finally {
 		await browser?.close();
 	}
 }
 
-async function applyFixes(checks: DoctorCheck[]): Promise<void> {
-	for (const check of checks) {
-		if (check.status === "error" && check.name === "Browser binaries") {
-			console.log(`${DIM}  Fixing: Installing Chromium binaries...${RESET}`);
-			try {
-				await execAsync("npx", ["playwright", "install", "chromium"]);
-				console.log(`${GREEN}  ✓ Chromium installed${RESET}`);
-			} catch (err) {
-				console.error(
-					`${RED}  ✗ Failed to install Chromium: ${err instanceof Error ? err.message : String(err)}${RESET}`,
-				);
-			}
-		}
-	}
-}
-
 export async function runDoctor(options?: { fix?: boolean }): Promise<DoctorResult> {
 	const fix = options?.fix ?? false;
+	let chromiumExecutable = await resolveChromiumExecutable();
+	let browserCheck = checkBrowserBinaries(chromiumExecutable);
+
+	if (fix && browserCheck.status === "error") {
+		await installChromium();
+		chromiumExecutable = await resolveChromiumExecutable();
+		browserCheck = checkBrowserBinaries(chromiumExecutable);
+	}
 
 	const checks: DoctorCheck[] = [
 		await checkNodeVersion(),
 		await checkPlaywrightInstalled(),
-		await checkBrowserBinaries(),
+		browserCheck,
 		await checkProfileDirectory(fix),
 		await checkTempDirectory(),
 		await checkNetworkConnectivity(),
 		await checkDisplayServer(),
 		await checkDependencies(),
 		await checkConfigFile(fix),
-		await checkLiveLaunch(),
+		await checkLiveLaunch(chromiumExecutable),
 	];
-
-	if (fix) {
-		await applyFixes(checks);
-	}
 
 	const passed = checks.filter((c) => c.status === "ok").length;
 	const warnings = checks.filter((c) => c.status === "warning").length;
