@@ -96,7 +96,7 @@
     "@types/pngjs": "^6.0.5",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.4",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "fast-check": "^4.7.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
@@ -112,8 +112,5 @@
     "ssim.js": "^3.5.0",
     "tesseract.js": "^7.0.0",
     "ws": "^8.21.0"
-  },
-  "optionalDependencies": {
-    "chromium": "^3.0.3"
   }
 }
