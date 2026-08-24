@@ -61,6 +61,17 @@ function hostIs(hostname: string, domain: string): boolean {
 	return hostname === domain || hostname.endsWith(`.${domain}`);
 }
 
+function cloneRoutes(routes?: readonly PlatformRouteHint[]): PlatformRouteHint[] | undefined {
+	return routes?.map((route) => ({ ...route }));
+}
+
+function isolateContext(context: PlatformAdapterContext): Readonly<PlatformAdapterContext> {
+	return Object.freeze({
+		...context,
+		search: Object.freeze({ ...context.search }),
+	});
+}
+
 function normalizeAdapter(adapter: PlatformAdapter): PlatformAdapter {
 	if (!adapter || typeof adapter !== "object") throw new TypeError("adapter must be an object.");
 	if (typeof adapter.id !== "string" || !ADAPTER_ID_PATTERN.test(adapter.id)) {
@@ -73,6 +84,9 @@ function normalizeAdapter(adapter: PlatformAdapter): PlatformAdapter {
 		throw new TypeError("adapter.kind is invalid.");
 	}
 	if (typeof adapter.match !== "function") throw new TypeError("adapter.match must be a function.");
+	if (adapter.priority !== undefined && !Number.isFinite(adapter.priority)) {
+		throw new TypeError("adapter.priority must be a finite number when provided.");
+	}
 	if (!Array.isArray(adapter.guidance) || !adapter.guidance.every((item) => typeof item === "string" && item.trim())) {
 		throw new TypeError("adapter.guidance must contain non-empty strings.");
 	}
@@ -96,7 +110,7 @@ function normalizeAdapter(adapter: PlatformAdapter): PlatformAdapter {
 		name: adapter.name.trim(),
 		guidance: [...adapter.guidance],
 	};
-	if (adapter.routes) normalized.routes = [...adapter.routes];
+	if (adapter.routes) normalized.routes = cloneRoutes(adapter.routes)!;
 	else delete normalized.routes;
 	return normalized;
 }
@@ -235,7 +249,7 @@ export class PlatformAdapterRegistry {
 	list(): PlatformAdapter[] {
 		return [...this.adapters.values()].map((adapter) => {
 			const copy: PlatformAdapter = { ...adapter, guidance: [...adapter.guidance] };
-			if (adapter.routes) copy.routes = [...adapter.routes];
+			if (adapter.routes) copy.routes = cloneRoutes(adapter.routes)!;
 			else delete copy.routes;
 			return copy;
 		});
@@ -248,7 +262,7 @@ export class PlatformAdapterRegistry {
 		let order = 0;
 		for (const adapter of this.adapters.values()) {
 			try {
-				const confidence = adapter.match(context);
+				const confidence = adapter.match(isolateContext(context));
 				if (!Number.isFinite(confidence) || confidence <= 0 || confidence > 1) {
 					order++;
 					continue;
@@ -259,7 +273,7 @@ export class PlatformAdapterRegistry {
 					kind: adapter.kind,
 					confidence,
 					guidance: [...adapter.guidance],
-					routes: adapter.routes ? [...adapter.routes] : [],
+					routes: cloneRoutes(adapter.routes) ?? [],
 					priority: adapter.priority ?? 0,
 					order,
 				});
