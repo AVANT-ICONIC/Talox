@@ -136,6 +136,18 @@ async function copyScreenshotReference(
 	return path.relative(outputDir, destination).split(path.sep).join("/");
 }
 
+function setOptionalScreenshot(
+	interaction: ReplayBundle["report"]["interactions"][number],
+	field: "screenshotBefore" | "screenshotAfter",
+	value: string | undefined,
+): void {
+	if (value === undefined) {
+		delete interaction[field];
+	} else {
+		interaction[field] = value;
+	}
+}
+
 async function prepareBundleForOutput(bundle: ReplayBundle, outputPath: string): Promise<ReplayBundle> {
 	const outputDir = path.dirname(outputPath);
 	if (path.resolve(outputDir) === path.resolve(bundle.sessionDir)) return bundle;
@@ -145,20 +157,22 @@ async function prepareBundleForOutput(bundle: ReplayBundle, outputPath: string):
 	for (let i = 0; i < copied.report.interactions.length; i += 1) {
 		const interaction = copied.report.interactions[i]!;
 		const original = bundle.report.interactions[i]!;
-		interaction.screenshotBefore = await copyScreenshotReference(
+		const before = await copyScreenshotReference(
 			original.screenshotBefore,
 			bundle,
 			outputDir,
 			assetDir,
 			`${interaction.index}-before`,
 		);
-		interaction.screenshotAfter = await copyScreenshotReference(
+		const after = await copyScreenshotReference(
 			original.screenshotAfter,
 			bundle,
 			outputDir,
 			assetDir,
 			`${interaction.index}-after`,
 		);
+		setOptionalScreenshot(interaction, "screenshotBefore", before);
+		setOptionalScreenshot(interaction, "screenshotAfter", after);
 	}
 	return copied;
 }
