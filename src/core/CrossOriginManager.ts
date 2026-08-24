@@ -1,19 +1,20 @@
 /**
  * @file CrossOriginManager.ts
- * @description Manages CDP sessions and trust metadata for cross-origin iframes.
+ * @description Manages frame-scoped CDP sessions and trust metadata for cross-origin iframes.
  *
  * Cross-origin iframes require dedicated CDP sessions to interact with their
  * DOM. This manager auto-detects cross-origin frames and creates sessions so
- * agents can execute CDP commands inside them. Trust is deliberately separate
- * from reachability: a frame can be technically accessible while still being
- * untrusted input.
+ * agents can execute CDP commands inside them. Reachability and trust remain
+ * separate: a frame can be technically accessible while still being external,
+ * untrusted content.
  */
 
 import type { CDPSession, Frame, Page } from "playwright-core";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type IframeTrustLevel = "trusted" | "untrusted" | "opaque";
+/** Aligns with TaloxPageState element/node trust annotations. */
+export type IframeTrustLevel = "first-party" | "external" | "opaque";
 
 export type IframeTrustReason =
 	| "same-origin"
@@ -32,11 +33,14 @@ export interface IframeTrustDecision {
 
 export interface CrossOriginManagerOptions {
 	/**
-	 * Exact origins that may be treated as trusted when embedded cross-origin.
-	 * Paths are ignored and normalized to URL origins. Wildcards are deliberately
-	 * unsupported because trust policy should not quietly expand to attacker
-	 * controlled sibling/subdomains.
+	 * Known-safe domains/origins. Bare domains are interpreted as HTTPS origins;
+	 * URL paths are ignored and normalized to the exact origin. Wildcards are
+	 * rejected so trust cannot silently expand to sibling or child subdomains.
+	 *
+	 * This mirrors `TaloxSettings.trustedDomains`.
 	 */
+	trustedDomains?: readonly string[];
+	/** @deprecated Use `trustedDomains` to match the TaloxSettings contract. */
 	trustedOrigins?: readonly string[];
 }
 
@@ -52,11 +56,15 @@ export interface IframeSession {
 export class CrossOriginManager {
 	private readonly sessions = new Map<string, IframeSession>();
 	private readonly trustedOrigins: Set<string>;
+	private readonly frameIds = new WeakMap<Frame, string>();
+	private readonly assignedFrameIds = new Set<string>();
+	private nextFrameId = 1;
 	private page: Page | null = null;
 	private mainCdpSession: CDPSession | null = null;
 
 	constructor(options: CrossOriginManagerOptions = {}) {
-		this.trustedOrigins = this.normalizeTrustedOrigins(options.trustedOrigins ?? []);
+		const configured = [...(options.trustedDomains ?? []), ...(options.trustedOrigins ?? [])];
+		this.trustedOrigins = this.normalizeTrustedDomains(configured);
 	}
 
 	/**
@@ -71,26 +79,22 @@ export class CrossOriginManager {
 		page.on("framedetached", (frame: Frame) => this.handleFrameDetached(frame));
 	}
 
-	/**
-	 * Look up the CDP session for a given frame ID.
-	 */
+	/** Look up the CDP session for a given stable frame ID. */
 	getSession(frameId: string): IframeSession | undefined {
 		return this.sessions.get(frameId);
 	}
 
-	/**
-	 * Return all tracked cross-origin iframe sessions.
-	 */
+	/** Return all tracked cross-origin iframe sessions. */
 	getAllSessions(): IframeSession[] {
 		return Array.from(this.sessions.values());
 	}
 
-	/** Return all explicitly trusted cross-origin sessions. */
+	/** Return all sessions currently trusted by policy. */
 	getTrustedSessions(): IframeSession[] {
 		return this.getAllSessions().filter((session) => session.trust.trusted);
 	}
 
-	/** Return all untrusted or opaque cross-origin sessions. */
+	/** Return all external or opaque sessions. */
 	getUntrustedSessions(): IframeSession[] {
 		return this.getAllSessions().filter((session) => !session.trust.trusted);
 	}
@@ -108,9 +112,10 @@ export class CrossOriginManager {
 	/**
 	 * Evaluate a frame URL against its parent without creating a browser session.
 	 *
-	 * Security posture is default-deny: same-origin is trusted, exact origins in
-	 * `trustedOrigins` are trusted, and every other valid cross-origin URL is
-	 * untrusted. Opaque schemes such as data:/about: are never allowlisted.
+	 * Security posture is default-deny: same-origin is first-party, exact origins
+	 * from `trustedDomains` are promoted to first-party trust, and every other
+	 * valid cross-origin URL is external. Opaque schemes such as data:/about: are
+	 * never allowlisted.
 	 */
 	assessTrust(frameUrl: string, parentUrl: string): IframeTrustDecision {
 		let frame: URL;
@@ -134,12 +139,12 @@ export class CrossOriginManager {
 			return { level: "opaque", trusted: false, reason: "opaque-origin", origin, parentOrigin };
 		}
 		if (origin === parentOrigin) {
-			return { level: "trusted", trusted: true, reason: "same-origin", origin, parentOrigin };
+			return { level: "first-party", trusted: true, reason: "same-origin", origin, parentOrigin };
 		}
 		if (this.trustedOrigins.has(origin)) {
-			return { level: "trusted", trusted: true, reason: "explicit-trusted-origin", origin, parentOrigin };
+			return { level: "first-party", trusted: true, reason: "explicit-trusted-origin", origin, parentOrigin };
 		}
-		return { level: "untrusted", trusted: false, reason: "cross-origin-default-deny", origin, parentOrigin };
+		return { level: "external", trusted: false, reason: "cross-origin-default-deny", origin, parentOrigin };
 	}
 
 	/**
@@ -147,12 +152,6 @@ export class CrossOriginManager {
 	 *
 	 * This backward-compatible method does not enforce trust. Security-sensitive
 	 * callers should prefer `executeInTrustedFrame()`.
-	 *
-	 * @param frameId - The frame ID to target.
-	 * @param command - CDP method name (e.g. `"Runtime.evaluate"`).
-	 * @param params  - Optional parameters for the CDP command.
-	 * @returns The CDP result.
-	 * @throws If no session exists for the given frame.
 	 */
 	async executeInFrame(frameId: string, command: string, params?: Record<string, unknown>): Promise<unknown> {
 		const session = this.sessions.get(frameId);
@@ -164,7 +163,7 @@ export class CrossOriginManager {
 
 	/**
 	 * Execute only when the tracked iframe is trusted by policy.
-	 * Unknown, opaque, and default-denied origins are rejected before CDP send.
+	 * Unknown, opaque, and default-denied external origins are rejected before CDP send.
 	 */
 	async executeInTrustedFrame(frameId: string, command: string, params?: Record<string, unknown>): Promise<unknown> {
 		const session = this.sessions.get(frameId);
@@ -177,14 +176,13 @@ export class CrossOriginManager {
 		return session.cdpSession.send(command as any, params);
 	}
 
-	/**
-	 * Clean up all CDP sessions and remove listeners.
-	 */
+	/** Clean up all CDP sessions and remove manager state. */
 	dispose(): void {
 		for (const [, session] of Array.from(this.sessions.entries())) {
 			session.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
 		}
 		this.sessions.clear();
+		this.assignedFrameIds.clear();
 		this.mainCdpSession = null;
 		this.page = null;
 	}
@@ -192,14 +190,13 @@ export class CrossOriginManager {
 	// ── Internal helpers ───────────────────────────────────────────────────
 
 	private async handleFrameAttached(frame: Frame): Promise<void> {
-		// Only process sub-frames, not the main frame
 		if (!frame.parentFrame()) return;
 		await this.tryCreateSession(frame);
 	}
 
 	private async handleFrameNavigated(frame: Frame): Promise<void> {
 		if (!frame.parentFrame()) return;
-		// Clean up old session if it exists, then re-evaluate
+		// Invalidate the previous session/trust before evaluating the new URL.
 		this.removeSession(frame);
 		await this.tryCreateSession(frame);
 	}
@@ -221,8 +218,9 @@ export class CrossOriginManager {
 		if (!this.isCrossOrigin(frameUrl, parentUrl)) return;
 
 		try {
-			const cdpSession = await this.page.context().newCDPSession(this.page);
-
+			// Playwright scopes this CDP session to the OOPIF target. Passing the
+			// page here would make a trust-gated frame command execute on the page.
+			const cdpSession = await this.page.context().newCDPSession(frame);
 			const frameId = this.resolveFrameId(frame);
 			const trust = this.assessTrust(frameUrl, parentUrl);
 
@@ -233,12 +231,13 @@ export class CrossOriginManager {
 				trust,
 			});
 		} catch {
-			// NOSONAR — CDP session creation can fail for certain frame types
+			// NOSONAR — frames without a separate CDP target cannot get a session
 		}
 	}
 
 	private removeSession(frame: Frame): void {
-		const frameId = this.resolveFrameId(frame);
+		const frameId = this.frameIds.get(frame);
+		if (!frameId) return;
 		const existing = this.sessions.get(frameId);
 		if (existing) {
 			existing.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
@@ -246,13 +245,27 @@ export class CrossOriginManager {
 		}
 	}
 
+	/**
+	 * Assign one ID per Frame object and never derive it from the current URL.
+	 * Named frames keep their historical ID when possible; duplicates and unnamed
+	 * frames receive a monotonic suffix that is never reused during manager life.
+	 */
 	private resolveFrameId(frame: Frame): string {
-		// Playwright Frame has an internal _id or name; use name as a stable key.
-		// Fall back to the frame's URL hash if name is empty.
-		const name = frame.name();
-		if (name) return name;
-		// Use a combination of URL + parent to create a unique key
-		return `frame:${frame.url()}`;
+		const existing = this.frameIds.get(frame);
+		if (existing) return existing;
+
+		const name = frame.name().trim();
+		let frameId = name;
+		if (!frameId || this.assignedFrameIds.has(frameId)) {
+			const base = frameId || "frame";
+			do {
+				frameId = `${base}:${this.nextFrameId++}`;
+			} while (this.assignedFrameIds.has(frameId));
+		}
+
+		this.frameIds.set(frame, frameId);
+		this.assignedFrameIds.add(frameId);
+		return frameId;
 	}
 
 	private isCrossOrigin(frameUrl: string, parentUrl: string): boolean {
@@ -266,17 +279,24 @@ export class CrossOriginManager {
 		}
 	}
 
-	private normalizeTrustedOrigins(origins: readonly string[]): Set<string> {
+	/** Normalize Talox trustedDomains into conservative exact origins. */
+	private normalizeTrustedDomains(domains: readonly string[]): Set<string> {
 		const normalized = new Set<string>();
-		for (const value of origins) {
-			if (typeof value !== "string" || value.trim().length === 0) {
-				throw new TypeError("trustedOrigins entries must be non-empty URL strings.");
+		for (const rawValue of domains) {
+			if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+				throw new TypeError("trustedDomains entries must be non-empty URL/domain strings.");
 			}
+			const value = rawValue.trim();
+			if (value.includes("*")) {
+				throw new TypeError(`Wildcard trusted domains are not supported: ${value}`);
+			}
+
 			let origin: string;
 			try {
-				origin = new URL(value).origin;
+				const candidate = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(value) ? value : `https://${value}`;
+				origin = new URL(candidate).origin;
 			} catch {
-				throw new TypeError(`Invalid trusted iframe origin: ${value}`);
+				throw new TypeError(`Invalid trusted iframe domain/origin: ${value}`);
 			}
 			if (origin === "null") {
 				throw new TypeError(`Opaque origins cannot be trusted: ${value}`);
