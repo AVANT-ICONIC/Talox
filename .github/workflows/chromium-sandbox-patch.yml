@@ -87,17 +87,6 @@ jobs:
           )
 
           replace_once(
-              ".github/workflows/docker.yml",
-              '            const browser = await chromium.launch({ headless: true, timeout: 10000 });\n',
-              '            const browser = await chromium.launch({ headless: true, timeout: 10000, chromiumSandbox: true });\n',
-          )
-          replace_once(
-              ".github/workflows/docker.yml",
-              '            import { BrowserManager } from "/opt/talox/dist/core/BrowserManager.js";\n            const manager = new BrowserManager();\n',
-              '            import { BrowserManager, getDefaultConfig } from "/opt/talox/dist/core/BrowserManager.js";\n            const defaults = getDefaultConfig();\n            if (!defaults.browser.chromiumSandbox) throw new Error("Docker runtime did not enable Talox Chromium sandbox mode");\n            const manager = new BrowserManager();\n',
-          )
-
-          replace_once(
               "docs/DOCKER.md",
               'The container process runs as the non-root `talox` user. That reduces host/container damage from a compromised browser process, but it is not yet a complete Chromium sandbox boundary: Talox currently passes Chromium\'s `--no-sandbox` flags in its general launch path. Treat the container itself as the isolation boundary until browser-sandbox hardening lands.\n',
               'The container process runs as the non-root `talox` user and sets `TALOX_CHROMIUM_SANDBOX=true`. In that mode Talox requests Playwright\'s Chromium sandbox and omits the `--no-sandbox` / `--disable-setuid-sandbox` launch flags. Docker CI verifies that the bundled Chromium can start with sandboxing enabled before exercising Talox browser detection.\n\nOutside the official image, Talox keeps Chromium sandboxing disabled by default for compatibility with existing local/container setups. Set `TALOX_CHROMIUM_SANDBOX=true` or `browser.chromiumSandbox: true` when the host supports Chromium user namespaces / sandboxing.\n',
@@ -112,6 +101,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/core/BrowserManager.ts tests/unit/BrowserManager.test.ts Dockerfile .github/workflows/docker.yml docs/DOCKER.md
+          git add src/core/BrowserManager.ts tests/unit/BrowserManager.test.ts Dockerfile docs/DOCKER.md
           git commit -m "fix: enable Chromium sandbox mode in Docker"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
