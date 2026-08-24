@@ -84,6 +84,9 @@ function validatePositiveInteger(value: number | undefined, label: string): void
 
 function validateConfig(config: LocalVisionConfig): void {
 	if (!config || typeof config !== "object") throw new TypeError("Local vision config is required.");
+	if (config.provider !== undefined && config.provider !== "ollama" && config.provider !== "openai-compatible") {
+		throw new TypeError("Local vision provider must be 'ollama' or 'openai-compatible'.");
+	}
 	if (typeof config.model !== "string" || config.model.trim().length === 0) {
 		throw new TypeError("Local vision model must be a non-empty string.");
 	}
@@ -92,8 +95,13 @@ function validateConfig(config: LocalVisionConfig): void {
 	}
 	validatePositiveInteger(config.timeoutMs, "timeoutMs");
 	validatePositiveInteger(config.maxTokens, "maxTokens");
-	if (config.provider === "openai-compatible" && (!config.baseUrl || typeof config.baseUrl !== "string")) {
-		throw new TypeError("OpenAI-compatible local vision requires baseUrl.");
+	if (config.provider === "openai-compatible") {
+		if (!config.baseUrl || typeof config.baseUrl !== "string") {
+			throw new TypeError("OpenAI-compatible local vision requires baseUrl.");
+		}
+		if (config.apiKey !== undefined && typeof config.apiKey !== "string") {
+			throw new TypeError("apiKey must be a string when provided.");
+		}
 	}
 	if (config.provider !== "openai-compatible" && config.keepAlive !== undefined) {
 		const validNumber = typeof config.keepAlive === "number" && Number.isFinite(config.keepAlive);
