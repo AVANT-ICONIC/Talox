@@ -163,6 +163,7 @@ describe("community rules", () => {
 						(state.console.errors as unknown as string[]).push("poisoned");
 						return [];
 					},
+				},
 			],
 		});
 		registerTaloxPlugin({
