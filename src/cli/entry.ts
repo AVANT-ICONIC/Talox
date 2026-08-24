@@ -3,6 +3,7 @@
 import { runMcpCommand, shouldUseMcpCommand } from "./mcp.js";
 import { runMultiAgentRun, shouldUseMultiAgentRun } from "./multi-agent-run.js";
 import { normalizeTopLevelHelpArgv } from "./normalize-argv.js";
+import { runReplayCommand, shouldUseReplayCommand } from "./replay.js";
 
 const rawArgv = process.argv.slice(2);
 const argv = normalizeTopLevelHelpArgv(rawArgv);
@@ -14,6 +15,8 @@ if (argv !== rawArgv) {
 try {
 	if (shouldUseMcpCommand(argv)) {
 		await runMcpCommand(argv.slice(1));
+	} else if (shouldUseReplayCommand(argv)) {
+		await runReplayCommand(argv.slice(1));
 	} else if (shouldUseMultiAgentRun(argv)) {
 		await runMultiAgentRun(argv.slice(1));
 	} else {
