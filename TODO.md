@@ -1,6 +1,6 @@
 # TODO
 
-> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, and dependency-audit maintenance are in place.
+> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, and dependency-audit maintenance are in place. Current main additionally includes native MCP v2 integration.
 
 ---
 
@@ -38,11 +38,14 @@
 - Dependency maintenance keeps both the production and full npm graphs free of known advisories.
 - BrowserManager is headless-first by default; autonomous single- and multi-agent `run` paths stay headless while interactive `observe`/`chat` explicitly opt into headed mode.
 
+### Post-v8.1 additions now in place
+
+- Native MCP v2 stdio server with isolated persistent sessions, nine Talox browser tools, structured results, PNG image content, clean disconnect shutdown, `talox/mcp` exports, and a real spawned protocol smoke test.
+
 ---
 
 ## 🟢 Later
 
-- [ ] MCP server
 - [ ] Plugin architecture (community rules + vision detectors)
 - [ ] Replay UI (interactive session replay)
 - [ ] Cross-origin iframe trust detection (leverages `trust` field from v8.0.0)
@@ -53,6 +56,7 @@
 
 | Version | What | When |
 |---------|------|------|
+| post-v8.1 | **Native MCP v2 server** — stdio transport, session lifecycle, browser tools, package exports, protocol/Docker validation | 2026-08-24 |
 | v8.1.0 | **Plan-Delegate-Observe** — deterministic multi-agent planning, shared state, CLI routing, domain skills, lifecycle hardening, real two-browser coverage | 2026-08-20 |
 | v8.0.0 | **Content Trust Annotations** — trust field on nodes/elements, ContentSanitizer integration | 2026-05-21 |
 | v7.9.0 | **NetworkGuard** — client-side JS egress filtering + Token Benchmarks | 2026-05-21 |

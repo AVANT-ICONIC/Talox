@@ -37,16 +37,19 @@
 
 ## v1: Enhanced Intelligence 🧠
 - [ ] **Local VLM Integration:** Quantized vision models (Moondream, Phi-3 Vision) for high-level visual reasoning.
-- [ ] **External Solver Hooks:** Plugin interface for external challenge-solving services.
-- [ ] **Interaction Quality Score:** Real-time scoring of interaction fidelity per session.
-- [ ] **Multi-agent orchestration:** Coordinate multiple Talox sessions for parallel tasks.
+- [x] **External Solver Hooks:** Pluggable challenge/CAPTCHA solver interface via `CaptchaSolver` registration.
+- [x] **Interaction Quality Score:** Real-time interaction-quality tracking and scoring via `QualityTracker`.
+- [x] **Multi-agent orchestration:** Deterministic Plan → Delegate → Observe → Replan coordination across multiple Talox sessions.
 
 ## v2: Deployment ☁️
-- [ ] **Docker Image:** Optimized container for cloud/Kubernetes deployment.
-- [ ] **MCP Server:** Native Model Context Protocol server for direct agent integration.
-- [ ] **Headless-first mode:** Proper headless support with improved stealth.
+- [x] **Docker Image:** Non-root Playwright-based runtime with browser detection and opt-in Chromium sandbox validation.
+- [x] **MCP Server:** Native MCP v2 stdio server with persistent session lifecycle and Talox browser tools.
+- [x] **Headless-first mode:** BrowserManager and autonomous run paths default to headless; interactive modes explicitly opt into headed operation.
 
 ## v3: Ecosystem 🔌
 - [ ] **Plugin Architecture:** Community-driven rules and vision detectors.
 - [ ] **Platform Adapters:** Pre-built adapters for common sites and CMSes.
 - [ ] **Replay UI:** Interactive session replay for debugging agent decisions.
+
+## Security / Trust follow-up
+- [ ] **Cross-origin iframe trust detection:** Extend v8.0 content-trust annotations across cross-origin iframe boundaries.
