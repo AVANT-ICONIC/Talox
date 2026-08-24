@@ -44,6 +44,7 @@
     "test:snapshot": "vitest run tests/unit/snapshot/",
     "test:perf": "vitest run tests/unit/performance/",
     "test:error-paths": "vitest --config vitest.config.browser.ts run tests/core/error-paths.test.ts",
+    "test:mcp:stdio": "node tests/mcp-stdio-smoke.mjs",
     "test:ci": "npm run build && npm run test:unit && npm run test:smoke -- --run && npm run test:property && npm run test:snapshot && npm run test:perf",
     "test:publish": "tsc --noEmit && npm test && npm run build",
     "lint": "biome check src tests",
