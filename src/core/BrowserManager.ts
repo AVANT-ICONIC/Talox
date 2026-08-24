@@ -124,6 +124,12 @@ interface LaunchOptions {
 
 const processCleanupCallbacks = new Set<() => void>();
 let processCleanupHandlersInstalled = false;
+const activePersistentProfileDirs = new Set<string>();
+
+function canonicalProfileDir(userDataDir: string): string {
+	const resolved = path.resolve(userDataDir);
+	return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
 
 function runProcessCleanupCallbacks(): void {
 	const callbacks = Array.from(processCleanupCallbacks);
@@ -155,6 +161,8 @@ export class BrowserManager {
 
 	private readonly contexts: Set<BrowserContext> = new Set();
 	private readonly processCleanup = () => this.closeAllSync();
+	private ownedProfileDir: string | null = null;
+	private profileOwnerContext: BrowserContext | null = null;
 
 	// Xvfb virtual display state
 	private xvfbProcess: ChildProcess | null = null;
@@ -182,6 +190,23 @@ export class BrowserManager {
 		}
 	}
 
+	private claimPersistentProfileOwnership(userDataDir: string): void {
+		const profileDir = canonicalProfileDir(userDataDir);
+		if (this.ownedProfileDir === profileDir) return;
+		if (activePersistentProfileDirs.has(profileDir)) {
+			throw new Error(`PROFILE_IN_USE: Persistent profile is already active in this process: ${userDataDir}`);
+		}
+		activePersistentProfileDirs.add(profileDir);
+		this.ownedProfileDir = profileDir;
+	}
+
+	private releasePersistentProfileOwnership(): void {
+		if (this.ownedProfileDir === null) return;
+		activePersistentProfileDirs.delete(this.ownedProfileDir);
+		this.ownedProfileDir = null;
+		this.profileOwnerContext = null;
+	}
+
 	private closeAllSync() {
 		// Synchronous cleanup is limited, but we try our best
 		for (const ctx of this.contexts) {
@@ -191,6 +216,7 @@ export class BrowserManager {
 				/* NOSONAR */
 			}
 		}
+		this.releasePersistentProfileOwnership();
 		this.stopXvfb();
 	}
 
@@ -199,6 +225,7 @@ export class BrowserManager {
 		await Promise.all(promises);
 		this.contexts.clear();
 		this.context = null;
+		this.releasePersistentProfileOwnership();
 		this.stopXvfb();
 	}
 
@@ -384,6 +411,9 @@ export class BrowserManager {
 		ctx.on("close", () => {
 			this.contexts.delete(ctx);
 			if (this.context === ctx) this.context = null;
+			if (this.profileOwnerContext === ctx) {
+				this.releasePersistentProfileOwnership();
+			}
 			this.unregisterProcessCleanupIfIdle();
 		});
 	}
@@ -451,6 +481,7 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 		this.contexts.add(ctx);
+		this.profileOwnerContext = ctx;
 		this.registerProcessCleanup();
 		this.attachCloseHandler(ctx);
 		return ctx;
@@ -727,13 +758,22 @@ export class BrowserManager {
 			await this.close();
 		}
 
+		// Persistent browser profiles are not safe to open concurrently. Reject
+		// a second in-process owner before spawning Chrome instead of waiting for
+		// browser profile-lock retries/timeouts.
+		this.claimPersistentProfileOwnership(profile.userDataDir);
 		this.launchOptionsHash = newHash;
 
 		// Do not force chrome channel, as it conflicts if the user has Chrome open.
 		// Use Playwright's bundled Chromium instead.
-
-		this.context = await this.launchWithFallback(launcher, profile.userDataDir, launchOptions, actualBrowserType);
-		return this.context;
+		try {
+			this.context = await this.launchWithFallback(launcher, profile.userDataDir, launchOptions, actualBrowserType);
+			return this.context;
+		} catch (error) {
+			this.launchOptionsHash = null;
+			this.releasePersistentProfileOwnership();
+			throw error;
+		}
 	}
 
 	async close() {
@@ -741,6 +781,7 @@ export class BrowserManager {
 			await this.context.close();
 			this.context = null;
 		}
+		this.releasePersistentProfileOwnership();
 		this.stopXvfb();
 	}
 
