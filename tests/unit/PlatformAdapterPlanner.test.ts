@@ -20,7 +20,7 @@ describe("LLMPlanner platform adapter context", () => {
 		expect(message).toContain("## Platform Knowledge");
 		expect(message).toContain("WooCommerce Admin");
 		expect(message).toContain("WordPress Admin");
-		expect(message).toContain("live UI disagrees");
+		expect(message).toContain("Prefer the current Talox state whenever it disagrees");
 	});
 
 	it("adds no platform section for an unrelated site", () => {
