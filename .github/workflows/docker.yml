@@ -42,6 +42,12 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Locked playwright-core: $version"
 
+      - name: Fetch matching Playwright sandbox profile
+        run: |
+          curl -fsSL \
+            "https://raw.githubusercontent.com/microsoft/playwright/v${{ steps.playwright.outputs.version }}/utils/docker/seccomp_profile.json" \
+            -o playwright-seccomp.json
+
       - name: Build Talox image
         run: docker build --build-arg PLAYWRIGHT_VERSION=${{ steps.playwright.outputs.version }} --tag talox:ci .
 
@@ -53,36 +59,52 @@ jobs:
 
       - name: Probe sandboxed Playwright-managed Chromium
         run: |
-          docker run --rm --init --entrypoint node talox:ci -e '
-            const { chromium } = require("/opt/talox/node_modules/playwright-core");
-            console.log(`PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "unset"}`);
-            console.log(`chromium.executablePath=${chromium.executablePath()}`);
-            (async () => {
-              const browser = await chromium.launch({ headless: true, timeout: 10000, chromiumSandbox: true });
-              try {
-                console.log(`Direct Chromium version: ${browser.version()}`);
-              } finally {
-                await browser.close();
-              }
-            })().catch((error) => {
-              console.error(error);
-              process.exit(1);
-            });
-          '
+          docker run --rm --init --ipc=host \
+            --security-opt seccomp=playwright-seccomp.json \
+            --entrypoint node talox:ci -e '
+              const { chromium } = require("/opt/talox/node_modules/playwright-core");
+              console.log(`PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "unset"}`);
+              console.log(`chromium.executablePath=${chromium.executablePath()}`);
+              (async () => {
+                const browser = await chromium.launch({ headless: true, timeout: 10000, chromiumSandbox: true });
+                try {
+                  console.log(`Direct Chromium version: ${browser.version()}`);
+                } finally {
+                  await browser.close();
+                }
+              })().catch((error) => {
+                console.error(error);
+                process.exit(1);
+              });
+            '
 
-      - name: Detect bundled Chromium through Talox
+      - name: Launch sandboxed Chromium through Talox
         run: |
-          docker run --rm --init --entrypoint node talox:ci --input-type=module -e '
-            import { BrowserManager, getDefaultConfig } from "/opt/talox/dist/core/BrowserManager.js";
-            const defaults = getDefaultConfig();
-            if (!defaults.browser.chromiumSandbox) throw new Error("Docker runtime did not enable Talox Chromium sandbox mode");
-            const manager = new BrowserManager();
-            try {
-              const browsers = await manager.detectBrowsers();
-              const chromium = browsers.find((browser) => browser.type === "chromium");
-              if (!chromium) throw new Error("Talox did not detect bundled Chromium");
-              console.log(`Detected Chromium: ${chromium.executablePath ?? chromium.channel ?? "unknown"}`);
-            } finally {
-              await manager.closeAll();
-            }
-          '
+          docker run --rm --init --ipc=host \
+            --security-opt seccomp=playwright-seccomp.json \
+            -e TALOX_CHROMIUM_SANDBOX=true \
+            --entrypoint node talox:ci --input-type=module -e '
+              import { BrowserManager, getDefaultConfig } from "/opt/talox/dist/core/BrowserManager.js";
+              const config = getDefaultConfig();
+              if (!config.browser.chromiumSandbox) throw new Error("Sandbox environment override was not applied");
+              config.browser.autoDetect = false;
+              config.settings.adaptiveStealthEnabled = false;
+              process.env.DISPLAY = ":talox-headless-ci";
+              const manager = new BrowserManager(config);
+              const profile = {
+                id: "docker-sandbox-ci",
+                class: "sandbox",
+                purpose: "docker sandbox smoke test",
+                userDataDir: "/tmp/talox-docker-sandbox",
+                metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
+              };
+              try {
+                const context = await manager.launch(profile, false, "chromium", { headless: true });
+                const page = await context.newPage();
+                await page.goto("data:text/html,<title>Talox sandbox smoke</title>");
+                if ((await page.title()) !== "Talox sandbox smoke") throw new Error("Sandboxed Talox page smoke failed");
+                console.log("Talox sandboxed Chromium launch succeeded");
+              } finally {
+                await manager.closeAll();
+              }
+            '
