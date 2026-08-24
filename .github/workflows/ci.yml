@@ -59,6 +59,9 @@ jobs:
       - name: Run unit tests
         run: npm run test:unit
 
+      - name: Run MCP stdio protocol smoke
+        run: npm run test:mcp:stdio
+
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
   # Browser tests remain serial inside each shard. The unusually slow error-path
   # suite has its own runner so a transient browser-launch failure does not force
