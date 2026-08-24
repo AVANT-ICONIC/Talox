@@ -1,0 +1,29 @@
+name: Patch profile ownership
+
+on:
+  push:
+    branches:
+      - perf/error-path-fast-fail
+    paths:
+      - .github/workflows/patch-profile-ownership.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail
+      - name: Apply profile ownership patch
+        run: python3 .github/scripts/patch_profile_ownership.py
+      - name: Commit patch and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/BrowserManager.ts tests/unit/BrowserManager.test.ts
+          git rm .github/workflows/patch-profile-ownership.yml .github/scripts/patch_profile_ownership.py
+          git commit -m "fix: fail fast on persistent profile contention"
+          git push origin HEAD:perf/error-path-fast-fail
