@@ -152,23 +152,50 @@ describe("createLocalVisionReasoner", () => {
 		await expect(reasoner.analyze(Buffer.from("x"), "q")).resolves.toBe("lan result");
 	});
 
+	it("never follows redirects that could replay screenshot data", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response(null, {
+					status: 307,
+					headers: { Location: "https://remote.example.com/collect" },
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		const reasoner = createLocalVisionReasoner({ model: "vision" });
+
+		await expect(reasoner.analyze(Buffer.from("secret-image"), "inspect")).rejects.toThrow(/HTTP 307/);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock.mock.calls[0]?.[1]?.redirect).toBe("manual");
+	});
+
 	it("accepts standard IPv4 and IPv6 loopback URLs", () => {
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "http://127.7.8.9:11434" })).not.toThrow();
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "http://[::1]:11434" })).not.toThrow();
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "http://vision.localhost:11434" })).not.toThrow();
 	});
 
-	it("validates model, timeout, token limit, flags, keep-alive, and URL protocol", () => {
+	it("validates model, provider, timeout, token limit, flags, keep-alive, API key, and URL protocol", () => {
 		expect(() => createLocalVisionReasoner({ model: "" })).toThrow(/model/);
 		expect(() => createLocalVisionReasoner({ model: "vision", timeoutMs: 0 })).toThrow(/timeoutMs/);
 		expect(() => createLocalVisionReasoner({ model: "vision", maxTokens: Number.NaN })).toThrow(/maxTokens/);
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "file:///tmp/model" })).toThrow(/http or https/);
+		expect(() =>
+			createLocalVisionReasoner({ model: "vision", provider: "mystery" } as unknown as LocalVisionConfig),
+		).toThrow(/provider/);
 		expect(() =>
 			createLocalVisionReasoner({ model: "vision", allowRemote: "yes" } as unknown as LocalVisionConfig),
 		).toThrow(/allowRemote/);
 		expect(() =>
 			createLocalVisionReasoner({ model: "vision", keepAlive: {} } as unknown as LocalVisionConfig),
 		).toThrow(/keepAlive/);
+		expect(() =>
+			createLocalVisionReasoner({
+				provider: "openai-compatible",
+				model: "vision",
+				baseUrl: "http://127.0.0.1:1234/v1",
+				apiKey: 42,
+			} as unknown as LocalVisionConfig),
+		).toThrow(/apiKey/);
 	});
 
 	it("reports local server HTTP failures without swallowing them", async () => {
