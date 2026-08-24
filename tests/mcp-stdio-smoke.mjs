@@ -67,29 +67,36 @@ function request(id, method, params = {}) {
 			pending.delete(id);
 			reject(new Error(`Timed out waiting for MCP response to ${method}. stderr: ${stderrBuffer}`));
 		}, 7_500);
-		entryUnref(timer);
+		timer.unref?.();
 		pending.set(id, { resolve, reject, timer });
 		write({ jsonrpc: "2.0", id, method, params });
 	});
 }
 
-function entryUnref(timer) {
-	timer.unref?.();
+async function waitForExit(timeoutMs = 5_000) {
+	if (child.exitCode !== null || child.signalCode !== null) {
+		return { code: child.exitCode, signal: child.signalCode, timedOut: false };
+	}
+
+	let timer;
+	const timeout = new Promise((resolve) => {
+		timer = setTimeout(() => resolve({ code: null, signal: null, timedOut: true }), timeoutMs);
+		timer.unref?.();
+	});
+	const exited = once(child, "exit").then(([code, signal]) => ({ code, signal, timedOut: false }));
+	const result = await Promise.race([exited, timeout]);
+	clearTimeout(timer);
+	return result;
 }
 
 async function stopChild() {
 	if (child.exitCode !== null || child.signalCode !== null) return;
 	child.kill("SIGTERM");
-	const timeout = new Promise((resolve) => {
-		const timer = setTimeout(() => resolve("timeout"), 5_000);
-		entryUnref(timer);
-	});
-	const outcome = await Promise.race([once(child, "exit").then(() => "exit"), timeout]);
-	if (outcome === "timeout") {
-		child.kill("SIGKILL");
-		await once(child, "exit");
-		throw new Error(`Talox MCP did not shut down after SIGTERM. stderr: ${stderrBuffer}`);
-	}
+	const result = await waitForExit();
+	if (!result.timedOut) return;
+	child.kill("SIGKILL");
+	await once(child, "exit");
+	throw new Error(`Talox MCP did not shut down after SIGTERM. stderr: ${stderrBuffer}`);
 }
 
 try {
@@ -127,6 +134,15 @@ try {
 	assert.equal(health.result?.structuredContent?.activeSessions, 0);
 
 	assert.match(stderrBuffer, /Talox MCP.*stdio/i);
+
+	// A normal MCP host disconnects by closing the child's stdin. Talox must
+	// release its stdio handle and exit cleanly without needing an external kill.
+	child.stdin.end();
+	const disconnected = await waitForExit();
+	assert.equal(disconnected.timedOut, false, `Talox MCP did not exit after stdin closed. stderr: ${stderrBuffer}`);
+	assert.equal(disconnected.signal, null);
+	assert.equal(disconnected.code, 0);
+
 	console.log("Talox MCP stdio smoke passed");
 } finally {
 	await stopChild();
