@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - feat/mcp-server
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   bootstrap:
-    if: ${{ !contains(github.event.head_commit.message, 'feat(mcp): add MCP v2 dependencies') }}
+    if: ${{ !contains(github.event.head_commit.message || '', 'feat(mcp): add MCP v2 dependencies') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
