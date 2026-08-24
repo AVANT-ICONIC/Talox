@@ -61,7 +61,11 @@ function isLoopbackHostname(hostname: string): boolean {
 	const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
 	if (host === "localhost" || host.endsWith(".localhost") || host === "::1") return true;
 	const octets = host.split(".");
-	return octets.length === 4 && octets[0] === "127" && octets.every((part) => /^\d{1,3}$/.test(part));
+	return (
+		octets.length === 4 &&
+		octets[0] === "127" &&
+		octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255)
+	);
 }
 
 function assertLocalEndpoint(url: URL, allowRemote: boolean): void {
@@ -83,10 +87,18 @@ function validateConfig(config: LocalVisionConfig): void {
 	if (typeof config.model !== "string" || config.model.trim().length === 0) {
 		throw new TypeError("Local vision model must be a non-empty string.");
 	}
+	if (config.allowRemote !== undefined && typeof config.allowRemote !== "boolean") {
+		throw new TypeError("allowRemote must be a boolean when provided.");
+	}
 	validatePositiveInteger(config.timeoutMs, "timeoutMs");
 	validatePositiveInteger(config.maxTokens, "maxTokens");
 	if (config.provider === "openai-compatible" && (!config.baseUrl || typeof config.baseUrl !== "string")) {
 		throw new TypeError("OpenAI-compatible local vision requires baseUrl.");
+	}
+	if (config.provider !== "openai-compatible" && config.keepAlive !== undefined) {
+		const validNumber = typeof config.keepAlive === "number" && Number.isFinite(config.keepAlive);
+		const validString = typeof config.keepAlive === "string" && config.keepAlive.trim().length > 0;
+		if (!validNumber && !validString) throw new TypeError("keepAlive must be a finite number or non-empty string.");
 	}
 }
 
@@ -104,18 +116,26 @@ async function requestJson(url: string, init: RequestInit, timeoutMs: number): P
 		}
 		throw error;
 	}
+
+	const body = await response.text();
 	if (!response.ok) {
-		const body = await response.text();
 		throw new Error(`Local vision server returned HTTP ${response.status}: ${body.slice(0, 200)}`);
 	}
-	return response.json();
+	try {
+		return body ? JSON.parse(body) : {};
+	} catch {
+		throw new Error(`Local vision server returned invalid JSON: ${body.slice(0, 200)}`);
+	}
 }
 
 function createOllamaReasoner(config: OllamaVisionConfig): VisualReasoner {
 	const baseUrl = normalizeBaseUrl(config.baseUrl ?? DEFAULT_OLLAMA_URL);
-	assertLocalEndpoint(baseUrl, config.allowRemote === true);
+	const allowRemote = config.allowRemote === true;
+	assertLocalEndpoint(baseUrl, allowRemote);
 	const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	const model = config.model.trim();
+	const maxTokens = config.maxTokens;
+	const keepAlive = config.keepAlive;
 
 	return {
 		name: `Local VLM · Ollama (${model})`,
@@ -137,8 +157,8 @@ function createOllamaReasoner(config: OllamaVisionConfig): VisualReasoner {
 				],
 				stream: false,
 			};
-			if (config.maxTokens !== undefined) body.options = { num_predict: config.maxTokens };
-			if (config.keepAlive !== undefined) body.keep_alive = config.keepAlive;
+			if (maxTokens !== undefined) body.options = { num_predict: maxTokens };
+			if (keepAlive !== undefined) body.keep_alive = keepAlive;
 
 			const data = (await requestJson(
 				endpoint(baseUrl, "/api/chat"),
@@ -157,16 +177,18 @@ function createOllamaReasoner(config: OllamaVisionConfig): VisualReasoner {
 
 function createOpenAICompatibleReasoner(config: OpenAICompatibleLocalVisionConfig): VisualReasoner {
 	const baseUrl = normalizeBaseUrl(config.baseUrl);
-	assertLocalEndpoint(baseUrl, config.allowRemote === true);
+	const allowRemote = config.allowRemote === true;
+	assertLocalEndpoint(baseUrl, allowRemote);
 	const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	const model = config.model.trim();
 	const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
+	const apiKey = config.apiKey;
 
 	return {
 		name: `Local VLM · OpenAI-compatible (${model})`,
 		async analyze(screenshot: Buffer, question: string): Promise<string | null> {
 			const headers: Record<string, string> = { "Content-Type": "application/json" };
-			if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
+			if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 			const data = (await requestJson(
 				endpoint(baseUrl, "/chat/completions"),
 				{
