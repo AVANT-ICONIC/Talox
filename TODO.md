@@ -57,7 +57,7 @@ All milestones currently listed in `docs/TALOX-ROADMAP.md` have landed on `main`
 
 ## 🟢 Maintenance
 
-- [x] BrowserManager process cleanup: share one process-level `exit`/`SIGINT` listener pair, register Xvfb cleanup immediately after spawn, and unregister managers once all cleanup resources are gone
+- [x] BrowserManager process cleanup: share one process-level `exit`/`SIGINT` listener pair, register Xvfb cleanup immediately after spawn, bind child events to the owning process so stale exits cannot clear a retry, and unregister managers once all cleanup resources are gone
 - [ ] Continue reliability, performance, and real-world compatibility work from observed failures and benchmark evidence before defining the next feature tranche
 
 ---
