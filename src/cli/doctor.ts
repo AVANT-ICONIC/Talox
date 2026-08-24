@@ -59,24 +59,23 @@ async function checkNodeVersion(): Promise<DoctorCheck> {
 
 async function checkPlaywrightInstalled(): Promise<DoctorCheck> {
 	try {
-		const modPath = require.resolve("@playwright/test");
+		const modPath = require.resolve("playwright-core");
 		let version = "unknown";
 		try {
-			const pkgPath = require.resolve("@playwright/test/package.json");
+			const pkgPath = require.resolve("playwright-core/package.json");
 			const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 			version = pkg.version ?? "unknown";
 		} catch {
 			// Ignored: version detection is best-effort
 		}
 		const dir = modPath.split("/").slice(0, -2).join("/");
-		return { name: "Playwright installed", status: "ok", message: `v${version} (${dir})` };
+		return { name: "Playwright runtime", status: "ok", message: `v${version} (${dir})` };
 	} catch {
-		// Ignored: @playwright/test not found, report as error below
 		return {
-			name: "Playwright installed",
+			name: "Playwright runtime",
 			status: "error",
-			message: "@playwright/test not found",
-			fixHint: "npm install -D @playwright/test",
+			message: "playwright-core not found",
+			fixHint: "npm install playwright-core",
 		};
 	}
 }
@@ -122,7 +121,6 @@ async function checkProfileDirectory(fix: boolean): Promise<DoctorCheck> {
 		await access(profileDir, 2);
 		return { name: "Profile directory", status: "ok", message: profileDir };
 	} catch {
-		// Ignored: profile directory access check failed
 		if (fix) {
 			try {
 				await mkdir(profileDir, { recursive: true });
@@ -146,7 +144,6 @@ async function checkTempDirectory(): Promise<DoctorCheck> {
 		await access(tmp, 2);
 		return { name: "Temp directory", status: "ok", message: tmp };
 	} catch {
-		// Ignored: temp directory access check failed, will report error
 		return {
 			name: "Temp directory",
 			status: "error",
@@ -171,7 +168,6 @@ async function checkNetworkConnectivity(): Promise<DoctorCheck> {
 			fixHint: "Check your network connection or proxy settings",
 		};
 	} catch {
-		// Ignored: network connectivity check failed, report error
 		return {
 			name: "Network connectivity",
 			status: "error",
@@ -215,7 +211,6 @@ async function checkDependencies(): Promise<DoctorCheck> {
 		try {
 			require.resolve(pkg);
 		} catch {
-			// Ignored: package not resolvable, will be reported as missing
 			missing.push(pkg);
 		}
 	}
