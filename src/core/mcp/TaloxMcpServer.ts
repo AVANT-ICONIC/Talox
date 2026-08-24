@@ -202,6 +202,8 @@ export function serveTaloxMcpStdio(options: TaloxMcpRuntimeOptions = {}): TaloxM
 		closed = true;
 		process.off("SIGINT", onSignal);
 		process.off("SIGTERM", onSignal);
+		process.stdin.off("end", onInputClosed);
+		process.stdin.off("close", onInputClosed);
 		await Promise.allSettled([runtime.stopAll(), handle.close()]);
 	};
 
@@ -211,8 +213,14 @@ export function serveTaloxMcpStdio(options: TaloxMcpRuntimeOptions = {}): TaloxM
 		});
 	};
 
+	const onInputClosed = (): void => {
+		void close();
+	};
+
 	process.once("SIGINT", onSignal);
 	process.once("SIGTERM", onSignal);
+	process.stdin.once("end", onInputClosed);
+	process.stdin.once("close", onInputClosed);
 
 	return { runtime, close };
 }
