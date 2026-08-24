@@ -246,20 +246,21 @@ export class CrossOriginManager {
 	}
 
 	/**
-	 * Assign one ID per Frame object and never derive it from the current URL.
-	 * Named frames keep their historical ID when possible; duplicates and unnamed
-	 * frames receive a monotonic suffix that is never reused during manager life.
+	 * Assign one ID per Frame object and never recompute it after the first sighting.
+	 * Named frames keep their historical ID. For compatibility, an unnamed frame's
+	 * initial URL seeds its ID, but the WeakMap pins that ID across later navigation.
+	 * Collisions receive a monotonic suffix that is never reused during manager life.
 	 */
 	private resolveFrameId(frame: Frame): string {
 		const existing = this.frameIds.get(frame);
 		if (existing) return existing;
 
 		const name = frame.name().trim();
-		let frameId = name;
-		if (!frameId || this.assignedFrameIds.has(frameId)) {
-			const base = frameId || "frame";
+		const initialBase = name || `frame:${frame.url()}`;
+		let frameId = initialBase;
+		if (this.assignedFrameIds.has(frameId)) {
 			do {
-				frameId = `${base}:${this.nextFrameId++}`;
+				frameId = `${initialBase}:${this.nextFrameId++}`;
 			} while (this.assignedFrameIds.has(frameId));
 		}
 
@@ -293,7 +294,7 @@ export class CrossOriginManager {
 
 			let origin: string;
 			try {
-				const candidate = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(value) ? value : `https://${value}`;
+				const candidate = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value) ? value : `https://${value}`;
 				origin = new URL(candidate).origin;
 			} catch {
 				throw new TypeError(`Invalid trusted iframe domain/origin: ${value}`);
