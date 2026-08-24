@@ -122,6 +122,31 @@ interface LaunchOptions {
 	extensions?: string[];
 }
 
+const processCleanupCallbacks = new Set<() => void>();
+let processCleanupHandlersInstalled = false;
+
+function runProcessCleanupCallbacks(): void {
+	const callbacks = Array.from(processCleanupCallbacks);
+	processCleanupCallbacks.clear();
+	for (const cleanup of callbacks) {
+		try {
+			cleanup();
+		} catch {
+			/* NOSONAR — process teardown must continue through other managers */
+		}
+	}
+}
+
+function ensureProcessCleanupHandlers(): void {
+	if (processCleanupHandlersInstalled) return;
+	processCleanupHandlersInstalled = true;
+	process.once("exit", runProcessCleanupCallbacks);
+	process.once("SIGINT", () => {
+		runProcessCleanupCallbacks();
+		process.exit();
+	});
+}
+
 export class BrowserManager {
 	private context: BrowserContext | null = null;
 	private config: TaloxConfig;
@@ -129,6 +154,7 @@ export class BrowserManager {
 	private launchOptionsHash: string | null = null;
 
 	private readonly contexts: Set<BrowserContext> = new Set();
+	private readonly processCleanup = () => this.closeAllSync();
 
 	// Xvfb virtual display state
 	private xvfbProcess: ChildProcess | null = null;
@@ -143,15 +169,17 @@ export class BrowserManager {
 			this.config.settings.virtualDisplay = true;
 		}
 
-		// Auto-cleanup on process exit — use once() so multiple instances don't
-		// stack unbounded listeners (avoids MaxListenersExceededWarning in tests).
-		const exitHandler = () => this.closeAllSync();
-		const sigintHandler = () => {
-			this.closeAllSync();
-			process.exit();
-		};
-		process.once("exit", exitHandler);
-		process.once("SIGINT", sigintHandler);
+	}
+
+	private registerProcessCleanup(): void {
+		ensureProcessCleanupHandlers();
+		processCleanupCallbacks.add(this.processCleanup);
+	}
+
+	private unregisterProcessCleanupIfIdle(): void {
+		if (this.contexts.size === 0 && this.xvfbProcess === null) {
+			processCleanupCallbacks.delete(this.processCleanup);
+		}
 	}
 
 	private closeAllSync() {
@@ -356,6 +384,7 @@ export class BrowserManager {
 		ctx.on("close", () => {
 			this.contexts.delete(ctx);
 			if (this.context === ctx) this.context = null;
+			this.unregisterProcessCleanupIfIdle();
 		});
 	}
 
@@ -422,6 +451,7 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 		this.contexts.add(ctx);
+		this.registerProcessCleanup();
 		this.attachCloseHandler(ctx);
 		return ctx;
 	}
@@ -559,6 +589,7 @@ export class BrowserManager {
 		// Save original DISPLAY and set the new one
 		this.savedDisplayEnv = process.env.DISPLAY;
 		process.env.DISPLAY = this.xvfbDisplay;
+		this.registerProcessCleanup();
 	}
 
 	/**
@@ -584,6 +615,7 @@ export class BrowserManager {
 			this.xvfbDisplay = null;
 			this.savedDisplayEnv = undefined;
 		}
+		this.unregisterProcessCleanupIfIdle();
 	}
 
 	/**

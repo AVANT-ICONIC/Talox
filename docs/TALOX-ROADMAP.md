@@ -35,8 +35,8 @@
 - [x] Chromium dep → optional
 - [x] Limitation docs (Patchright, headless, site warmup)
 
-## v1: Enhanced Intelligence 🧠
-- [ ] **Local VLM Integration:** Optional quantized local vision models behind the existing `VisualReasoner` interface.
+## v1: Enhanced Intelligence 🧠 ✅ COMPLETE
+- [x] **Local VLM Integration:** Optional quantized local vision models behind the existing `VisualReasoner` interface.
 - [x] **External Solver Hooks:** Extensible visual/captcha solver hooks through the VLM and solver interfaces.
 - [x] **Interaction Quality Score:** Session-level mouse, typing, scroll, and click quality scoring.
 - [x] **Multi-agent orchestration:** `AgentCoordinator` plus the Plan-Delegate-Observe loop for parallel browser agents.
@@ -46,12 +46,12 @@
 - [x] **MCP Server:** Native dependency-free stdio MCP server for direct agent integration.
 - [x] **Headless-first mode:** Autonomous runs default to headless while interactive modes remain headed.
 
-## v3: Ecosystem 🔌
+## v3: Ecosystem 🔌 ✅ COMPLETE
 - [x] **Plugin Architecture:** Community-driven rules and vision detectors with runtime isolation and validation.
-- [ ] **Platform Adapters:** Pre-built adapters for common sites and CMSes.
+- [x] **Platform Adapters:** Pre-built adapters for common sites and CMSes.
 - [x] **Replay UI:** Offline interactive session replay for debugging agent decisions.
 - [x] **Cross-origin iframe trust:** Existing `trustedDomains` now drives default-deny frame trust and trust-gated CDP execution.
 
 ### Current next target
 
-**Platform Adapters** is the only remaining v3 ecosystem milestone. The design should build on Talox's existing skills, semantic state, plugins, and controller APIs rather than introduce a second automation abstraction.
+All milestones currently defined in v0 through v3 are complete. The next tranche should be driven by measured reliability, performance, and real-world compatibility gaps rather than adding a parallel automation abstraction without evidence.

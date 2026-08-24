@@ -110,11 +110,11 @@ describe("BrowserManager", () => {
 			expect(config.browser.autoDetect).toBeUndefined();
 		});
 
-		it("registers exit handlers on process", () => {
+		it("does not register process handlers before owning cleanup resources", () => {
 			const spy = vi.spyOn(process, "once").mockImplementation(() => process);
 			new BrowserManager();
-			expect(spy).toHaveBeenCalledWith("exit", expect.any(Function));
-			expect(spy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
+			expect(spy).not.toHaveBeenCalledWith("exit", expect.any(Function));
+			expect(spy).not.toHaveBeenCalledWith("SIGINT", expect.any(Function));
 			spy.mockRestore();
 		});
 	});
@@ -189,6 +189,32 @@ describe("BrowserManager", () => {
 	// ─── Launch ─────────────────────────────────────────────────────────────
 
 	describe("launch", () => {
+		it("shares one process cleanup listener pair across many active managers", async () => {
+			const onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockImplementation(async () => createMockContext());
+			const managers = Array.from(
+				{ length: 12 },
+				() =>
+					new BrowserManager({
+						browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+						settings: { adaptiveStealthEnabled: false } as any,
+					}),
+			);
+
+			for (const [index, mgr] of managers.entries()) {
+				await mgr.launch({
+					...createTestProfile(),
+					id: `listener-test-${index}`,
+					userDataDir: `/tmp/talox-listener-test-${index}`,
+				});
+			}
+
+			expect(onceSpy.mock.calls.filter(([event]) => event === "exit")).toHaveLength(1);
+			expect(onceSpy.mock.calls.filter(([event]) => event === "SIGINT")).toHaveLength(1);
+			await Promise.all(managers.map((mgr) => mgr.closeAll()));
+			onceSpy.mockRestore();
+		});
+
 		it("launches chromium by default and returns a context", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);

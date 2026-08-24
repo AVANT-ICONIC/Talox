@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MCP server** — native dependency-free stdio integration for agent clients, including modern and legacy protocol handshakes.
+- **Community plugins** — isolated rule and vision-detector extension points with validation and failure containment.
+- **Replay UI** — offline interactive timeline and artifact inspection for recorded Talox sessions.
+- **Cross-origin iframe trust** — `trustedDomains`-driven frame trust and trust-gated CDP execution.
+- **Platform Adapters** — built-in WordPress, WooCommerce, Shopify, GitHub, and Slack knowledge layered into planner context without replacing live Talox state.
+- **Local VLM integration** — zero-dependency Ollama and OpenAI-compatible local multimodal providers exposed through `talox/local-vision`.
+
+### Fixed
+
+- **Local VLM redirect privacy boundary** — automatic redirects are disabled so loopback 307/308 responses cannot replay screenshot payloads to remote hosts.
+- **BrowserManager process cleanup listeners** — active managers share one process-level `exit` and `SIGINT` listener pair instead of registering two listeners per instance.
+
+### Tests
+
+- 127 unit test files / 1,950 tests passing after Local VLM security coverage and BrowserManager shared-listener regression coverage.
+
+---
+
 ## [8.1.0] - 2026-08-21
 
 ### Added
