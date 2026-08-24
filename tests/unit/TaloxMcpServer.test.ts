@@ -62,6 +62,7 @@ describe("TaloxMcpSession", () => {
 				capabilities: { tools: { listChanged: false } },
 				ttlMs: 60_000,
 				cacheScope: "public",
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
 			},
 		});
 	});
@@ -93,6 +94,23 @@ describe("TaloxMcpSession", () => {
 				resultType: "complete",
 				ttlMs: 60_000,
 				cacheScope: "public",
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
+			},
+		});
+	});
+
+	it("stamps modern results when the request carries the protocol envelope directly", async () => {
+		const session = new TaloxMcpSession(() => new FakeController());
+		const response = await session.handle(
+			request(1, "ping", {
+				_meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
+			}),
+		);
+
+		expect(response).toMatchObject({
+			result: {
+				resultType: "complete",
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
 			},
 		});
 	});
