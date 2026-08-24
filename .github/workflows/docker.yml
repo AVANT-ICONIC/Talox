@@ -57,6 +57,18 @@ jobs:
       - name: Smoke Talox CLI
         run: docker run --rm --init talox:ci init --help
 
+      - name: Smoke top-level CLI help exit codes
+        run: |
+          docker run --rm --init talox:ci --help
+          docker run --rm --init talox:ci -h
+
+      - name: Reject unknown top-level commands
+        run: |
+          if docker run --rm --init talox:ci definitely-not-a-command; then
+            echo "Unknown command unexpectedly exited successfully"
+            exit 1
+          fi
+
       - name: Probe sandboxed Playwright-managed Chromium
         run: |
           docker run --rm --init --ipc=host \

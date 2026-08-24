@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 import { runMultiAgentRun, shouldUseMultiAgentRun } from "./multi-agent-run.js";
+import { normalizeTopLevelHelpArgv } from "./normalize-argv.js";
 
-const argv = process.argv.slice(2);
+const rawArgv = process.argv.slice(2);
+const argv = normalizeTopLevelHelpArgv(rawArgv);
+
+if (argv !== rawArgv) {
+	process.argv.splice(2, rawArgv.length, ...argv);
+}
 
 try {
 	if (shouldUseMultiAgentRun(argv)) {

@@ -43,5 +43,7 @@ WORKDIR /workspace
 
 VOLUME ["/workspace/.talox-profiles", "/home/talox/.talox"]
 
-ENTRYPOINT ["node", "/opt/talox/dist/cli/talox.js"]
+# Match package.json's published bin entry so Docker uses the same CLI router,
+# including top-level help normalization and multi-agent `run --agents N` dispatch.
+ENTRYPOINT ["node", "/opt/talox/dist/cli/entry.js"]
 CMD ["--help"]
