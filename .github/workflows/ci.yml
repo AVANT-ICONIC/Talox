@@ -27,9 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -45,9 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -60,11 +60,9 @@ jobs:
         run: npm run test:unit
 
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
-  # The browser suite is intentionally serial inside each shard because multiple
-  # Chromium launches in one Vitest worker can deadlock resources. Separate CI
-  # runners let independent test areas execute concurrently without weakening
-  # that isolation. The aggregate `browser` job below preserves the stable check
-  # name used by branch protection.
+  # Browser tests remain serial inside each shard. The unusually slow error-path
+  # suite has its own runner so a transient browser-launch failure does not force
+  # the rest of the root suite to be repeated after ~18 minutes of work.
   browser-shard:
     name: Browser Integration · ${{ matrix.group }}
     runs-on: ubuntu-latest
@@ -75,18 +73,26 @@ jobs:
         include:
           - group: root
             target: 'tests/core/*.test.ts'
+            exclude: 'tests/core/error-paths.test.ts'
+          - group: error-paths
+            target: 'tests/core/error-paths.test.ts'
+            exclude: ''
           - group: loop
             target: 'tests/core/loop/*.test.ts'
+            exclude: ''
           - group: controller
             target: 'tests/core/controller/*.test.ts'
+            exclude: ''
           - group: observe
             target: 'tests/core/observe/*.test.ts'
+            exclude: ''
           - group: smart
             target: 'tests/core/smart/*.test.ts'
+            exclude: ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -99,7 +105,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser integration shard
-        run: npx vitest run --config vitest.config.browser.ts ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.exclude }}" ]; then
+            npx vitest run --config vitest.config.browser.ts ${{ matrix.target }} --exclude ${{ matrix.exclude }}
+          else
+            npx vitest run --config vitest.config.browser.ts ${{ matrix.target }}
+          fi
 
   browser:
     name: Browser Integration Tests
@@ -124,9 +136,9 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -152,7 +164,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
@@ -160,7 +172,7 @@ jobs:
 
       - name: Upload test videos (failures only)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-videos-${{ github.run_number }}
           path: test-results/
