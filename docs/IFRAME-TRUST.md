@@ -20,7 +20,18 @@ Talox does **not** automatically trust sibling or child subdomains. For example,
 
 ## Existing Talox setting
 
-The canonical configuration is the existing `TaloxSettings.trustedDomains` setting. `CrossOriginManager` accepts the same name directly:
+The canonical configuration is the existing `TaloxSettings.trustedDomains` setting. When cross-origin iframe management is enabled through `TaloxController`, the controller passes this setting directly into `CrossOriginManager`:
+
+```ts
+const talox = new TaloxController({
+  settings: {
+    enableCrossOriginIframes: true,
+    trustedDomains: ["payments.example.net"],
+  },
+});
+```
+
+`CrossOriginManager` accepts the same setting when used directly:
 
 ```ts
 import { CrossOriginManager } from "talox";
@@ -46,9 +57,9 @@ A different scheme or port remains a different origin. `trustedOrigins` remains 
 
 ## Stable frame identity
 
-Frame IDs are attached to the Playwright `Frame` object, not derived from its current URL. This matters when an iframe navigates: Talox removes the previous session and trust decision before evaluating the new origin, so an old trusted ID cannot remain authorized after navigation to an external origin.
+Frame IDs are attached to the Playwright `Frame` object and never recomputed from its current URL. This matters when an iframe navigates: Talox removes the previous session and trust decision before evaluating the new origin, so an old trusted ID cannot remain authorized after navigation to an external origin.
 
-Named frames keep their familiar name when it is available and unique. Unnamed or duplicate names receive a monotonic ID that is not reused during the manager lifetime.
+Named frames keep their familiar name when it is available and unique. For backward compatibility, an unnamed frame's **initial** URL seeds its ID once; the ID is then pinned to that `Frame` object for its lifetime. Duplicate IDs receive a monotonic suffix that is not reused during the manager lifetime.
 
 ## Inspect trust
 
