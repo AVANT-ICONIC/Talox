@@ -19,6 +19,8 @@ jobs:
           cache: npm
       - name: Install full dependency graph
         run: npm ci --ignore-scripts
+      - name: Dependency paths for affected packages
+        run: npm ls chromium extract-zip tmp esbuild vite postcss nanoid brace-expansion || true
       - name: Full audit diagnostics
         continue-on-error: true
         run: npm audit --json
