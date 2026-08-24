@@ -1,0 +1,29 @@
+name: Patch Xvfb display stack
+
+on:
+  push:
+    branches:
+      - fix/browser-process-cleanup
+    paths:
+      - .github/workflows/patch-xvfb-display-stack.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/browser-process-cleanup
+      - name: Apply shared display stack patch
+        run: python3 .github/scripts/patch_xvfb_display_stack.py
+      - name: Commit patch and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/BrowserManager.ts tests/unit/XvfbDisplay.test.ts
+          git rm .github/workflows/patch-xvfb-display-stack.yml .github/scripts/patch_xvfb_display_stack.py
+          git commit -m "fix: coordinate overlapping Xvfb displays"
+          git push origin HEAD:fix/browser-process-cleanup
