@@ -24,6 +24,7 @@ LABEL org.opencontainers.image.title="Talox" \
 
 ENV NODE_ENV=production \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    TALOX_CHROMIUM_SANDBOX=true \
     HOME=/home/talox
 
 WORKDIR /opt/talox

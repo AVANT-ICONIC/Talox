@@ -153,6 +153,15 @@ describe("BrowserManager", () => {
 			expect(cfg.browser.headless).toBe(false);
 			process.env.TALOX_HEADLESS = original;
 		});
+
+		it("enables Chromium sandbox from TALOX_CHROMIUM_SANDBOX=true", () => {
+			const original = process.env.TALOX_CHROMIUM_SANDBOX;
+			process.env.TALOX_CHROMIUM_SANDBOX = "true";
+			const cfg = getDefaultConfig();
+			expect(cfg.browser.chromiumSandbox).toBe(true);
+			if (original === undefined) delete process.env.TALOX_CHROMIUM_SANDBOX;
+			else process.env.TALOX_CHROMIUM_SANDBOX = original;
+		});
 	});
 
 	// ─── resolveConfigDir ────────────────────────────────────────────────────
@@ -170,6 +179,7 @@ describe("BrowserManager", () => {
 			expect(DEFAULT_CONFIG.browser.autoDetect).toBe(true);
 			expect(DEFAULT_CONFIG.browser.preferred).toBe("chromium");
 			expect(DEFAULT_CONFIG.browser.headless).toBe(true);
+			expect(DEFAULT_CONFIG.browser.chromiumSandbox).toBe(false);
 			expect(DEFAULT_CONFIG.profile.defaultClass).toBe("qa");
 			expect(DEFAULT_CONFIG.settings.mouseSpeed).toBe(1);
 			expect(DEFAULT_CONFIG.settings.safeMode).toBe(false);
@@ -263,6 +273,23 @@ describe("BrowserManager", () => {
 			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
 			expect(callArgs.args).toContain("--no-sandbox");
 			expect(callArgs.args).toContain("--disable-setuid-sandbox");
+			expect(callArgs.args).toContain("--disable-dev-shm-usage");
+		});
+
+		it("enables Chromium sandbox without unsandboxed launch flags", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			const secureManager = new BrowserManager({
+				browser: { preferred: "chromium", headless: true, autoDetect: false, chromiumSandbox: true } as any,
+				settings: { adaptiveStealthEnabled: false } as any,
+			});
+
+			await secureManager.launch(createTestProfile(), false, "chromium");
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.chromiumSandbox).toBe(true);
+			expect(callArgs.args).not.toContain("--no-sandbox");
+			expect(callArgs.args).not.toContain("--disable-setuid-sandbox");
 			expect(callArgs.args).toContain("--disable-dev-shm-usage");
 		});
 
