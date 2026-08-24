@@ -319,7 +319,7 @@ export class TaloxController {
 	/** Install cross-origin iframe manager if enabled. */
 	private setupCrossOriginManager(page: import("playwright-core").Page): void {
 		if (!this.settings.enableCrossOriginIframes) return;
-		this.crossOriginManager = new CrossOriginManagerClass();
+		this.crossOriginManager = new CrossOriginManagerClass({ trustedDomains: this.settings.trustedDomains });
 		this.crossOriginManager.install(page);
 	}
 
