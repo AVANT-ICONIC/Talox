@@ -59,6 +59,8 @@
     "browser-automation",
     "browser-controller",
     "ai-agent",
+    "mcp",
+    "model-context-protocol",
     "playwright",
     "stealth-automation",
     "web-automation",
