@@ -1,5 +1,7 @@
 // src/core/loop/Planner.ts
 
+import { getPlatformAdapterContext } from "../platform/PlatformAdapterRegistry.js";
+
 import type {
 	DynamicSkill,
 	MultiAgentPlannerContext,
@@ -129,6 +131,7 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 		this.appendBugs(parts, state.bugs);
 		this.appendChallengeState(parts, challengeState);
 		this.appendSkillsAndHints(parts, skillsContext, domainHints);
+		this.appendPlatformAdapterContext(parts, state.url, state.title);
 		this.appendMultiAgentContext(parts, multiAgent);
 		this.appendRecentIterations(parts, recentIterations);
 
@@ -169,6 +172,11 @@ Generate a skill that would help the agent overcome this blocker in future runs.
 			parts.push(`Evidence: ${ch.evidence.join(", ")}`);
 			parts.push(`Can retry: ${ch.canRetry}, Requires human: ${ch.requiresHuman}`);
 		}
+	}
+
+	private appendPlatformAdapterContext(parts: string[], url: string, title?: string): void {
+		const context = getPlatformAdapterContext(url, title);
+		if (context) parts.push(`\n## Platform Knowledge\n${context}`);
 	}
 
 	private appendSkillsAndHints(parts: string[], skillsContext?: string, domainHints?: string): void {
