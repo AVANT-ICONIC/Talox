@@ -72,11 +72,14 @@ export class TaloxMcpRuntime {
 	}
 
 	async launch(options: TaloxMcpLaunchOptions = {}): Promise<TaloxMcpSessionInfo> {
-		const profileId = options.profileId ?? "mcp";
+		const sessionId = this.idFactory();
+		// A unique default profile prevents concurrent MCP sessions from fighting
+		// over Chromium's persistent user-data-dir lock. Callers can still opt into
+		// a named persistent profile explicitly when they want continuity.
+		const profileId = options.profileId ?? `mcp-${sessionId}`;
 		const profileClass = options.profileClass ?? "ops";
 		const browser = options.browser ?? "chromium";
 		const headed = options.headed ?? false;
-		const sessionId = this.idFactory();
 		const controller = this.controllerFactory(this.baseDir, headed);
 
 		try {
