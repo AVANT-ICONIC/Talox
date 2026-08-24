@@ -1,0 +1,42 @@
+name: One-shot trustedDomains wiring
+
+on:
+  push:
+    branches:
+      - feat/iframe-trust-v8-2
+
+permissions:
+  contents: write
+
+jobs:
+  patch-controller:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/iframe-trust-v8-2
+          fetch-depth: 0
+
+      - name: Wire trustedDomains into CrossOriginManager
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/core/controller/TaloxController.ts")
+          text = path.read_text()
+          old = "this.crossOriginManager = new CrossOriginManagerClass();"
+          new = "this.crossOriginManager = new CrossOriginManagerClass({ trustedDomains: this.settings.trustedDomains });"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"expected exactly one CrossOriginManager constructor call, found {count}")
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit controller wiring
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/controller/TaloxController.ts
+          git commit -m "fix: wire trustedDomains into iframe manager"
+          git push origin HEAD:feat/iframe-trust-v8-2
