@@ -207,7 +207,7 @@ export class TaloxMcpSession {
 			case "ping":
 				return rpcResult(request.id, this.completeResult({}, request.params));
 			case "tools/list":
-				return rpcResult(request.id, this.handleToolsList(request.params));
+				return rpcResult(request.id, this.completeResult(this.handleToolsList(request.params), request.params));
 			case "tools/call":
 				return rpcResult(request.id, this.completeResult(await this.handleToolCall(request.params), request.params));
 			default:
@@ -233,16 +233,19 @@ export class TaloxMcpSession {
 
 	private handleDiscover(id: JsonRpcId): JsonRpcResponse {
 		this.era = "modern";
-		return rpcResult(id, {
-			resultType: "complete",
-			supportedVersions: [MODERN_PROTOCOL_VERSION],
-			capabilities: { tools: { listChanged: false } },
-			serverInfo: SERVER_INFO,
-			instructions: SERVER_INSTRUCTIONS,
-			ttlMs: 60_000,
-			cacheScope: "public",
-			_meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO },
-		});
+		return rpcResult(
+			id,
+			this.completeResult(
+				{
+					supportedVersions: [MODERN_PROTOCOL_VERSION],
+					capabilities: { tools: { listChanged: false } },
+					instructions: SERVER_INSTRUCTIONS,
+					ttlMs: 60_000,
+					cacheScope: "public",
+				},
+				undefined,
+			),
+		);
 	}
 
 	private handleInitialize(id: JsonRpcId, params: unknown): JsonRpcResponse {
@@ -271,8 +274,17 @@ export class TaloxMcpSession {
 	}
 
 	private completeResult(result: object, params: unknown): object {
-		if (!this.isModern(params) || Object.hasOwn(result, "resultType")) return result;
-		return { ...result, resultType: "complete" };
+		if (!this.isModern(params)) return result;
+		const record = result as Record<string, unknown>;
+		const existingMeta = isRecord(record["_meta"]) ? record["_meta"] : {};
+		return {
+			...result,
+			resultType: record["resultType"] ?? "complete",
+			_meta: {
+				...existingMeta,
+				"io.modelcontextprotocol/serverInfo": existingMeta["io.modelcontextprotocol/serverInfo"] ?? SERVER_INFO,
+			},
+		};
 	}
 
 	private isModern(params: unknown): boolean {
