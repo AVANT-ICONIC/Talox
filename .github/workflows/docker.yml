@@ -57,6 +57,9 @@ jobs:
       - name: Smoke Talox CLI
         run: docker run --rm --init talox:ci init --help
 
+      - name: Smoke Talox MCP CLI
+        run: docker run --rm --init talox:ci mcp --help
+
       - name: Smoke top-level CLI help exit codes
         run: |
           docker run --rm --init talox:ci --help
