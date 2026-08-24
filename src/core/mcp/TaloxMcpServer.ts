@@ -74,9 +74,10 @@ export function createTaloxMcpServer(runtime = new TaloxMcpRuntime()): McpServer
 		"launch_session",
 		{
 			title: "Launch Talox browser session",
-			description: "Launch a persistent Talox browser session and return its sessionId. Headless is the default.",
+			description:
+				"Launch a persistent Talox browser session and return its sessionId. Headless is the default. Omit profileId to get an isolated profile unique to this session.",
 			inputSchema: z.object({
-				profileId: z.string().trim().min(1).default("mcp"),
+				profileId: z.string().trim().min(1).optional(),
 				profileClass: profileClassSchema.default("ops"),
 				browser: browserSchema.default("chromium"),
 				headed: z.boolean().default(false),
