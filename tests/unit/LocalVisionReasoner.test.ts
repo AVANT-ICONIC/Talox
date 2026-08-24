@@ -1,6 +1,11 @@
 import { Buffer } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLocalVisionReasoner } from "../../src/core/LocalVisionReasoner.js";
+import {
+	createLocalVisionReasoner,
+	type LocalVisionConfig,
+	type OllamaVisionConfig,
+	type OpenAICompatibleLocalVisionConfig,
+} from "../../src/core/LocalVisionReasoner.js";
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -48,6 +53,22 @@ describe("createLocalVisionReasoner", () => {
 		expect(body.keep_alive).toBe("10m");
 	});
 
+	it("snapshots Ollama config so caller mutation cannot change requests", async () => {
+		const fetchMock = vi.fn(async () => jsonResponse({ message: { content: "ok" } }));
+		vi.stubGlobal("fetch", fetchMock);
+		const config: OllamaVisionConfig = { model: "stable-model", maxTokens: 64, keepAlive: "5m" };
+		const reasoner = createLocalVisionReasoner(config);
+		config.model = "mutated-model";
+		config.maxTokens = 999;
+		config.keepAlive = "0";
+
+		await reasoner.analyze(Buffer.from("x"), "inspect");
+		const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+		expect(body.model).toBe("stable-model");
+		expect(body.options).toEqual({ num_predict: 64 });
+		expect(body.keep_alive).toBe("5m");
+	});
+
 	it("supports an OpenAI-compatible local multimodal server", async () => {
 		const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: " found it " } }] }));
 		vi.stubGlobal("fetch", fetchMock);
@@ -70,6 +91,29 @@ describe("createLocalVisionReasoner", () => {
 		expect(body.messages[0].content[1].image_url.url).toBe(
 			`data:image/png;base64,${Buffer.from("image").toString("base64")}`,
 		);
+	});
+
+	it("snapshots OpenAI-compatible credentials and generation config", async () => {
+		const fetchMock = vi.fn(async () => jsonResponse({ choices: [{ message: { content: "ok" } }] }));
+		vi.stubGlobal("fetch", fetchMock);
+		const config: OpenAICompatibleLocalVisionConfig = {
+			provider: "openai-compatible",
+			model: "stable-vlm",
+			baseUrl: "http://127.0.0.1:1234/v1",
+			apiKey: "stable-key",
+			maxTokens: 111,
+		};
+		const reasoner = createLocalVisionReasoner(config);
+		config.model = "mutated-vlm";
+		config.apiKey = "mutated-key";
+		config.maxTokens = 999;
+
+		await reasoner.analyze(Buffer.from("image"), "Find target");
+		const [, init] = fetchMock.mock.calls[0]!;
+		expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer stable-key");
+		const body = JSON.parse(String(init?.body));
+		expect(body.model).toBe("stable-vlm");
+		expect(body.max_tokens).toBe(111);
 	});
 
 	it("omits Authorization when no local API key is configured", async () => {
@@ -114,17 +158,29 @@ describe("createLocalVisionReasoner", () => {
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "http://vision.localhost:11434" })).not.toThrow();
 	});
 
-	it("validates model, timeout, token limit, and URL protocol", () => {
+	it("validates model, timeout, token limit, flags, keep-alive, and URL protocol", () => {
 		expect(() => createLocalVisionReasoner({ model: "" })).toThrow(/model/);
 		expect(() => createLocalVisionReasoner({ model: "vision", timeoutMs: 0 })).toThrow(/timeoutMs/);
 		expect(() => createLocalVisionReasoner({ model: "vision", maxTokens: Number.NaN })).toThrow(/maxTokens/);
 		expect(() => createLocalVisionReasoner({ model: "vision", baseUrl: "file:///tmp/model" })).toThrow(/http or https/);
+		expect(() =>
+			createLocalVisionReasoner({ model: "vision", allowRemote: "yes" } as unknown as LocalVisionConfig),
+		).toThrow(/allowRemote/);
+		expect(() =>
+			createLocalVisionReasoner({ model: "vision", keepAlive: {} } as unknown as LocalVisionConfig),
+		).toThrow(/keepAlive/);
 	});
 
 	it("reports local server HTTP failures without swallowing them", async () => {
 		vi.stubGlobal("fetch", vi.fn(async () => new Response("model missing", { status: 404 })));
 		const reasoner = createLocalVisionReasoner({ model: "missing" });
 		await expect(reasoner.analyze(Buffer.from("x"), "q")).rejects.toThrow(/HTTP 404: model missing/);
+	});
+
+	it("reports malformed local server JSON clearly", async () => {
+		vi.stubGlobal("fetch", vi.fn(async () => new Response("definitely-not-json", { status: 200 })));
+		const reasoner = createLocalVisionReasoner({ model: "vision" });
+		await expect(reasoner.analyze(Buffer.from("x"), "q")).rejects.toThrow(/invalid JSON/);
 	});
 
 	it("normalizes timeout errors", async () => {
