@@ -114,6 +114,17 @@ Registration order is preserved. Plugin names must be unique. Rule IDs are uniqu
 
 Because the registry is **process-wide**, a plugin becomes visible to all `RulesEngine` instances in that Node.js process. Hosts that need tenant isolation should run separate processes or explicitly register/unregister plugins around isolated work.
 
+## Plugin author checklist
+
+Before publishing a community plugin:
+
+- choose stable rule and detector IDs that will not collide with other installed plugins,
+- keep structured rules synchronous and cheap enough to run on every QA pass,
+- put network/model/image work in explicit vision detectors instead of rules,
+- return complete `TaloxBug` objects with deterministic evidence,
+- treat the supplied page state and screenshot as inputs rather than shared mutable state,
+- version behavior changes so hosts can report exactly which plugin produced a finding.
+
 ## Why rules and vision detectors are separate
 
 Structured rules are cheap and deterministic, so they belong in the standard QA pass. Vision detectors may involve large image transforms or model inference, so callers decide when their cost is justified. This keeps the normal Talox state loop compact while still giving community extensions a first-class visual-analysis seam.
