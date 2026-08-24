@@ -1,20 +1,22 @@
 name: Doctor Runtime Patch Helper
 
 on:
-  pull_request:
+  push:
+    branches:
+      - fix/doctor-runtime-playwright
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/doctor-runtime-playwright'
+    if: github.ref_name == 'fix/doctor-runtime-playwright'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: fix/doctor-runtime-playwright
 
       - name: Patch doctor runtime dependency checks
         run: |
@@ -25,6 +27,8 @@ jobs:
               p = Path(path)
               text = p.read_text()
               count = text.count(old)
+              if count == 0 and new in text:
+                  return
               if count != 1:
                   raise SystemExit(f"{path}: expected exactly one match, found {count}")
               p.write_text(text.replace(old, new, 1))
@@ -79,7 +83,6 @@ jobs:
 }
 ''',
           )
-
           replace_once(
               "tests/unit/cli/doctor.test.ts",
               '{ name: "Playwright installed", status: "ok", message: "v1.58.2" },',
@@ -117,4 +120,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/cli/doctor.ts tests/unit/cli/doctor.test.ts
           git commit -m "fix(doctor): check the production Playwright runtime"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:fix/doctor-runtime-playwright
