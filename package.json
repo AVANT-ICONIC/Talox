@@ -16,6 +16,10 @@
     "./plugins": {
       "import": "./dist/plugins.js",
       "types": "./dist/plugins.d.ts"
+    },
+    "./local-vision": {
+      "import": "./dist/local-vision.js",
+      "types": "./dist/local-vision.d.ts"
     }
   },
   "files": [
