@@ -73,8 +73,22 @@ async function handleType(controller: TaloxController, command: DaemonCommand): 
 }
 
 async function handleGetState(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
-	const state = await controller.getState();
-	return successResponse(command.id, state);
+	const variant = command.params?.["variant"];
+
+	if (variant === undefined) {
+		return successResponse(command.id, await controller.getState());
+	}
+	if (variant === "full") {
+		return successResponse(command.id, await controller.getState("full"));
+	}
+	if (variant === "agent") {
+		return successResponse(command.id, await controller.getState("agent"));
+	}
+	if (variant === "debug") {
+		return successResponse(command.id, await controller.getState("debug"));
+	}
+
+	return errorResponse(command.id, "Invalid 'variant' parameter; expected 'full', 'agent', or 'debug'");
 }
 
 async function handleScreenshot(controller: TaloxController, command: DaemonCommand): Promise<DaemonResponse> {
