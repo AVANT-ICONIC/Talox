@@ -32,7 +32,7 @@ export function prepareRelease(tag, packageJsonText, changelogText) {
 	const afterMarker = changelogText.slice(markerIndex + marker.length);
 	const nextVersionIndex = afterMarker.search(/\n## \[/);
 	let notes = (nextVersionIndex >= 0 ? afterMarker.slice(0, nextVersionIndex) : afterMarker).trim();
-	notes = notes.replace(/\n---\s*$/, "").trim();
+	notes = notes.replace(/(?:^|\n)---\s*$/, "").trim();
 
 	if (!notes) {
 		throw new Error(`CHANGELOG.md section for ${version} is empty`);
