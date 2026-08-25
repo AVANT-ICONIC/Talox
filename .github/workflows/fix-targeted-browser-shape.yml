@@ -1,0 +1,33 @@
+name: Fix targeted browser shape
+on:
+  push:
+    branches: [perf/error-path-fast-fail-v2]
+    paths: [.github/workflows/fix-targeted-browser-shape.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+      - name: Add explicit channel field
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/core/BrowserManager.ts')
+          s = p.read_text()
+          old = '''\t\t\tthis.detectedBrowsers.push({\n\t\t\t\ttype: actual,\n\t\t\t\texecutablePath: executable.path,\n'''
+          new = '''\t\t\tthis.detectedBrowsers.push({\n\t\t\t\ttype: actual,\n\t\t\t\tchannel: undefined,\n\t\t\t\texecutablePath: executable.path,\n'''
+          if old not in s: raise SystemExit('targeted browser entry not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-targeted-browser-shape.yml
+          git add src/core/BrowserManager.ts
+          git commit -m "fix: complete targeted browser detection record"
+          git push origin HEAD:perf/error-path-fast-fail-v2
