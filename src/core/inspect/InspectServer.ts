@@ -146,16 +146,18 @@ export class InspectServer {
 
 		const cdpSession = this.cdpSession;
 		this.cdpSession = null;
-		if (cdpSession) {
-			await cdpSession.detach().catch(() => {}); // NOSONAR — detach may fail
-		}
+		const cdpDetach = cdpSession ? cdpSession.detach().catch(() => {}) : Promise.resolve();
 
 		this.page = null;
 
-		if (!this.running) return;
+		if (!this.running) {
+			await cdpDetach;
+			return;
+		}
 
-		await this.closeWebSocketServer();
-		await this.closeHttpServer();
+		const webSocketClose = this.closeWebSocketServer();
+		const httpClose = this.closeHttpServer();
+		await Promise.all([cdpDetach, webSocketClose, httpClose]);
 		this.running = false;
 	}
 
