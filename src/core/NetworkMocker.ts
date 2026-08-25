@@ -80,7 +80,11 @@ export class NetworkMocker {
 
 			try {
 				await route.continue();
+			} catch {
+				return;
+			}
 
+			try {
 				const response: Response | null = await request.response();
 				let responseBody: string | undefined;
 				let responseStatus = 0;
@@ -123,7 +127,7 @@ export class NetworkMocker {
 					this.recordingHandler(recording);
 				}
 			} catch {
-				await route.continue();
+				// Recording is best-effort after the request has already continued.
 			}
 		};
 
