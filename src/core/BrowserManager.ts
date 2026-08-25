@@ -46,6 +46,10 @@ export interface TaloxConfig {
 	settings: TaloxSettings;
 }
 
+export type TaloxConfigOverrides = {
+	[K in keyof TaloxConfig]?: Partial<TaloxConfig[K]>;
+};
+
 export const DEFAULT_CONFIG: TaloxConfig = {
 	browser: {
 		autoDetect: true,
@@ -106,6 +110,15 @@ export function getDefaultConfig(): TaloxConfig {
 
 export function resolveConfigDir(): string {
 	return process.cwd();
+}
+
+function mergeConfig(base: TaloxConfig, overrides?: TaloxConfigOverrides): TaloxConfig {
+	if (!overrides) return base;
+	return {
+		browser: { ...base.browser, ...overrides.browser },
+		profile: { ...base.profile, ...overrides.profile },
+		settings: { ...base.settings, ...overrides.settings },
+	};
 }
 
 /**
@@ -207,8 +220,8 @@ export class BrowserManager {
 	private xvfbProcess: ChildProcess | null = null;
 	private xvfbDisplay: string | null = null;
 
-	constructor(config?: Partial<TaloxConfig>) {
-		this.config = { ...getDefaultConfig(), ...config };
+	constructor(config?: TaloxConfigOverrides) {
+		this.config = mergeConfig(getDefaultConfig(), config);
 
 		// Auto-enable virtualDisplay on Linux without a real DISPLAY
 		if (this.config.settings.virtualDisplay === false && process.platform === "linux" && !process.env.DISPLAY) {
@@ -464,8 +477,8 @@ export class BrowserManager {
 		return this.config;
 	}
 
-	updateConfig(config: Partial<TaloxConfig>): void {
-		this.config = { ...this.config, ...config };
+	updateConfig(config: TaloxConfigOverrides): void {
+		this.config = mergeConfig(this.config, config);
 	}
 
 	private attachCloseHandler(ctx: BrowserContext): void {
