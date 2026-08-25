@@ -26,6 +26,8 @@ describe("smart-mode navigation readiness", () => {
 <head><title>spa-ready</title></head>
 <body>
 	<h1>Ready while background network stays busy</h1>
+	<label for="email">Email</label>
+	<input id="email" name="email" type="email" />
 	<script>fetch('/hang').catch(() => {});</script>
 </body>
 </html>`);
@@ -59,7 +61,7 @@ describe("smart-mode navigation readiness", () => {
 		if (profileDir) fs.rmSync(profileDir, { recursive: true, force: true });
 	});
 
-	it("returns usable page state without waiting for background network to become idle", async () => {
+	it("returns actionable page state without waiting for background network to become idle", async () => {
 		expect(talox.settings.navigationWaitUntil).toBe("domcontentloaded");
 
 		const startedAt = Date.now();
@@ -68,7 +70,7 @@ describe("smart-mode navigation readiness", () => {
 
 		expect(state.url).toContain(origin);
 		expect(state.title).toBe("spa-ready");
-		expect(state.nodes.length).toBeGreaterThan(0);
+		expect(state.nodes.some((node) => node.role === "textbox" || node.id === "#email")).toBe(true);
 		expect(elapsedMs).toBeLessThan(5_000);
 	});
 });
