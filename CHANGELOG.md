@@ -18,11 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - **Local VLM redirect privacy boundary** — automatic redirects are disabled so loopback 307/308 responses cannot replay screenshot payloads to remote hosts.
-- **BrowserManager/Xvfb lifecycle hardening** — active managers share one process-level `exit`/`SIGINT` listener pair; Xvfb cleanup registers immediately after spawn, stale child events cannot clear replacement state, concurrent displays are reserved and restored through a process-wide stack, each browser launch is pinned to its manager-owned display, and browser configuration relaunches preserve the live Xvfb process.
+- **BrowserManager/Xvfb lifecycle hardening** — active managers share one process-level `exit`/`SIGINT` listener pair; Xvfb cleanup registers immediately after spawn, stale child events cannot clear replacement state, concurrent displays are reserved and restored through a process-wide stack, each browser launch is pinned to its manager-owned display without replacing caller-provided environment variables, and browser configuration relaunches preserve the live Xvfb process.
 
 ### Tests
 
-- 127 unit test files / 1,957 tests expected after BrowserManager/Xvfb lifecycle, overlap, startup-failure, display-pinning, and relaunch regression coverage; definitive CI validates the exact total before merge.
+- 127 unit test files / 1,958 tests expected after BrowserManager/Xvfb lifecycle, overlap, startup-failure, display-pinning, caller-environment preservation, and relaunch regression coverage; definitive CI validates the exact total before merge.
 
 ---
 
