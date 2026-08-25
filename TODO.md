@@ -1,6 +1,6 @@
 # TODO
 
-> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, dependency-audit maintenance, MCP, community plugins, Replay UI, and cross-origin iframe trust are now on `main`.
+> v8.1.0 shipped. Multi-agent coordination, skill loading hardening, Docker packaging, sandboxed Chromium support, dependency-audit maintenance, MCP, community plugins, Replay UI, cross-origin iframe trust, Platform Adapters, and Local VLM integration are now on `main`.
 
 ---
 
@@ -46,13 +46,19 @@
 - [x] Plugin architecture for community rules + vision detectors with isolation and validation (#29)
 - [x] Offline Replay UI with timeline, screenshots, action inspection, playback controls, and hardened artifact loading (#30)
 - [x] Cross-origin iframe trust detection using existing `trustedDomains`, stable frame identity, and frame-scoped CDP enforcement (#31)
+- [x] Platform Adapters for WordPress, WooCommerce, Shopify, GitHub, and Slack with layered planner guidance (#32)
+- [x] Local VLM integration for Ollama and OpenAI-compatible local multimodal servers, default-local privacy boundary, and redirect replay protection (#33)
 
 ---
 
-## 🟢 Next
+## ✅ Planned feature roadmap complete
 
-- [ ] Platform Adapters: pre-built adapters for common sites and CMSes
-- [ ] Local VLM Integration: optional quantized local vision provider(s) behind the existing `VisualReasoner` interface
+All milestones currently listed in `docs/TALOX-ROADMAP.md` have landed on `main`.
+
+## 🟢 Maintenance
+
+- [x] BrowserManager/Xvfb lifecycle hardening: share one process-level `exit`/`SIGINT` listener pair, register cleanup immediately after spawn, bind child events to the owning process, reserve concurrent display numbers, preserve the active DISPLAY stack across overlapping managers, pin each browser launch to its manager-owned Xvfb display, preserve that Xvfb across hash-tracked browser configuration relaunches, release reservations on startup failure, and unregister managers once all cleanup resources are gone
+- [ ] Continue reliability, performance, and real-world compatibility work from observed failures and benchmark evidence before defining the next feature tranche
 
 ---
 
@@ -60,7 +66,7 @@
 
 | Version / state | What | When |
 |---------|------|------|
-| main after v8.1.0 | **MCP + Plugins + Replay + Iframe Trust** — agent integration, community extension points, offline debugging, trust-gated cross-origin frame execution | 2026-08-24 |
+| main after v8.1.0 | **MCP + Plugins + Replay + Iframe Trust + Platform Adapters + Local VLM** — agent integration, extensibility, offline debugging, trust-gated frames, platform-aware planning, local multimodal fallback | 2026-08-24 |
 | v8.1.0 | **Plan-Delegate-Observe** — deterministic multi-agent planning, shared state, CLI routing, domain skills, lifecycle hardening, real two-browser coverage | 2026-08-20 |
 | v8.0.0 | **Content Trust Annotations** — trust field on nodes/elements, ContentSanitizer integration | 2026-05-21 |
 | v7.9.0 | **NetworkGuard** — client-side JS egress filtering + Token Benchmarks | 2026-05-21 |

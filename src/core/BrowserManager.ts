@@ -116,10 +116,72 @@ export function resolveConfigDir(): string {
 interface LaunchOptions {
 	headless: boolean;
 	browserType: BrowserType;
+	virtualDisplay?: boolean;
 	proxy?: { server: string; username?: string; password?: string };
 	userDataDir?: string;
 	args?: string[];
 	extensions?: string[];
+}
+
+const processCleanupCallbacks = new Set<() => void>();
+let processCleanupHandlersInstalled = false;
+const reservedXvfbDisplays = new Set<string>();
+const activeXvfbDisplays: Array<{ child: ChildProcess; display: string }> = [];
+let baseDisplayEnv: string | undefined;
+let baseDisplayEnvCaptured = false;
+
+function activateXvfbDisplay(child: ChildProcess, display: string): void {
+	if (activeXvfbDisplays.some((entry) => entry.child === child)) return;
+	if (activeXvfbDisplays.length === 0) {
+		baseDisplayEnv = process.env.DISPLAY;
+		baseDisplayEnvCaptured = true;
+	}
+	activeXvfbDisplays.push({ child, display });
+	process.env.DISPLAY = display;
+}
+
+function deactivateXvfbDisplay(child: ChildProcess): void {
+	const index = activeXvfbDisplays.findIndex((entry) => entry.child === child);
+	if (index < 0) return;
+	const wasActiveDisplay = index === activeXvfbDisplays.length - 1;
+	activeXvfbDisplays.splice(index, 1);
+	if (!wasActiveDisplay) return;
+
+	const previous = activeXvfbDisplays.at(-1);
+	if (previous) {
+		process.env.DISPLAY = previous.display;
+		return;
+	}
+
+	if (baseDisplayEnvCaptured && baseDisplayEnv !== undefined) {
+		process.env.DISPLAY = baseDisplayEnv;
+	} else {
+		delete process.env.DISPLAY;
+	}
+	baseDisplayEnv = undefined;
+	baseDisplayEnvCaptured = false;
+}
+
+function runProcessCleanupCallbacks(): void {
+	const callbacks = Array.from(processCleanupCallbacks);
+	processCleanupCallbacks.clear();
+	for (const cleanup of callbacks) {
+		try {
+			cleanup();
+		} catch {
+			/* NOSONAR — process teardown must continue through other managers */
+		}
+	}
+}
+
+function ensureProcessCleanupHandlers(): void {
+	if (processCleanupHandlersInstalled) return;
+	processCleanupHandlersInstalled = true;
+	process.once("exit", runProcessCleanupCallbacks);
+	process.once("SIGINT", () => {
+		runProcessCleanupCallbacks();
+		process.exit();
+	});
 }
 
 export class BrowserManager {
@@ -129,11 +191,11 @@ export class BrowserManager {
 	private launchOptionsHash: string | null = null;
 
 	private readonly contexts: Set<BrowserContext> = new Set();
+	private readonly processCleanup = () => this.closeAllSync();
 
 	// Xvfb virtual display state
 	private xvfbProcess: ChildProcess | null = null;
 	private xvfbDisplay: string | null = null;
-	private savedDisplayEnv: string | undefined;
 
 	constructor(config?: Partial<TaloxConfig>) {
 		this.config = { ...getDefaultConfig(), ...config };
@@ -143,15 +205,17 @@ export class BrowserManager {
 			this.config.settings.virtualDisplay = true;
 		}
 
-		// Auto-cleanup on process exit — use once() so multiple instances don't
-		// stack unbounded listeners (avoids MaxListenersExceededWarning in tests).
-		const exitHandler = () => this.closeAllSync();
-		const sigintHandler = () => {
-			this.closeAllSync();
-			process.exit();
-		};
-		process.once("exit", exitHandler);
-		process.once("SIGINT", sigintHandler);
+	}
+
+	private registerProcessCleanup(): void {
+		ensureProcessCleanupHandlers();
+		processCleanupCallbacks.add(this.processCleanup);
+	}
+
+	private unregisterProcessCleanupIfIdle(): void {
+		if (this.contexts.size === 0 && this.xvfbProcess === null) {
+			processCleanupCallbacks.delete(this.processCleanup);
+		}
 	}
 
 	private closeAllSync() {
@@ -356,7 +420,17 @@ export class BrowserManager {
 		ctx.on("close", () => {
 			this.contexts.delete(ctx);
 			if (this.context === ctx) this.context = null;
+			this.unregisterProcessCleanupIfIdle();
 		});
+	}
+
+	private async closeContextForRelaunch(): Promise<void> {
+		const ctx = this.context;
+		if (!ctx) return;
+		await ctx.close();
+		this.contexts.delete(ctx);
+		if (this.context === ctx) this.context = null;
+		this.unregisterProcessCleanupIfIdle();
 	}
 
 	private resolveLauncher(actualBrowserType: BrowserType, _isAdaptive: boolean): any {
@@ -422,6 +496,7 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const ctx = (await launcher.launchPersistentContext(userDataDir, launchOptions)) as BrowserContext;
 		this.contexts.add(ctx);
+		this.registerProcessCleanup();
 		this.attachCloseHandler(ctx);
 		return ctx;
 	}
@@ -430,6 +505,7 @@ export class BrowserManager {
 		const parts = [
 			String(options.headless),
 			String(options.browserType),
+			String(options.virtualDisplay ?? false),
 			options.proxy ? JSON.stringify(options.proxy) : "",
 			options.userDataDir ?? "",
 			(options.args ?? []).sort((a, b) => a.localeCompare(b)).join(","),
@@ -495,21 +571,45 @@ export class BrowserManager {
 	 */
 	private static findFreeDisplay(): number {
 		for (let display = 99; display < 200; display++) {
+			const displayName = `:${display}`;
+			if (reservedXvfbDisplays.has(displayName)) continue;
 			const lockFile = `/tmp/.X${display}-lock`;
 			try {
 				fs.accessSync(lockFile, fs.constants.F_OK);
 			} catch {
+				reservedXvfbDisplays.add(displayName);
 				return display;
 			}
 		}
-		return 99; // fallback
+		throw new Error("No free X display available in the :99-:199 range.");
+	}
+
+	/** Release Xvfb state only when the supplied child still owns it. */
+	private releaseXvfbOwnership(child: ChildProcess, display: string, terminate: boolean): void {
+		// Child events can arrive after a failed start has already been retried.
+		// Only the process that still owns the manager state may clear it.
+		if (this.xvfbProcess !== child) return;
+
+		if (terminate) {
+			try {
+				child.kill("SIGTERM");
+			} catch {
+				/* NOSONAR — process may already be gone */
+			}
+		}
+
+		this.xvfbProcess = null;
+		if (this.xvfbDisplay === display) {
+			deactivateXvfbDisplay(child);
+			reservedXvfbDisplays.delete(display);
+			this.xvfbDisplay = null;
+		}
+		this.unregisterProcessCleanupIfIdle();
 	}
 
 	/**
-	 * Start Xvfb and set DISPLAY environment variable so subsequent Chromium
-	 * launches run in "headed" mode against the virtual framebuffer.
-	 *
-	 * @throws Error if not on Linux, Xvfb is not installed, or spawn fails
+	 * Start Xvfb and set DISPLAY for headed Chromium on a virtual framebuffer.
+	 * @throws Error if Linux/Xvfb prerequisites fail or startup is interrupted.
 	 */
 	async startXvfb(): Promise<void> {
 		if (process.platform !== "linux") {
@@ -525,65 +625,91 @@ export class BrowserManager {
 		}
 
 		const displayNum = BrowserManager.findFreeDisplay();
-		this.xvfbDisplay = `:${displayNum}`;
+		const display = `:${displayNum}`;
+		this.xvfbDisplay = display;
 
-		this.xvfbProcess = spawn(xvfbPath, [this.xvfbDisplay, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
-			stdio: "ignore",
-			detached: false,
-		});
+		let child: ChildProcess;
+		try {
+			child = spawn(xvfbPath, [display, "-screen", "0", "1280x720x24", "-ac", "-nolisten", "tcp"], {
+				stdio: "ignore",
+				detached: false,
+			});
+		} catch (error) {
+			reservedXvfbDisplays.delete(display);
+			this.xvfbDisplay = null;
+			throw new Error(`Failed to start Xvfb: ${error instanceof Error ? error.message : String(error)}`);
+		}
+		this.xvfbProcess = child;
+		this.registerProcessCleanup();
 
-		// Give Xvfb a moment to bind the display socket
 		await new Promise<void>((resolve, reject) => {
+			let settled = false;
 			const timeout = setTimeout(() => {
-				// If we reach here without error, Xvfb started successfully
+				if (settled) return;
+				settled = true;
 				resolve();
 			}, 500);
 
-			this.xvfbProcess!.on("error", (err) => {
+			const failStartup = (error: Error) => {
+				if (settled) return;
+				settled = true;
 				clearTimeout(timeout);
-				this.xvfbProcess = null;
-				this.xvfbDisplay = null;
-				reject(new Error(`Failed to start Xvfb: ${err.message}`));
+				this.releaseXvfbOwnership(child, display, true);
+				reject(error);
+			};
+
+			child.on("error", (err) => {
+				if (!settled) {
+					failStartup(new Error(`Failed to start Xvfb: ${err.message}`));
+					return;
+				}
+				this.releaseXvfbOwnership(child, display, false);
 			});
 
-			this.xvfbProcess!.on("exit", (code) => {
-				if (code !== null && code !== 0) {
-					clearTimeout(timeout);
-					this.xvfbProcess = null;
-					this.xvfbDisplay = null;
-					reject(new Error(`Xvfb exited with code ${code}`));
+			child.on("exit", (code, signal) => {
+				if (!settled) {
+					const error = code !== null
+						? new Error(`Xvfb exited with code ${code}`)
+						: new Error(`Xvfb exited before readiness with signal ${signal ?? "unknown"}`);
+					failStartup(error);
+					return;
 				}
+				this.releaseXvfbOwnership(child, display, false);
 			});
 		});
 
-		// Save original DISPLAY and set the new one
-		this.savedDisplayEnv = process.env.DISPLAY;
-		process.env.DISPLAY = this.xvfbDisplay;
+		if (this.xvfbProcess !== child) {
+			throw new Error("Xvfb startup was interrupted before readiness.");
+		}
+		activateXvfbDisplay(child, display);
 	}
 
 	/**
 	 * Kill the Xvfb process and restore the original DISPLAY environment.
 	 */
 	stopXvfb(): void {
-		if (this.xvfbProcess) {
+		const child = this.xvfbProcess;
+		const display = this.xvfbDisplay;
+
+		if (child && display) {
+			this.releaseXvfbOwnership(child, display, true);
+			return;
+		}
+
+		if (child) {
 			try {
-				this.xvfbProcess.kill("SIGTERM");
+				child.kill("SIGTERM");
 			} catch {
 				/* NOSONAR — process may have already exited */
 			}
+			deactivateXvfbDisplay(child);
 			this.xvfbProcess = null;
 		}
-
-		if (this.xvfbDisplay) {
-			// Restore original DISPLAY
-			if (this.savedDisplayEnv !== undefined) {
-				process.env.DISPLAY = this.savedDisplayEnv;
-			} else {
-				delete process.env.DISPLAY;
-			}
+		if (display) {
+			reservedXvfbDisplays.delete(display);
 			this.xvfbDisplay = null;
-			this.savedDisplayEnv = undefined;
 		}
+		this.unregisterProcessCleanupIfIdle();
 	}
 
 	/**
@@ -601,9 +727,14 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const actualBrowserType = await this.resolveBrowserType(browserType);
 
-		// Start Xvfb if virtualDisplay is enabled — runs Chromium in "headed"
-		// mode against a virtual framebuffer so its fingerprint is real.
-		if (this.config.settings.virtualDisplay && !this.xvfbProcess) {
+		// Keep Xvfb ownership aligned with the current configuration. A manager may
+		// be reconfigured between launches; once virtualDisplay is disabled, tear
+		// down the owned display before building replacement launch options.
+		const virtualDisplayEnabled = this.config.settings.virtualDisplay === true;
+		if (!virtualDisplayEnabled && this.xvfbProcess) {
+			this.stopXvfb();
+		}
+		if (virtualDisplayEnabled && !this.xvfbProcess) {
 			await this.startXvfb();
 		}
 
@@ -620,11 +751,20 @@ export class BrowserManager {
 		}
 
 		const launchOptions = this.buildLaunchOptions(extraOptions, actualBrowserType);
+		if (this.xvfbDisplay) {
+			// DISPLAY is process-global, so overlapping managers can change it between
+			// Xvfb readiness and Chromium spawn. Pin this browser to the display owned
+			// by this manager. Preserve an explicitly supplied launch environment; only
+			// inherit the Talox process environment when the caller did not provide one.
+			const launchEnv = launchOptions.env as NodeJS.ProcessEnv | undefined;
+			launchOptions.env = { ...(launchEnv ?? process.env), DISPLAY: this.xvfbDisplay };
+		}
 
 		// Compute hash of launch options to detect config changes
 		const newHash = this.computeLaunchHash({
 			headless: launchOptions.headless,
 			browserType: actualBrowserType,
+			virtualDisplay: virtualDisplayEnabled,
 			userDataDir: profile.userDataDir,
 			...(this.config.browser.proxy ? { proxy: this.config.browser.proxy } : {}),
 			...(launchOptions.args ? { args: launchOptions.args } : {}),
@@ -636,9 +776,10 @@ export class BrowserManager {
 			return this.context;
 		}
 
-		// Close existing browser if configuration changed
+		// Close only the browser context when launch configuration changes. Keep an
+		// owned Xvfb alive because launchOptions may already be pinned to that display.
 		if (this.context) {
-			await this.close();
+			await this.closeContextForRelaunch();
 		}
 
 		this.launchOptionsHash = newHash;

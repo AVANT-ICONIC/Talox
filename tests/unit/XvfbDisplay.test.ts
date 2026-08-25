@@ -150,6 +150,66 @@ describe("Xvfb Virtual Display", () => {
 			await expect(mgr.startXvfb()).rejects.toThrow("Xvfb not found");
 		});
 
+		it("registers cleanup immediately after spawn and removes it when startup fails", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const mock = createMockChildProcess();
+			mockSpawn.mockReturnValue(mock.process);
+			const onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
+			const mgr = new BrowserManager();
+
+			const promise = mgr.startXvfb();
+			const exitRegistration = onceSpy.mock.calls.find(([event]) => event === "exit");
+			expect(mockSpawn).toHaveBeenCalledTimes(1);
+			expect(exitRegistration).toBeDefined();
+			expect(onceSpy.mock.calls.some(([event]) => event === "SIGINT")).toBe(true);
+
+			mock.triggerError(new Error("spawn failed"));
+			await expect(promise).rejects.toThrow("Failed to start Xvfb");
+			expect(mgr.isXvfbRunning()).toBe(false);
+			const killCount = mockKill.mock.calls.length;
+
+			const exitHandler = exitRegistration?.[1] as (() => void) | undefined;
+			exitHandler?.();
+			expect(mockKill).toHaveBeenCalledTimes(killCount);
+			onceSpy.mockRestore();
+		});
+
+		it("ignores a delayed exit from a failed child after a retry owns Xvfb", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const mgr = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = mgr.startXvfb();
+			first.triggerError(new Error("first spawn failed"));
+			await expect(firstStart).rejects.toThrow("Failed to start Xvfb");
+
+			const secondStart = mgr.startXvfb();
+			expect(mgr.isXvfbRunning()).toBe(true);
+			first.triggerExit(1);
+			expect(mgr.isXvfbRunning()).toBe(true);
+
+			await vi.advanceTimersByTimeAsync(600);
+			await secondStart;
+			expect(mgr.isXvfbRunning()).toBe(true);
+			expect(process.env.DISPLAY).toMatch(/^:\d+$/);
+
+			mgr.stopXvfb();
+			vi.useRealTimers();
+		});
+
 		it("spawns Xvfb and sets DISPLAY", async () => {
 			mockPlatform("linux");
 			// Xvfb found at /usr/bin/Xvfb
@@ -180,6 +240,30 @@ describe("Xvfb Virtual Display", () => {
 				expect.objectContaining({ stdio: "ignore" }),
 			);
 
+			mgr.stopXvfb();
+			vi.useRealTimers();
+		});
+
+		it("releases the reserved display when spawn throws synchronously", async () => {
+			mockPlatform("linux");
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+			mockSpawn.mockImplementationOnce(() => {
+				throw new Error("spawn exploded");
+			});
+			const mgr = new BrowserManager();
+			await expect(mgr.startXvfb()).rejects.toThrow("Failed to start Xvfb: spawn exploded");
+			expect(mgr.isXvfbRunning()).toBe(false);
+
+			const retry = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(retry.process);
+			vi.useFakeTimers();
+			const retryStart = mgr.startXvfb();
+			expect((mockSpawn.mock.calls[1]?.[1] as string[])[0]).toBe(":99");
+			await vi.advanceTimersByTimeAsync(600);
+			await retryStart;
 			mgr.stopXvfb();
 			vi.useRealTimers();
 		});
@@ -278,6 +362,67 @@ describe("Xvfb Virtual Display", () => {
 			expect(mockKill).toHaveBeenCalledWith("SIGTERM");
 			expect(process.env.DISPLAY).toBeUndefined();
 
+			vi.useRealTimers();
+		});
+
+		it("restores the previous active Xvfb when overlapping managers stop in LIFO order", async () => {
+			mockPlatform("linux");
+			process.env.DISPLAY = ":42";
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const firstManager = new BrowserManager();
+			const secondManager = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = firstManager.startXvfb();
+			const secondStart = secondManager.startXvfb();
+			await vi.advanceTimersByTimeAsync(600);
+			await Promise.all([firstStart, secondStart]);
+
+			const firstDisplay = (mockSpawn.mock.calls[0]?.[1] as string[])[0];
+			const secondDisplay = (mockSpawn.mock.calls[1]?.[1] as string[])[0];
+			expect(firstDisplay).toBe(":99");
+			expect(secondDisplay).toBe(":100");
+			expect(process.env.DISPLAY).toBe(":100");
+
+			secondManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":99");
+			firstManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":42");
+			vi.useRealTimers();
+		});
+
+		it("keeps the current Xvfb DISPLAY when an older manager stops first", async () => {
+			mockPlatform("linux");
+			process.env.DISPLAY = ":42";
+			(fs.accessSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+				if (p === "/usr/bin/Xvfb") return;
+				throw new Error("not found");
+			});
+
+			const first = createMockChildProcess();
+			const second = createMockChildProcess();
+			mockSpawn.mockReturnValueOnce(first.process).mockReturnValueOnce(second.process);
+			const firstManager = new BrowserManager();
+			const secondManager = new BrowserManager();
+			vi.useFakeTimers();
+
+			const firstStart = firstManager.startXvfb();
+			const secondStart = secondManager.startXvfb();
+			await vi.advanceTimersByTimeAsync(600);
+			await Promise.all([firstStart, secondStart]);
+			expect(process.env.DISPLAY).toBe(":100");
+
+			firstManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":100");
+			secondManager.stopXvfb();
+			expect(process.env.DISPLAY).toBe(":42");
 			vi.useRealTimers();
 		});
 

@@ -110,11 +110,11 @@ describe("BrowserManager", () => {
 			expect(config.browser.autoDetect).toBeUndefined();
 		});
 
-		it("registers exit handlers on process", () => {
+		it("does not register process handlers before owning cleanup resources", () => {
 			const spy = vi.spyOn(process, "once").mockImplementation(() => process);
 			new BrowserManager();
-			expect(spy).toHaveBeenCalledWith("exit", expect.any(Function));
-			expect(spy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
+			expect(spy).not.toHaveBeenCalledWith("exit", expect.any(Function));
+			expect(spy).not.toHaveBeenCalledWith("SIGINT", expect.any(Function));
 			spy.mockRestore();
 		});
 	});
@@ -189,6 +189,32 @@ describe("BrowserManager", () => {
 	// ─── Launch ─────────────────────────────────────────────────────────────
 
 	describe("launch", () => {
+		it("shares one process cleanup listener pair across many active managers", async () => {
+			const onceSpy = vi.spyOn(process, "once").mockImplementation(() => process);
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockImplementation(async () => createMockContext());
+			const managers = Array.from(
+				{ length: 12 },
+				() =>
+					new BrowserManager({
+						browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+						settings: { adaptiveStealthEnabled: false } as any,
+					}),
+			);
+
+			for (const [index, mgr] of managers.entries()) {
+				await mgr.launch({
+					...createTestProfile(),
+					id: `listener-test-${index}`,
+					userDataDir: `/tmp/talox-listener-test-${index}`,
+				});
+			}
+
+			expect(onceSpy.mock.calls.filter(([event]) => event === "exit")).toHaveLength(1);
+			expect(onceSpy.mock.calls.filter(([event]) => event === "SIGINT")).toHaveLength(1);
+			await Promise.all(managers.map((mgr) => mgr.closeAll()));
+			onceSpy.mockRestore();
+		});
+
 		it("launches chromium by default and returns a context", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
@@ -262,6 +288,120 @@ describe("BrowserManager", () => {
 					viewport: { width: 1920, height: 1080 },
 				}),
 			);
+		});
+
+		it("keeps owned Xvfb alive when launch options require a browser relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":123";
+
+			const profile = createTestProfile();
+			await manager.launch(profile, false, "chromium", { args: ["--first-launch"] });
+			await manager.launch(profile, false, "chromium", { args: ["--replacement-launch"] });
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(xvfb.kill).not.toHaveBeenCalled();
+			expect((manager as any).xvfbDisplay).toBe(":123");
+			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
+			expect(secondLaunch.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+
+			await manager.close();
+		});
+
+		it("stops owned Xvfb when virtualDisplay is disabled before a relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":125";
+
+			const profile = createTestProfile();
+			await manager.launch(profile, false, "chromium", { args: ["--virtual-display"] });
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", { args: ["--no-virtual-display"] });
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect((manager as any).xvfbProcess).toBeNull();
+			expect((manager as any).xvfbDisplay).toBeNull();
+			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
+			expect(secondLaunch.headless).toBe(true);
+			expect(secondLaunch.env?.DISPLAY).not.toBe(":125");
+
+			await manager.close();
+		});
+
+		it("relaunches when only virtualDisplay changes", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":126";
+
+			const profile = createTestProfile();
+			const launchOptions = { headless: false };
+			await manager.launch(profile, false, "chromium", launchOptions);
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", launchOptions);
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect(manager.getContext()).toBe(secondContext);
+
+			await manager.close();
+		});
+
+		it("pins browser launch env to the Xvfb display owned by this manager", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			(manager as any).xvfbDisplay = ":123";
+
+			await manager.launch(createTestProfile(), false, "chromium");
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+		});
+
+		it("preserves caller-provided browser env while pinning Xvfb DISPLAY", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			(manager as any).xvfbDisplay = ":124";
+
+			await manager.launch(createTestProfile(), false, "chromium", {
+				env: { TALOX_TEST_ONLY: "kept", PATH: "/restricted" },
+			});
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.env).toEqual({
+				TALOX_TEST_ONLY: "kept",
+				PATH: "/restricted",
+				DISPLAY: ":124",
+			});
 		});
 
 		it("includes expected chromium args", async () => {
