@@ -1,0 +1,44 @@
+name: Validate Playwright accessibility fallback
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate:
+    if: github.head_ref == 'fix/playwright-accessibility-fallback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/playwright-accessibility-fallback
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply Playwright accessibility compatibility patch
+        run: python3 .github/scripts/apply_playwright_accessibility_fallback.py
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Focused collector units
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/PageStateCollector.test.ts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify modern Playwright fallback with a real browser
+        run: npx vitest run --config vitest.config.browser.ts tests/core/page-state-accessibility-compat.test.ts
+      - name: Re-run error paths
+        run: npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts
+      - name: Commit validated change and remove transaction helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-playwright-accessibility-fallback.yml .github/scripts/apply_playwright_accessibility_fallback.py
+          git add src/core/PageStateCollector.ts tests/unit/PageStateCollector.test.ts tests/core/page-state-accessibility-compat.test.ts
+          git commit -m "fix: skip removed Playwright accessibility API retries"
+          git push origin HEAD:fix/playwright-accessibility-fallback
