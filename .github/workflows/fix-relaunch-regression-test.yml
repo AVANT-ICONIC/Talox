@@ -1,0 +1,29 @@
+name: Fix relaunch regression test
+
+on:
+  push:
+    branches:
+      - fix/browser-process-cleanup
+    paths:
+      - .github/workflows/fix-relaunch-regression-test.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/browser-process-cleanup
+      - name: Correct relaunch regression inputs
+        run: python3 .github/scripts/fix_relaunch_regression_test.py
+      - name: Commit test and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/unit/BrowserManager.test.ts
+          git rm .github/workflows/fix-relaunch-regression-test.yml .github/scripts/fix_relaunch_regression_test.py
+          git commit -m "test: exercise hash-tracked browser relaunch"
+          git push origin HEAD:fix/browser-process-cleanup
