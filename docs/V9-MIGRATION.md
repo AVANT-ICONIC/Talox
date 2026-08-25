@@ -4,7 +4,7 @@ Talox v9 raises the minimum supported Node.js runtime from 18 to 20 and moves pa
 
 ## Release baseline
 
-The v9.0.0 repository baseline uses Node.js 20+ and Playwright 1.62.1 while keeping the public `TaloxPageState` contract at version 1.
+The v9.0.0 repository baseline uses Node.js 20+ and Playwright 1.62.1 while keeping the public `TaloxPageState` contract at version 1. `talox doctor` enforces the same Node.js 20 minimum so diagnostics and package metadata agree.
 
 ## Required runtime change
 
