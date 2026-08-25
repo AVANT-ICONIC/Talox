@@ -36,7 +36,17 @@ describe("PlanDelegateObserveLoop integration", () => {
 		coordinator = new AgentCoordinator({
 			agents: 2,
 			baseDir: path.join(__dirname, "../../temp-profiles/multi-agent-loop"),
-			settings: { headed: false, verbosity: 0 },
+			// This test exercises coordination and state isolation, not biomechanical
+			// input simulation. Keep browser actions deterministic so interaction
+			// randomness cannot turn an orchestration regression into a CI flake.
+			settings: {
+				headed: false,
+				verbosity: 0,
+				safeMode: true,
+				humanStealth: 0,
+				fidgetEnabled: false,
+				adaptiveStealthEnabled: false,
+			},
 		});
 
 		try {
@@ -94,6 +104,8 @@ describe("PlanDelegateObserveLoop integration", () => {
 				}
 
 				if (plannerCall === 2) {
+					expect(input.multiAgent?.agents[0]?.lastTaskSucceeded).toBe(true);
+					expect(input.multiAgent?.agents[1]?.lastTaskSucceeded).toBe(true);
 					expect(input.multiAgent?.agents[0]?.title).toBe("agent-a");
 					expect(input.multiAgent?.agents[1]?.title).toBe("agent-b");
 					expect(input.multiAgent?.sharedState).toHaveProperty("agentA");
@@ -123,6 +135,8 @@ describe("PlanDelegateObserveLoop integration", () => {
 					};
 				}
 
+				expect(input.multiAgent?.agents[0]?.lastTaskSucceeded).toBe(true);
+				expect(input.multiAgent?.agents[1]?.lastTaskSucceeded).toBe(true);
 				expect(input.multiAgent?.agents[0]?.title).toBe("agent-a-done");
 				expect(input.multiAgent?.agents[1]?.title).toBe("agent-b-done");
 				return {
