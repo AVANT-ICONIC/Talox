@@ -77,6 +77,28 @@ jobs:
       - name: Pack, install, import exports, and run CLI
         run: npm run test:package
 
+  # ─── Real-world discovery — compile/load live-site specs without hitting sites ─
+  # PR CI intentionally does not execute hostile/slow external websites, but real
+  # test files still need a cheap contract gate so syntax/import regressions cannot
+  # survive until the next nightly run.
+  real-world-discovery:
+    name: Real-World Test Discovery
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Load and discover real-world Playwright specs
+        run: npx playwright test --list
+
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
   # Browser tests remain serial inside each shard. The unusually slow error-path
   # suite has its own runner so a transient browser-launch failure does not force
