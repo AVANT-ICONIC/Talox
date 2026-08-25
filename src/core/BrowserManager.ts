@@ -908,13 +908,20 @@ export class BrowserManager {
 		}
 	}
 
-	async close() {
-		if (this.context) {
-			await this.context.close();
-			this.context = null;
+	async close(): Promise<void> {
+		const ctx = this.context;
+		if (ctx) {
+			await ctx.close();
+			this.contexts.delete(ctx);
+			if (this.context === ctx) this.context = null;
+			if (this.profileOwnerContext === ctx) this.releasePersistentProfileOwnership();
+			this.unregisterProcessCleanupIfIdle();
 		}
-		this.releasePersistentProfileOwnership();
-		this.stopXvfb();
+
+		if (this.contexts.size === 0) {
+			if (this.ownedProfileDir !== null) this.releasePersistentProfileOwnership();
+			this.stopXvfb();
+		}
 	}
 
 	getContext(): BrowserContext | null {
