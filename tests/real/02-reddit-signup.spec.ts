@@ -27,6 +27,7 @@ const adaptedEvents: any[] = [];
 let disposableEmail = "";
 const testUsername = `talox_test_${Date.now().toString(36)}`;
 const testPassword = `T@lox_${Date.now()}!`;
+const REDDIT_REGISTRATION_STEP_TIMEOUT_MS = 90_000;
 
 test.describe("Scenario 2 — Reddit signup via Gorilla Mail", () => {
 	test.setTimeout(180_000);
@@ -93,12 +94,14 @@ test.describe("Scenario 2 — Reddit signup via Gorilla Mail", () => {
 	});
 
 	test("Step 2b — navigates to registration page", async () => {
+		test.setTimeout(REDDIT_REGISTRATION_STEP_TIMEOUT_MS);
 		const state = await talox.navigate("https://www.reddit.com/register");
 		expect(state.url).toContain("reddit.com");
 		console.log("[test] Registration URL:", state.url);
 	});
 
 	test("Step 2c — AX-Tree has email or username input", async () => {
+		test.setTimeout(REDDIT_REGISTRATION_STEP_TIMEOUT_MS);
 		// Reddit register may be a SPA modal — give it a moment
 		// Re-navigate to ensure we're on the registration page even if worker restarted
 		await talox.waitForTimeout(2000);
