@@ -44,14 +44,17 @@ export interface TaloxConfig {
 	};
 	/**
 	 * @deprecated Use `settings` instead. Legacy modes map to the new agent-first control model.
-	 * - 'smart' | 'adaptive' | 'stealth' | 'balanced' | 'qa' → DEFAULT_SETTINGS (high stealth, adaptive behavior)
+	 * - 'smart' | 'adaptive' | 'stealth' | 'balanced' | 'qa' → high-stealth adaptive settings
+	 *   with `navigationWaitUntil: 'domcontentloaded'` so continuously-busy SPAs do not stall.
 	 *   Note: 'stealth', 'balanced', 'qa' are deprecated aliases for 'smart'/'adaptive'.
 	 * - 'debug' → headed, verbosity 3, human takeover enabled
 	 * - 'speed' → fast mouse, low stealth, no fidget
 	 * - 'browse' → headed with human takeover for interactive browsing
 	 * - 'observe' → headed with full perception for observation
 	 *
-	 * Use `resolveLegacyMode()` to see the exact mapping.
+	 * Use `resolveLegacyMode()` to see the exact mapping. When migrating away from
+	 * `mode: 'smart'`, preserve `navigationWaitUntil: 'domcontentloaded'` unless you
+	 * intentionally want the stricter `networkidle` readiness contract.
 	 */
 	mode?: LegacyTaloxMode; // NOSONAR
 }
