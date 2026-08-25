@@ -7,7 +7,7 @@
  * are captured, not based on achieving a specific score.
  *
  * Suites tested:
- * - Sannysoft Bot Detection (bot.sannysoft.com) — 31 checks
+ * - Sannysoft Bot Detection (bot.sannysoft.com) — current table pass/fail checks
  * - CreepJS (abrahamjuliot.github.io/creepjs) — trust/lie scores
  * - BrowserLeaks (browserleaks.com) — loads without block
  *
@@ -77,40 +77,36 @@ test.describe("Detection Score Suite", () => {
 
 	// ─── Sannysoft ────────────────────────────────────────────────────────
 
-	test("Sannysoft Bot Detection — captures all 31 check results", async () => {
-		const state = await talox.navigate("https://bot.sannysoft.com/");
+	test("Sannysoft Bot Detection — captures current check results", async () => {
+		await talox.navigate("https://bot.sannysoft.com/");
 		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
 		const result = await talox.evaluate<SannysoftResult>(`
 			(() => {
-				const tables = document.querySelectorAll('table');
+				const rows = document.querySelectorAll('table tr');
 				let passed = 0;
 				let failed = 0;
 				let total = 0;
 				const failedChecks = [];
 
-				tables.forEach(table => {
-					const rows = table.querySelectorAll('tr');
-					rows.forEach(row => {
-						const cells = row.querySelectorAll('td');
-						if (cells.length >= 2) {
-							const label = cells[0]?.textContent?.trim() || '';
-							const value = cells[1]?.textContent?.trim() || '';
-							const bg = cells[1]?.style?.backgroundColor || '';
-							// Sannysoft uses green (#cbf3cb or similar) for pass, red for fail
-							const isGreen = bg.includes('cbf3cb') || bg.includes('green') || bg.includes('#cbf3cb');
-							const isRed = bg.includes('ffc7c7') || bg.includes('red') || bg.includes('#ffc7c7');
-							if (label && (isGreen || isRed)) {
-								total++;
-								if (isGreen) {
-									passed++;
-								} else {
-									failed++;
-									failedChecks.push(label + ': ' + value);
-								}
-							}
-						}
-					});
+				rows.forEach(row => {
+					const cells = row.querySelectorAll('td');
+					if (cells.length < 2) return;
+
+					const label = cells[0]?.textContent?.trim() || '';
+					if (!label) return;
+
+					const value = cells[1]?.textContent?.trim() || '';
+					const className = String(cells[1]?.className || '').toLowerCase();
+					const isFailed = className.includes('failed');
+
+					total++;
+					if (isFailed) {
+						failed++;
+						failedChecks.push(label + ': ' + value);
+					} else {
+						passed++;
+					}
 				});
 
 				return { total, passed, failed, failedChecks };
@@ -122,10 +118,8 @@ test.describe("Detection Score Suite", () => {
 			console.log(`[Sannysoft] Failed checks: ${result.failedChecks.join(", ")}`);
 		}
 
-		// We must detect at least some checks — the page must have loaded
-		expect(result.total).toBeGreaterThan(0);
-		// Document current score — do NOT fail on low scores
-		// This tracks regressions over time
+		// Document current score — do NOT fail on low scores. Only a parser/page
+		// failure (zero captured rows) is an error; actual failed checks are evidence.
 		const previous = loadPreviousResults();
 		if (previous?.sannysoft) {
 			const prevScore = previous.sannysoft.passed;
@@ -139,17 +133,21 @@ test.describe("Detection Score Suite", () => {
 			}
 		}
 
-		// Save for future comparison
-		const current = loadPreviousResults() || ({} as DetectionResults);
+		// Persist even a zero-row parser result before failing. That keeps the final
+		// regression-summary test from cascading into a second unrelated failure.
+		const current = previous || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.sannysoft = result;
 		saveResults(current as DetectionResults);
+
+		// We must detect at least some checks — the page/parser must have worked.
+		expect(result.total).toBeGreaterThan(0);
 	});
 
 	// ─── CreepJS ──────────────────────────────────────────────────────────
 
 	test("CreepJS — captures trust score and lie detection", async () => {
-		const state = await talox.navigate("https://abrahamjuliot.github.io/creepjs/");
+		await talox.navigate("https://abrahamjuliot.github.io/creepjs/");
 		// CreepJS needs time to run all fingerprint tests
 		await talox.evaluate(`new Promise(r => setTimeout(r, 15000))`);
 
@@ -195,7 +193,7 @@ test.describe("Detection Score Suite", () => {
 	// ─── BrowserLeaks ─────────────────────────────────────────────────────
 
 	test("BrowserLeaks — loads without block", async () => {
-		const state = await talox.navigate("https://browserleaks.com/");
+		await talox.navigate("https://browserleaks.com/");
 		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
 		const title = await talox.evaluate<string>("document.title");
