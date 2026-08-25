@@ -48,6 +48,9 @@ export class InspectServer {
 	private cdpSession: import("playwright-core").CDPSession | null = null;
 	private readonly devtoolsClients: Set<WebSocket> = new Set();
 	private running = false;
+	private attachInFlight: Promise<void> | null = null;
+	private detachInFlight: Promise<void> | null = null;
+	private connectionHandlerInstalled = false;
 
 	constructor(config?: InspectServerConfig) {
 		this.port = config?.port ?? 9222;
@@ -61,60 +64,136 @@ export class InspectServer {
 	/**
 	 * Attach to a Playwright page and start proxying CDP messages.
 	 *
-	 * Starts the HTTP and WebSocket servers if not already running.
+	 * Attachments are serialized so concurrent callers cannot race server start
+	 * or leak multiple CDP sessions. Failed attempts leave the next attach free
+	 * to retry.
 	 */
 	async attach(page: Page): Promise<void> {
+		while (this.attachInFlight) {
+			await this.attachInFlight.catch(() => {});
+		}
+
+		const attempt = this.runAttach(page);
+		this.attachInFlight = attempt;
+		try {
+			await attempt;
+		} finally {
+			if (this.attachInFlight === attempt) this.attachInFlight = null;
+		}
+	}
+
+	private async runAttach(page: Page): Promise<void> {
+		const detach = this.detachInFlight;
+		if (detach) await detach;
+
 		this.page = page;
+		await this.ensureServerStarted();
+
+		const previousSession = this.cdpSession;
+		this.cdpSession = null;
+		if (previousSession) {
+			await previousSession.detach().catch(() => {}); // NOSONAR — previous page may already be closed
+		}
 
 		try {
 			this.cdpSession = await page.context().newCDPSession(page);
 		} catch {
 			// NOSONAR — CDP session creation may fail in some browsers
 		}
+	}
 
-		if (!this.running) {
-			this.running = true;
+	private async ensureServerStarted(): Promise<void> {
+		if (this.running) return;
 
+		if (!this.connectionHandlerInstalled) {
 			this.wss.on("connection", (ws: WebSocket) => {
 				this.handleDevToolsConnection(ws);
 			});
-
-			await new Promise<void>((resolve, reject) => {
-				this.httpServer.once("error", reject);
-				this.httpServer.listen(this.port, this.host, () => {
-					this.httpServer.removeListener("error", reject);
-					resolve();
-				});
-			});
+			this.connectionHandlerInstalled = true;
 		}
+
+		await new Promise<void>((resolve, reject) => {
+			this.httpServer.once("error", reject);
+			this.httpServer.listen(this.port, this.host, () => {
+				this.httpServer.removeListener("error", reject);
+				this.running = true;
+				resolve();
+			});
+		});
 	}
 
 	/**
-	 * Stop proxying and shut down the servers.
+	 * Stop proxying and wait until the inspect sockets are actually released.
 	 */
-	detach(): void {
+	detach(): Promise<void> {
+		if (this.detachInFlight) return this.detachInFlight;
+
+		const attempt = this.runDetach();
+		this.detachInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.detachInFlight === attempt) this.detachInFlight = null;
+			},
+			() => {
+				if (this.detachInFlight === attempt) this.detachInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runDetach(): Promise<void> {
+		const attach = this.attachInFlight;
+		if (attach) await attach.catch(() => {});
+
 		const clients = Array.from(this.devtoolsClients);
 		for (const ws of clients) {
 			try {
-				ws.close();
+				ws.terminate();
 			} catch {
-				// NOSONAR
+				try {
+					ws.close();
+				} catch {
+					// NOSONAR — client may already be closed
+				}
 			}
 		}
 		this.devtoolsClients.clear();
 
-		if (this.cdpSession) {
-			this.cdpSession.detach().catch(() => {}); // NOSONAR — detach may fail
-			this.cdpSession = null;
-		}
+		const cdpSession = this.cdpSession;
+		this.cdpSession = null;
+		const cdpDetach = cdpSession ? cdpSession.detach().catch(() => {}) : Promise.resolve();
 
 		this.page = null;
 
-		if (this.running) {
-			this.running = false;
-			this.wss.close();
-			this.httpServer.close();
+		if (!this.running) {
+			await cdpDetach;
+			return;
 		}
+
+		const webSocketClose = this.closeWebSocketServer();
+		const httpClose = this.closeHttpServer();
+		await Promise.all([cdpDetach, webSocketClose, httpClose]);
+		this.running = false;
+	}
+
+	private closeWebSocketServer(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			try {
+				this.wss.close(() => resolve());
+			} catch {
+				resolve();
+			}
+		});
+	}
+
+	private closeHttpServer(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			try {
+				this.httpServer.close(() => resolve());
+			} catch {
+				resolve();
+			}
+		});
 	}
 
 	/**
