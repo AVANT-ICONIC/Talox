@@ -78,11 +78,7 @@ export class NetworkMocker {
 				return;
 			}
 
-			try {
-				await route.continue();
-			} catch {
-				return;
-			}
+			await route.continue();
 
 			try {
 				const response: Response | null = await request.response();
