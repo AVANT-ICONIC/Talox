@@ -10,7 +10,9 @@ Talox GitHub releases are created through the guarded manual `Release` workflow 
 4. Leave **dry_run** enabled.
 5. Run the workflow.
 
-A dry run creates no tag and no GitHub Release. It verifies the release contract, typechecks and builds the package, runs the full unit suite, audits production dependencies, checks `npm pack --dry-run`, and runs the Chromium browser integration suite.
+A dry run creates no tag and no GitHub Release. It verifies the release contract, typechecks and builds the package, runs the full unit suite, audits production dependencies, packs the actual npm tarball, installs that tarball into a fresh temporary consumer project, imports every public package surface (`talox`, `talox/plugins`, `talox/adapters`, and `talox/local-vision`), runs the installed `talox --help` binary, and then runs the Chromium browser integration suite.
+
+The same packed-package consumer smoke also runs in normal CI so export-map, tarball, dependency, and CLI packaging regressions are caught before release day.
 
 ## Publish
 
