@@ -179,6 +179,15 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Restore previous detection baseline
+        if: matrix.group == 'detection'
+        uses: actions/cache/restore@v5
+        with:
+          path: tests/real/detection-results.json
+          key: talox-detection-results-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            talox-detection-results-${{ runner.os }}-
+
       - run: npm ci
 
       - run: npm run build
@@ -192,6 +201,32 @@ jobs:
           REDDIT_USER: ${{ secrets.REDDIT_USER }}
           REDDIT_PASS: ${{ secrets.REDDIT_PASS }}
           CI: true
+
+      - name: Check detection baseline output
+        id: detection-baseline
+        if: always() && matrix.group == 'detection'
+        shell: bash
+        run: |
+          if [ -f tests/real/detection-results.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save detection baseline
+        if: always() && matrix.group == 'detection' && steps.detection-baseline.outputs.exists == 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: tests/real/detection-results.json
+          key: talox-detection-results-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload detection baseline
+        if: always() && matrix.group == 'detection' && steps.detection-baseline.outputs.exists == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: detection-results-${{ github.run_number }}-${{ github.run_attempt }}
+          path: tests/real/detection-results.json
+          retention-days: 30
 
       - name: Upload Playwright report
         if: always()
