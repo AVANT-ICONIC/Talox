@@ -1,9 +1,9 @@
 name: Prepare v9 release
 
 on:
-  push:
+  pull_request:
     branches:
-      - release/v9.0.0
+      - main
 
 permissions:
   contents: write
