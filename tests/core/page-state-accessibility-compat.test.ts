@@ -7,7 +7,7 @@ describe("PageStateCollector · modern Playwright accessibility compatibility", 
 	let page: Page;
 
 	beforeAll(async () => {
-		browser = await chromium.launch({ headless: true });
+		browser = await chromium.launch({ headless: true, ...(process.env.CI ? { channel: "chrome" } : {}) });
 		page = await browser.newPage();
 		await page.setContent(`<main><h1>Compatibility</h1>${Array.from({ length: 12 }, (_, i) => `<button>Action ${i}</button>`).join("")}</main>`);
 	});
