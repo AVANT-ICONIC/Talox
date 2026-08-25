@@ -429,17 +429,24 @@ describe("BrowserManager", () => {
 				settings: { adaptiveStealthEnabled: false } as any,
 			});
 			const profile = createTestProfile("relaunch-profile");
+			let relaunch: Promise<ReturnType<typeof createMockContext>> | null = null;
 
-			await manager.launch(profile, false, "chromium", { viewport: { width: 800, height: 600 } });
-			const relaunch = manager.launch(profile, false, "chromium", { viewport: { width: 1024, height: 768 } });
-			await vi.waitFor(() => expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2));
+			try {
+				await manager.launch(profile, false, "chromium", { args: ["--first-profile-launch"] });
+				relaunch = manager.launch(profile, false, "chromium", { args: ["--replacement-profile-launch"] }) as Promise<ReturnType<typeof createMockContext>>;
+				await vi.waitFor(() => expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2));
 
-			await expect(competingManager.launch(profile)).rejects.toThrow("PROFILE_IN_USE");
-			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+				await expect(competingManager.launch(profile)).rejects.toThrow("PROFILE_IN_USE");
+				expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
 
-			resolveReplacement(replacementContext);
-			await expect(relaunch).resolves.toBe(replacementContext);
-			await manager.close();
+				resolveReplacement(replacementContext);
+				await expect(relaunch).resolves.toBe(replacementContext);
+			} finally {
+				resolveReplacement(replacementContext);
+				if (relaunch) await relaunch.catch(() => undefined);
+				await manager.close().catch(() => undefined);
+				await competingManager.close().catch(() => undefined);
+			}
 		});
 	});
 
