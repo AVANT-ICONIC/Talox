@@ -1,0 +1,56 @@
+name: Fix doctor Node 20 baseline
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/doctor-node20-baseline
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply Doctor Node 20 baseline fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          doctor = Path('src/cli/doctor.ts')
+          s = doctor.read_text()
+          s = s.replace('const MIN_NODE_MAJOR = 18;', 'export const MIN_NODE_MAJOR = 20;')
+          s = s.replace('fixHint: "Upgrade Node.js to v18 or later",', 'fixHint: `Upgrade Node.js to v${MIN_NODE_MAJOR} or later`,')
+          doctor.write_text(s)
+
+          test = Path('tests/unit/cli/doctor.test.ts')
+          s = test.read_text()
+          s = s.replace('import { formatDoctorOutput, runDoctor } from "../../../src/cli/doctor.js";', 'import { formatDoctorOutput, MIN_NODE_MAJOR, runDoctor } from "../../../src/cli/doctor.js";')
+          s = s.replace('{ name: "Playwright runtime", status: "ok", message: "v1.58.2" },', '{ name: "Playwright runtime", status: "ok", message: "v1.62.1" },')
+          anchor = '// ---------------------------------------------------------------------------\n// formatDoctorOutput\n// ---------------------------------------------------------------------------\n\n'
+          regression = '''describe("Doctor runtime baseline", () => {\n\tit("matches the v9 Node.js engine floor", () => {\n\t\texpect(MIN_NODE_MAJOR).toBe(20);\n\t});\n});\n\n'''
+          if regression not in s:
+              s = s.replace(anchor, anchor + regression)
+          test.write_text(s)
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Focused doctor units
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/cli/doctor.test.ts
+      - run: npm run test:unit
+      - name: Remove helper and commit validated fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-doctor-node20.yml
+          git add src/cli/doctor.ts tests/unit/cli/doctor.test.ts
+          git commit -m "fix: align doctor with Node 20 baseline"
+          git push origin HEAD:fix/doctor-node20-baseline
