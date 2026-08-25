@@ -124,6 +124,19 @@ describe("PageStateCollector", () => {
 			expect(state.timing!.totalMs).toBeGreaterThanOrEqual(0);
 			expect(state.timing!.collectedAt).toBe(state.timestamp);
 		});
+
+		it.each(["about:blank", "about:srcdoc"])(
+			"skips hydration backoff for synthetic document %s",
+			async (url) => {
+				const page = makeMockPage({ url, axSnapshot: null });
+				const collector = new PageStateCollector(page, { useDomFallback: false });
+
+				await collector.collect();
+
+				expect(page.accessibility.snapshot).toHaveBeenCalledTimes(1);
+				expect(collector.getRetryStats().totalDelayMs).toBe(0);
+			},
+		);
 	});
 
 	// ─── AX tree extraction ──────────────────────────────────────────────────

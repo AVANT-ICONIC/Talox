@@ -664,8 +664,12 @@ export class PageStateCollector {
 		return result;
 	}
 
-	private async collectWithRetry(nodeThreshold: number): Promise<{ nodes: TaloxNode[]; shouldUseFallback: boolean }> {
-		const { maxRetries = DEFAULT_RETRY_OPTIONS.maxRetries } = this.options.retry;
+	private async collectWithRetry(
+		nodeThreshold: number,
+		maxRetriesOverride?: number,
+	): Promise<{ nodes: TaloxNode[]; shouldUseFallback: boolean }> {
+		const configuredMaxRetries = this.options.retry.maxRetries ?? DEFAULT_RETRY_OPTIONS.maxRetries;
+		const maxRetries = maxRetriesOverride ?? configuredMaxRetries;
 		let nodes: TaloxNode[] = [];
 		let axSnapshot: any = null;
 		let axTreeError: Error | null = null;
@@ -728,6 +732,10 @@ export class PageStateCollector {
 		const collectStart = Date.now();
 		const url = this.page.url();
 		const title = await this.page.title();
+		// Browser-synthetic documents do not have an application hydration lifecycle.
+		// Retrying an empty AX tree here only adds deterministic backoff delay. Keep
+		// one complete collection pass so dynamically inserted DOM is still observed.
+		const syntheticDocument = url === "about:blank" || url === "about:srcdoc";
 
 		this.retryStats.attempts++;
 
@@ -736,10 +744,10 @@ export class PageStateCollector {
 		const nodeThreshold = this.options.domFallbackThreshold;
 
 		let collectionAttempts = 0;
-		const maxCollectionAttempts = 3;
+		const maxCollectionAttempts = syntheticDocument ? 1 : 3;
 
 		while (collectionAttempts < maxCollectionAttempts) {
-			const result = await this.collectWithRetry(nodeThreshold);
+			const result = await this.collectWithRetry(nodeThreshold, syntheticDocument ? 0 : undefined);
 			nodes = result.nodes;
 			shouldUseFallback = result.shouldUseFallback;
 

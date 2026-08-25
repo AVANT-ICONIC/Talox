@@ -20,11 +20,25 @@ Direct Playwright click/type waits use `settings.actionTimeoutMs` (default `5000
 
 When a caller explicitly requests a browser such as `chromium`, Talox launches that browser directly. It no longer starts a throwaway detection browser first. Automatic preferred-browser probing remains available when the browser type is omitted.
 
+## Synthetic browser documents
+
+`about:blank` and `about:srcdoc` still receive a complete state-collection pass, including DOM fallback and interactive-element discovery, but they no longer pay repeated accessibility-tree hydration backoff. These browser-synthetic documents have no application navigation lifecycle for Talox to wait on, so repeated empty-tree retries add deterministic latency without producing new state.
+
+Normal HTTP/HTTPS pages keep the existing progressive hydration retry strategy unchanged.
+
 ## Validated impact
 
-On the GitHub Actions Ubuntu browser runner on 2026-08-25, `tests/core/error-paths.test.ts` passed all 20 tests in **57.08 seconds**, down from **113.28 seconds** on the preceding PR head. That is a **49.6% reduction** in total shard duration while retaining the same error-path coverage.
+On the GitHub Actions Ubuntu browser runner on 2026-08-25, the first deterministic fast-path pass reduced `tests/core/error-paths.test.ts` from **113.28 seconds** to **57.08 seconds** while retaining all 20 tests.
 
-The largest removed cost was malformed-selector handling: ten click/type cases had each spent roughly 5.2 seconds collecting sparse-page state before the parser error was surfaced. Those deterministic waits are no longer present.
+The synthetic-document pass then reduced the same 20-test shard from **57.08 seconds** to **31.71 seconds**, a further **44.4% reduction**. Relative to the original 113.28-second baseline, the shard is now **72.0% faster**.
+
+Representative test durations moved as follows:
+
+- browser crash recovery: **9.93 s → 3.98 s**
+- same-profile contention: **9.65 s → 4.54 s**
+- external navigation + `getState()`: **14.01 s → 3.30 s**
+
+The largest cost removed by the first pass was malformed-selector handling: ten click/type cases had each spent roughly 5.2 seconds collecting sparse-page state before the parser error was surfaced. The second pass removed similarly deterministic hydration waits from intentionally synthetic blank/srcdoc states.
 
 ## Lifecycle compatibility
 
