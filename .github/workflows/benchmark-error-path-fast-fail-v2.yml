@@ -1,0 +1,54 @@
+name: Benchmark error-path fast-fail v2
+
+on:
+  push:
+    branches:
+      - perf/error-path-fast-fail-v2
+    paths:
+      - .github/workflows/benchmark-error-path-fast-fail-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Run touched unit tests
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/BrowserManager.test.ts tests/unit/InteractionReliability.test.ts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Benchmark error-path browser shard
+        shell: bash
+        run: |
+          start=$(date +%s)
+          npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts
+          end=$(date +%s)
+          echo "ERROR_PATH_SECONDS=$((end-start))"
+
+  cleanup:
+    needs: validate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+      - name: Remove benchmark workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/benchmark-error-path-fast-fail-v2.yml
+          git commit -m "chore: remove focused error-path benchmark workflow"
+          git push origin HEAD:perf/error-path-fast-fail-v2
