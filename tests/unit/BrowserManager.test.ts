@@ -61,12 +61,13 @@ function createMockContext() {
 	};
 }
 
-function createTestProfile() {
+let profileCounter = 0;
+function createTestProfile(name = `test-profile-${++profileCounter}`) {
 	return {
-		id: "test-profile-1",
+		id: name,
 		class: "sandbox" as const,
 		purpose: "testing",
-		userDataDir: "/tmp/talox-test-profile",
+		userDataDir: `/tmp/talox-${name}`,
 		metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
 	};
 }
@@ -374,6 +375,71 @@ describe("BrowserManager", () => {
 
 			await manager.launch(createTestProfile());
 			expect(manager.getContext()).toBe(mockCtx);
+		});
+
+		it("rejects a second owner of the same persistent profile before browser launch", async () => {
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const secondManager = new BrowserManager({
+				browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+				settings: { adaptiveStealthEnabled: false } as any,
+			});
+			const profile = createTestProfile("shared-profile");
+
+			await manager.launch(profile);
+			await expect(secondManager.launch(profile)).rejects.toThrow("PROFILE_IN_USE");
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(1);
+
+			await manager.close();
+			await expect(secondManager.launch(profile)).resolves.toBe(secondContext);
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+			await secondManager.close();
+		});
+
+		it("releases profile ownership when browser launch fails", async () => {
+			const profile = createTestProfile("failed-profile");
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("browser not found"));
+			await expect(manager.launch(profile)).rejects.toThrow();
+
+			const retryContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(retryContext);
+			const retryManager = new BrowserManager({
+				browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+				settings: { adaptiveStealthEnabled: false } as any,
+			});
+			await expect(retryManager.launch(profile)).resolves.toBe(retryContext);
+			await retryManager.close();
+		});
+
+		it("keeps same-profile ownership reserved while replacing a browser context", async () => {
+			const firstContext = createMockContext();
+			const replacementContext = createMockContext();
+			let resolveReplacement!: (ctx: ReturnType<typeof createMockContext>) => void;
+			const replacementLaunch = new Promise<ReturnType<typeof createMockContext>>((resolve) => {
+				resolveReplacement = resolve;
+			});
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockImplementationOnce(() => replacementLaunch);
+			const competingManager = new BrowserManager({
+				browser: { preferred: "chromium", headless: true, autoDetect: false } as any,
+				settings: { adaptiveStealthEnabled: false } as any,
+			});
+			const profile = createTestProfile("relaunch-profile");
+
+			await manager.launch(profile, false, "chromium", { viewport: { width: 800, height: 600 } });
+			const relaunch = manager.launch(profile, false, "chromium", { viewport: { width: 1024, height: 768 } });
+			await vi.waitFor(() => expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2));
+
+			await expect(competingManager.launch(profile)).rejects.toThrow("PROFILE_IN_USE");
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+
+			resolveReplacement(replacementContext);
+			await expect(relaunch).resolves.toBe(replacementContext);
+			await manager.close();
 		});
 	});
 

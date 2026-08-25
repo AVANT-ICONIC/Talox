@@ -189,13 +189,9 @@ describe("error-path: concurrent session conflicts", () => {
 
 		await talox1.launch("conflict-profile", "sandbox", "chromium");
 
-		// Second launch on the same profile may succeed (Playwright allows multiple
-		// contexts) or may throw — both are acceptable. We just verify it doesn't hang.
-		try {
-			await talox2.launch("conflict-profile", "sandbox", "chromium");
-		} catch {
-			// Expected — Playwright may lock the profile directory
-		}
+		// Persistent profiles have one in-process owner. A duplicate must fail before
+		// browser discovery/startup rather than waiting on Chrome's profile lock.
+		await expect(talox2.launch("conflict-profile", "sandbox", "chromium")).rejects.toThrow("PROFILE_IN_USE");
 
 		// talox1 should still be functional
 		const state = await talox1.navigate("about:blank");
