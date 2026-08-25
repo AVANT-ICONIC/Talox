@@ -238,6 +238,9 @@ export class ActionExecutor {
 
 	async click(selector: string): Promise<TaloxPageState> {
 		const page = this.getPage();
+		// Validate syntax before full state collection: sparse pages can spend seconds
+		// retrying AX/DOM hydration for a selector Playwright can reject immediately.
+		await this.reliability.assertSelectorSyntax(page, selector);
 		const prevState = await this.getActiveStateCollector().collect();
 
 		// Pre-flight: scroll into view + resolve duplicate labels
@@ -413,6 +416,7 @@ export class ActionExecutor {
 
 	async type(selector: string, text: string): Promise<TaloxPageState> {
 		const page = this.getPage();
+		await this.reliability.assertSelectorSyntax(page, selector);
 		const prevState = await this.getActiveStateCollector().collect();
 
 		// Pre-flight: scroll into view + resolve duplicate labels

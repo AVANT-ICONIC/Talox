@@ -14,9 +14,6 @@ on:
         required: false
         default: ''
 
-permissions:
-  contents: write
-
 # Cancel superseded runs on the same branch/ref when a newer commit arrives.
 # This keeps PR feedback focused on the current head instead of stale intermediates.
 concurrency:
@@ -24,43 +21,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Temporary transaction for PR #35. The validated commit restores ci.yml from main.
-  pr35-fast-path-transaction:
-    name: PR35 Fast-Path Transaction
-    if: github.event_name == 'pull_request' && github.head_ref == 'perf/error-path-fast-fail-v2'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: perf/error-path-fast-fail-v2
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - name: Apply deterministic fast paths
-        run: python3 .github/scripts/apply_pr35_fast_path_v2.py
-      - run: npm ci
-      - run: npm run build
-      - run: npm run typecheck
-      - name: Focused unit validation
-        run: npx vitest run --config vitest.config.unit.ts tests/unit/BrowserManagerBundledDetection.test.ts tests/unit/BrowserManager.test.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts
-      - name: Install browser for timing validation
-        run: npx playwright install --with-deps chromium
-      - name: Validate error paths and record timing
-        run: npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts | tee /tmp/error-paths.log
-      - name: Commit validated transaction
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ci.yml
-          git rm .github/workflows/apply-pr35-fast-path-v2.yml .github/scripts/apply_pr35_fast_path_v2.py
-          git add src/core/InteractionReliability.ts src/core/controller/ActionExecutor.ts src/core/BrowserManager.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts tests/unit/BrowserManagerBundledDetection.test.ts .github/workflows/ci.yml
-          git commit -m "perf: skip deterministic browser setup work"
-          git push origin HEAD:perf/error-path-fast-fail-v2
-
   # ─── Lint + Typecheck — runs on every push / PR ──────────────────────────────
   lint-typecheck:
     name: Lint & Typecheck

@@ -562,7 +562,10 @@ export class BrowserManager {
 	}
 
 	private async resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> {
-		const actual = browserType || this.config.browser.preferred;
+		// An explicit caller choice is authoritative. launchWithFallback() already
+		// reports an actionable install error if the requested browser is unavailable.
+		if (browserType) return browserType;
+		const actual = this.config.browser.preferred;
 		if (process.platform === "darwin" || !this.config.browser.autoDetect) return actual;
 
 		// Probe the requested/preferred browser first. Full auto-detection remains

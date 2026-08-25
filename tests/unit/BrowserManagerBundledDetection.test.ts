@@ -76,7 +76,7 @@ describe("BrowserManager bundled Playwright detection", () => {
 		]);
 		expect(chromiumClose).toHaveBeenCalledOnce();
 	});
-	it("probes requested Chromium without launching unrelated browser detectors", async () => {
+	it("skips browser probing when Chromium is explicitly requested", async () => {
 		const originalDisplay = process.env.DISPLAY;
 		process.env.DISPLAY = ":talox-unit";
 		try {
@@ -85,13 +85,38 @@ describe("BrowserManager bundled Playwright detection", () => {
 				settings: { virtualDisplay: false, adaptiveStealthEnabled: false } as any,
 			});
 			await manager.launch({
-				id: "targeted-detect", class: "sandbox", purpose: "test",
-				userDataDir: "/tmp/talox-targeted-detect",
+				id: "explicit-browser", class: "sandbox", purpose: "test",
+				userDataDir: "/tmp/talox-explicit-browser",
 				metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
 			}, false, "chromium");
+			expect(chromiumLaunch).not.toHaveBeenCalled();
+			expect(firefoxLaunch).not.toHaveBeenCalled();
+			expect(webkitLaunch).not.toHaveBeenCalled();
+			expect(chromiumPersistentContext).toHaveBeenCalledTimes(1);
+			await manager.close();
+		} finally {
+			if (originalDisplay === undefined) delete process.env.DISPLAY;
+			else process.env.DISPLAY = originalDisplay;
+		}
+	});
+
+	it("probes only the preferred browser when no browser is explicitly requested", async () => {
+		const originalDisplay = process.env.DISPLAY;
+		process.env.DISPLAY = ":talox-unit";
+		try {
+			const manager = new BrowserManager({
+				browser: { autoDetect: true, preferred: "chromium", headless: true } as any,
+				settings: { virtualDisplay: false, adaptiveStealthEnabled: false } as any,
+			});
+			await manager.launch({
+				id: "implicit-browser", class: "sandbox", purpose: "test",
+				userDataDir: "/tmp/talox-implicit-browser",
+				metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
+			}, false);
 			expect(chromiumLaunch).toHaveBeenCalledTimes(1);
 			expect(firefoxLaunch).not.toHaveBeenCalled();
 			expect(webkitLaunch).not.toHaveBeenCalled();
+			expect(chromiumPersistentContext).toHaveBeenCalledTimes(1);
 			await manager.close();
 		} finally {
 			if (originalDisplay === undefined) delete process.env.DISPLAY;

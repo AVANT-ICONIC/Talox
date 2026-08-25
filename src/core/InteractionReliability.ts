@@ -173,6 +173,16 @@ export class InteractionReliability {
 	 * set to the selector to use. If pre-flight has nothing to do it returns
 	 * `resolved=true` immediately with the original selector unchanged.
 	 */
+	/** Fail fast on selector syntax errors without collecting full page state. */
+	async assertSelectorSyntax(page: Page, selector: string): Promise<void> {
+		try {
+			await page.$(selector);
+		} catch (error: unknown) {
+			if (isSelectorSyntaxError(error)) throw error;
+			// Non-syntax failures still belong to the normal reliability/recovery path.
+		}
+	}
+
 	async resolveBeforeClick(page: Page, selector: string, nodes: TaloxNode[]): Promise<ReliabilityOutcome> {
 		const attempts: InteractionAttempt[] = [];
 		const recoveryNotes: string[] = [];

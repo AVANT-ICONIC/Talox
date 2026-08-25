@@ -150,6 +150,13 @@ describe("InteractionReliability", () => {
 
 			await expect(reliability.resolveBeforeClick(page, "[[[invalid", [])).rejects.toBe(syntaxError);
 		});
+
+		it("validates malformed selector syntax without requiring page state", async () => {
+			const syntaxError = new Error('Unexpected token "" while parsing css selector "[[[invalid"');
+			const page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
+
+			await expect(reliability.assertSelectorSyntax(page, "[[[invalid")).rejects.toBe(syntaxError);
+		});
 	});
 
 	describe("recoverAfterFailure — viewport", () => {

@@ -42,6 +42,7 @@ vi.mock("../../src/core/PageStateCollector.js", () => ({
 
 vi.mock("../../src/core/InteractionReliability.js", () => ({
 	InteractionReliability: class {
+		assertSelectorSyntax = vi.fn().mockResolvedValue(undefined);
 		resolveBeforeClick = vi.fn().mockResolvedValue({
 			resolvedSelector: "",
 			attempts: [],
