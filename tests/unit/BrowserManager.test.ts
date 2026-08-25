@@ -347,6 +347,35 @@ describe("BrowserManager", () => {
 			await manager.close();
 		});
 
+		it("relaunches when only virtualDisplay changes", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":126";
+
+			const profile = createTestProfile();
+			const launchOptions = { headless: false };
+			await manager.launch(profile, false, "chromium", launchOptions);
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", launchOptions);
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect(manager.getContext()).toBe(secondContext);
+
+			await manager.close();
+		});
+
 		it("pins browser launch env to the Xvfb display owned by this manager", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
