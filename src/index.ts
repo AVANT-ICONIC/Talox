@@ -1,8 +1,8 @@
 /**
  * @file index.ts
- * @description Public exports for the Talox package (v4.0).
+ * @description Public exports for the Talox v9 package.
  *
- * All public APIs are re-exported from this file.
+ * All supported public APIs are re-exported from this file.
  */
 
 // ─── Multi-Agent Coordinator ───────────────────────────────────────────────
@@ -53,7 +53,7 @@ export { ChatSession } from "./core/chat/ChatSession.js";
 export type { AccelerationCurve, MovementStyle, TypingRhythm } from "./core/controller/ActionExecutor.js";
 export { EventBus } from "./core/controller/EventBus.js";
 export type { TakeoverReason, TakeoverState, TakeoverSummary } from "./core/controller/TakeoverBridge.js";
-// ─── Takeover Bridge (v2) ───────────────────────────────────────────────────
+// ─── Takeover Bridge ────────────────────────────────────────────────────────
 export { TakeoverBridge } from "./core/controller/TakeoverBridge.js";
 export type { AttentionFrame, DebugSnapshot } from "./core/controller/TaloxController.js";
 // ─── Core Controller ────────────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ export type * from "./core/loop/types.js";
 export type { OriginHeaderConfig } from "./core/OriginHeaders.js";
 export { OriginHeaders } from "./core/OriginHeaders.js";
 export { AnnotationBuffer } from "./core/observe/AnnotationBuffer.js";
-// ─── Observe Mode ─────────────────────────────────────────────────────────────
+// ─── Observe Sessions ─────────────────────────────────────────────────────────
 export { ObserveSession } from "./core/observe/ObserveSession.js";
 export { SessionReporter } from "./core/observe/SessionReporter.js";
 export * from "./core/PageStateCollector.js";
@@ -154,7 +154,7 @@ export type { LoadedSkill, SkillManifest } from "./core/skills/SkillLoader.js";
 export { SkillLoader } from "./core/skills/SkillLoader.js";
 export { SkillWriter } from "./core/skills/SkillWriter.js";
 export type { AdaptationRecord } from "./core/smart/AdaptationEngine.js";
-// ─── Smart Mode (now always-on) ──────────────────────────────────────────────
+// ─── Adaptive Runtime (always on) ────────────────────────────────────────────
 export { AdaptationEngine } from "./core/smart/AdaptationEngine.js";
 export { BotDetector } from "./core/smart/BotDetector.js";
 export type { DomainMemorySnapshot, DomainRecord, StrategyScore } from "./core/smart/DomainMemory.js";
@@ -178,17 +178,17 @@ export {
 } from "./core/VisualReasoner.js";
 export { PRESETS, type PresetName } from "./presets.js";
 export { getPracticalTools } from "./tools/practical-tools.js";
-// ─── v2 Config & Settings ────────────────────────────────────────────────────
+// ─── Config & Settings ───────────────────────────────────────────────────────
 export type { TaloxConfig } from "./types/config.js";
-// ─── Types (v2) ──────────────────────────────────────────────────────────────
+// ─── Core Types ──────────────────────────────────────────────────────────────
 // TALOX_STATE_CONTRACT_VERSION, TaloxStateDiff, TaloxStateTiming, diffPageState
 // and all core types are exported via the wildcard below.
 export * from "./types/index.js";
 
-// ─── Legacy Mode Compatibility (v1 → v2) ─────────────────────────────────────
+// ─── Legacy Mode Compatibility ───────────────────────────────────────────────
 /**
- * @deprecated Legacy modes are deprecated in v2. Use `TaloxSettings` directly.
- * These exports provide backwards compatibility for code using the old mode system.
+ * @deprecated Legacy modes are compatibility aliases in v9. Use `TaloxSettings` directly.
+ * These exports remain available for code migrating from the old mode system.
  *
  * Migration guide:
  * - `mode: 'smart'` → Use `DEFAULT_SETTINGS` plus `navigationWaitUntil: 'domcontentloaded'`
@@ -212,7 +212,7 @@ export * from "./types/index.js";
  *   const settings = resolveLegacyMode(userInput);
  * }
  *
- * // See all valid modes
+ * // See all valid legacy aliases
  * console.log(LEGACY_MODE_VALUES); // ['smart', 'debug', 'speed', ...]
  * ```
  */

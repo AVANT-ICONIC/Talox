@@ -10,10 +10,10 @@ import type { AnnotationEntry } from "./annotation.js";
 import type { TaloxBug, TaloxPageState } from "./index.js";
 import type { TaloxSettings } from "./settings.js";
 
-// ─── Smart Mode: Adaptation ──────────────────────────────────────────────────
+// ─── Adaptive Runtime ────────────────────────────────────────────────────────
 
 /**
- * The reason `smart` mode triggered an adaptation.
+ * The reason Talox's always-on adaptation engine changed runtime behavior.
  * Semantically distinct from `bugDetected` — this describes Talox's own
  * internal self-adjustment, not a problem with the website.
  */
@@ -29,7 +29,7 @@ export type AdaptationReason =
 
 /**
  * Payload for the `adapted` event.
- * Emitted only in `smart` mode when the adaptation engine changes settings.
+ * Emitted when the always-on adaptation engine applies a settings change.
  */
 export interface AdaptedEvent {
 	/** What triggered the adaptation. */
@@ -42,11 +42,11 @@ export interface AdaptedEvent {
 	to: Partial<TaloxSettings>;
 }
 
-// ─── Observe Mode: Session ───────────────────────────────────────────────────
+// ─── Observe Session Events ──────────────────────────────────────────────────
 
 /**
  * Payload for the `sessionEnd` event.
- * Emitted only in `observe` mode when the human closes the browser or calls endSession().
+ * Emitted by an active observe session when it is finalized.
  */
 export interface SessionEndEvent {
 	/** UUID of the session that just ended. */
@@ -66,7 +66,7 @@ export interface SessionEndEvent {
 
 /**
  * Payload for the `annotationAdded` event.
- * Emitted only in `observe` mode when the human submits an annotation.
+ * Emitted by an active observe session when the human submits an annotation.
  */
 export interface AnnotationAddedEvent {
 	/** The annotation that was just added. */
@@ -77,7 +77,7 @@ export interface AnnotationAddedEvent {
 
 /**
  * Payload for the `annotationUndone` event.
- * Emitted only in `observe` mode when the human presses Ctrl/Cmd+Z.
+ * Emitted by an active observe session when the human presses Ctrl/Cmd+Z.
  */
 export interface AnnotationUndoneEvent {
 	/** The annotation that was removed. */
@@ -132,7 +132,7 @@ export interface TakeoverSummary {
  * @example
  * ```ts
  * talox.on('adapted', (e) => {
- *   console.log(`Smart mode adjusted: ${e.reason} → ${e.strategy}`)
+ *   console.log(`Talox adapted: ${e.reason} → ${e.strategy}`)
  * })
  *
  * talox.on('sessionEnd', (e) => {
@@ -141,69 +141,61 @@ export interface TakeoverSummary {
  * ```
  */
 export interface TaloxEventMap {
-	// ── Available in all modes ────────────────────────────────────────────────
+	// ── Core runtime ──────────────────────────────────────────────────────────
 	/** Fired after every page navigation (goto, link click, redirect). */
 	navigation: { url: string; title: string };
 	/** Fired for internal Talox errors (not website errors). */
 	error: { message: string; stack?: string };
-
-	// ── smart + speed + debug ─────────────────────────────────────────────────
-	/** Fired after every interaction that produces a new `TaloxPageState`. */
+	/** Fired when Talox publishes a new page-state snapshot. */
 	stateChanged: TaloxPageState;
 	/** Fired when a DOM element changes after an interaction. */
 	elementChanged: undefined;
 
-	// ── debug + observe ───────────────────────────────────────────────────────
-	/** Console error captured from the page. Silent in smart/speed modes. */
+	// ── Diagnostic telemetry ─────────────────────────────────────────────────
+	/** Console error captured from the page when diagnostic/observe telemetry is active. */
 	consoleError: { error: string; url: string };
-	/** Network request failure captured from the page. Silent in smart/speed modes. */
+	/** Network request failure surfaced by observation telemetry. */
 	networkError: { url: string; status: number; type?: string };
-
-	// ── debug only ────────────────────────────────────────────────────────────
-	/** Console warning from the page. Debug mode only. */
+	/** Typed channel for a captured console warning. */
 	consoleWarning: { warning: string; url: string };
-	/** Console log from the page. Debug mode only. */
+	/** Typed channel for a captured console log. */
 	consoleLog: { message: string; url: string };
-	/**
-	 * A layout/JS bug detected by the `RulesEngine`.
-	 * **Debug mode only** — in all other modes bugs are collected into
-	 * `TaloxPageState.bugs` silently without emitting this event.
-	 */
+	/** A layout/JS bug detected by the `RulesEngine` and surfaced through diagnostic telemetry. */
 	bugDetected: TaloxBug;
 
-	// ── smart only ────────────────────────────────────────────────────────────
+	// ── Adaptive runtime ──────────────────────────────────────────────────────
 	/**
-	 * Smart mode changed its own settings in response to an outcome.
-	 * NOT a website bug — this is Talox adjusting itself.
+	 * Talox changed runtime settings in response to an observed outcome.
+	 * NOT a website bug — this is the always-on adaptation loop adjusting itself.
 	 */
 	adapted: AdaptedEvent;
 
-	// ── observe only ─────────────────────────────────────────────────────────
+	// ── Observe session ───────────────────────────────────────────────────────
 	/** Human submitted an annotation via the overlay Comment Mode. */
 	annotationAdded: AnnotationAddedEvent;
 	/** Human pressed Ctrl/Cmd+Z — last annotation removed from buffer. */
 	annotationUndone: AnnotationUndoneEvent;
-	/** Browser closed or endSession() called — session report written to disk. */
+	/** Observe session finalized — session report written to disk. */
 	sessionEnd: SessionEndEvent;
 
-	// ── v2 events ─────────────────────────────────────────────────────────────
+	// ── Runtime controls & takeover ───────────────────────────────────────────
 	/** Fired when verbosity level is changed via `setVerbosity()`. */
 	verbosityChanged: { level: 0 | 1 | 2 | 3 };
 	/** Fired when human takeover is requested. */
 	humanTakeoverRequested: { reason?: string; timestamp: string };
 	/** Fired when agent resumes after human takeover. */
 	agentResumed: { reason: "timeout" | "manual"; summary?: TakeoverSummary };
-	/** Fired when Talox auto-escalates from headless to headed mode. */
+	/** Fired when Talox auto-escalates from headless to headed browser operation. */
 	headedEscalation: { reason: string; previousMode: "headless" | "headed" };
-	/** Fired when Talox returns to headless mode after headed escalation. */
+	/** Fired when Talox returns to headless browser operation after escalation. */
 	headlessRestored: { reason: string };
-	/** Fired when mouse moves - used to sync visual fake cursor. */
+	/** Fired when mouse coordinates are published for visual cursor synchronization. */
 	cursorMoved: { x: number; y: number };
-	/** Fired when agent is about to perform a mouse action - starts cursor movement animation. */
+	/** Fired when the agent is about to perform a mouse action. */
 	agentActing: undefined;
-	/** Fired when agent is waiting / reading / processing - cursor enters think state. */
+	/** Fired when the agent is waiting, reading, or processing. */
 	agentThinking: undefined;
-	/** Fired when a click happens at given coords - triggers ripple animation on fake cursor. */
+	/** Fired when a click happens at the given coordinates. */
 	cursorClicked: { x: number; y: number };
 
 	// ── Auto-dialog handling ─────────────────────────────────────────────────

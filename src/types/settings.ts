@@ -3,11 +3,11 @@
  * @description TaloxSettings - the full settings surface, and DEFAULT_SETTINGS
  */
 
-// ─── Legacy Mode Compatibility (v1 → v2) ───────────────────────────────────────
+// ─── Legacy Mode Compatibility ────────────────────────────────────────────────
 
 /**
- * @deprecated Legacy modes are deprecated in v2. Use `TaloxSettings` directly.
- * Kept for backwards compatibility - these map to the new agent-first control model.
+ * @deprecated Legacy modes are compatibility aliases in v9. Use `TaloxSettings` directly.
+ * Kept for backwards compatibility; these map to the current settings-first control model.
  *
  * Deprecated aliases (map to 'smart'):
  * - 'stealth' — was alias for adaptive (max stealth)
@@ -27,7 +27,7 @@ export type LegacyTaloxMode =
 
 /**
  * All valid legacy mode values.
- * @deprecated Legacy modes are deprecated in v2.
+ * @deprecated Legacy modes are compatibility aliases in v9.
  * 'stealth', 'balanced', 'qa' are deprecated aliases for 'smart'.
  */
 export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = [
@@ -45,7 +45,7 @@ export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = [
 
 /**
  * Check if a value is a valid legacy mode.
- * @deprecated Legacy modes are deprecated in v2.
+ * @deprecated Legacy modes are compatibility aliases in v9.
  * @param value - The value to check
  * @returns True if value is a valid LegacyTaloxMode
  *
@@ -65,7 +65,7 @@ export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
 }
 
 /**
- * Maps a legacy mode to the new agent-first settings.
+ * Maps a legacy mode to the current agent-first settings model.
  *
  * @deprecated Use `TaloxSettings` directly instead of modes.
  * @param mode - The legacy mode to convert
@@ -81,10 +81,10 @@ export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
  *
  * Migration guide:
  * ```typescript
- * // v1 (legacy)
+ * // Legacy compatibility form
  * const talox = new TaloxController('./profiles', { mode: 'debug' });
  *
- * // v2 (explicit settings - recommended)
+ * // v9 settings-first form (recommended)
  * const talox = new TaloxController('./profiles', {
  *   settings: {
  *     verbosity: 3,
@@ -93,10 +93,10 @@ export function isLegacyMode(value: unknown): value is LegacyTaloxMode {
  *   }
  * });
  *
- * // v2 (backwards compatible - mode still works)
+ * // Legacy mode can still be combined with explicit overrides while migrating
  * const talox = new TaloxController('./profiles', {
- *   mode: 'debug',              // Legacy mode maps to settings
- *   settings: { mouseSpeed: 1.5 } // Additional overrides
+ *   mode: 'debug',
+ *   settings: { mouseSpeed: 1.5 }
  * });
  *
  * // Inspect what a mode maps to
@@ -115,7 +115,7 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 			// High stealth, adaptive behavior, full perception - the "works everywhere" default.
 			// Modern SPAs frequently keep analytics/WebSocket/long-poll requests alive,
 			// so waiting for networkidle can turn a usable page into a navigation stall.
-			// Smart mode proceeds once the DOM is ready; callers can still explicitly
+			// Legacy smart-like aliases proceed once the DOM is ready; callers can still
 			// request networkidle when their target genuinely has a stable idle state.
 			return {
 				mouseSpeed: 0.7,
@@ -197,7 +197,7 @@ export interface TaloxSettings {
 	adaptiveStealthEnabled: boolean; // self-healing. Default: true
 	automaticThinkingEnabled: boolean; // Default: true
 
-	// Perception (always full in v2 — field kept for future use)
+	// Perception (the current public contract is always full; field retained for compatibility)
 	perceptionDepth: "full";
 
 	// Browser — managed automatically, but overrideable
@@ -260,23 +260,23 @@ export interface TaloxSettings {
 
 	/**
 	 * Use Xvfb virtual display on headless Linux so Chromium runs in headed
-	 * mode against a fake X server.  Headed Chromium has a real browser
+	 * mode against a fake X server. Headed Chromium has a real browser
 	 * fingerprint, making it significantly harder for bot-detection systems
 	 * to identify it as automated.
 	 *
-	 * - On Linux without a DISPLAY env var, defaults to true.
-	 * - On all other platforms (or when DISPLAY is set), defaults to false.
+	 * - On Linux without a DISPLAY env var, the runtime can enable this automatically.
+	 * - On all other platforms (or when DISPLAY is set), it remains disabled unless configured.
 	 * - Requires Xvfb to be installed (sudo apt install xvfb).
 	 *
-	 * @default true on Linux without DISPLAY, false otherwise
+	 * @default false in DEFAULT_SETTINGS
 	 */
 	virtualDisplay: boolean;
 
 	/**
 	 * Content safety level for prompt injection defense.
-	 * - `"off"` — page content passes through unchanged (currently default).
+	 * - `"off"` — page content passes through unchanged.
 	 * - `"warn"` — wraps scraped content in structural markers so the LLM
-	 *   knows it is external, untrusted data — never instructions.
+	 *   knows it is external, untrusted data — never instructions. This is the default.
 	 * - `"strict"` — warn + heuristic filtering of known injection patterns
 	 *   from element text, aria-labels, placeholders, and title attributes.
 	 * @default "warn"
