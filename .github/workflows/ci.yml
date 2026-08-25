@@ -39,6 +39,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Typecheck public examples
+        run: npm run typecheck:examples
+
   # ─── Unit tests — runs on every push / PR ────────────────────────────────────
   unit:
     name: Unit Tests
