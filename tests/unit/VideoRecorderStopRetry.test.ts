@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:child_process", () => ({
 	execFile: vi.fn(),
@@ -41,6 +41,11 @@ describe("VideoRecorder stop retry", () => {
 				},
 			} as any;
 		});
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
 	});
 
 	it("retains captured frames after an export failure and retries finalization", async () => {
