@@ -1,0 +1,89 @@
+name: Apply configurable action timeout perf
+on:
+  push:
+    branches: [perf/error-path-fast-fail-v2]
+    paths: [.github/workflows/apply-action-timeout-perf.yml]
+permissions:
+  contents: write
+jobs:
+  patch-and-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Replace unproven selector probe with configurable raw action timeout
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_one(path, old, new, label):
+              p = Path(path)
+              s = p.read_text()
+              if old not in s:
+                  raise SystemExit(f'{label} not found')
+              p.write_text(s.replace(old, new, 1))
+
+          # Remove the locator().count() probe: benchmark showed no integration latency win,
+          # so keeping it would add a browser query to every interaction for no proven benefit.
+          replace_one('src/core/InteractionReliability.ts', '''\n\t\t// locator().count() compiles through Playwright's selector engine without\n\t\t// waiting for a match, so malformed selectors can fail before the 5s action timeout.\n\t\ttry {\n\t\t\tawait page.locator(resolvedSelector).count();\n\t\t} catch (error: unknown) {\n\t\t\tif (isSelectorSyntaxError(error)) throw error;\n\t\t}\n''', '\n', 'locator selector probe')
+
+          p = Path('tests/unit/InteractionReliability.test.ts')
+          s = p.read_text()
+          s = s.replace('\n\t\tlocator: (sel: string) => { count: () => Promise<number> };', '', 1)
+          s = s.replace('\n\t\tlocator: vi.fn().mockReturnValue({ count: vi.fn().mockResolvedValue(0) }),', '', 1)
+          old = '''\n\t\tit("fails before element lookup when locator compilation rejects malformed syntax", async () => {\n\t\t\tconst syntaxError = new Error('Unexpected token "#" while parsing css selector "#"');\n\t\t\tconst lookup = vi.fn().mockResolvedValue(null);\n\t\t\tconst page = makePage({\n\t\t\t\t$: lookup,\n\t\t\t\tlocator: vi.fn().mockReturnValue({ count: vi.fn().mockRejectedValue(syntaxError) }),\n\t\t\t});\n\t\t\tawait expect(reliability.resolveBeforeClick(page, "#", [])).rejects.toBe(syntaxError);\n\t\t\texpect(lookup).not.toHaveBeenCalled();\n\t\t});\n'''
+          if old not in s: raise SystemExit('locator unit test not found')
+          p.write_text(s.replace(old, '', 1))
+
+          replace_one('src/types/settings.ts', '''\thumanStealth: number; // 0 (off) – 1 (full). Default: 1\n''', '''\thumanStealth: number; // 0 (off) – 1 (full). Default: 1\n\t/** Timeout for direct Playwright click/type element waits. @default 5000 */\n\tactionTimeoutMs: number;\n''', 'TaloxSettings action timeout field')
+          replace_one('src/types/settings.ts', '''\thumanStealth: 1,\n\tstealthLevel: "high",\n''', '''\thumanStealth: 1,\n\tactionTimeoutMs: 5000,\n\tstealthLevel: "high",\n''', 'DEFAULT_SETTINGS action timeout')
+
+          replace_one('src/core/BrowserManager.ts', '''\t\thumanStealth: 0.5,\n\t\ttypoProbability: 0.05,\n''', '''\t\thumanStealth: 0.5,\n\t\tactionTimeoutMs: 5000,\n\t\ttypoProbability: 0.05,\n''', 'BrowserManager default action timeout')
+
+          replace_one('src/core/controller/ActionExecutor.ts', '''\t\t\tawait page.click(selector, { timeout: 5000 });\n''', '''\t\t\tawait page.click(selector, { timeout: this.settings.actionTimeoutMs });\n''', 'raw click timeout')
+          replace_one('src/core/controller/ActionExecutor.ts', '''\t\t\tawait page.type(selector, text, { timeout: 5000 });\n''', '''\t\t\tawait page.type(selector, text, { timeout: this.settings.actionTimeoutMs });\n''', 'raw type timeout')
+
+          p = Path('tests/unit/ActionExecutor.test.ts')
+          s = p.read_text()
+          old = '''\thumanStealth: 0,\n\tstealthLevel: "low" as const,\n'''
+          new = '''\thumanStealth: 0,\n\tactionTimeoutMs: 5000,\n\tstealthLevel: "low" as const,\n'''
+          if old not in s: raise SystemExit('ActionExecutor defaultSettings insertion not found')
+          s = s.replace(old, new, 1)
+          marker = '''\t\tit("uses HumanMouse.click in biomechanical mode (humanStealth > 0)", async () => {\n'''
+          addition = '''\t\tit("uses configured action timeout for raw clicks", async () => {\n\t\t\tconst { executor, mockPage } = makeExecutor({ settings: { safeMode: true, actionTimeoutMs: 125 } });\n\n\t\t\tawait executor.click("#btn");\n\n\t\t\texpect(mockPage.click).toHaveBeenCalledWith("", { timeout: 125 });\n\t\t});\n\n'''
+          if marker not in s: raise SystemExit('click unit insertion marker not found')
+          s = s.replace(marker, addition + marker, 1)
+          marker = '''\t\tit("records an artifact for the type action", async () => {\n'''
+          addition = '''\t\tit("uses configured action timeout for raw typing", async () => {\n\t\t\tconst { executor, mockPage } = makeExecutor({ settings: { safeMode: true, actionTimeoutMs: 125 } });\n\n\t\t\tawait executor.type("#input", "hello");\n\n\t\t\texpect(mockPage.type).toHaveBeenCalledWith("", "hello", { timeout: 125 });\n\t\t});\n\n'''
+          if marker not in s: raise SystemExit('type unit insertion marker not found')
+          p.write_text(s.replace(marker, addition + marker, 1))
+
+          replace_one('tests/core/error-paths.test.ts', '''\t\ttalox = new TaloxController(tmpDir, {\n\t\t\tsettings: { headed: false, verbosity: 0 },\n\t\t});\n\t\tawait talox.launch("err-selector", "sandbox", "chromium");\n''', '''\t\ttalox = new TaloxController(tmpDir, {\n\t\t\tsettings: { headed: false, verbosity: 0, safeMode: true, actionTimeoutMs: 150 },\n\t\t});\n\t\tawait talox.launch("err-selector", "sandbox", "chromium");\n''', 'selector test settings')
+          PY
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Focused unit validation
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts tests/unit/BrowserManagerBundledDetection.test.ts tests/unit/BrowserManager.test.ts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Benchmark error paths
+        run: |
+          start=$(date +%s)
+          npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts
+          end=$(date +%s)
+          echo "ERROR_PATH_SECONDS=$((end-start))"
+      - name: Commit proven patch and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-action-timeout-perf.yml
+          git add src/types/settings.ts src/core/BrowserManager.ts src/core/controller/ActionExecutor.ts src/core/InteractionReliability.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts tests/core/error-paths.test.ts
+          git commit -m "perf: make raw action timeout configurable"
+          git push origin HEAD:perf/error-path-fast-fail-v2
