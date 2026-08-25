@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Cross-origin iframe trust** — `trustedDomains`-driven frame trust and trust-gated CDP execution.
 - **Platform Adapters** — built-in WordPress, WooCommerce, Shopify, GitHub, and Slack knowledge layered into planner context without replacing live Talox state.
 - **Local VLM integration** — zero-dependency Ollama and OpenAI-compatible local multimodal providers exposed through `talox/local-vision`.
+- **Modern ARIA page state** — Playwright 1.62 ARIA snapshots with browser-computed bounding boxes are now the primary semantic source for `TaloxPageState.nodes`, with legacy accessibility and DOM collectors retained as compatibility fallbacks.
+
+### Changed
+
+- **Node.js runtime baseline** — Talox now requires Node.js 20 or newer, matching Playwright 1.62.1's supported runtime contract. Node.js 18 is no longer advertised as supported.
 
 ### Fixed
 

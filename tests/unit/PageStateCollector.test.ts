@@ -17,6 +17,8 @@ function makeMockPage(
 		title: string;
 		isClosed: boolean;
 		axSnapshot: any;
+		ariaSnapshot: string;
+		modernAriaAvailable: boolean;
 		accessibilityAvailable: boolean;
 		$$result: any[];
 		$$evalResult: any[];
@@ -28,6 +30,8 @@ function makeMockPage(
 		title = "Test Page",
 		isClosed = false,
 		axSnapshot = null,
+		ariaSnapshot = "",
+		modernAriaAvailable = false,
 		accessibilityAvailable = true,
 		$$result = [],
 		$$evalResult = [],
@@ -45,6 +49,7 @@ function makeMockPage(
 			listeners[event].push(handler);
 		}),
 		off: vi.fn(),
+		...(modernAriaAvailable ? { ariaSnapshot: vi.fn(() => Promise.resolve(ariaSnapshot)) } : {}),
 		...(accessibilityAvailable
 			? { accessibility: { snapshot: vi.fn(() => Promise.resolve(axSnapshot)) } }
 			: {}),
@@ -159,6 +164,37 @@ describe("PageStateCollector", () => {
 	// ─── AX tree extraction ──────────────────────────────────────────────────
 
 	describe("AX tree extraction", () => {
+		it("prefers modern Playwright ARIA YAML with boxes and preserves semantic attributes", async () => {
+			const ariaSnapshot = `- main [box=0,0,800,600]:
+  - heading "Dashboard" [level=1] [box=10,20,200,40]
+  - textbox "Email" [disabled] [box=10,80,240,32]:
+    - /placeholder: name@example.com
+  - link "Home" [box=10,130,60,20]`;
+			const page = makeMockPage({
+				modernAriaAvailable: true,
+				ariaSnapshot,
+				accessibilityAvailable: false,
+			});
+			const collector = new PageStateCollector(page, {
+				...FAST_OPTS,
+				useDomFallback: false,
+				domFallbackThreshold: 1,
+			});
+
+			const state = await collector.collect();
+
+			expect(page.ariaSnapshot).toHaveBeenCalledWith({ mode: "default", boxes: true });
+			expect(state.nodes.map((node) => node.role)).toEqual(["main", "heading", "textbox", "link"]);
+			expect(state.nodes[1]).toMatchObject({
+				name: "Dashboard",
+				boundingBox: { x: 10, y: 20, width: 200, height: 40 },
+			});
+			expect(state.nodes[1].attributes?.level).toBe("1");
+			expect(state.nodes[2].attributes?.disabled).toBe(true);
+			expect(state.nodes[2].attributes?.placeholder).toBe("name@example.com");
+			expect(collector.getRetryStats()).toMatchObject({ axTreeAttempts: 1, axTreeSuccesses: 1, fallbackUsed: false });
+		});
+
 		it("flattens AX tree with box property into TaloxNode[]", async () => {
 			const axSnapshot = {
 				role: "WebArea",

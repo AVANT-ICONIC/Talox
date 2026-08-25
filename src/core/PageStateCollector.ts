@@ -1,3 +1,4 @@
+import { load as loadYaml } from "js-yaml";
 import type { Page, Response } from "playwright-core";
 import type { CursorDetectionMethod, TaloxNode, TaloxPageState } from "../types/index.js";
 
@@ -631,6 +632,132 @@ export class PageStateCollector {
 		}));
 	}
 
+	private parseAriaDescriptor(rawDescriptor: string): {
+		role: string;
+		name: string;
+		boundingBox?: { x: number; y: number; width: number; height: number };
+		attributes: Record<string, string | boolean>;
+	} | null {
+		let descriptor = rawDescriptor.trim();
+		if (!descriptor || descriptor === "text" || descriptor.startsWith("/")) return null;
+
+		const attributes: Record<string, string | boolean> = {};
+		let boundingBox: { x: number; y: number; width: number; height: number } | undefined;
+		const attributePattern = /\s+\[([A-Za-z][\w-]*)(?:=([^\]]+))?\]$/;
+
+		while (true) {
+			const match = attributePattern.exec(descriptor);
+			if (!match || match.index === undefined) break;
+			const key = match[1];
+			const rawValue = match[2];
+
+			if (key === "box" && rawValue !== undefined) {
+				const values = rawValue.split(",").map((value) => Number(value.trim()));
+				if (values.length === 4 && values.every(Number.isFinite)) {
+					boundingBox = { x: values[0]!, y: values[1]!, width: values[2]!, height: values[3]! };
+				}
+			} else if (key) {
+				attributes[key] = rawValue === undefined ? true : rawValue;
+			}
+
+			descriptor = descriptor.slice(0, match.index).trim();
+		}
+
+		const separator = descriptor.indexOf(" ");
+		const role = separator === -1 ? descriptor : descriptor.slice(0, separator);
+		const rawName = separator === -1 ? "" : descriptor.slice(separator + 1).trim();
+		if (!role || role.startsWith("/")) return null;
+
+		let name = "";
+		if (rawName) {
+			if (rawName.startsWith('"') && rawName.endsWith('"')) {
+				try {
+					name = JSON.parse(rawName) as string;
+				} catch {
+					name = rawName.slice(1, -1);
+				}
+			} else {
+				name = rawName;
+			}
+		}
+
+		return { role, name, ...(boundingBox && { boundingBox }), attributes };
+	}
+
+	private collectAriaDirectiveAttributes(value: unknown): Record<string, string | boolean> {
+		const attributes: Record<string, string | boolean> = {};
+		if (!Array.isArray(value)) return attributes;
+
+		for (const entry of value) {
+			if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+			for (const [key, directiveValue] of Object.entries(entry as Record<string, unknown>)) {
+				if (!key.startsWith("/") || directiveValue === null || directiveValue === undefined) continue;
+				if (typeof directiveValue === "boolean") attributes[key.slice(1)] = directiveValue;
+				else if (typeof directiveValue === "string" || typeof directiveValue === "number") {
+					attributes[key.slice(1)] = String(directiveValue);
+				}
+			}
+		}
+		return attributes;
+	}
+
+	private flattenAriaYaml(value: unknown, result: TaloxNode[] = []): TaloxNode[] {
+		if (Array.isArray(value)) {
+			for (const entry of value) this.flattenAriaYaml(entry, result);
+			return result;
+		}
+
+		if (typeof value === "string") {
+			const descriptor = this.parseAriaDescriptor(value);
+			if (descriptor?.boundingBox) {
+				result.push({
+					id: `aria-${result.length}`,
+					role: descriptor.role,
+					name: descriptor.name,
+					description: "",
+					boundingBox: descriptor.boundingBox,
+					...(Object.keys(descriptor.attributes).length > 0 && { attributes: descriptor.attributes }),
+					trust: "first-party",
+				});
+			}
+			return result;
+		}
+
+		if (!value || typeof value !== "object") return result;
+
+		for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+			const descriptor = this.parseAriaDescriptor(key);
+			if (descriptor?.boundingBox) {
+				const attributes = {
+					...descriptor.attributes,
+					...this.collectAriaDirectiveAttributes(child),
+				};
+				if (typeof child === "string" && child.trim()) attributes.text = child.trim();
+
+				result.push({
+					id: `aria-${result.length}`,
+					role: descriptor.role,
+					name: descriptor.name,
+					description: "",
+					boundingBox: descriptor.boundingBox,
+					...(Object.keys(attributes).length > 0 && { attributes }),
+					trust: "first-party",
+				});
+			}
+
+			this.flattenAriaYaml(child, result);
+		}
+		return result;
+	}
+
+	private flattenModernAriaSnapshot(snapshot: string): TaloxNode[] {
+		try {
+			return this.flattenAriaYaml(loadYaml(snapshot));
+		} catch (error) {
+			throw new Error(`Failed to parse Playwright ARIA snapshot: ${(error as Error).message}`);
+		}
+	}
+
 	private flattenAXTree(node: any, result: TaloxNode[] = []) {
 		// If it has a role, it's a candidate
 		if (node.role) {
@@ -671,15 +798,16 @@ export class PageStateCollector {
 		const configuredMaxRetries = this.options.retry.maxRetries ?? DEFAULT_RETRY_OPTIONS.maxRetries;
 		const maxRetries = maxRetriesOverride ?? configuredMaxRetries;
 		let nodes: TaloxNode[] = [];
-		let axSnapshot: any = null;
+		let axSnapshot: unknown = null;
 		let axTreeError: Error | null = null;
 
+		const modernSnapshot = (this.page as unknown as {
+			ariaSnapshot?: (options?: { mode?: "ai" | "default"; boxes?: boolean }) => Promise<string>;
+		}).ariaSnapshot;
 		const accessibility = (this.page as any).accessibility;
-		const snapshot = accessibility?.snapshot;
-		if (typeof snapshot !== "function") {
-			// Playwright removed page.accessibility in v1.57. Treat an unavailable
-			// legacy AX source as a capability miss, not as a transient empty tree.
-			// The outer collection loop still preserves DOM hydration retries.
+		const legacySnapshot = accessibility?.snapshot;
+
+		if (typeof modernSnapshot !== "function" && typeof legacySnapshot !== "function") {
 			return { nodes: [], shouldUseFallback: this.options.useDomFallback };
 		}
 
@@ -694,19 +822,24 @@ export class PageStateCollector {
 				}
 
 				try {
-					axSnapshot = await snapshot.call(accessibility);
+					if (typeof modernSnapshot === "function") {
+						axSnapshot = await modernSnapshot.call(this.page, { mode: "default", boxes: true });
+						nodes = typeof axSnapshot === "string" ? this.flattenModernAriaSnapshot(axSnapshot) : [];
+					} else {
+						axSnapshot = await legacySnapshot.call(accessibility);
+						nodes = axSnapshot ? this.flattenAXTree(axSnapshot) : [];
+					}
 				} catch (error_) {
 					axTreeError = error_ as Error;
 					axSnapshot = null;
 				}
 
 				if (axSnapshot) {
-					nodes = this.flattenAXTree(axSnapshot);
 					this.retryStats.axTreeSuccesses++;
 					break;
 				}
 
-				axTreeError = new Error("AX-Tree snapshot returned null");
+				axTreeError = new Error("Accessibility snapshot returned empty output");
 			} catch (err) {
 				axTreeError = err as Error;
 				this.retryStats.lastError = axTreeError.message;

@@ -16,15 +16,18 @@ describe("PageStateCollector · modern Playwright accessibility compatibility", 
 		await browser?.close();
 	});
 
-	it("does not retry the removed page.accessibility API before DOM fallback", async () => {
+	it("uses modern ARIA state without retrying the removed page.accessibility API", async () => {
 		expect((page as any).accessibility).toBeUndefined();
+		expect(typeof (page as any).ariaSnapshot).toBe("function");
 		const collector = new PageStateCollector(page);
 
 		const state = await collector.collect();
 		const stats = collector.getRetryStats();
 
-		expect(stats.axTreeAttempts).toBe(0);
+		expect(stats.axTreeAttempts).toBe(1);
+		expect(stats.axTreeSuccesses).toBe(1);
 		expect(stats.totalDelayMs).toBe(0);
+		expect(stats.fallbackUsed).toBe(false);
 		expect(state.nodes.length).toBeGreaterThanOrEqual(12);
 		expect(state.interactiveElements.length).toBeGreaterThanOrEqual(12);
 	});
