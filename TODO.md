@@ -57,7 +57,7 @@ All milestones currently listed in `docs/TALOX-ROADMAP.md` have landed on `main`
 
 ## 🟢 Maintenance
 
-- [x] BrowserManager/Xvfb lifecycle hardening: share one process-level `exit`/`SIGINT` listener pair, register cleanup immediately after spawn, bind child events to the owning process, reserve concurrent display numbers, preserve the active DISPLAY stack across overlapping managers, pin each browser launch to its manager-owned Xvfb display, release reservations on startup failure, and unregister managers once all cleanup resources are gone
+- [x] BrowserManager/Xvfb lifecycle hardening: share one process-level `exit`/`SIGINT` listener pair, register cleanup immediately after spawn, bind child events to the owning process, reserve concurrent display numbers, preserve the active DISPLAY stack across overlapping managers, pin each browser launch to its manager-owned Xvfb display, preserve that Xvfb across browser configuration relaunches, release reservations on startup failure, and unregister managers once all cleanup resources are gone
 - [ ] Continue reliability, performance, and real-world compatibility work from observed failures and benchmark evidence before defining the next feature tranche
 
 ---
