@@ -505,6 +505,7 @@ export class BrowserManager {
 		const parts = [
 			String(options.headless),
 			String(options.browserType),
+			String(options.virtualDisplay ?? false),
 			options.proxy ? JSON.stringify(options.proxy) : "",
 			options.userDataDir ?? "",
 			(options.args ?? []).sort((a, b) => a.localeCompare(b)).join(","),
