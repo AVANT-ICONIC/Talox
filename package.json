@@ -39,6 +39,7 @@
     "test:unit": "vitest run --config vitest.config.unit.ts",
     "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
     "test:browser": "vitest run --config vitest.config.browser.ts",
+    "test:package": "npm run build && node scripts/smoke-packed-package.mjs",
     "test:all": "vitest",
     "observe": "node ./dist/cli/entry.js observe",
     "prepublishOnly": "npm run build",

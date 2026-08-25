@@ -59,6 +59,24 @@ jobs:
       - name: Run unit tests
         run: npm run test:unit
 
+  # ─── Packed package smoke — validate the artifact consumers actually install ─
+  package-smoke:
+    name: Packed Package Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Pack, install, import exports, and run CLI
+        run: npm run test:package
+
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
   # Browser tests remain serial inside each shard. The unusually slow error-path
   # suite has its own runner so a transient browser-launch failure does not force
