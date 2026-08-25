@@ -68,4 +68,45 @@ describe("ObserveSession finalization race", () => {
 		expect(reporterWrite).toHaveBeenCalledTimes(1);
 		expect(sessionEnd).toHaveBeenCalledTimes(1);
 	});
+
+	it("allows a failed report write to be retried without duplicating sessionEnd", async () => {
+		const page = {
+			url: vi.fn(() => "https://example.com"),
+			on: vi.fn(),
+			mainFrame: vi.fn(() => ({ url: () => "https://example.com" })),
+			screenshot: vi.fn(() => Promise.resolve(Buffer.from("fake"))),
+		};
+		const context = {
+			on: vi.fn(),
+			close: vi.fn(() => Promise.resolve()),
+		};
+		const eventBus = new EventBus<TaloxEventMap>();
+		const artifactBuilder = { toActionFrames: vi.fn(() => []) };
+		const session = new ObserveSession(page as any, context as any, eventBus, artifactBuilder as any, {
+			overlay: false,
+			record: true,
+		});
+		const reporterWrite = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("synthetic report write failure"))
+			.mockResolvedValueOnce({ json: "/tmp/retried-report.json" });
+		(session as any).reporter.write = reporterWrite;
+		const sessionEnd = vi.fn();
+		eventBus.on("sessionEnd", sessionEnd);
+
+		await session.start();
+
+		await expect(session.endSession()).rejects.toThrow("synthetic report write failure");
+		expect(reporterWrite).toHaveBeenCalledTimes(1);
+		expect(sessionEnd).not.toHaveBeenCalled();
+
+		await session.endSession();
+		expect(reporterWrite).toHaveBeenCalledTimes(2);
+		expect(sessionEnd).toHaveBeenCalledTimes(1);
+		expect(sessionEnd).toHaveBeenCalledWith(expect.objectContaining({ reportPath: "/tmp/retried-report.json" }));
+
+		await session.endSession();
+		expect(reporterWrite).toHaveBeenCalledTimes(2);
+		expect(sessionEnd).toHaveBeenCalledTimes(1);
+	});
 });
