@@ -6,8 +6,12 @@ function makeMockPage() {
 	const handlers: Array<(route: any, request: any) => Promise<void>> = [];
 
 	return {
-		route: vi.fn(async (_pattern: string, handler: (route: any, request: any) => Promise<void>) => {
+		route: vi.fn(async (_pattern: string | RegExp, handler: (route: any, request: any) => Promise<void>) => {
 			handlers.push(handler);
+		}),
+		unroute: vi.fn(async (_pattern: string | RegExp, handler: (route: any, request: any) => Promise<void>) => {
+			const index = handlers.indexOf(handler);
+			if (index >= 0) handlers.splice(index, 1);
 		}),
 		unrouteAll: vi.fn(async () => {
 			handlers.length = 0;
@@ -76,7 +80,7 @@ describe("NetworkMocker", () => {
 
 		it("does not double-start recording", async () => {
 			await mocker.startRecording();
-			await mocker.startRecording(); // second call should be no-op
+			await mocker.startRecording();
 			expect(mockPage.route).toHaveBeenCalledTimes(1);
 		});
 
@@ -85,6 +89,7 @@ describe("NetworkMocker", () => {
 			const recordings = await mocker.stopRecording();
 			expect(recordings).toEqual([]);
 			expect(mocker.isRecordingActive).toBe(false);
+			expect(mockPage.unroute).toHaveBeenCalledWith("**/*", expect.any(Function));
 		});
 	});
 
@@ -92,8 +97,6 @@ describe("NetworkMocker", () => {
 		it("records a request when handler is invoked", async () => {
 			const onRecording = vi.fn();
 			await mocker.startRecording(onRecording);
-
-			// Get the registered handler
 			const handler = mockPage._handlers[0]!;
 
 			const route = makeRoute();
@@ -148,7 +151,6 @@ describe("NetworkMocker", () => {
 			const request = makeRequest();
 			await handler(route, request);
 
-			// Should just continue, not record
 			expect(mocker.getRecordings()).toEqual([]);
 		});
 	});
@@ -206,6 +208,7 @@ describe("NetworkMocker", () => {
 			await mocker.startReplaying();
 			await mocker.stopReplaying();
 			expect(mocker.isReplayingActive).toBe(false);
+			expect(mockPage.unroute).toHaveBeenCalledWith("**/*", expect.any(Function));
 		});
 
 		it("does not double-start replaying", async () => {
@@ -233,7 +236,8 @@ describe("NetworkMocker", () => {
 			await mocker.addMock({ urlPattern: "**/data/**", status: 404 });
 			await mocker.clearMocks();
 			expect(mocker.getMocks()).toEqual([]);
-			expect(mockPage.unrouteAll).toHaveBeenCalled();
+			expect(mockPage.unroute).toHaveBeenCalledTimes(2);
+			expect(mockPage.unrouteAll).not.toHaveBeenCalled();
 		});
 	});
 
@@ -244,17 +248,6 @@ describe("NetworkMocker", () => {
 				readFile: vi.fn().mockResolvedValue("[]"),
 			}));
 
-			// Push a recording manually
-			const recording: NetworkRecording = {
-				id: "1",
-				url: "https://example.com",
-				method: "GET",
-				status: 200,
-				requestHeaders: {},
-				responseHeaders: {},
-				timestamp: 0,
-			};
-			// Use internal recordings via getRecordings after startRecording
 			await mocker.startRecording();
 			const handler = mockPage._handlers[0]!;
 

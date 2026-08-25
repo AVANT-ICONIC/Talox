@@ -25,6 +25,13 @@ export interface NetworkMockerOptions {
 	page: Page;
 }
 
+type RouteHandler = (route: Route, request: Request) => Promise<void>;
+
+interface MockRouteRegistration {
+	mock: MockResponse;
+	handler: RouteHandler;
+}
+
 /**
  * Records and replays network traffic for testing and replay scenarios.
  * Captures full request/response pairs (headers, bodies), replays saved
@@ -37,9 +44,10 @@ export class NetworkMocker {
 	private isRecording: boolean = false;
 	private isReplaying: boolean = false;
 	private recordings: NetworkRecording[] = [];
-	private mocks: MockResponse[] = [];
 	private recordingHandler: ((recording: NetworkRecording) => void) | null = null;
-	private readonly savedRoutes: Map<string, () => Promise<void>> = new Map();
+	private recordingRouteHandler: RouteHandler | null = null;
+	private replayRouteHandler: RouteHandler | null = null;
+	private mockRoutes: MockRouteRegistration[] = [];
 
 	constructor(options: NetworkMockerOptions) {
 		this.context = options.context;
@@ -59,12 +67,12 @@ export class NetworkMocker {
 
 	async startRecording(onRecording?: (recording: NetworkRecording) => void): Promise<void> {
 		if (this.isRecording) return;
+		if (this.recordingRouteHandler) await this.removeRecordingRoute();
 
-		this.isRecording = true;
 		this.recordings = [];
 		this.recordingHandler = onRecording || null;
 
-		await this.page.route("**/*", async (route: Route, request: Request) => {
+		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.isRecording) {
 				await route.continue();
 				return;
@@ -117,13 +125,30 @@ export class NetworkMocker {
 			} catch {
 				await route.continue();
 			}
-		});
+		};
+
+		try {
+			await this.page.route("**/*", handler);
+			this.recordingRouteHandler = handler;
+			this.isRecording = true;
+		} catch (error) {
+			this.recordingHandler = null;
+			throw error;
+		}
 	}
 
 	async stopRecording(): Promise<NetworkRecording[]> {
 		this.isRecording = false;
 		this.recordingHandler = null;
+		await this.removeRecordingRoute();
 		return [...this.recordings];
+	}
+
+	private async removeRecordingRoute(): Promise<void> {
+		const handler = this.recordingRouteHandler;
+		if (!handler) return;
+		await this.page.unroute("**/*", handler);
+		if (this.recordingRouteHandler === handler) this.recordingRouteHandler = null;
 	}
 
 	getRecordings(): NetworkRecording[] {
@@ -132,15 +157,13 @@ export class NetworkMocker {
 
 	async startReplaying(recordings?: NetworkRecording[]): Promise<void> {
 		if (this.isReplaying) return;
+		if (this.replayRouteHandler) await this.removeReplayRoute();
 
 		if (recordings) {
 			this.recordings = recordings;
 		}
 
-		this.isReplaying = true;
-		this.savedRoutes.clear();
-
-		await this.page.route("**/*", async (route: Route, request: Request) => {
+		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.isReplaying) {
 				await route.continue();
 				return;
@@ -166,19 +189,27 @@ export class NetworkMocker {
 			} else {
 				await route.continue();
 			}
-		});
+		};
+
+		await this.page.route("**/*", handler);
+		this.replayRouteHandler = handler;
+		this.isReplaying = true;
 	}
 
 	async stopReplaying(): Promise<void> {
 		this.isReplaying = false;
-		this.savedRoutes.clear();
-		await this.page.unrouteAll({ behavior: "ignoreErrors" });
+		await this.removeReplayRoute();
+	}
+
+	private async removeReplayRoute(): Promise<void> {
+		const handler = this.replayRouteHandler;
+		if (!handler) return;
+		await this.page.unroute("**/*", handler);
+		if (this.replayRouteHandler === handler) this.replayRouteHandler = null;
 	}
 
 	async addMock(mock: MockResponse): Promise<void> {
-		this.mocks.push(mock);
-
-		await this.page.route(mock.urlPattern, async (route: Route, request: Request) => {
+		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.matchesPattern(request.url(), mock.urlPattern)) {
 				await route.continue();
 				return;
@@ -203,16 +234,38 @@ export class NetworkMocker {
 			}
 
 			await route.fulfill(fulfillOptions);
-		});
+		};
+
+		await this.page.route(mock.urlPattern, handler);
+		this.mockRoutes.push({ mock, handler });
 	}
 
 	async clearMocks(): Promise<void> {
-		this.mocks = [];
-		await this.page.unrouteAll({ behavior: "ignoreErrors" });
+		const registrations = [...this.mockRoutes];
+		if (registrations.length === 0) return;
+
+		const results = await Promise.allSettled(
+			registrations.map(({ mock, handler }) => this.page.unroute(mock.urlPattern, handler)),
+		);
+		const removedHandlers = new Set<RouteHandler>();
+		let firstFailure: unknown;
+
+		for (const [index, result] of results.entries()) {
+			const registration = registrations[index];
+			if (!registration) continue;
+			if (result.status === "fulfilled") {
+				removedHandlers.add(registration.handler);
+			} else if (firstFailure === undefined) {
+				firstFailure = result.reason;
+			}
+		}
+
+		this.mockRoutes = this.mockRoutes.filter(({ handler }) => !removedHandlers.has(handler));
+		if (firstFailure !== undefined) throw firstFailure;
 	}
 
 	getMocks(): MockResponse[] {
-		return [...this.mocks];
+		return this.mockRoutes.map(({ mock }) => mock);
 	}
 
 	async saveToFile(filePath: string): Promise<void> {
@@ -237,10 +290,20 @@ export class NetworkMocker {
 	}
 
 	async destroy(): Promise<void> {
-		await this.stopRecording();
-		await this.stopReplaying();
-		await this.clearMocks();
+		const failures: unknown[] = [];
+		for (const cleanup of [
+			() => this.stopRecording(),
+			() => this.stopReplaying(),
+			() => this.clearMocks(),
+		]) {
+			try {
+				await cleanup();
+			} catch (error) {
+				failures.push(error);
+			}
+		}
 		this.recordings = [];
+		if (failures.length > 0) throw failures[0];
 	}
 }
 
