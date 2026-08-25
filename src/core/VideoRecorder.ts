@@ -37,6 +37,8 @@ export class VideoRecorder {
 	private readonly format: VideoFormat;
 
 	private recording = false;
+	private finalizationPending = false;
+	private stopInFlight: Promise<string> | null = null;
 	private frames: Buffer[] = [];
 	private interval: NodeJS.Timeout | null = null;
 	private page: Page | null = null;
@@ -56,8 +58,12 @@ export class VideoRecorder {
 		if (this.recording) {
 			return;
 		}
+		if (this.finalizationPending) {
+			throw new Error("Cannot start a new video recording while the previous recording awaits finalization.");
+		}
 		this.page = page;
 		this.recording = true;
+		this.finalizationPending = true;
 		this.frames = [];
 
 		const intervalMs = Math.round(1000 / this.fps);
@@ -71,13 +77,28 @@ export class VideoRecorder {
 
 	/**
 	 * Stop capturing and encode the recorded frames into the output file.
+	 * Failed finalization keeps captured frames available for a later retry.
 	 *
 	 * @returns The absolute path to the encoded video or viewer HTML.
 	 */
-	async stop(): Promise<string> {
-		if (!this.recording) {
-			return "";
-		}
+	stop(): Promise<string> {
+		if (this.stopInFlight) return this.stopInFlight;
+		if (!this.finalizationPending) return Promise.resolve("");
+
+		const attempt = this.runStop();
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runStop(): Promise<string> {
 		if (this.interval) {
 			clearInterval(this.interval);
 			this.interval = null;
@@ -89,19 +110,19 @@ export class VideoRecorder {
 		if (this.frames.length === 0) {
 			await mkdir(path.dirname(output), { recursive: true });
 			await writeFile(output, "");
-			return output;
-		}
-
-		const hasFfmpeg = await checkFfmpeg();
-
-		if (hasFfmpeg) {
-			await this.encodeWithFfmpeg(output);
 		} else {
-			await this.savePngSequence(output);
+			const hasFfmpeg = await checkFfmpeg();
+
+			if (hasFfmpeg) {
+				await this.encodeWithFfmpeg(output);
+			} else {
+				await this.savePngSequence(output);
+			}
 		}
 
 		this.frames = [];
 		this.page = null;
+		this.finalizationPending = false;
 		return output;
 	}
 
