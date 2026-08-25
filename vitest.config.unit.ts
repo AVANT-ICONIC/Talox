@@ -6,6 +6,12 @@ export default defineConfig({
     include: [
       'tests/unit/**/*.test.ts',
     ],
+    // Keep generic BrowserManager unit tests independent of whether the CI host
+    // has a desktop session. Dedicated Xvfb tests explicitly unset DISPLAY when
+    // they verify Linux virtual-display auto-detection.
+    env: {
+      DISPLAY: ':99',
+    },
     testTimeout: 5_000,
     hookTimeout: 10_000,
     coverage: {
