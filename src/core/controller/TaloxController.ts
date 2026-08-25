@@ -382,7 +382,16 @@ export class TaloxController {
 		await this.flushHarRecorder();
 		this.disposeCrossOriginManager();
 		await this.detachInspectServer();
-		await this.flushVideoRecorder();
+
+		let videoFailure: unknown;
+		let videoFailed = false;
+		try {
+			await this.flushVideoRecorder();
+		} catch (error) {
+			videoFailure = error;
+			videoFailed = true;
+		}
+
 		this.persistTakeoverHistory();
 		await this.disposeOriginHeaders();
 
@@ -392,6 +401,8 @@ export class TaloxController {
 			this.log.error(`Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
 			throw e;
 		}
+
+		if (videoFailed) throw videoFailure;
 	}
 
 	/** Flush HAR recording if active. */
@@ -426,15 +437,17 @@ export class TaloxController {
 	/** Flush video recording if active. */
 	private async flushVideoRecorder(): Promise<void> {
 		if (!this.videoRecorder) return;
+		const recorder = this.videoRecorder;
 		try {
-			const outputPath = await this.videoRecorder.stop();
+			const outputPath = await recorder.stop();
 			if (this.settings.verbosity >= 1) {
 				this.log.info(`Video recording saved: ${outputPath}`);
 			}
 		} catch (e) {
 			this.log.error(`Video recording flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			throw e;
 		}
-		this.videoRecorder = null;
+		if (this.videoRecorder === recorder) this.videoRecorder = null;
 	}
 
 	/** Persist accumulated takeover history as a final artifact entry. */
