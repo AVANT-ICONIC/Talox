@@ -6,6 +6,7 @@
  * 2025 clients and the stateless 2026-07-28 discovery flow over stdio.
  */
 
+import { createRequire } from "node:module";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import type { ProfileClass } from "../../types/index.js";
@@ -15,7 +16,12 @@ import { TaloxController } from "../controller/TaloxController.js";
 const MODERN_PROTOCOL_VERSION = "2026-07-28";
 const LEGACY_PROTOCOL_VERSION = "2025-11-25";
 const LEGACY_PROTOCOL_VERSIONS = new Set(["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]);
-const SERVER_INFO = { name: "talox", version: "8.1.0" } as const;
+const requireFromHere = createRequire(import.meta.url);
+const packageMetadata = requireFromHere("../../../package.json") as { version?: unknown };
+if (typeof packageMetadata.version !== "string" || packageMetadata.version.length === 0) {
+	throw new Error("Talox package metadata is missing a valid version.");
+}
+const SERVER_INFO = { name: "talox", version: packageMetadata.version } as const;
 const SERVER_INSTRUCTIONS =
 	"Use Talox tools to launch and control one persistent browser session. Launch before navigation or interaction, then stop when finished.";
 
