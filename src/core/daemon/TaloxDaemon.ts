@@ -276,6 +276,9 @@ export class TaloxDaemon {
 				case "health":
 					return this.handleHealth(command);
 				default: {
+					if (this.stopInFlight) {
+						return { id: command.id, success: false, error: "Daemon is shutting down" };
+					}
 					// Session-scoped actions
 					const sessionId = command.params?.["sessionId"];
 					if (typeof sessionId !== "string") {
