@@ -7,7 +7,7 @@ describe("PageStateCollector · modern ARIA state", () => {
 	let page: Page;
 
 	beforeAll(async () => {
-		browser = await chromium.launch({ headless: true });
+		browser = await chromium.launch({ headless: true, ...(process.env.CI ? { channel: "chrome" } : {}) });
 		page = await browser.newPage({ viewport: { width: 900, height: 700 } });
 		await page.setContent(`
 			<main>

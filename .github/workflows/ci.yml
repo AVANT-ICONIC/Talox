@@ -100,9 +100,10 @@ jobs:
         run: npx playwright test --list
 
   # ─── Browser integration tests — runs on every push / PR ──────────────────────
-  # Browser tests remain serial inside each shard. The unusually slow error-path
-  # suite has its own runner so a transient browser-launch failure does not force
-  # the rest of the root suite to be repeated after ~18 minutes of work.
+  # Talox deliberately prefers the real system Chrome channel for its adaptive
+  # runtime. GitHub's Ubuntu runner already ships Chrome + Xvfb, so downloading a
+  # separate ~300 MiB Playwright Chromium bundle in every shard only adds setup
+  # latency for a fallback that normal CI does not use.
   browser-shard:
     name: Browser Integration · ${{ matrix.group }}
     runs-on: ubuntu-latest
@@ -141,8 +142,12 @@ jobs:
 
       - run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Verify runner Chrome prerequisites
+        shell: bash
+        run: |
+          command -v google-chrome
+          google-chrome --version
+          command -v Xvfb
 
       - name: Run browser integration shard
         shell: bash
