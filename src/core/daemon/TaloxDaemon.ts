@@ -59,6 +59,7 @@ export class TaloxDaemon {
 	private readonly log = createLogger("Daemon");
 	private readonly config: DaemonConfig;
 	private readonly sessions: Map<string, SessionRecord> = new Map();
+	private readonly launchTasks: Set<Promise<void>> = new Set();
 	private readonly sessionStops: Map<string, Promise<void>> = new Map();
 	private server: net.Server | null = null;
 	private running = false;
@@ -133,6 +134,9 @@ export class TaloxDaemon {
 	}
 
 	private async runStop(): Promise<void> {
+		const launches = Array.from(this.launchTasks);
+		if (launches.length > 0) await Promise.allSettled(launches);
+
 		const sessions = Array.from(this.sessions.values());
 		const results = await Promise.allSettled(sessions.map((session) => this.stopSession(session)));
 		const failures: string[] = [];
@@ -318,26 +322,25 @@ export class TaloxDaemon {
 
 		const sessionId = generateSessionId();
 		const controller = new TaloxController(process.cwd());
+		const launchTask = Promise.resolve()
+			.then(() => controller.launch(profileId, profileClass, browserType))
+			.then(() => {
+				this.sessions.set(sessionId, {
+					id: sessionId,
+					controller,
+					createdAt: Date.now(),
+				});
+			});
+		this.launchTasks.add(launchTask);
 
 		try {
-			await controller.launch(profileId, profileClass, browserType);
+			await launchTask;
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			return { id: command.id, success: false, error: message };
+		} finally {
+			this.launchTasks.delete(launchTask);
 		}
-
-		if (this.stopInFlight) {
-			await controller.stop().catch((err: unknown) => {
-				this.log.error(`Cleanup after launch raced with daemon shutdown: ${err instanceof Error ? err.message : String(err)}`);
-			});
-			return { id: command.id, success: false, error: "Daemon is shutting down" };
-		}
-
-		this.sessions.set(sessionId, {
-			id: sessionId,
-			controller,
-			createdAt: Date.now(),
-		});
 
 		return { id: command.id, success: true, data: { sessionId } };
 	}
