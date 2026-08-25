@@ -557,12 +557,24 @@ export class BrowserManager {
 		return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
 	}
 
-	private resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> | BrowserType {
+	private async resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> {
 		const actual = browserType || this.config.browser.preferred;
-		if (process.platform !== "darwin" && this.config.browser.autoDetect) {
-			return this.autoDetectBrowser();
+		if (process.platform === "darwin" || !this.config.browser.autoDetect) return actual;
+
+		// Probe the requested/preferred browser first. Full auto-detection remains
+		// available only when that browser is genuinely unavailable.
+		if (this.detectedBrowsers.some((browser) => browser.type === actual)) return actual;
+		const executable = await this.findBrowser(actual, undefined, this.getSearchPaths());
+		if (executable) {
+			this.detectedBrowsers.push({
+				type: actual,
+				executablePath: executable.path,
+				version: executable.version,
+			});
+			return actual;
 		}
-		return actual;
+
+		return this.autoDetectBrowser();
 	}
 
 	private async launchWithFallback(

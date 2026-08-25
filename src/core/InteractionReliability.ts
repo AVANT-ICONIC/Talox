@@ -178,6 +178,14 @@ export class InteractionReliability {
 		const recoveryNotes: string[] = [];
 		let resolvedSelector = selector;
 
+		// locator().count() compiles through Playwright's selector engine without
+		// waiting for a match, so malformed selectors can fail before the 5s action timeout.
+		try {
+			await page.locator(resolvedSelector).count();
+		} catch (error: unknown) {
+			if (isSelectorSyntaxError(error)) throw error;
+		}
+
 		// ── Duplicate resolution ─────────────────────────────────────────────────
 		const duplicateResult = this.resolveDuplicateSelector(selector, nodes);
 		if (duplicateResult.isDuplicate) {

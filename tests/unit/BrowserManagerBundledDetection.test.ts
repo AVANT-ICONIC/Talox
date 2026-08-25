@@ -1,23 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { chromiumLaunch, chromiumClose } = vi.hoisted(() => ({
+const { chromiumLaunch, chromiumClose, chromiumPersistentContext, firefoxLaunch, webkitLaunch } = vi.hoisted(() => ({
 	chromiumLaunch: vi.fn(),
 	chromiumClose: vi.fn().mockResolvedValue(undefined),
+	chromiumPersistentContext: vi.fn(),
+	firefoxLaunch: vi.fn(),
+	webkitLaunch: vi.fn(),
 }));
 
 vi.mock("playwright-core", () => ({
 	chromium: {
 		launch: chromiumLaunch,
 		executablePath: vi.fn(() => "/mock/ms-playwright/chromium/chrome"),
-		launchPersistentContext: vi.fn(),
+		launchPersistentContext: chromiumPersistentContext,
 	},
 	firefox: {
-		launch: vi.fn().mockRejectedValue(new Error("not installed")),
+		launch: firefoxLaunch,
 		executablePath: vi.fn(() => "/mock/firefox"),
 		launchPersistentContext: vi.fn(),
 	},
 	webkit: {
-		launch: vi.fn().mockRejectedValue(new Error("not installed")),
+		launch: webkitLaunch,
 		executablePath: vi.fn(() => "/mock/webkit"),
 		launchPersistentContext: vi.fn(),
 	},
@@ -41,6 +44,9 @@ describe("BrowserManager bundled Playwright detection", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		chromiumClose.mockResolvedValue(undefined);
+		chromiumPersistentContext.mockResolvedValue({ close: vi.fn().mockResolvedValue(undefined), on: vi.fn() });
+		firefoxLaunch.mockRejectedValue(new Error("not installed"));
+		webkitLaunch.mockRejectedValue(new Error("not installed"));
 		chromiumLaunch.mockImplementation(async (options?: { channel?: string }) => {
 			if (options?.channel) throw new Error(`channel ${options.channel} not installed`);
 			return {
@@ -70,4 +76,27 @@ describe("BrowserManager bundled Playwright detection", () => {
 		]);
 		expect(chromiumClose).toHaveBeenCalledOnce();
 	});
+	it("probes requested Chromium without launching unrelated browser detectors", async () => {
+		const originalDisplay = process.env.DISPLAY;
+		process.env.DISPLAY = ":talox-unit";
+		try {
+			const manager = new BrowserManager({
+				browser: { autoDetect: true, preferred: "chromium", headless: true } as any,
+				settings: { virtualDisplay: false, adaptiveStealthEnabled: false } as any,
+			});
+			await manager.launch({
+				id: "targeted-detect", class: "sandbox", purpose: "test",
+				userDataDir: "/tmp/talox-targeted-detect",
+				metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
+			}, false, "chromium");
+			expect(chromiumLaunch).toHaveBeenCalledTimes(1);
+			expect(firefoxLaunch).not.toHaveBeenCalled();
+			expect(webkitLaunch).not.toHaveBeenCalled();
+			await manager.close();
+		} finally {
+			if (originalDisplay === undefined) delete process.env.DISPLAY;
+			else process.env.DISPLAY = originalDisplay;
+		}
+	});
+
 });

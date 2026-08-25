@@ -74,9 +74,11 @@ describe("error-path: network timeout mid-action", () => {
 		tmpDir = makeTmpDir();
 		hangingServer = await createHangingServer();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, navigationWaitUntil: "load" },
 		});
 		await talox.launch("err-timeout", "sandbox", "chromium");
+		// Verify real timeout recovery without inheriting Playwright's 30s default.
+		talox._session.getPlaywrightPage()?.setDefaultNavigationTimeout(1_500);
 	});
 
 	afterAll(async () => {
