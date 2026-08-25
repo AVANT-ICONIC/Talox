@@ -191,7 +191,7 @@ export * from "./types/index.js";
  * These exports provide backwards compatibility for code using the old mode system.
  *
  * Migration guide:
- * - `mode: 'smart'` → Use `DEFAULT_SETTINGS` (smart is now the default)
+ * - `mode: 'smart'` → Use `DEFAULT_SETTINGS` plus `navigationWaitUntil: 'domcontentloaded'`
  * - `mode: 'debug'` → `{ verbosity: 3, headed: true, humanTakeoverEnabled: true }`
  * - `mode: 'speed'` → `{ mouseSpeed: 2.0, fidgetEnabled: false, stealthLevel: 'low' }`
  * - `mode: 'observe'` → `{ headed: true, verbosity: 2 }`
