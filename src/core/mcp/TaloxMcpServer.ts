@@ -194,6 +194,7 @@ function requestedModernProtocol(params: unknown): boolean {
 export class TaloxMcpSession {
 	private readonly controllerFactory: McpControllerFactory;
 	private controller: McpController | null = null;
+	private stopInFlight: Promise<void> | null = null;
 	private era: ProtocolEra = "unknown";
 
 	constructor(controllerFactory: McpControllerFactory = defaultControllerFactory) {
@@ -254,10 +255,29 @@ export class TaloxMcpSession {
 	}
 
 	async close(): Promise<void> {
-		if (!this.controller) return;
+		await this.stopController();
+	}
+
+	private stopController(): Promise<void> {
+		if (this.stopInFlight) return this.stopInFlight;
 		const controller = this.controller;
-		this.controller = null;
-		await controller.stop();
+		if (!controller) return Promise.resolve();
+
+		const attempt = Promise.resolve()
+			.then(() => controller.stop())
+			.then(() => {
+				if (this.controller === controller) this.controller = null;
+			});
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
 	}
 
 	private handleNotification(request: JsonRpcRequest): null {
@@ -446,9 +466,7 @@ export class TaloxMcpSession {
 
 	private async stop(): Promise<ToolCallResult> {
 		if (!this.controller) return textResult({ stopped: false, reason: "no active session" });
-		const controller = this.controller;
-		this.controller = null;
-		await controller.stop();
+		await this.stopController();
 		return textResult({ stopped: true });
 	}
 
