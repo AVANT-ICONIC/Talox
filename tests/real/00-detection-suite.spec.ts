@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { TaloxController } from "../../src/index.js";
+import { waitFor } from "./helpers.js";
 
 let talox: TaloxController;
 let profileDir: string;
@@ -71,6 +72,81 @@ function logLowerIsBetterDelta(label: string, current: number | null, previous: 
 	log(`[CreepJS] ${direction}: ${label} ${previous} → ${current} (${delta > 0 ? "+" : ""}${delta})`);
 }
 
+async function readSannysoftResult(controller: TaloxController): Promise<SannysoftResult> {
+	return await controller.evaluate<SannysoftResult>(`
+		(() => {
+			const tables = document.querySelectorAll('table');
+			let passed = 0;
+			let failed = 0;
+			let total = 0;
+			const failedChecks = [];
+			const unclassifiedChecks = [];
+
+			const colorStatus = (cell) => {
+				const color = getComputedStyle(cell).backgroundColor || '';
+				const match = color.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i);
+				if (!match) return 'unknown';
+				const red = Number(match[1]);
+				const green = Number(match[2]);
+				const blue = Number(match[3]);
+				if (green >= red + 20 && green >= blue + 20) return 'passed';
+				if (red >= green + 20 && red >= blue + 20) return 'failed';
+				return 'unknown';
+			};
+
+			const classify = (cell, value) => {
+				const className = String(cell.className || '').toLowerCase();
+				const normalizedValue = value.toLowerCase();
+				if (
+					className.includes('failed') ||
+					normalizedValue === 'failed' ||
+					normalizedValue.includes('(failed)')
+				) return 'failed';
+				if (
+					className.includes('passed') ||
+					normalizedValue === 'passed' ||
+					normalizedValue.includes('(passed)')
+				) return 'passed';
+				return colorStatus(cell);
+			};
+
+			tables.forEach(table => {
+				const rows = [];
+				table.querySelectorAll('tr').forEach(row => {
+					const cells = row.querySelectorAll('td');
+					if (cells.length < 2) return;
+					const label = cells[0]?.textContent?.trim() || '';
+					if (!label) return;
+					const cell = cells[1];
+					const value = cell?.textContent?.trim() || '';
+					rows.push({ label, value, status: classify(cell, value) });
+				});
+
+				// Sannysoft also contains raw fingerprint/detail tables that are not
+				// pass/fail tests. A scored table must expose at least one explicit
+				// pass/fail signal via class, result text, or its computed green/red cell.
+				if (!rows.some(row => row.status !== 'unknown')) return;
+
+				rows.forEach(({ label, value, status }) => {
+					if (status === 'unknown') {
+						unclassifiedChecks.push(label + ': ' + value);
+						return;
+					}
+					total++;
+					if (status === 'failed') {
+						failed++;
+						failedChecks.push(label + ': ' + value);
+					} else {
+						passed++;
+					}
+				});
+			});
+
+			return { total, passed, failed, failedChecks, unclassifiedChecks };
+		})()
+	`);
+}
+
 test.describe("Detection Score Suite", () => {
 	test.setTimeout(300_000);
 
@@ -89,80 +165,22 @@ test.describe("Detection Score Suite", () => {
 
 	test("Sannysoft Bot Detection — captures current check results", async () => {
 		await talox.navigate("https://bot.sannysoft.com/");
-		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
-		const result = await talox.evaluate<SannysoftResult>(`
-			(() => {
-				const tables = document.querySelectorAll('table');
-				let passed = 0;
-				let failed = 0;
-				let total = 0;
-				const failedChecks = [];
-				const unclassifiedChecks = [];
-
-				const colorStatus = (cell) => {
-					const color = getComputedStyle(cell).backgroundColor || '';
-					const match = color.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i);
-					if (!match) return 'unknown';
-					const red = Number(match[1]);
-					const green = Number(match[2]);
-					const blue = Number(match[3]);
-					if (green >= red + 20 && green >= blue + 20) return 'passed';
-					if (red >= green + 20 && red >= blue + 20) return 'failed';
-					return 'unknown';
-				};
-
-				const classify = (cell, value) => {
-					const className = String(cell.className || '').toLowerCase();
-					const normalizedValue = value.toLowerCase();
-					if (
-						className.includes('failed') ||
-						normalizedValue === 'failed' ||
-						normalizedValue.includes('(failed)')
-					) return 'failed';
-					if (
-						className.includes('passed') ||
-						normalizedValue === 'passed' ||
-						normalizedValue.includes('(passed)')
-					) return 'passed';
-					return colorStatus(cell);
-				};
-
-				tables.forEach(table => {
-					const rows = [];
-					table.querySelectorAll('tr').forEach(row => {
-						const cells = row.querySelectorAll('td');
-						if (cells.length < 2) return;
-						const label = cells[0]?.textContent?.trim() || '';
-						if (!label) return;
-						const cell = cells[1];
-						const value = cell?.textContent?.trim() || '';
-						rows.push({ label, value, status: classify(cell, value) });
-					});
-
-					// Sannysoft also contains raw fingerprint/detail tables that are not
-					// pass/fail tests. A scored table must expose at least one explicit
-					// pass/fail signal via class, result text, or its computed green/red cell.
-					if (!rows.some(row => row.status !== 'unknown')) return;
-
-					rows.forEach(({ label, value, status }) => {
-						if (status === 'unknown') {
-							unclassifiedChecks.push(label + ': ' + value);
-							return;
-						}
-						total++;
-						if (status === 'failed') {
-							failed++;
-							failedChecks.push(label + ': ' + value);
-						} else {
-							passed++;
-						}
-					});
-				});
-
-				return { total, passed, failed, failedChecks, unclassifiedChecks };
-			})()
-		`);
+		let result = await readSannysoftResult(talox);
+		if (result.total === 0 || result.unclassifiedChecks.length > 0) {
+			try {
+				await waitFor(
+					async () => {
+						result = await readSannysoftResult(talox);
+						return result.total > 0 && result.unclassifiedChecks.length === 0;
+					},
+					15_000,
+					250,
+				);
+			} catch {
+				console.warn("[Sannysoft] Readiness poll timed out; asserting the latest captured snapshot");
+			}
+		}
 
 		console.log(`[Sannysoft] ${result.passed}/${result.total} passed`);
 		if (result.failedChecks.length > 0) {
@@ -298,9 +316,23 @@ test.describe("Detection Score Suite", () => {
 
 	test("BrowserLeaks — loads without block", async () => {
 		await talox.navigate("https://browserleaks.com/");
-		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
-		const title = await talox.evaluate<string>("document.title");
+		let title = await talox.evaluate<string>("document.title");
+		if (title.trim().length === 0) {
+			try {
+				await waitFor(
+					async () => {
+						title = await talox.evaluate<string>("document.title");
+						return title.trim().length > 0;
+					},
+					10_000,
+					250,
+				);
+			} catch {
+				console.warn("[BrowserLeaks] Title readiness poll timed out; asserting the latest title");
+			}
+		}
+
 		const loaded = title.length > 0 && !title.toLowerCase().includes("blocked");
 
 		console.log(`[BrowserLeaks] Title: "${title}", Loaded: ${loaded}`);
