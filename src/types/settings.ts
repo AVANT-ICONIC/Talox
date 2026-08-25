@@ -112,9 +112,11 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 		case "stealth":
 		case "balanced":
 		case "qa":
-			// High stealth, adaptive behavior, full perception - the "works everywhere" default
-			// Tradeoff: Uses bot-detection warmup delays and stealth randomness that may distort results.
-			// For testing your own app, prefer explicit settings with debug mode.
+			// High stealth, adaptive behavior, full perception - the "works everywhere" default.
+			// Modern SPAs frequently keep analytics/WebSocket/long-poll requests alive,
+			// so waiting for networkidle can turn a usable page into a navigation stall.
+			// Smart mode proceeds once the DOM is ready; callers can still explicitly
+			// request networkidle when their target genuinely has a stable idle state.
 			return {
 				mouseSpeed: 0.7,
 				stealthLevel: "high",
@@ -122,6 +124,7 @@ export function resolveLegacyMode(mode: LegacyTaloxMode): Partial<TaloxSettings>
 				humanStealth: 1,
 				fidgetEnabled: true,
 				verbosity: 0,
+				navigationWaitUntil: "domcontentloaded",
 			};
 
 		case "debug":
