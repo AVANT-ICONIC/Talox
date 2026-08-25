@@ -116,6 +116,7 @@ export function resolveConfigDir(): string {
 interface LaunchOptions {
 	headless: boolean;
 	browserType: BrowserType;
+	virtualDisplay?: boolean;
 	proxy?: { server: string; username?: string; password?: string };
 	userDataDir?: string;
 	args?: string[];
