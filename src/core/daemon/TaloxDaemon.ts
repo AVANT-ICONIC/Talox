@@ -59,8 +59,10 @@ export class TaloxDaemon {
 	private readonly log = createLogger("Daemon");
 	private readonly config: DaemonConfig;
 	private readonly sessions: Map<string, SessionRecord> = new Map();
+	private readonly sessionStops: Map<string, Promise<void>> = new Map();
 	private server: net.Server | null = null;
 	private running = false;
+	private stopInFlight: Promise<void> | null = null;
 	private startedAt: number | null = null;
 
 	constructor(config?: DaemonConfig) {
@@ -111,31 +113,78 @@ export class TaloxDaemon {
 
 	/**
 	 * Gracefully stop the daemon: close all sessions then shut down the server.
+	 * Failed session stops remain registered so a later stop can retry them.
 	 */
-	async stop(): Promise<void> {
-		if (!this.running || !this.server) {
-			return;
+	stop(): Promise<void> {
+		if (this.stopInFlight) return this.stopInFlight;
+		if (!this.running || !this.server) return Promise.resolve();
+
+		const attempt = this.runStop();
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runStop(): Promise<void> {
+		const sessions = Array.from(this.sessions.values());
+		const results = await Promise.allSettled(sessions.map((session) => this.stopSession(session)));
+		const failures: string[] = [];
+
+		for (const [index, result] of results.entries()) {
+			if (result.status === "fulfilled") continue;
+			const session = sessions[index];
+			if (!session) continue;
+			const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+			this.log.error(`Error stopping session ${session.id}: ${message}`);
+			failures.push(`${session.id}: ${message}`);
 		}
 
-		// Close all active sessions
-		const stopPromises: Promise<void>[] = [];
-		this.sessions.forEach((session) => {
-			stopPromises.push(
-				session.controller.stop().catch((err: Error) => {
-					this.log.error(`Error stopping session ${session.id}: ${err.message}`);
-				}),
-			);
-		});
-		await Promise.all(stopPromises);
-		this.sessions.clear();
+		if (failures.length > 0) {
+			throw new Error(`Failed to stop ${failures.length} daemon session(s): ${failures.join("; ")}`);
+		}
 
-		// Close the server
-		await new Promise<void>((resolve) => {
-			this.server!.close(() => resolve());
+		const server = this.server;
+		if (!server) {
+			this.running = false;
+			return;
+		}
+		await new Promise<void>((resolve, reject) => {
+			server.close((error?: Error) => {
+				if (error) reject(error);
+				else resolve();
+			});
 		});
 
+		if (this.server === server) this.server = null;
 		this.running = false;
-		this.server = null;
+	}
+
+	private stopSession(session: SessionRecord): Promise<void> {
+		const existing = this.sessionStops.get(session.id);
+		if (existing) return existing;
+
+		const attempt = Promise.resolve()
+			.then(() => session.controller.stop())
+			.then(() => {
+				if (this.sessions.get(session.id) === session) this.sessions.delete(session.id);
+			});
+		this.sessionStops.set(session.id, attempt);
+		attempt.then(
+			() => {
+				if (this.sessionStops.get(session.id) === attempt) this.sessionStops.delete(session.id);
+			},
+			() => {
+				if (this.sessionStops.get(session.id) === attempt) this.sessionStops.delete(session.id);
+			},
+		);
+		return attempt;
 	}
 
 	/**
@@ -240,6 +289,13 @@ export class TaloxDaemon {
 							error: `Session not found: ${sessionId}`,
 						};
 					}
+					if (this.sessionStops.has(sessionId)) {
+						return {
+							id: command.id,
+							success: false,
+							error: `Session is stopping: ${sessionId}`,
+						};
+					}
 					return await handleCommand(session.controller, command);
 				}
 			}
@@ -252,6 +308,10 @@ export class TaloxDaemon {
 	// ─── Daemon-Level Actions ───────────────────────────────────────────────
 
 	private async handleLaunch(command: DaemonCommand): Promise<DaemonResponse> {
+		if (this.stopInFlight) {
+			return { id: command.id, success: false, error: "Daemon is shutting down" };
+		}
+
 		const profileId = (command.params?.["profileId"] as string | undefined) ?? "daemon";
 		const profileClass = (command.params?.["profileClass"] as ProfileClass | undefined) ?? "ops";
 		const browserType = (command.params?.["browser"] as BrowserType | undefined) ?? "chromium";
@@ -264,6 +324,13 @@ export class TaloxDaemon {
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			return { id: command.id, success: false, error: message };
+		}
+
+		if (this.stopInFlight) {
+			await controller.stop().catch((err: unknown) => {
+				this.log.error(`Cleanup after launch raced with daemon shutdown: ${err instanceof Error ? err.message : String(err)}`);
+			});
+			return { id: command.id, success: false, error: "Daemon is shutting down" };
 		}
 
 		this.sessions.set(sessionId, {
@@ -294,13 +361,12 @@ export class TaloxDaemon {
 		}
 
 		try {
-			await session.controller.stop();
+			await this.stopSession(session);
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			return { id: command.id, success: false, error: message };
 		}
 
-		this.sessions.delete(sessionId);
 		return { id: command.id, success: true, data: { stopped: sessionId } };
 	}
 
