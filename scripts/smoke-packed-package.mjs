@@ -41,7 +41,16 @@ try {
 	const tarballPath = join(packDir, artifact.filename);
 	writeFileSync(
 		join(consumerDir, "package.json"),
-		JSON.stringify({ name: "talox-packed-smoke-consumer", private: true, type: "module" }, null, 2),
+		JSON.stringify(
+			{
+				name: "talox-packed-smoke-consumer",
+				private: true,
+				type: "module",
+				scripts: { "smoke:cli": "talox --help" },
+			},
+			null,
+			2,
+		),
 		"utf8",
 	);
 
@@ -72,13 +81,10 @@ console.log("Packed imports OK");
 
 	run(process.execPath, ["--input-type=module", "--eval", importSmoke], { cwd: consumerDir });
 
-	const binPath = join(
-		consumerDir,
-		"node_modules",
-		".bin",
-		process.platform === "win32" ? "talox.cmd" : "talox",
-	);
-	const cliOutput = run(binPath, ["--help"], { cwd: consumerDir, capture: true });
+	// npm scripts prepend the consumer's local node_modules/.bin to PATH on every
+	// supported platform, avoiding direct .cmd execution quirks on Windows while
+	// still proving that the installed package generated a working `talox` bin.
+	const cliOutput = run(npmCommand, ["run", "--silent", "smoke:cli"], { cwd: consumerDir, capture: true });
 	assert(/talox/i.test(cliOutput), "Packed CLI smoke produced no Talox help output");
 
 	const size = typeof artifact.size === "number" ? `${(artifact.size / 1024).toFixed(1)} kB` : "unknown";
