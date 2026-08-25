@@ -1,0 +1,48 @@
+name: Validate modern ARIA state migration
+
+on:
+  push:
+    branches:
+      - feat/modern-aria-state
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/modern-aria-state
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply modern ARIA state patch
+        run: python3 .github/scripts/apply_modern_aria_state.py
+      - name: Refresh Playwright lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Focused collector units
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/PageStateCollector.test.ts
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Real modern ARIA state regression
+        run: npx vitest run --config vitest.config.browser.ts tests/core/page-state-modern-aria.test.ts
+      - name: Error-path regression
+        run: npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts
+      - name: Commit validated source and remove transaction helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-modern-aria-state.yml .github/scripts/apply_modern_aria_state.py
+          git add package.json package-lock.json src/core/PageStateCollector.ts tests/unit/PageStateCollector.test.ts tests/core/page-state-modern-aria.test.ts
+          git commit -m "feat: restore modern Playwright ARIA state"
+          git push origin HEAD:feat/modern-aria-state
