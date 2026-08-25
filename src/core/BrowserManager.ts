@@ -735,6 +735,12 @@ export class BrowserManager {
 		}
 
 		const launchOptions = this.buildLaunchOptions(extraOptions, actualBrowserType);
+		if (this.xvfbDisplay) {
+			// DISPLAY is process-global, so overlapping managers can change it between
+			// Xvfb readiness and Chromium spawn. Pin this browser to the display owned
+			// by this manager instead of trusting ambient process.env.DISPLAY.
+			launchOptions.env = { ...process.env, DISPLAY: this.xvfbDisplay };
+		}
 
 		// Compute hash of launch options to detect config changes
 		const newHash = this.computeLaunchHash({

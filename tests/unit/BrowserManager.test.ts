@@ -290,6 +290,17 @@ describe("BrowserManager", () => {
 			);
 		});
 
+		it("pins browser launch env to the Xvfb display owned by this manager", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			(manager as any).xvfbDisplay = ":123";
+
+			await manager.launch(createTestProfile(), false, "chromium");
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+		});
+
 		it("includes expected chromium args", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
