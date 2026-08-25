@@ -28,10 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **Local VLM redirect privacy boundary** — automatic redirects are disabled so loopback 307/308 responses cannot replay screenshot payloads to remote hosts.
 - **BrowserManager/Xvfb lifecycle hardening** — active managers share one process-level `exit`/`SIGINT` listener pair; Xvfb cleanup registers immediately after spawn, stale child events cannot clear replacement state, concurrent displays are reserved and restored through a process-wide stack, each browser launch is pinned to its manager-owned display without replacing caller-provided environment variables, browser configuration relaunches preserve the live Xvfb process while virtual display remains enabled, and disabling virtual display tears down Xvfb before replacement launch.
+- **Doctor runtime baseline** — `talox doctor` now enforces the same Node.js 20 minimum as package metadata and derives its upgrade guidance from that shared baseline.
 
 ### Tests
 
-- 127 unit test files / 1,959 tests expected after BrowserManager/Xvfb lifecycle, overlap, startup-failure, display-pinning, caller-environment preservation, relaunch, and virtual-display-disable regression coverage; definitive CI validates the exact total before merge.
+- **127 unit test files / 1,975 unit tests** verified passing on the final v9 release baseline, together with all six browser integration shards, the browser aggregate gate, and Docker build/runtime/sandbox smoke gates.
 
 ---
 

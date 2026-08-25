@@ -18,7 +18,7 @@ src/
   cli/talox.ts                  # CLI entry (npx talox)
   core/
     BrowserManager.ts           # Browser lifecycle, contexts, pages
-    PageStateCollector.ts       # DOM/AX/network state collection
+    PageStateCollector.ts       # ARIA/DOM/network state collection
     PerceptionStack.ts          # Layered observation (cheap/medium/heavy)
     VisionGate.ts               # Visual regression + OCR
     InteractionReliability.ts   # 9 failure-pattern recovery strategies
@@ -27,7 +27,7 @@ src/
     SessionSnapshot.ts          # State capture/restore across browser restarts
     GhostVisualizer.ts          # Debug PNG overlay generator
     ArtifactBuilder.ts          # Session artifact assembly
-    SemanticMapper.ts           # AX-tree → structured semantic output
+    SemanticMapper.ts           # Talox nodes → structured semantic output
     SelfHealingSelector.ts      # Selector adaptation with success tracking
     SiteWarmup.ts               # Generic per-domain interstitial bypass registry
     PolicyEngine.ts             # Allowlist/blocklist guard
@@ -108,7 +108,7 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **Modern ARIA state:** browser-computed accessibility roles/names and bounding boxes are the primary `TaloxPageState.nodes` source.
 - **Post-v8.1 platform work:** MCP, community plugins, Replay UI, cross-origin iframe trust, Platform Adapters, and Local VLM are included.
 - **Reliability work:** deterministic browser-error fast paths, BrowserManager/Xvfb lifecycle hardening, profile ownership protection, and synthetic-document collection fast paths are included.
-- **Validation baseline before release:** 127 unit test files / 1,974 unit tests plus all browser integration shards and Docker gates green on the modern ARIA merge.
+- **Validation baseline:** 127 unit test files / 1,975 unit tests plus all six browser integration shards, the browser aggregate gate, and Docker runtime/sandbox gates green.
 
 ### Current Status (2026-08-21) — v8.1.0
 
