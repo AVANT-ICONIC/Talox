@@ -1,0 +1,43 @@
+name: Fix launch hash type
+on:
+  push:
+    branches: [fix/browser-process-cleanup]
+    paths: [.github/workflows/fix-launch-hash-type.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/browser-process-cleanup
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Declare virtualDisplay hash field
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/core/BrowserManager.ts')
+          s = p.read_text()
+          old = '''interface LaunchOptions {\n\theadless: boolean;\n\tbrowserType: BrowserType;\n\tproxy?: { server: string; username?: string; password?: string };\n'''
+          new = '''interface LaunchOptions {\n\theadless: boolean;\n\tbrowserType: BrowserType;\n\tvirtualDisplay?: boolean;\n\tproxy?: { server: string; username?: string; password?: string };\n'''
+          if old not in s: raise SystemExit('LaunchOptions interface not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - run: npm ci
+      - name: Focused validation
+        run: |
+          npm run build
+          npm run typecheck
+          npx vitest run --config vitest.config.unit.ts tests/unit/BrowserManager.test.ts tests/unit/XvfbDisplay.test.ts
+      - name: Commit patch and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-launch-hash-type.yml
+          git add src/core/BrowserManager.ts
+          git commit -m "fix: type virtual-display launch hash state"
+          git push origin HEAD:fix/browser-process-cleanup
