@@ -48,7 +48,7 @@ export class InspectServer {
 	private cdpSession: import("playwright-core").CDPSession | null = null;
 	private readonly devtoolsClients: Set<WebSocket> = new Set();
 	private running = false;
-	private startInFlight: Promise<void> | null = null;
+	private attachInFlight: Promise<void> | null = null;
 	private detachInFlight: Promise<void> | null = null;
 	private connectionHandlerInstalled = false;
 
@@ -64,24 +64,46 @@ export class InspectServer {
 	/**
 	 * Attach to a Playwright page and start proxying CDP messages.
 	 *
-	 * Starts the HTTP and WebSocket servers if not already running. Concurrent
-	 * callers share one listen attempt, and a failed listen remains retryable.
+	 * Attachments are serialized so concurrent callers cannot race server start
+	 * or leak multiple CDP sessions. Failed attempts leave the next attach free
+	 * to retry.
 	 */
 	async attach(page: Page): Promise<void> {
-		if (this.detachInFlight) await this.detachInFlight;
+		while (this.attachInFlight) {
+			await this.attachInFlight.catch(() => {});
+		}
+
+		const attempt = this.runAttach(page);
+		this.attachInFlight = attempt;
+		try {
+			await attempt;
+		} finally {
+			if (this.attachInFlight === attempt) this.attachInFlight = null;
+		}
+	}
+
+	private async runAttach(page: Page): Promise<void> {
+		const detach = this.detachInFlight;
+		if (detach) await detach;
+
 		this.page = page;
+		await this.ensureServerStarted();
+
+		const previousSession = this.cdpSession;
+		this.cdpSession = null;
+		if (previousSession) {
+			await previousSession.detach().catch(() => {}); // NOSONAR — previous page may already be closed
+		}
 
 		try {
 			this.cdpSession = await page.context().newCDPSession(page);
 		} catch {
 			// NOSONAR — CDP session creation may fail in some browsers
 		}
+	}
 
+	private async ensureServerStarted(): Promise<void> {
 		if (this.running) return;
-		if (this.startInFlight) {
-			await this.startInFlight;
-			return;
-		}
 
 		if (!this.connectionHandlerInstalled) {
 			this.wss.on("connection", (ws: WebSocket) => {
@@ -90,7 +112,7 @@ export class InspectServer {
 			this.connectionHandlerInstalled = true;
 		}
 
-		const attempt = new Promise<void>((resolve, reject) => {
+		await new Promise<void>((resolve, reject) => {
 			this.httpServer.once("error", reject);
 			this.httpServer.listen(this.port, this.host, () => {
 				this.httpServer.removeListener("error", reject);
@@ -98,13 +120,6 @@ export class InspectServer {
 				resolve();
 			});
 		});
-		this.startInFlight = attempt;
-
-		try {
-			await attempt;
-		} finally {
-			if (this.startInFlight === attempt) this.startInFlight = null;
-		}
 	}
 
 	/**
@@ -127,8 +142,8 @@ export class InspectServer {
 	}
 
 	private async runDetach(): Promise<void> {
-		const start = this.startInFlight;
-		if (start) await start.catch(() => {});
+		const attach = this.attachInFlight;
+		if (attach) await attach.catch(() => {});
 
 		const clients = Array.from(this.devtoolsClients);
 		for (const ws of clients) {
