@@ -26,19 +26,29 @@ When a caller explicitly requests a browser such as `chromium`, Talox launches t
 
 Normal HTTP/HTTPS pages keep the existing progressive hydration retry strategy unchanged.
 
+## Playwright accessibility compatibility
+
+Modern Playwright versions no longer expose the legacy `page.accessibility` snapshot surface that Talox historically attempted first. Talox now treats the missing legacy capability as unavailable rather than as a transient empty accessibility tree, so it enters DOM fallback immediately instead of paying accessibility retry/backoff delays that cannot succeed.
+
+This does **not** remove page hydration protection. The outer DOM collection loop remains active for sparse or still-loading web applications. Compatible drivers that still expose a legacy accessibility snapshot continue through the existing AX path.
+
+A real-browser regression runs against the installed Playwright version and verifies that a page without `page.accessibility` produces usable DOM-backed nodes and interactive elements with **zero legacy AX attempts and zero AX backoff delay**.
+
 ## Validated impact
 
 On the GitHub Actions Ubuntu browser runner on 2026-08-25, the first deterministic fast-path pass reduced `tests/core/error-paths.test.ts` from **113.28 seconds** to **57.08 seconds** while retaining all 20 tests.
 
-The synthetic-document pass then reduced the same 20-test shard from **57.08 seconds** to **31.71 seconds**, a further **44.4% reduction**. Relative to the original 113.28-second baseline, the shard is now **72.0% faster**.
+The synthetic-document pass then reduced the same 20-test shard from **57.08 seconds** to **31.71 seconds**, a further **44.4% reduction**. Relative to the original 113.28-second focused baseline, that run was **72.0% faster**. Hosted-runner wall time varies substantially, so these figures are recorded as observed runs rather than guaranteed CI duration.
 
-Representative test durations moved as follows:
+The Playwright accessibility-capability fix subsequently passed the same **20/20** error-path tests in **36.00 seconds** on a focused real-Chromium validation run while also passing the dedicated real-browser compatibility regression.
 
-- browser crash recovery: **9.93 s → 3.98 s**
-- same-profile contention: **9.65 s → 4.54 s**
-- external navigation + `getState()`: **14.01 s → 3.30 s**
+Representative test durations after the fast paths remain in the improved range:
 
-The largest cost removed by the first pass was malformed-selector handling: ten click/type cases had each spent roughly 5.2 seconds collecting sparse-page state before the parser error was surfaced. The second pass removed similarly deterministic hydration waits from intentionally synthetic blank/srcdoc states.
+- browser crash recovery: about **4.1 s** in the latest focused validation, down from **9.93 s** in the original baseline
+- same-profile contention: about **4.6 s**, down from **9.65 s**
+- external navigation + `getState()`: about **3.2 s**, down from **14.01 s**
+
+The largest cost removed by the first pass was malformed-selector handling: ten click/type cases had each spent roughly 5.2 seconds collecting sparse-page state before the parser error was surfaced. The synthetic-document pass removed similarly deterministic hydration waits from intentionally blank/srcdoc states. The compatibility pass removes impossible retries against Playwright's removed legacy accessibility API.
 
 ## Lifecycle compatibility
 
