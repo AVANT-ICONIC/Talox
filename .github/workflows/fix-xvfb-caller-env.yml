@@ -1,0 +1,29 @@
+name: Fix Xvfb caller env
+
+on:
+  push:
+    branches:
+      - fix/browser-process-cleanup
+    paths:
+      - .github/workflows/fix-xvfb-caller-env.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/browser-process-cleanup
+      - name: Preserve caller env when pinning DISPLAY
+        run: python3 .github/scripts/fix_xvfb_caller_env.py
+      - name: Commit patch and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/BrowserManager.ts tests/unit/BrowserManager.test.ts
+          git rm .github/workflows/fix-xvfb-caller-env.yml .github/scripts/fix_xvfb_caller_env.py
+          git commit -m "fix: preserve caller env with Xvfb display pinning"
+          git push origin HEAD:fix/browser-process-cleanup
