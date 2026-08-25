@@ -245,7 +245,8 @@ export class ObserveSession {
 
 	/**
 	 * Explicitly end the session and write the report.
-	 * Safe to call multiple times — subsequent calls await the same finalization.
+	 * Safe to call multiple times: concurrent calls share one attempt, successful
+	 * finalization stays cached, and a failed attempt may be retried later.
 	 */
 	async endSession(): Promise<void> {
 		await this.finalize();
@@ -285,10 +286,14 @@ export class ObserveSession {
 	// ─── Private ─────────────────────────────────────────────────────────────────
 
 	private finalize(): Promise<void> {
-		if (this.finalizePromise === null) {
-			this.finalizePromise = this.runFinalize();
-		}
-		return this.finalizePromise;
+		if (this.finalizePromise !== null) return this.finalizePromise;
+
+		const attempt = this.runFinalize();
+		this.finalizePromise = attempt;
+		attempt.catch(() => {
+			if (this.finalizePromise === attempt) this.finalizePromise = null;
+		});
+		return attempt;
 	}
 
 	private async runFinalize(): Promise<void> {
