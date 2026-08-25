@@ -46,7 +46,14 @@ try {
 				name: "talox-packed-smoke-consumer",
 				private: true,
 				type: "module",
-				scripts: { "smoke:cli": "talox --help" },
+				scripts: {
+					"smoke:cli": "talox --help",
+					"smoke:types": "tsc --noEmit --strict --target ESNext --module NodeNext --moduleResolution NodeNext type-smoke.ts",
+				},
+				devDependencies: {
+					"@types/node": packageJson.devDependencies?.["@types/node"],
+					typescript: packageJson.devDependencies?.typescript,
+				},
 			},
 			null,
 			2,
@@ -80,6 +87,28 @@ console.log("Packed imports OK");
 `;
 
 	run(process.execPath, ["--input-type=module", "--eval", importSmoke], { cwd: consumerDir });
+
+	writeFileSync(
+		join(consumerDir, "type-smoke.ts"),
+		`import { TaloxController } from "talox";
+import { listTaloxPlugins } from "talox/plugins";
+import { BUILT_IN_PLATFORM_ADAPTERS } from "talox/adapters";
+import { createLocalVisionReasoner } from "talox/local-vision";
+
+const publicSurface = {
+  TaloxController,
+  listTaloxPlugins,
+  BUILT_IN_PLATFORM_ADAPTERS,
+  createLocalVisionReasoner,
+};
+
+void publicSurface;
+`,
+		"utf8",
+	);
+
+	run(npmCommand, ["run", "--silent", "smoke:types"], { cwd: consumerDir });
+	process.stdout.write("Packed TypeScript declarations OK\n");
 
 	// npm scripts prepend the consumer's local node_modules/.bin to PATH on every
 	// supported platform, avoiding direct .cmd execution quirks on Windows while
