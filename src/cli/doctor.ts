@@ -30,6 +30,9 @@ const RED = "\x1b[31m";
 const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";
 const HORIZONTAL_LINE = "━".repeat(41);
+const NETWORK_TIMEOUT_MS = 5_000;
+const LIVE_LAUNCH_TIMEOUT_MS = 10_000;
+const LIVE_PAGE_TIMEOUT_MS = 5_000;
 export const MIN_NODE_MAJOR = 20;
 
 function execAsync(command: string, args: string[]): Promise<string> {
@@ -198,7 +201,7 @@ async function checkTempDirectory(): Promise<DoctorCheck> {
 async function checkNetworkConnectivity(): Promise<DoctorCheck> {
 	try {
 		const response = await fetch("https://example.com", {
-			signal: AbortSignal.timeout(10_000),
+			signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
 		});
 		if (response.ok) {
 			return { name: "Network connectivity", status: "ok", message: "example.com reachable" };
@@ -317,11 +320,16 @@ async function checkLiveLaunch(executablePath: string | null): Promise<DoctorChe
 
 	let browser: Browser | undefined;
 	try {
-		browser = await chromium.launch({ headless: true, executablePath });
+		browser = await chromium.launch({
+			headless: true,
+			executablePath,
+			timeout: LIVE_LAUNCH_TIMEOUT_MS,
+		});
 		const context: BrowserContext = await browser.newContext();
+		context.setDefaultTimeout(LIVE_PAGE_TIMEOUT_MS);
+		context.setDefaultNavigationTimeout(LIVE_PAGE_TIMEOUT_MS);
 		const page = await context.newPage();
-		await page.goto("about:blank");
-		await page.waitForLoadState("load");
+		await page.goto("about:blank", { waitUntil: "load", timeout: LIVE_PAGE_TIMEOUT_MS });
 		await context.close();
 		return {
 			name: "Live launch test",
@@ -352,17 +360,42 @@ export async function runDoctor(options?: { fix?: boolean }): Promise<DoctorResu
 		browserCheck = checkBrowserBinaries(chromiumExecutable);
 	}
 
+	// These probes are independent once any requested browser installation is
+	// complete. Run them concurrently so a slow network check cannot serially
+	// consume the same wall-clock budget as a slow browser launch.
+	const [
+		nodeCheck,
+		playwrightCheck,
+		profileCheck,
+		tempCheck,
+		networkCheck,
+		displayCheck,
+		dependenciesCheck,
+		configCheck,
+		liveLaunchCheck,
+	] = await Promise.all([
+		checkNodeVersion(),
+		checkPlaywrightInstalled(),
+		checkProfileDirectory(fix),
+		checkTempDirectory(),
+		checkNetworkConnectivity(),
+		checkDisplayServer(),
+		checkDependencies(),
+		checkConfigFile(fix),
+		checkLiveLaunch(chromiumExecutable),
+	]);
+
 	const checks: DoctorCheck[] = [
-		await checkNodeVersion(),
-		await checkPlaywrightInstalled(),
+		nodeCheck,
+		playwrightCheck,
 		browserCheck,
-		await checkProfileDirectory(fix),
-		await checkTempDirectory(),
-		await checkNetworkConnectivity(),
-		await checkDisplayServer(),
-		await checkDependencies(),
-		await checkConfigFile(fix),
-		await checkLiveLaunch(chromiumExecutable),
+		profileCheck,
+		tempCheck,
+		networkCheck,
+		displayCheck,
+		dependenciesCheck,
+		configCheck,
+		liveLaunchCheck,
 	];
 
 	const passed = checks.filter((c) => c.status === "ok").length;
