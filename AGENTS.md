@@ -102,6 +102,14 @@ radar tasks                       # Show current radar tasks
 
 SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 
+### Current Status (2026-08-25) — v9.0.0
+
+- **Major runtime baseline:** Node.js 20+ is now required to match Playwright 1.62.1.
+- **Modern ARIA state:** browser-computed accessibility roles/names and bounding boxes are the primary `TaloxPageState.nodes` source.
+- **Post-v8.1 platform work:** MCP, community plugins, Replay UI, cross-origin iframe trust, Platform Adapters, and Local VLM are included.
+- **Reliability work:** deterministic browser-error fast paths, BrowserManager/Xvfb lifecycle hardening, profile ownership protection, and synthetic-document collection fast paths are included.
+- **Validation baseline before release:** 127 unit test files / 1,974 unit tests plus all browser integration shards and Docker gates green on the modern ARIA merge.
+
 ### Current Status (2026-08-21) — v8.1.0
 
 - **Quality gate: OK** (0 errors, 0 warnings across all 248 source and test files)

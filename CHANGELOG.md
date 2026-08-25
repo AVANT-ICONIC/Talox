@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+---
+
+## [9.0.0] - 2026-08-25
+
 ### Added
 
 - **MCP server** — native dependency-free stdio integration for agent clients, including modern and legacy protocol handshakes.
