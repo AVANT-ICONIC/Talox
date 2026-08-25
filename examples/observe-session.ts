@@ -1,20 +1,25 @@
 /**
  * @file observe-session.ts
- * @description Example: Observe mode — human drives the browser, agent watches.
+ * @description Example: human-driven observe session with structured reporting.
  *
  * Launch with:
- *   npx ts-node examples/observe-session.ts
+ *   npx tsx examples/observe-session.ts
  *
  * The browser opens. Browse normally. Right-click anywhere to access the Talox
- * overlay menu. Close the browser when done — the session report is written
- * automatically to ./talox-sessions/
+ * overlay menu. Close the browser when done; the session report is written to
+ * ./talox-sessions/.
  */
 
-import { TaloxController } from '../src/index.js';
+import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
-
-// ── Event listeners ───────────────────────────────────────────────────────────
+const talox = new TaloxController('./profiles', {
+  observe: true,
+  settings: {
+    headed: true,
+    verbosity: 2,
+    humanTakeoverEnabled: true,
+  },
+});
 
 talox.on('navigation', ({ url }) => {
   console.log(`[Talox] → ${url}`);
@@ -28,7 +33,7 @@ talox.on('annotationAdded', ({ entry, bufferSize }) => {
   const labels = entry.labels.join(', ') || 'unlabelled';
   console.log(
     `[Talox] Annotation #${bufferSize}: [${labels}] "${entry.comment}" ` +
-    `on <${entry.element.tag}> "${entry.element.text ?? ''}"`,
+      `on <${entry.element.tag}> "${entry.element.text ?? ''}"`,
   );
 });
 
@@ -50,15 +55,16 @@ talox.on('sessionEnd', ({ sessionId, reportPath, durationMs, interactionCount, a
   console.log('╚══════════════════════════════════════════╝');
 });
 
-// ── Launch ────────────────────────────────────────────────────────────────────
-
-await talox.launch('human-test', 'qa', 'observe', 'chromium', {
-  output:    'both',           // generates both JSON and Markdown reports
+await talox.launch('human-test', 'qa', 'chromium', {
+  headed: true,
+  overlay: true,
+  record: true,
+  output: 'both',
   outputDir: './talox-sessions',
 });
 
 console.log('');
-console.log('  🔍 Talox Observe Mode');
+console.log('  🔍 Talox Observe Session');
 console.log('  Browser is open. Browse normally.');
 console.log('  Right-click anywhere to access the Talox overlay:');
 console.log('    → Comment Mode  — annotate elements');
