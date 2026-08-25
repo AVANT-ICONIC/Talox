@@ -265,13 +265,17 @@ export class BrowserManager {
 		this.stopXvfb();
 	}
 
-	async closeAll() {
-		const promises = Array.from(this.contexts).map((ctx) => ctx.close());
-		await Promise.all(promises);
+	async closeAll(): Promise<void> {
+		const results = await Promise.allSettled(Array.from(this.contexts).map((ctx) => ctx.close()));
 		this.contexts.clear();
 		this.context = null;
 		this.releasePersistentProfileOwnership();
 		this.stopXvfb();
+
+		const failedClose = results.find((result) => result.status === "rejected");
+		if (failedClose?.status === "rejected") {
+			throw failedClose.reason;
+		}
 	}
 
 	async detectBrowsers(): Promise<DetectedBrowser[]> {
