@@ -14,10 +14,10 @@ on:
         required: false
         default: ''
 
-# Cancel superseded runs on the same branch/ref when a newer commit arrives.
-# This keeps PR feedback focused on the current head instead of stale intermediates.
+# Cancel superseded runs only when they are the same event on the same ref.
+# A push to main must not cancel the nightly real-world run halfway through.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -146,10 +146,73 @@ jobs:
           fi
           echo "All browser integration shards passed."
 
-  # ─── Real-world tests — nightly + manual only ────────────────────────────────
-  real-world:
-    name: Real-World Tests
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  # ─── Real-world tests — nightly full suite in isolated serial shards ──────────
+  # Real sites are allowed to be slow or hostile, but one scenario must not consume
+  # the entire nightly budget. Shards stay serial to avoid rate-limit/shared-IP
+  # pressure while each gets its own runner timeout and diagnostics.
+  real-world-shard:
+    name: Real-World · ${{ matrix.group }}
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.grep == '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - group: detection
+            target: 'tests/real/00-detection-suite.spec.ts'
+          - group: disposable-mail
+            target: 'tests/real/01-guerrillamail.spec.ts'
+          - group: reddit-signup
+            target: 'tests/real/02-reddit-signup.spec.ts'
+          - group: platforms
+            target: 'tests/real/03-reddit-login.spec.ts tests/real/04-x-bot-detection.spec.ts tests/real/05-stackoverflow.spec.ts'
+          - group: agents-observe
+            target: 'tests/real/06-chatgpt-agent-to-agent.spec.ts tests/real/06b-grok-agent-to-agent.spec.ts tests/real/07-observe-driven-ai.spec.ts'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run real-world shard
+        run: npx playwright test ${{ matrix.target }}
+        env:
+          REDDIT_USER: ${{ secrets.REDDIT_USER }}
+          REDDIT_PASS: ${{ secrets.REDDIT_PASS }}
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.group }}-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test videos (failures only)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-videos-${{ matrix.group }}-${{ github.run_number }}
+          path: test-results/
+          retention-days: 3
+
+  # ─── Filtered real-world run — manual targeted diagnostics only ──────────────
+  real-world-filtered:
+    name: Real-World · filtered
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.grep != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -168,13 +231,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run real-world tests
-        run: |
-          if [ -n "${{ github.event.inputs.grep }}" ]; then
-            npx playwright test --grep "${{ github.event.inputs.grep }}"
-          else
-            npx playwright test
-          fi
+      - name: Run filtered real-world tests
+        run: npx playwright test --grep "${{ github.event.inputs.grep }}"
         env:
           REDDIT_USER: ${{ secrets.REDDIT_USER }}
           REDDIT_PASS: ${{ secrets.REDDIT_PASS }}
@@ -184,7 +242,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ github.run_number }}
+          name: playwright-report-filtered-${{ github.run_number }}
           path: playwright-report/
           retention-days: 7
 
@@ -192,6 +250,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-videos-${{ github.run_number }}
+          name: test-videos-filtered-${{ github.run_number }}
           path: test-results/
           retention-days: 3
