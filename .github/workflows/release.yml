@@ -1,0 +1,160 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v9.0.0'
+        required: true
+        default: 'v9.0.0'
+        type: string
+      dry_run:
+        description: 'Validate everything without creating a tag or GitHub Release'
+        required: true
+        default: true
+        type: boolean
+      confirm:
+        description: 'For a real release, enter exactly: RELEASE <tag>'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: talox-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      RELEASE_CONFIRM: ${{ inputs.confirm }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify release dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Releases must be dispatched from main; received $GITHUB_REF"
+            exit 1
+          fi
+
+          if [ "$DRY_RUN" != "true" ] && [ "$RELEASE_CONFIRM" != "RELEASE $RELEASE_TAG" ]; then
+            echo "Real release blocked. Confirmation must be exactly: RELEASE $RELEASE_TAG"
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "Tag $RELEASE_TAG already exists. Refusing to replace an existing release tag."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $RELEASE_TAG already exists. Refusing to overwrite it."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Prepare release notes and verify version contract
+        run: node scripts/prepare-release.mjs "$RELEASE_TAG" release-notes.md
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Runtime dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Verify package contents
+        run: npm pack --dry-run
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser integration tests
+        run: npm run test:browser
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "Release dry run passed for $RELEASE_TAG."
+          echo "No tag or GitHub Release was created."
+
+  publish:
+    name: Publish GitHub Release
+    needs: validate
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_CONFIRM: ${{ inputs.confirm }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Reverify release boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Releases must be dispatched from main; received $GITHUB_REF"
+            exit 1
+          fi
+
+          if [ "$RELEASE_CONFIRM" != "RELEASE $RELEASE_TAG" ]; then
+            echo "Release confirmation changed or is invalid."
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "Tag $RELEASE_TAG appeared after validation. Refusing to continue."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $RELEASE_TAG appeared after validation. Refusing to continue."
+            exit 1
+          fi
+
+      - name: Prepare release notes and reverify version contract
+        run: node scripts/prepare-release.mjs "$RELEASE_TAG" release-notes.md
+
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Talox $RELEASE_TAG" \
+            --notes-file release-notes.md
