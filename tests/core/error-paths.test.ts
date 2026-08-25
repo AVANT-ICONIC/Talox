@@ -74,9 +74,12 @@ describe("error-path: network timeout mid-action", () => {
 		tmpDir = makeTmpDir();
 		hangingServer = await createHangingServer();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0, navigationWaitUntil: "load" },
+			settings: { headed: false, verbosity: 0, navigationWaitUntil: "load", automaticThinkingEnabled: false },
 		});
 		await talox.launch("err-timeout", "sandbox", "chromium");
+		// Prime the session so the timeout assertion measures the hanging request,
+		// not Talox's unrelated 2–3s first-navigation human warmup.
+		await talox.navigate("about:blank");
 		// Verify real timeout recovery without inheriting Playwright's 30s default.
 		talox._session.getPlaywrightPage()?.setDefaultNavigationTimeout(1_500);
 	});
@@ -110,7 +113,7 @@ describe("error-path: browser crash recovery", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, automaticThinkingEnabled: false },
 		});
 		await talox.launch("err-crash", "sandbox", "chromium");
 	});
@@ -183,10 +186,10 @@ describe("error-path: concurrent session conflicts", () => {
 	it("launching two controllers with same profileId from same baseDir should handle gracefully", async () => {
 		// Both use the same tmpDir so the profile directory overlaps
 		talox1 = new TaloxController(tmpDir1, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, automaticThinkingEnabled: false },
 		});
 		talox2 = new TaloxController(tmpDir1, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, automaticThinkingEnabled: false },
 		});
 
 		await talox1.launch("conflict-profile", "sandbox", "chromium");
@@ -214,7 +217,7 @@ describe("error-path: invalid selector handling", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0, safeMode: true, actionTimeoutMs: 150 },
+			settings: { headed: false, verbosity: 0, safeMode: true, actionTimeoutMs: 150, automaticThinkingEnabled: false },
 		});
 		await talox.launch("err-selector", "sandbox", "chromium");
 		await talox.navigate("about:blank");
@@ -260,9 +263,12 @@ describe("error-path: navigate to invalid URL", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, automaticThinkingEnabled: false },
 		});
 		await talox.launch("err-url", "sandbox", "chromium");
+		// Invalid-URL handling is the subject here; consume first-navigation warmup
+		// on a deterministic local page so it does not dominate the first assertion.
+		await talox.navigate("about:blank");
 	});
 
 	afterAll(async () => {
@@ -302,7 +308,7 @@ describe("error-path: getState on page that navigated away", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, automaticThinkingEnabled: false },
 		});
 		await talox.launch("err-nav-away", "sandbox", "chromium");
 	});
