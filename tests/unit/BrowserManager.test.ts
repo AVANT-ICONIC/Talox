@@ -102,13 +102,13 @@ describe("BrowserManager", () => {
 
 		it("merges partial config overrides with defaults", () => {
 			const mgr = new BrowserManager({
-				browser: { headless: false, preferred: "firefox" } as any,
+				browser: { headless: false, preferred: "firefox" },
 			});
 			const config = mgr.getConfig();
 			expect(config.browser.headless).toBe(false);
 			expect(config.browser.preferred).toBe("firefox");
-			// Shallow merge: nested objects are replaced wholesale, so autoDetect is lost
-			expect(config.browser.autoDetect).toBeUndefined();
+			// Nested overrides preserve sibling defaults.
+			expect(config.browser.autoDetect).toBe(true);
 		});
 
 		it("does not register process handlers before owning cleanup resources", () => {
