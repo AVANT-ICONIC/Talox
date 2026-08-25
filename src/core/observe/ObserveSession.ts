@@ -68,7 +68,7 @@ export class ObserveSession {
 	private readonly options: Required<ObserveSessionOptions>;
 
 	private startUrl: string = "";
-	private finalised: boolean = false;
+	private finalizePromise: Promise<void> | null = null;
 	private readonly eventLog: EventLogEntry[] = [];
 	private readonly failureLog: FailureEntry[] = [];
 	private readonly diffLog: InteractionDiff[] = [];
@@ -245,7 +245,7 @@ export class ObserveSession {
 
 	/**
 	 * Explicitly end the session and write the report.
-	 * Safe to call multiple times — subsequent calls are no-ops.
+	 * Safe to call multiple times — subsequent calls await the same finalization.
 	 */
 	async endSession(): Promise<void> {
 		await this.finalize();
@@ -284,10 +284,14 @@ export class ObserveSession {
 
 	// ─── Private ─────────────────────────────────────────────────────────────────
 
-	private async finalize(): Promise<void> {
-		if (this.finalised) return;
-		this.finalised = true;
+	private finalize(): Promise<void> {
+		if (this.finalizePromise === null) {
+			this.finalizePromise = this.runFinalize();
+		}
+		return this.finalizePromise;
+	}
 
+	private async runFinalize(): Promise<void> {
 		const report = this.buildReport();
 		let reportPath: string = this.options.outputDir;
 		const extras: SessionReportExtras = {
