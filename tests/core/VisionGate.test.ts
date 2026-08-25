@@ -1,7 +1,8 @@
-import path from "node:path";
 import fs from "fs-extra";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TaloxController } from "../../src/core/controller/TaloxController.js";
+import { VisionGate } from "../../src/core/VisionGate.js";
+import { type FixtureServer, startFixtureServer } from "../e2e/helpers.js";
 
 function isMissingBrowserError(error: unknown): boolean {
 	return error instanceof Error && error.message.includes("Browser launch failed");
@@ -9,7 +10,12 @@ function isMissingBrowserError(error: unknown): boolean {
 
 describe("VisionGate & Deterministic Verification", () => {
 	let controller: TaloxController;
+	let server: FixtureServer;
 	const baseDir = "./tests/temp-profiles-vision";
+
+	beforeAll(async () => {
+		server = await startFixtureServer();
+	});
 
 	beforeEach(async () => {
 		if (await fs.pathExists("./.talox/baselines")) {
@@ -19,6 +25,7 @@ describe("VisionGate & Deterministic Verification", () => {
 	});
 
 	afterEach(async () => {
+		vi.restoreAllMocks();
 		await controller.stop();
 		if (await fs.pathExists(baseDir)) {
 			await fs.remove(baseDir);
@@ -28,6 +35,14 @@ describe("VisionGate & Deterministic Verification", () => {
 		}
 	});
 
+	afterAll(async () => {
+		await server.close();
+	});
+
+	function fixtureUrl(file: string): string {
+		return `${server.url}/${file}`;
+	}
+
 	it("should auto-save a baseline and then match it", async () => {
 		try {
 			await controller.launch("vision-test", "qa", "chromium");
@@ -36,6 +51,11 @@ describe("VisionGate & Deterministic Verification", () => {
 			throw error;
 		}
 		await controller.navigate("about:blank");
+
+		// This test covers screenshot persistence and deterministic image comparison.
+		// OCR has its own real integration case below; avoid paying Tesseract startup
+		// cost here for a value this assertion does not use.
+		vi.spyOn(VisionGate.prototype, "extractText").mockResolvedValue("");
 
 		// 1. Auto-save
 		const res1 = await controller.verifyVisual("blank-page", true);
@@ -57,21 +77,25 @@ describe("VisionGate & Deterministic Verification", () => {
 			throw error;
 		}
 
-		// Navigate to example.com (first state)
-		const state1 = await controller.navigate("https://example.com");
+		// Establish a synthetic first navigation so the real-site human warmup does
+		// not distort a deterministic localhost integration test.
+		await controller.navigate("about:blank");
 
-		// Wait for a bit
-		await new Promise((r) => setTimeout(r, 500));
+		const pageA = fixtureUrl("navigation.html");
+		const pageB = fixtureUrl("navigation-b.html");
 
-		// Navigate to example.com with a query param (should be identical, no structural change)
-		const state2 = await controller.navigate("https://example.com?test=1");
+		// First local fixture state.
+		await controller.navigate(pageA);
+
+		// Same fixture with a query param should remain structurally identical.
+		const state2 = await controller.navigate(`${pageA}?test=1`);
 		const structuralBugsSame = state2.bugs.filter(
 			(b) => b.type === "STRUCTURAL_CHANGE" || b.type === "STRUCTURAL_REGRESSION",
 		);
 		expect(structuralBugsSame.length).toBe(0);
 
-		// Navigate to a different page (should trigger structural change)
-		const state3 = await controller.navigate("about:blank");
+		// A fixture with a removed interactive link should trigger structural change.
+		const state3 = await controller.navigate(pageB);
 		const structuralBugsDiff = state3.bugs.filter(
 			(b) => b.type === "STRUCTURAL_CHANGE" || b.type === "STRUCTURAL_REGRESSION",
 		);
@@ -85,10 +109,13 @@ describe("VisionGate & Deterministic Verification", () => {
 			if (isMissingBrowserError(error)) return;
 			throw error;
 		}
-		await controller.navigate("https://example.com");
 
-		await controller.verifyVisual("example-home", true);
-		const result = await controller.verifyVisual("example-home");
-		expect(result.ocrText?.toLowerCase()).toContain("example domain");
+		// Keep the OCR integration real while removing external-network variance.
+		await controller.navigate("about:blank");
+		await controller.navigate(fixtureUrl("navigation.html"));
+
+		await controller.verifyVisual("navigation-page", true);
+		const result = await controller.verifyVisual("navigation-page");
+		expect(result.ocrText?.toLowerCase()).toContain("navigation");
 	});
 });
