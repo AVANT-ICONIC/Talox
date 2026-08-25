@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { prepareRelease } from "../../scripts/prepare-release.mjs";
 
@@ -63,5 +64,16 @@ describe("prepareRelease", () => {
 		const prereleaseChangelog = `# Changelog\n\n## [9.1.0-rc.1]\n\n- Release candidate.\n`;
 		const release = prepareRelease("v9.1.0-rc.1", pkg("9.1.0-rc.1"), prereleaseChangelog);
 		expect(release.notes).toBe("- Release candidate.");
+	});
+
+	it("validates the repository's current package version against its real changelog", () => {
+		const packageJsonText = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
+		const changelogText = readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
+		const packageVersion = JSON.parse(packageJsonText).version as string;
+		const release = prepareRelease(`v${packageVersion}`, packageJsonText, changelogText);
+
+		expect(release.version).toBe(packageVersion);
+		expect(release.notes.length).toBeGreaterThan(100);
+		expect(release.notes).toContain("Node.js runtime baseline");
 	});
 });
