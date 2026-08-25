@@ -132,11 +132,12 @@ const log = createLogger("Coordinator");
 
 export class AgentCoordinator {
 	private readonly config: Required<CoordinatorConfig>;
-	private agents: TaloxController[] = [];
+	private agents: Array<TaloxController | undefined> = [];
 	private readonly statuses: AgentStatus[];
 	private readonly sharedState = new Map<string, unknown>();
 	private lastStates: Array<TaloxPageState | null>;
 	private launched = false;
+	private stopInFlight: Promise<void> | null = null;
 
 	constructor(config: CoordinatorConfig = {}) {
 		const agentCount = config.agents ?? 2;
@@ -177,6 +178,12 @@ export class AgentCoordinator {
 			log.warn("Coordinator already launched");
 			return;
 		}
+		if (this.stopInFlight) {
+			throw new Error("Coordinator is stopping. Wait for cleanup to finish before relaunching.");
+		}
+		if (this.agents.some((agent) => agent !== undefined)) {
+			throw new Error("Coordinator has agents awaiting cleanup. Call stop() again before relaunching.");
+		}
 
 		const profileClass = options?.profileClass ?? "ops";
 
@@ -190,43 +197,79 @@ export class AgentCoordinator {
 				};
 
 				const agent = new TaloxController(agentBaseDir, { settings: agentSettings });
-				try {
-					await agent.launch(profileId, profileClass, "chromium");
-				} catch (error) {
-					try {
-						await agent.stop();
-					} catch (stopError) {
-						log.error(
-							`Agent ${i} cleanup after launch failure failed: ${stopError instanceof Error ? stopError.message : String(stopError)}`,
-						);
-					}
-					throw error;
-				}
-
-				this.agents.push(agent);
+				this.agents[i] = agent;
+				await agent.launch(profileId, profileClass, "chromium");
 				log.info(`Agent ${i} launched (profile: ${profileId})`);
 			}
 
 			this.launched = true;
 			log.info(`All ${this.config.agents} agents launched`);
 		} catch (error) {
-			await this.stop();
+			try {
+				await this.stop();
+			} catch (cleanupError) {
+				log.error(
+					`Coordinator cleanup after launch failure failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+				);
+			}
 			throw error;
 		}
 	}
 
-	/** Stop all agents and clean up browser processes. */
-	async stop(): Promise<void> {
-		for (const [i, agent] of this.agents.entries()) {
-			try {
-				await agent.stop();
-				log.info(`Agent ${i} stopped`);
-			} catch (err) {
-				log.error(`Agent ${i} stop error: ${err instanceof Error ? err.message : String(err)}`);
-			} finally {
-				const status = this.statuses[i];
-				if (status) status.busy = false;
+	/**
+	 * Stop all agents and clean up browser processes.
+	 * Successful agents are removed immediately; failed agents remain available
+	 * for a later retry and keep the coordinator in a non-runnable state.
+	 */
+	stop(): Promise<void> {
+		if (this.stopInFlight) return this.stopInFlight;
+
+		const attempt = this.runStop();
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runStop(): Promise<void> {
+		this.launched = false;
+		const activeAgents = this.agents
+			.map((agent, index) => (agent ? { agent, index } : null))
+			.filter((entry): entry is { agent: TaloxController; index: number } => entry !== null);
+		const results = await Promise.allSettled(activeAgents.map(({ agent }) => agent.stop()));
+		const failures: string[] = [];
+
+		for (const [resultIndex, result] of results.entries()) {
+			const entry = activeAgents[resultIndex];
+			if (!entry) continue;
+			const { agent, index } = entry;
+			const status = this.statuses[index];
+			if (status) status.busy = false;
+
+			if (result.status === "fulfilled") {
+				if (this.agents[index] === agent) this.agents[index] = undefined;
+				this.lastStates[index] = null;
+				if (status) {
+					delete status.currentUrl;
+					delete status.lastResult;
+				}
+				log.info(`Agent ${index} stopped`);
+				continue;
 			}
+
+			const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+			log.error(`Agent ${index} stop error: ${message}`);
+			failures.push(`agent ${index}: ${message}`);
+		}
+
+		if (failures.length > 0) {
+			throw new Error(`Failed to stop ${failures.length} coordinator agent(s): ${failures.join("; ")}`);
 		}
 
 		this.agents = [];
@@ -236,7 +279,6 @@ export class AgentCoordinator {
 			delete status.currentUrl;
 			delete status.lastResult;
 		}
-		this.launched = false;
 	}
 
 	// ─── Execution ──────────────────────────────────────────────────────────────
