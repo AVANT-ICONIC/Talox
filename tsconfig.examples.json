@@ -8,6 +8,6 @@
       "talox": ["./src/index.ts"]
     }
   },
-  "include": ["examples/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "examples/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
