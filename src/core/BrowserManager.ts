@@ -568,6 +568,7 @@ export class BrowserManager {
 		if (executable) {
 			this.detectedBrowsers.push({
 				type: actual,
+				channel: undefined,
 				executablePath: executable.path,
 				version: executable.version,
 			});
