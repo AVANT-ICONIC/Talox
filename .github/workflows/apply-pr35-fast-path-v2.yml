@@ -1,0 +1,210 @@
+name: Apply PR35 fast-path v2
+on:
+  push:
+    branches: [perf/error-path-fast-fail-v2]
+    paths: [.github/workflows/apply-pr35-fast-path-v2.yml]
+permissions:
+  contents: write
+jobs:
+  patch-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply deterministic fast paths
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Validate selector syntax before expensive state collection.
+          p = Path('src/core/InteractionReliability.ts')
+          s = p.read_text()
+          marker = '\tasync resolveBeforeClick(page: Page, selector: string, nodes: TaloxNode[]): Promise<ReliabilityOutcome> {'
+          method = '''\t/** Fail fast on selector syntax errors without collecting full page state. */
+\tasync assertSelectorSyntax(page: Page, selector: string): Promise<void> {
+\t\ttry {
+\t\t\tawait page.$(selector);
+\t\t} catch (error: unknown) {
+\t\t\tif (isSelectorSyntaxError(error)) throw error;
+\t\t\t// Non-syntax failures (closed page, transient execution context, etc.)
+\t\t\t// still belong to the normal reliability/recovery path.
+\t\t}
+\t}
+
+'''
+          if 'async assertSelectorSyntax(page: Page, selector: string)' not in s:
+              if marker not in s: raise SystemExit('resolveBeforeClick marker missing')
+              s = s.replace(marker, method + marker, 1)
+          p.write_text(s)
+
+          p = Path('src/core/controller/ActionExecutor.ts')
+          s = p.read_text()
+          click_old = '''\tasync click(selector: string): Promise<TaloxPageState> {
+\t\tconst page = this.getPage();
+\t\tconst prevState = await this.getActiveStateCollector().collect();
+'''
+          click_new = '''\tasync click(selector: string): Promise<TaloxPageState> {
+\t\tconst page = this.getPage();
+\t\t// Syntax validation is intentionally before full state collection. On sparse
+\t\t// pages, collection may spend seconds retrying AX/DOM hydration even though
+\t\t// Playwright can prove the selector is malformed immediately.
+\t\tawait this.reliability.assertSelectorSyntax(page, selector);
+\t\tconst prevState = await this.getActiveStateCollector().collect();
+'''
+          if 'Syntax validation is intentionally before full state collection' not in s:
+              if click_old not in s: raise SystemExit('click marker missing')
+              s = s.replace(click_old, click_new, 1)
+
+          type_old = '''\tasync type(selector: string, text: string): Promise<TaloxPageState> {
+\t\tconst page = this.getPage();
+\t\tconst prevState = await this.getActiveStateCollector().collect();
+'''
+          type_new = '''\tasync type(selector: string, text: string): Promise<TaloxPageState> {
+\t\tconst page = this.getPage();
+\t\tawait this.reliability.assertSelectorSyntax(page, selector);
+\t\tconst prevState = await this.getActiveStateCollector().collect();
+'''
+          if type_new not in s:
+              if type_old not in s: raise SystemExit('type marker missing')
+              s = s.replace(type_old, type_new, 1)
+          p.write_text(s)
+
+          # 2) An explicit browser choice is already authoritative. Do not launch
+          # a throwaway detection browser before launching the requested browser.
+          p = Path('src/core/BrowserManager.ts')
+          s = p.read_text()
+          old = '''\tprivate async resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> {
+\t\tconst actual = browserType || this.config.browser.preferred;
+\t\tif (process.platform === "darwin" || !this.config.browser.autoDetect) return actual;
+'''
+          new = '''\tprivate async resolveBrowserType(browserType?: BrowserType): Promise<BrowserType> {
+\t\t// An explicit caller choice is authoritative. launchWithFallback() already
+\t\t// produces the actionable install error if that browser is unavailable, so
+\t\t// probing it with a throwaway browser process first only doubles launch work.
+\t\tif (browserType) return browserType;
+\t\tconst actual = this.config.browser.preferred;
+\t\tif (process.platform === "darwin" || !this.config.browser.autoDetect) return actual;
+'''
+          if 'An explicit caller choice is authoritative' not in s:
+              if old not in s: raise SystemExit('resolveBrowserType marker missing')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          # Unit mock must expose the new reliability method.
+          p = Path('tests/unit/ActionExecutor.test.ts')
+          s = p.read_text()
+          marker = '''\tInteractionReliability: class {
+\t\tresolveBeforeClick = vi.fn().mockResolvedValue({
+'''
+          replacement = '''\tInteractionReliability: class {
+\t\tassertSelectorSyntax = vi.fn().mockResolvedValue(undefined);
+\t\tresolveBeforeClick = vi.fn().mockResolvedValue({
+'''
+          if 'assertSelectorSyntax = vi.fn().mockResolvedValue(undefined);' not in s:
+              if marker not in s: raise SystemExit('ActionExecutor reliability mock marker missing')
+              s = s.replace(marker, replacement, 1)
+          p.write_text(s)
+
+          # Add direct syntax-validator coverage.
+          p = Path('tests/unit/InteractionReliability.test.ts')
+          s = p.read_text()
+          marker = '''\t\tit("fails immediately when Playwright reports malformed CSS syntax", async () => {
+\t\t\tconst syntaxError = new Error('Unexpected token "" while parsing css selector "[[[invalid"');
+\t\t\tconst page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
+
+\t\t\tawait expect(reliability.resolveBeforeClick(page, "[[[invalid", [])).rejects.toBe(syntaxError);
+\t\t});
+'''
+          addition = marker + '''
+\t\tit("validates malformed selector syntax without requiring page state", async () => {
+\t\t\tconst syntaxError = new Error('Unexpected token "" while parsing css selector "[[[invalid"');
+\t\t\tconst page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
+
+\t\t\tawait expect(reliability.assertSelectorSyntax(page, "[[[invalid")).rejects.toBe(syntaxError);
+\t\t});
+'''
+          if 'validates malformed selector syntax without requiring page state' not in s:
+              if marker not in s: raise SystemExit('InteractionReliability malformed test marker missing')
+              s = s.replace(marker, addition, 1)
+          p.write_text(s)
+
+          # Explicit browser launch should skip detector probe; omitted browser still auto-detects.
+          p = Path('tests/unit/BrowserManagerBundledDetection.test.ts')
+          s = p.read_text()
+          start = s.index('\tit("probes requested Chromium without launching unrelated browser detectors"')
+          end_marker = '\n\t});\n\n});'
+          end = s.index(end_marker, start) + len('\n\t});')
+          replacement = '''\tit("skips browser probing when Chromium is explicitly requested", async () => {
+\t\tconst originalDisplay = process.env.DISPLAY;
+\t\tprocess.env.DISPLAY = ":talox-unit";
+\t\ttry {
+\t\t\tconst manager = new BrowserManager({
+\t\t\t\tbrowser: { autoDetect: true, preferred: "chromium", headless: true } as any,
+\t\t\t\tsettings: { virtualDisplay: false, adaptiveStealthEnabled: false } as any,
+\t\t\t});
+\t\t\tawait manager.launch({
+\t\t\t\tid: "explicit-browser", class: "sandbox", purpose: "test",
+\t\t\t\tuserDataDir: "/tmp/talox-explicit-browser",
+\t\t\t\tmetadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
+\t\t\t}, false, "chromium");
+\t\t\texpect(chromiumLaunch).not.toHaveBeenCalled();
+\t\t\texpect(firefoxLaunch).not.toHaveBeenCalled();
+\t\t\texpect(webkitLaunch).not.toHaveBeenCalled();
+\t\t\texpect(chromiumPersistentContext).toHaveBeenCalledTimes(1);
+\t\t\tawait manager.close();
+\t\t} finally {
+\t\t\tif (originalDisplay === undefined) delete process.env.DISPLAY;
+\t\t\telse process.env.DISPLAY = originalDisplay;
+\t\t}
+\t});
+
+\tit("probes only the preferred browser when no browser is explicitly requested", async () => {
+\t\tconst originalDisplay = process.env.DISPLAY;
+\t\tprocess.env.DISPLAY = ":talox-unit";
+\t\ttry {
+\t\t\tconst manager = new BrowserManager({
+\t\t\t\tbrowser: { autoDetect: true, preferred: "chromium", headless: true } as any,
+\t\t\t\tsettings: { virtualDisplay: false, adaptiveStealthEnabled: false } as any,
+\t\t\t});
+\t\t\tawait manager.launch({
+\t\t\t\tid: "implicit-browser", class: "sandbox", purpose: "test",
+\t\t\t\tuserDataDir: "/tmp/talox-implicit-browser",
+\t\t\t\tmetadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
+\t\t\t}, false);
+\t\t\texpect(chromiumLaunch).toHaveBeenCalledTimes(1);
+\t\t\texpect(firefoxLaunch).not.toHaveBeenCalled();
+\t\t\texpect(webkitLaunch).not.toHaveBeenCalled();
+\t\t\texpect(chromiumPersistentContext).toHaveBeenCalledTimes(1);
+\t\t\tawait manager.close();
+\t\t} finally {
+\t\t\tif (originalDisplay === undefined) delete process.env.DISPLAY;
+\t\t\telse process.env.DISPLAY = originalDisplay;
+\t\t}
+\t});'''
+          s = s[:start] + replacement + s[end:]
+          p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Focused unit validation
+        run: npx vitest run --config vitest.config.unit.ts tests/unit/BrowserManagerBundledDetection.test.ts tests/unit/BrowserManager.test.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts
+      - name: Install browser for timing validation
+        run: npx playwright install --with-deps chromium
+      - name: Validate error paths and record timing
+        run: npx vitest run --config vitest.config.browser.ts tests/core/error-paths.test.ts | tee /tmp/error-paths.log
+      - name: Commit validated changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-pr35-fast-path-v2.yml
+          git add src/core/InteractionReliability.ts src/core/controller/ActionExecutor.ts src/core/BrowserManager.ts tests/unit/ActionExecutor.test.ts tests/unit/InteractionReliability.test.ts tests/unit/BrowserManagerBundledDetection.test.ts
+          git commit -m "perf: skip deterministic browser setup work"
+          git push origin HEAD:perf/error-path-fast-fail-v2
