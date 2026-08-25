@@ -13,10 +13,12 @@ const packDir = join(workspace, "pack");
 const consumerDir = join(workspace, "consumer");
 
 function run(command, args, options = {}) {
+	const capture = options.capture === true;
 	return execFileSync(command, args, {
 		cwd: options.cwd ?? repoRoot,
 		encoding: "utf8",
-		stdio: options.capture ? ["ignore", "pipe", "inherit"] : "inherit",
+		stdio: capture ? [options.input === undefined ? "ignore" : "pipe", "pipe", "inherit"] : "inherit",
+		input: options.input,
 		env: process.env,
 	});
 }
@@ -48,6 +50,7 @@ try {
 				type: "module",
 				scripts: {
 					"smoke:cli": "talox --help",
+					"smoke:mcp": "talox mcp",
 					"smoke:types": "tsc --noEmit --strict --target ESNext --module NodeNext --moduleResolution NodeNext type-smoke.ts",
 				},
 				devDependencies: {
@@ -115,6 +118,25 @@ void publicSurface;
 	// still proving that the installed package generated a working `talox` bin.
 	const cliOutput = run(npmCommand, ["run", "--silent", "smoke:cli"], { cwd: consumerDir, capture: true });
 	assert(/talox/i.test(cliOutput), "Packed CLI smoke produced no Talox help output");
+
+	const discoverRequest = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "server/discover" })}\n`;
+	const mcpOutput = run(npmCommand, ["run", "--silent", "smoke:mcp"], {
+		cwd: consumerDir,
+		capture: true,
+		input: discoverRequest,
+	});
+	const mcpLine = mcpOutput
+		.trim()
+		.split("\n")
+		.find((line) => line.trim().length > 0);
+	assert(mcpLine, "Packed MCP smoke produced no JSON-RPC response");
+	const mcpResponse = JSON.parse(mcpLine);
+	const mcpVersion = mcpResponse?.result?._meta?.["io.modelcontextprotocol/serverInfo"]?.version;
+	assert(
+		mcpVersion === packageJson.version,
+		`packed MCP server version mismatch: expected ${packageJson.version}, received ${String(mcpVersion)}`,
+	);
+	process.stdout.write(`Packed MCP metadata OK: talox@${mcpVersion}\n`);
 
 	const size = typeof artifact.size === "number" ? `${(artifact.size / 1024).toFixed(1)} kB` : "unknown";
 	const unpacked = typeof artifact.unpackedSize === "number" ? `${(artifact.unpackedSize / 1024 / 1024).toFixed(2)} MB` : "unknown";

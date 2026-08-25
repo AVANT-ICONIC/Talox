@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
 import { Readable, Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { TaloxMcpSession, TaloxMcpStdioServer, TALOX_MCP_TOOLS } from "../../src/core/mcp/TaloxMcpServer.js";
+
+const PACKAGE_VERSION = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string })
+	.version;
 
 class FakeController {
 	launchCalls: Array<[string, string, string | undefined]> = [];
@@ -52,7 +56,7 @@ function toolCall(id: number, name: string, args: Record<string, unknown> = {}) 
 }
 
 describe("TaloxMcpSession", () => {
-	it("advertises the modern 2026-07-28 MCP era", async () => {
+	it("advertises the modern 2026-07-28 MCP era with the package version", async () => {
 		const session = new TaloxMcpSession(() => new FakeController());
 		const response = await session.handle(request(1, "server/discover"));
 
@@ -65,12 +69,12 @@ describe("TaloxMcpSession", () => {
 				capabilities: { tools: { listChanged: false } },
 				ttlMs: 60_000,
 				cacheScope: "public",
-				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: PACKAGE_VERSION } },
 			},
 		});
 	});
 
-	it("keeps handshake-era compatibility for legacy MCP clients", async () => {
+	it("keeps handshake-era compatibility for legacy MCP clients and reports the package version", async () => {
 		const session = new TaloxMcpSession(() => new FakeController());
 		const initialized = await session.handle(
 			request(1, "initialize", {
@@ -81,7 +85,12 @@ describe("TaloxMcpSession", () => {
 		);
 		const tools = await session.handle(request(2, "tools/list"));
 
-		expect(initialized).toMatchObject({ result: { protocolVersion: "2025-06-18" } });
+		expect(initialized).toMatchObject({
+			result: {
+				protocolVersion: "2025-06-18",
+				serverInfo: { name: "talox", version: PACKAGE_VERSION },
+			},
+		});
 		expect(tools).toMatchObject({ result: { tools: TALOX_MCP_TOOLS } });
 		expect(JSON.stringify(tools)).not.toContain("ttlMs");
 	});
@@ -97,7 +106,7 @@ describe("TaloxMcpSession", () => {
 				resultType: "complete",
 				ttlMs: 60_000,
 				cacheScope: "public",
-				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: PACKAGE_VERSION } },
 			},
 		});
 	});
@@ -113,7 +122,7 @@ describe("TaloxMcpSession", () => {
 		expect(response).toMatchObject({
 			result: {
 				resultType: "complete",
-				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: "8.1.0" } },
+				_meta: { "io.modelcontextprotocol/serverInfo": { name: "talox", version: PACKAGE_VERSION } },
 			},
 		});
 	});
