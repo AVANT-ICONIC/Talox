@@ -1,83 +1,154 @@
-# TALOX-CONTRACTS.md - Data Models & Schemas
+# TALOX-CONTRACTS.md — Public Data & API Contracts
 
-> **Source of truth:** `src/types/index.ts` and `src/schema/TaloxPageState.schema.json`
+> **Canonical sources:** `src/types/index.ts`, `src/types/config.ts`, `src/types/settings.ts`, `src/types/events.ts`, `src/core/controller/TaloxController.ts`, and `src/schema/TaloxPageState.schema.json`.
+
+This document is the human-readable v9 companion to those source files. When prose and TypeScript disagree, the exported TypeScript types and JSON Schema win.
 
 ## Compatibility policy
 
-Talox keeps the `TaloxPageState` v1 contract stable because agents rely on it for structured reasoning. Follow these rules whenever the schema needs to change:
+Talox keeps the `TaloxPageState` v1 core stable because agents depend on it for structured reasoning.
 
-1. **Freeze the contract.** Treat the current `TaloxPageState` shape as version 1. Only additive (optional) fields are allowed unless you handle migration explicitly.
-2. **Update the canonical schema.** Any change must land in `src/schema/TaloxPageState.schema.json` and the TypeScript types in `src/types/index.ts`.
-3. **Document the change.** Note the change in `CHANGELOG.md` and, if necessary, add a `docs/TALOX-CONTRACTS.md` section describing the impact.
-4. **Add schema validation tests.** Every action output must still pass the updated schema (`tests/unit/pageState.schema.test.ts` covers this).
-5. **Signal breaking changes clearly.** If a mandatory field is renamed/removed, increment the contract version in the schema `$id` or `title` and explain migration steps in the docs and changelog.
-6. **Keep compact variants aligned.** When adding new data, ensure the `compactState()` variants (`'full'`, `'agent'`, `'debug'`) still filter correctly before exposing them to agents.
+1. **Freeze the core contract.** Mandatory v1 fields cannot be removed, renamed, or narrowed without an explicit contract-version migration.
+2. **Optional additions are allowed.** New optional fields may be added without breaking existing consumers.
+3. **Keep TypeScript and JSON Schema aligned.** Contract changes must update both `src/types/index.ts` and `src/schema/TaloxPageState.schema.json`.
+4. **Keep compact variants aligned.** `getState('agent' | 'debug' | 'full')` must remain compatible with the full state contract.
+5. **Test schema changes.** `tests/unit/pageState.schema.test.ts` protects the machine-readable contract.
+6. **Document breaking changes explicitly.** Breaking state changes require migration notes and a contract-version bump.
 
-The JSON schema is the authoritative machine-readable contract, so tooling and tests should always consume it for validation.
+`TALOX_STATE_CONTRACT_VERSION` is currently `1`.
 
-## 1. Page State Object (`TaloxPageState`)
+---
 
-## 1. Page State Object (`TaloxPageState`)
+## 1. `TaloxPageState`
 
-The primary object returned to agents after every `navigate()` or `getState()` call.
+`navigate()`, `click()`, `type()`, and full `getState()` operations return Talox's structured page state.
 
 ```typescript
 interface TaloxPageState {
+  // Frozen v1 core
   url: string;
   title: string;
-  timestamp: string;         // ISO 8601
-  profileId?: string;
-  mode: TaloxMode;
+  timestamp: string;
 
   console: {
-    errors: string[];        // console.error() messages
-    warnings?: string[];     // console.warn() messages
-    logs?: string[];         // console.log() messages
+    errors: string[];
+    warnings?: string[];
+    logs?: string[];
   };
 
   network: {
-    failedRequests: Array<{ url: string; status: number; type?: string }>;
-    exceptions?: any[];      // CDP Runtime exceptions
+    failedRequests: Array<{
+      url: string;
+      status: number;
+      type?: string;
+    }>;
+    exceptions?: any[];
   };
 
-  axTree?: TaloxNode;        // Full AX-Tree root. Only present when perceptionDepth = 'full'
-  nodes: TaloxNode[];        // Flat list of all AX nodes
+  nodes: TaloxNode[];
 
   interactiveElements: Array<{
     id: string;
-    tagName: string;         // HTML tag: 'button', 'input', 'a', etc.
-    role?: string;           // ARIA role
-    text?: string;           // Visible text content
-    boundingBox: { x: number; y: number; width: number; height: number };
-    isActionable?: boolean;  // false if element is disabled, hidden, or pointer-events: none
+    tagName: string;
+    role?: string;
+    text?: string;
+    boundingBox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    isActionable?: boolean;
+    cursorDetected?: boolean;
+    detectionMethod?: 'cursor-style' | 'onclick-attr' | 'tabindex';
+    trust?: 'first-party' | 'external';
   }>;
 
   bugs: TaloxBug[];
 
+  // Optional v1-compatible additions
+  axTree?: TaloxNode;
+  timing?: TaloxStateTiming;
+  diff?: TaloxStateDiff;
+  profileId?: string;
+  domainHints?: string[];
   screenshots?: {
-    fullPage?: string;       // Path to full-page screenshot
-    crops?: Array<{ id: string; path: string; reason: string }>;
+    fullPage?: string;
+    crops?: Array<{
+      id: string;
+      path: string;
+      reason: string;
+    }>;
   };
 }
 ```
 
-### perceptionDepth
+### Important v9 invariants
 
-| Value | `nodes` | `axTree` | Token cost |
-| :--- | :--- | :--- | :--- |
-| `shallow` | Empty array | Not present | Minimal — interactive elements only |
-| `full` | All AX nodes | Root node present | Full — use for deep analysis |
+- There is **no `mode` field** in `TaloxPageState`.
+- Public perception depth is currently **`'full'` only**. Do not plan around a `shallow` perception mode.
+- `nodes` and `interactiveElements` are always part of the frozen core contract.
+- `axTree` remains optional.
+- Use `state.timing`, not `state.timings`.
+- Cross-origin content can carry `trust: 'external'`; same-origin or explicitly trusted content can carry `trust: 'first-party'`.
+
+### Compact state variants
+
+Use compact variants when a full state would waste agent context:
+
+```typescript
+const agentState = await talox.getState('agent');
+const debugState = await talox.getState('debug');
+const fullState = await talox.getState('full');
+```
+
+The compact variants are projections of the same runtime state, not separate browser modes.
 
 ---
 
-## 2. Bug Object (`TaloxBug`)
+## 2. `TaloxNode`
+
+```typescript
+interface TaloxNode {
+  id: string;
+  role: string;
+  name: string;
+  description?: string;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  attributes?: Record<string, string | boolean>;
+  trust?: 'first-party' | 'external';
+  children?: TaloxNode[];
+}
+```
+
+Talox uses browser-computed ARIA semantics plus DOM geometry. `nodes` is the flat ordered representation; `axTree` may contain the hierarchical representation.
+
+---
+
+## 3. `TaloxBug`
+
+Built-in bug types include:
+
+- `JS_ERROR`
+- `NETWORK_FAILURE`
+- `LAYOUT_OVERLAP`
+- `CLIPPED_ELEMENT`
+- `INVISIBLE_CTA`
+- `VISUAL_REGRESSION`
+
+The public `BugType` is extensible, so consumers must not assume only those built-ins can appear.
 
 ```typescript
 interface TaloxBug {
   id: string;
-  type: 'JS_ERROR' | 'NETWORK_FAILURE' | 'LAYOUT_OVERLAP' | 'CLIPPED_ELEMENT' | 'INVISIBLE_CTA' | 'VISUAL_REGRESSION';
+  type: string;
   severity: 'CRITICAL' | 'MAJOR' | 'MINOR';
-  confidence?: number;       // 0.0 - 1.0
+  confidence?: number;
   description: string;
   reproductionSteps?: string[];
   evidence: {
@@ -95,23 +166,7 @@ interface TaloxBug {
 
 ---
 
-## 3. AX Node (`TaloxNode`)
-
-```typescript
-interface TaloxNode {
-  id: string;
-  role: string;              // ARIA role: 'button', 'heading', 'link', 'textbox', etc.
-  name: string;              // Accessible name
-  description?: string;
-  boundingBox: { x: number; y: number; width: number; height: number };
-  attributes?: Record<string, string | boolean>;
-  children?: TaloxNode[];    // Present in axTree, absent in flat nodes array
-}
-```
-
----
-
-## 4. Profile Schema (`TaloxProfile`)
+## 4. Profiles
 
 ```typescript
 interface TaloxProfile {
@@ -132,104 +187,197 @@ interface TaloxProfile {
 }
 ```
 
+Profile classes are stable public identifiers:
+
+- `ops` — persistent operational sessions
+- `qa` — testing and diagnostic workflows
+- `sandbox` — low-risk experimentation
+
 ---
 
-## 5. TaloxSettings
+## 5. Configuration model
 
-Runtime behavioral parameters. Override any at runtime with `talox.override(param, value)`.
+Talox v9 is **settings-first**. Configure runtime behavior through `TaloxConfig.settings`.
 
 ```typescript
-interface TaloxSettings {
-  mouseSpeed: number;              // 0.1–3.0 (1.0 default)
-  typingDelayMin: number;          // ms between keystrokes (min)
-  typingDelayMax: number;          // ms between keystrokes (max)
-  stealthLevel: 'low' | 'medium' | 'high';
-  perceptionDepth: 'shallow' | 'full';
-  fidgetEnabled: boolean;
-  humanStealth: number;            // 0.0–1.0
-  typoProbability: number;         // 0.0–1.0 per character
-  adaptiveStealthEnabled: boolean;
-  adaptiveStealthSensitivity: number; // 0.1–2.0
-  adaptiveStealthRadius: number;   // pixel radius for density calculation
-  precisionDecay: number;          // 0.0 = perfect, 1.0 = maximum decay
-  automaticThinkingEnabled: boolean;
-  idleTimeout: number;             // ms before triggering idle behaviors
-}
+const talox = new TaloxController('./profiles', {
+  settings: {
+    headed: false,
+    verbosity: 0,
+    safeMode: false,
+    navigationWaitUntil: 'domcontentloaded',
+    contentSafety: 'warn',
+  },
+});
+```
+
+The config-object shorthand is also valid:
+
+```typescript
+const talox = new TaloxController({
+  settings: { verbosity: 1 },
+});
+```
+
+Do **not** flatten settings onto `TaloxConfig`. For example, `{ headed: true }` is not the modern constructor shape; use `{ settings: { headed: true } }`.
+
+### Current default settings
+
+| Setting | Default |
+| :--- | :--- |
+| `mouseSpeed` | `0.7` |
+| `typingDelayMin` | `100` ms |
+| `typingDelayMax` | `300` ms |
+| `typoProbability` | `0.03` |
+| `fidgetEnabled` | `true` |
+| `humanStealth` | `1` |
+| `actionTimeoutMs` | `5000` ms |
+| `stealthLevel` | `'high'` |
+| `adaptiveStealthEnabled` | `true` |
+| `automaticThinkingEnabled` | `true` |
+| `perceptionDepth` | `'full'` |
+| `headed` | `false` |
+| `autoHeadedEscalation` | `true` |
+| `verbosity` | `0` |
+| `humanTakeoverEnabled` | `false` |
+| `humanTakeoverTimeoutMs` | `120000` ms |
+| `idleTimeout` | `5000` ms |
+| `precisionDecay` | `0.1` |
+| `adaptiveStealthSensitivity` | `0.5` |
+| `adaptiveStealthRadius` | `100` |
+| `navigationWaitUntil` | `'domcontentloaded'` |
+| `safeMode` | `false` |
+| `autoDialogHandling` | `true` |
+| `sessionIdleTimeoutMs` | `300000` ms |
+| `enableCrossOriginIframes` | `false` |
+| `virtualDisplay` | `false` |
+| `contentSafety` | `'warn'` |
+| `networkGuard` | `'off'` |
+| `trustedDomains` | `[]` |
+
+`navigationWaitUntil: 'domcontentloaded'` is deliberate. Modern SPAs can keep WebSocket, analytics, polling, or background network traffic alive indefinitely, so `networkidle` is opt-in rather than the default.
+
+---
+
+## 6. Legacy mode compatibility
+
+Legacy modes still exist only as constructor compatibility aliases through `resolveLegacyMode()`.
+
+```typescript
+// Compatibility form
+const oldStyle = new TaloxController('./profiles', { mode: 'debug' });
+
+// Recommended v9 form
+const current = new TaloxController('./profiles', {
+  settings: {
+    verbosity: 3,
+    headed: true,
+    humanTakeoverEnabled: true,
+  },
+});
+```
+
+Rules for new integrations:
+
+- Do not build around runtime mode switching.
+- There is no current `talox.setMode()` API.
+- Prefer explicit settings over legacy `smart`, `debug`, `speed`, `observe`, `browse`, `adaptive`, `stealth`, `balanced`, or `qa` aliases.
+- `adaptive`, `stealth`, `balanced`, and `qa` are compatibility mappings, not separate modern runtime architectures.
+
+---
+
+## 7. High-use controller API
+
+The exhaustive source of truth is `src/core/controller/TaloxController.ts` and the emitted package declarations. The methods below are the stable, commonly used v9 surface.
+
+| Method | Current call shape | Purpose |
+| :--- | :--- | :--- |
+| `launch` | `launch(profileId, profileClass, browserType?, observeOptions?)` | Launch/load a persistent browser profile |
+| `navigate` | `navigate(url)` | Navigate and return structured page state |
+| `click` | `click(selector)` | Click a string selector and return resulting state |
+| `type` | `type(selector, text)` | Type into a string selector and return resulting state |
+| `getState` | `getState(variant?)` | Read `full`, `agent`, or `debug` state |
+| `describePage` | `describePage()` | Human-readable page summary |
+| `getIntentState` | `getIntentState()` | Compact intent-oriented state |
+| `screenshot` | `screenshot(options?)` | Capture page/element screenshot |
+| `scrollTo` | `scrollTo(selector, align?)` | Scroll a selector into view |
+| `extractTable` | `extractTable(selector)` | Extract structured table rows |
+| `waitForLoadState` | `waitForLoadState(state, timeout?)` | Explicitly wait for a browser load state |
+| `setVerbosity` | `setVerbosity(level)` | Change diagnostic detail at runtime |
+| `setHeaded` | `setHeaded(headed)` | Switch headed/headless operation |
+| `setSafeMode` | `setSafeMode(enabled)` | Toggle deterministic interaction behavior |
+| `verifyVisual` | `verifyVisual(baselineKey, autoSave?)` | Compare against a stored visual baseline |
+| `findElement` | `findElement(text, elementType?)` | Resolve an element by text/accessibility semantics |
+| `evaluate` | `evaluate(script)` | Execute JavaScript source in browser context |
+| `requestHumanTakeover` | `requestHumanTakeover(reason, ...)` | Hand control to a human for a typed takeover reason |
+| `resumeAgent` | `resumeAgent()` | Resume after human takeover |
+| `stop` | `stop()` | Close the browser session and clean up |
+
+### Interaction argument contract
+
+Current interaction calls use positional/string arguments:
+
+```typescript
+await talox.click('button[type="submit"]');
+await talox.type('input[name="email"]', 'agent@example.com');
+```
+
+Do not use obsolete object-shaped calls such as:
+
+```typescript
+// obsolete
+await talox.click({ selector: '#submit' });
+await talox.type({ selector: '#email', text: 'agent@example.com' });
 ```
 
 ---
 
-## 6. Mode Presets
+## 8. Events
 
-| Mode | mouseSpeed | humanStealth | adaptiveDensity | typoProbability | perceptionDepth |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `adaptive` | 0.7 | 1.0 | enabled | 0.10 | full |
-| `debug` | 1.0 | 0.5 | disabled | 0.05 | full |
-| `balanced` | 1.0 | 0.5 | enabled | 0.08 | full |
-| `browse` | 1.0 | 0.5 | enabled | 0.08 | full |
-| `speed` | 3.0 | 0.0 | disabled | 0.00 | shallow |
-| `qa` | 1.5 | 0.2 | disabled | 0.00 | full |
-
-> **Note:** `stealth` is a backwards-compatible internal alias for `adaptive`. New code should use `adaptive`.
-
----
-
-## 7. BehavioralDNA
-
-Profile-specific interaction fingerprint. Generated deterministically from `profileId`.
+Event handlers receive the typed payload **directly**. There is no required `{ data: ... }` wrapper for modern typed subscriptions.
 
 ```typescript
-interface BehavioralDNA {
-  profileId?: string;
-  jitterFrequency: number;         // 0.0–1.0
-  accelerationCurve: 'linear' | 'ease-out' | 'ease-in-out' | 'bezier';
-  typingRhythm: 'fast' | 'medium' | 'slow' | 'variable';
-  clickPrecision: number;          // 0.0–1.0
-  movementStyle: 'smooth' | 'jerky' | 'precise' | 'relaxed';
-}
+talox.on('navigation', (event) => console.log(event.url));
+talox.on('consoleError', (event) => console.log(event.error));
+talox.on('adapted', (event) => console.log(event.reason, event.strategy));
+talox.on('bugDetected', (bug) => console.log(bug.description));
 ```
+
+`AdaptationEngine` is an always-on outcome-feedback loop. The `adapted` event is not a separate smart-mode-only contract.
+
+See `src/types/events.ts` for the exhaustive event map.
 
 ---
 
-## 8. VisualDiffResult
+## 9. Function-calling and MCP contracts
 
-```typescript
-interface VisualDiffResult {
-  testId?: string;
-  timestamp?: string;
-  passed?: boolean;
-  baselinePath?: string;
-  currentPath?: string;
-  diffPath?: string;
-  similarity?: number;             // 0.0–1.0 (SSIM)
-  mismatchedPixels: number;
-  ssimScore: number;
-  ocrText?: string;
-  diffImageUrl?: string;
-  diffRegions?: Array<{ x: number; y: number; width: number; height: number }>;
-}
-```
+Talox exposes two intentionally different agent-tool surfaces.
+
+### Function calling
+
+`getTaloxTools()` returns controller-aligned function schemas for direct model integrations. The schemas must not advertise arguments the corresponding controller method cannot execute.
+
+### MCP
+
+`talox mcp` exposes a smaller persistent-session stdio tool surface: launch, navigate, click, type, state, screenshot, and stop.
+
+MCP `serverInfo.version` is derived from the installed package's `package.json`, so protocol metadata follows the release version automatically.
+
+Do not assume the MCP tool list and `getTaloxTools()` are identical.
 
 ---
 
-## 9. Agent Control API
+## 10. Contract checklist for contributors
 
-| Method | Signature | Returns | Description |
-| :--- | :--- | :--- | :--- |
-| `launch` | `(profileId, class, mode)` | `void` | Launch browser with profile |
-| `navigate` | `(url)` | `TaloxPageState` | Navigate and return full state |
-| `getState` | `()` | `TaloxPageState` | Capture current state |
-| `click` | `({ selector?, x?, y? })` | `void` | Click element or coordinate |
-| `type` | `({ text, selector? })` | `void` | Type text with human timing |
-| `press` | `({ key })` | `void` | Press a key (e.g. 'Enter') |
-| `screenshot` | `({ full? })` | `string` | Capture screenshot, returns path |
-| `setMode` | `(mode)` | `void` | Switch execution mode |
-| `override` | `(setting, value)` | `void` | Override a runtime setting |
-| `findNodeByText` | `(text, role?)` | `TaloxNode \| null` | Find AX node by text |
-| `findNodeByRole` | `(role, name?)` | `TaloxNode \| null` | Find AX node by role |
-| `verifyVisual` | `({ baselinePath, threshold? })` | `VisualDiffResult` | Visual regression check |
-| `loadPolicy` | `(path)` | `void` | Load YAML policy file |
-| `openPage` | `(url)` | `string` | Open new page, returns pageId |
-| `switchPage` | `(pageId)` | `void` | Switch active page |
-| `closePage` | `(pageId)` | `void` | Close a page |
-| `stop` | `()` | `void` | Close browser and clean up |
+Before merging a public API change:
+
+1. Update the TypeScript source contract.
+2. Update JSON Schema when `TaloxPageState` changes.
+3. Add or update unit/schema tests.
+4. Update `getTaloxTools()` if a controller-facing function contract changed.
+5. Update MCP only if that operation belongs in its intentionally smaller tool surface.
+6. Update copy-paste examples and keep `npm run typecheck:examples` green.
+7. Update README / `llms.txt` / this document when public usage changes.
+8. Keep `npm run test:package` green so packed exports, CLI, declarations, and MCP metadata remain installable and coherent.
+
+Talox v9 requires Node.js 20+.
