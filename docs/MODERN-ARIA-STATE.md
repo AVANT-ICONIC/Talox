@@ -6,6 +6,12 @@ Talox uses Playwright's modern ARIA snapshot API as the primary semantic source 
 
 This path requires Playwright 1.62.1 and Node.js 20 or newer. Talox's package engine now matches that dependency contract instead of advertising Node.js 18 compatibility that the browser runtime can no longer guarantee.
 
+Raising the Node.js floor is a packaging compatibility break. A published Talox release that first contains this baseline must be versioned accordingly under the project's Semantic Versioning policy.
+
+## State contract
+
+The public `TaloxPageState` schema remains contract version 1. This migration changes how semantic nodes are collected, not the required shape of `TaloxPageState.nodes` or `TaloxNode`, so it does not require a state-contract version bump.
+
 ## Collection order
 
 1. `page.ariaSnapshot({ mode: "default", boxes: true })`
