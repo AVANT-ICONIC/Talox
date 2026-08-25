@@ -1,6 +1,6 @@
 {
   "name": "talox",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "description": "Local browser runtime for agents. Persistent profiles, deep observability, structured state contracts, and resilient interaction for real-world web UIs.",
   "type": "module",
   "main": "dist/index.js",
