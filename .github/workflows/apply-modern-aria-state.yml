@@ -22,6 +22,18 @@ jobs:
           cache: npm
       - name: Apply modern ARIA state patch
         run: python3 .github/scripts/apply_modern_aria_state.py
+      - name: Fix exact optional ARIA geometry typing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("src/core/PageStateCollector.ts")
+          text = path.read_text()
+          old = "\t\treturn { role, name, boundingBox, attributes };"
+          new = "\t\treturn { role, name, ...(boundingBox && { boundingBox }), attributes };"
+          if old not in text:
+              raise SystemExit("missing ARIA descriptor return anchor")
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Refresh Playwright lockfile
         run: npm install --package-lock-only --ignore-scripts
       - name: Install dependencies
