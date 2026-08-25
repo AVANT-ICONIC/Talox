@@ -143,6 +143,20 @@ describe("InteractionReliability", () => {
 			const result = await reliability.resolveBeforeClick(page, "#missing", []);
 			expect(result.resolved).toBe(true);
 		});
+
+		it("fails immediately when Playwright reports malformed CSS syntax", async () => {
+			const syntaxError = new Error('Unexpected token "" while parsing css selector "[[[invalid"');
+			const page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
+
+			await expect(reliability.resolveBeforeClick(page, "[[[invalid", [])).rejects.toBe(syntaxError);
+		});
+
+		it("validates malformed selector syntax without requiring page state", async () => {
+			const syntaxError = new Error('Unexpected token "" while parsing css selector "[[[invalid"');
+			const page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
+
+			await expect(reliability.assertSelectorSyntax(page, "[[[invalid")).rejects.toBe(syntaxError);
+		});
 	});
 
 	describe("recoverAfterFailure — viewport", () => {

@@ -74,9 +74,11 @@ describe("error-path: network timeout mid-action", () => {
 		tmpDir = makeTmpDir();
 		hangingServer = await createHangingServer();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, navigationWaitUntil: "load" },
 		});
 		await talox.launch("err-timeout", "sandbox", "chromium");
+		// Verify real timeout recovery without inheriting Playwright's 30s default.
+		talox._session.getPlaywrightPage()?.setDefaultNavigationTimeout(1_500);
 	});
 
 	afterAll(async () => {
@@ -189,13 +191,9 @@ describe("error-path: concurrent session conflicts", () => {
 
 		await talox1.launch("conflict-profile", "sandbox", "chromium");
 
-		// Second launch on the same profile may succeed (Playwright allows multiple
-		// contexts) or may throw — both are acceptable. We just verify it doesn't hang.
-		try {
-			await talox2.launch("conflict-profile", "sandbox", "chromium");
-		} catch {
-			// Expected — Playwright may lock the profile directory
-		}
+		// Persistent profiles have one in-process owner. A duplicate must fail before
+		// browser discovery/startup rather than waiting on Chrome's profile lock.
+		await expect(talox2.launch("conflict-profile", "sandbox", "chromium")).rejects.toThrow("PROFILE_IN_USE");
 
 		// talox1 should still be functional
 		const state = await talox1.navigate("about:blank");
@@ -216,7 +214,7 @@ describe("error-path: invalid selector handling", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, safeMode: true, actionTimeoutMs: 150 },
 		});
 		await talox.launch("err-selector", "sandbox", "chromium");
 		await talox.navigate("about:blank");

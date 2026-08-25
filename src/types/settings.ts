@@ -186,6 +186,8 @@ export interface TaloxSettings {
 	typoProbability: number; // 0–1. Default: 0.03
 	fidgetEnabled: boolean; // micro-movements. Default: true
 	humanStealth: number; // 0 (off) – 1 (full). Default: 1
+	/** Timeout for direct Playwright click/type element waits. @default 5000 */
+	actionTimeoutMs: number;
 
 	// Stealth & protection
 	stealthLevel: "low" | "medium" | "high"; // Default: 'high'
@@ -311,6 +313,7 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	typoProbability: 0.03,
 	fidgetEnabled: true,
 	humanStealth: 1,
+	actionTimeoutMs: 5000,
 	stealthLevel: "high",
 	adaptiveStealthEnabled: true,
 	automaticThinkingEnabled: true,

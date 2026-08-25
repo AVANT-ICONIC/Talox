@@ -238,6 +238,9 @@ export class ActionExecutor {
 
 	async click(selector: string): Promise<TaloxPageState> {
 		const page = this.getPage();
+		// Validate syntax before full state collection: sparse pages can spend seconds
+		// retrying AX/DOM hydration for a selector Playwright can reject immediately.
+		await this.reliability.assertSelectorSyntax(page, selector);
 		const prevState = await this.getActiveStateCollector().collect();
 
 		// Pre-flight: scroll into view + resolve duplicate labels
@@ -343,7 +346,7 @@ export class ActionExecutor {
 		if (attentionFrame && targetBox) {
 			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
 		} else {
-			await page.click(selector, { timeout: 5000 });
+			await page.click(selector, { timeout: this.settings.actionTimeoutMs });
 		}
 	}
 
@@ -413,6 +416,7 @@ export class ActionExecutor {
 
 	async type(selector: string, text: string): Promise<TaloxPageState> {
 		const page = this.getPage();
+		await this.reliability.assertSelectorSyntax(page, selector);
 		const prevState = await this.getActiveStateCollector().collect();
 
 		// Pre-flight: scroll into view + resolve duplicate labels
@@ -499,7 +503,7 @@ export class ActionExecutor {
 			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
 			await page.keyboard.type(text);
 		} else {
-			await page.type(selector, text, { timeout: 5000 });
+			await page.type(selector, text, { timeout: this.settings.actionTimeoutMs });
 		}
 	}
 

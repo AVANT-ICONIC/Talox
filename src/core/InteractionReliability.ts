@@ -93,6 +93,17 @@ const VIEWPORT_PATTERNS = [
 ];
 
 const WRONG_TAB_PATTERNS = [/target.*closed/i, /execution context.*destroyed/i, /page.*closed/i];
+const INVALID_SELECTOR_PATTERNS = [
+	/while parsing css selector/i,
+	/unexpected token.*css selector/i,
+	/unknown engine .* while parsing selector/i,
+	/malformed selector/i,
+];
+
+function isSelectorSyntaxError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return INVALID_SELECTOR_PATTERNS.some((pattern) => pattern.test(message));
+}
 
 // ─── Dismiss patterns for common overlay types ─────────────────────────────
 
@@ -162,10 +173,21 @@ export class InteractionReliability {
 	 * set to the selector to use. If pre-flight has nothing to do it returns
 	 * `resolved=true` immediately with the original selector unchanged.
 	 */
+	/** Fail fast on selector syntax errors without collecting full page state. */
+	async assertSelectorSyntax(page: Page, selector: string): Promise<void> {
+		try {
+			await page.$(selector);
+		} catch (error: unknown) {
+			if (isSelectorSyntaxError(error)) throw error;
+			// Non-syntax failures still belong to the normal reliability/recovery path.
+		}
+	}
+
 	async resolveBeforeClick(page: Page, selector: string, nodes: TaloxNode[]): Promise<ReliabilityOutcome> {
 		const attempts: InteractionAttempt[] = [];
 		const recoveryNotes: string[] = [];
 		let resolvedSelector = selector;
+
 
 		// ── Duplicate resolution ─────────────────────────────────────────────────
 		const duplicateResult = this.resolveDuplicateSelector(selector, nodes);
@@ -201,7 +223,10 @@ export class InteractionReliability {
 				});
 			}
 		} catch (e: unknown) {
-			// Not a fatal pre-flight error — the element might still be findable
+			// Invalid syntax is deterministic. Do not pay the full click/type timeout
+			// for a selector Playwright has already proven impossible to parse.
+			if (isSelectorSyntaxError(e)) throw e;
+			// Other pre-flight errors remain recoverable; the element may still appear.
 			attempts.push({
 				mode: "viewport",
 				strategy: "scrollIntoViewIfNeeded",
