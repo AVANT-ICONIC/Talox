@@ -30,7 +30,7 @@ const RED = "\x1b[31m";
 const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";
 const HORIZONTAL_LINE = "━".repeat(41);
-const MIN_NODE_MAJOR = 18;
+export const MIN_NODE_MAJOR = 20;
 
 function execAsync(command: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -53,7 +53,7 @@ async function checkNodeVersion(): Promise<DoctorCheck> {
 		name: "Node.js version",
 		status: "error",
 		message: `${process.version} (requires >= v${MIN_NODE_MAJOR})`,
-		fixHint: "Upgrade Node.js to v18 or later",
+		fixHint: `Upgrade Node.js to v${MIN_NODE_MAJOR} or later`,
 	};
 }
 

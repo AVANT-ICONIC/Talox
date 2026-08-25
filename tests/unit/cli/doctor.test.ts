@@ -1,10 +1,16 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { DoctorCheck, DoctorResult } from "../../../src/cli/doctor.js";
-import { formatDoctorOutput, runDoctor } from "../../../src/cli/doctor.js";
+import { formatDoctorOutput, MIN_NODE_MAJOR, runDoctor } from "../../../src/cli/doctor.js";
 
 // ---------------------------------------------------------------------------
 // formatDoctorOutput
 // ---------------------------------------------------------------------------
+
+describe("Doctor runtime baseline", () => {
+	it("matches the v9 Node.js engine floor", () => {
+		expect(MIN_NODE_MAJOR).toBe(20);
+	});
+});
 
 describe("formatDoctorOutput", () => {
 	const VERSION = "1.2.3";
@@ -12,7 +18,7 @@ describe("formatDoctorOutput", () => {
 	it("formats an all-passing result", () => {
 		const checks: DoctorCheck[] = [
 			{ name: "Node.js version", status: "ok", message: "v20.11.0" },
-			{ name: "Playwright runtime", status: "ok", message: "v1.58.2" },
+			{ name: "Playwright runtime", status: "ok", message: "v1.62.1" },
 			{ name: "Browser binaries", status: "ok", message: "Chromium available" },
 		];
 
