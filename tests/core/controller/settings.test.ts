@@ -42,6 +42,10 @@ describe("TaloxSettings (v2)", () => {
 		it("should have humanTakeoverTimeoutMs at 2 minutes", () => {
 			expect(DEFAULT_SETTINGS.humanTakeoverTimeoutMs).toBe(120000);
 		});
+
+		it("should use SPA-safe DOM readiness by default", () => {
+			expect(DEFAULT_SETTINGS.navigationWaitUntil).toBe("domcontentloaded");
+		});
 	});
 
 	describe("TaloxSettings interface", () => {
@@ -118,6 +122,7 @@ describe("Legacy Mode Compatibility Layer (v1 → v2)", () => {
 				expect(settings.humanStealth).toBe(1);
 				expect(settings.fidgetEnabled).toBe(true);
 				expect(settings.verbosity).toBe(0);
+				expect(settings.navigationWaitUntil).toBe("domcontentloaded");
 			});
 
 			it("should map adaptive identically to smart", () => {

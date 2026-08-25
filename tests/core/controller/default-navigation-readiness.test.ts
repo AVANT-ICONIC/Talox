@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TaloxController } from "../../../src/core/controller/TaloxController.js";
 
-describe("smart-mode navigation readiness", () => {
+describe("default navigation readiness", () => {
 	let talox: TaloxController;
 	let profileDir: string;
 	let server: http.Server;
@@ -37,9 +37,8 @@ describe("smart-mode navigation readiness", () => {
 		const address = server.address() as AddressInfo;
 		origin = `http://127.0.0.1:${address.port}`;
 
-		profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "talox-smart-navigation-"));
+		profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "talox-default-navigation-"));
 		talox = new TaloxController(profileDir, {
-			mode: "smart",
 			settings: {
 				automaticThinkingEnabled: false,
 				humanStealth: 0,
@@ -47,7 +46,7 @@ describe("smart-mode navigation readiness", () => {
 				safeMode: true,
 			},
 		});
-		await talox.launch("smart-navigation-readiness", "sandbox", "chromium");
+		await talox.launch("default-navigation-readiness", "sandbox", "chromium");
 
 		// Consume first-navigation warmup outside the timed assertion. This test is
 		// specifically about completion semantics once a modern SPA starts loading.
