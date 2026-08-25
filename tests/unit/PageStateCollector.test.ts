@@ -17,6 +17,7 @@ function makeMockPage(
 		title: string;
 		isClosed: boolean;
 		axSnapshot: any;
+		accessibilityAvailable: boolean;
 		$$result: any[];
 		$$evalResult: any[];
 		evaluateResult: any;
@@ -27,6 +28,7 @@ function makeMockPage(
 		title = "Test Page",
 		isClosed = false,
 		axSnapshot = null,
+		accessibilityAvailable = true,
 		$$result = [],
 		$$evalResult = [],
 		evaluateResult = [],
@@ -43,9 +45,9 @@ function makeMockPage(
 			listeners[event].push(handler);
 		}),
 		off: vi.fn(),
-		accessibility: {
-			snapshot: vi.fn(() => Promise.resolve(axSnapshot)),
-		},
+		...(accessibilityAvailable
+			? { accessibility: { snapshot: vi.fn(() => Promise.resolve(axSnapshot)) } }
+			: {}),
 		$$: vi.fn(() => Promise.resolve($$result)),
 		$$eval: vi.fn(() => Promise.resolve($$evalResult)),
 		evaluate: vi.fn(() => Promise.resolve(evaluateResult)),
@@ -123,6 +125,21 @@ describe("PageStateCollector", () => {
 			expect(state.timing).toBeDefined();
 			expect(state.timing!.totalMs).toBeGreaterThanOrEqual(0);
 			expect(state.timing!.collectedAt).toBe(state.timestamp);
+		});
+
+		it("falls back immediately when modern Playwright has no page.accessibility API", async () => {
+			const page = makeMockPage({ accessibilityAvailable: false });
+			const collector = new PageStateCollector(page, {
+				useDomFallback: true,
+				domFallbackThreshold: 0,
+			});
+
+			await collector.collect();
+
+			const stats = collector.getRetryStats();
+			expect(stats.axTreeAttempts).toBe(0);
+			expect(stats.totalDelayMs).toBe(0);
+			expect(page.$$).toHaveBeenCalled();
 		});
 
 		it.each(["about:blank", "about:srcdoc"])(

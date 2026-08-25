@@ -674,6 +674,15 @@ export class PageStateCollector {
 		let axSnapshot: any = null;
 		let axTreeError: Error | null = null;
 
+		const accessibility = (this.page as any).accessibility;
+		const snapshot = accessibility?.snapshot;
+		if (typeof snapshot !== "function") {
+			// Playwright removed page.accessibility in v1.57. Treat an unavailable
+			// legacy AX source as a capability miss, not as a transient empty tree.
+			// The outer collection loop still preserves DOM hydration retries.
+			return { nodes: [], shouldUseFallback: this.options.useDomFallback };
+		}
+
 		for (let attempt = 0; attempt <= maxRetries; attempt++) {
 			this.retryStats.axTreeAttempts++;
 
@@ -685,7 +694,7 @@ export class PageStateCollector {
 				}
 
 				try {
-					axSnapshot = await (this.page as any).accessibility?.snapshot();
+					axSnapshot = await snapshot.call(accessibility);
 				} catch (error_) {
 					axTreeError = error_ as Error;
 					axSnapshot = null;
