@@ -266,11 +266,23 @@ export class BrowserManager {
 	}
 
 	async closeAll(): Promise<void> {
-		const results = await Promise.allSettled(Array.from(this.contexts).map((ctx) => ctx.close()));
-		this.contexts.clear();
-		this.context = null;
-		this.releasePersistentProfileOwnership();
-		this.stopXvfb();
+		const contexts = Array.from(this.contexts);
+		const results = await Promise.allSettled(contexts.map((ctx) => ctx.close()));
+
+		for (const [index, result] of results.entries()) {
+			if (result.status !== "fulfilled") continue;
+			const ctx = contexts[index];
+			if (!ctx) continue;
+			this.contexts.delete(ctx);
+			if (this.context === ctx) this.context = null;
+			if (this.profileOwnerContext === ctx) this.releasePersistentProfileOwnership();
+		}
+
+		if (this.contexts.size === 0) {
+			this.context = null;
+			if (this.ownedProfileDir !== null) this.releasePersistentProfileOwnership();
+			this.stopXvfb();
+		}
 
 		const failedClose = results.find((result) => result.status === "rejected");
 		if (failedClose?.status === "rejected") {
