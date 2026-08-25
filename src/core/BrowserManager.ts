@@ -725,9 +725,14 @@ export class BrowserManager {
 	): Promise<BrowserContext> {
 		const actualBrowserType = await this.resolveBrowserType(browserType);
 
-		// Start Xvfb if virtualDisplay is enabled — runs Chromium in "headed"
-		// mode against a virtual framebuffer so its fingerprint is real.
-		if (this.config.settings.virtualDisplay && !this.xvfbProcess) {
+		// Keep Xvfb ownership aligned with the current configuration. A manager may
+		// be reconfigured between launches; once virtualDisplay is disabled, tear
+		// down the owned display before building replacement launch options.
+		const virtualDisplayEnabled = this.config.settings.virtualDisplay === true;
+		if (!virtualDisplayEnabled && this.xvfbProcess) {
+			this.stopXvfb();
+		}
+		if (virtualDisplayEnabled && !this.xvfbProcess) {
 			await this.startXvfb();
 		}
 
@@ -757,6 +762,7 @@ export class BrowserManager {
 		const newHash = this.computeLaunchHash({
 			headless: launchOptions.headless,
 			browserType: actualBrowserType,
+			virtualDisplay: virtualDisplayEnabled,
 			userDataDir: profile.userDataDir,
 			...(this.config.browser.proxy ? { proxy: this.config.browser.proxy } : {}),
 			...(launchOptions.args ? { args: launchOptions.args } : {}),

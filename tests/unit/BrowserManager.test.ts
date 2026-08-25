@@ -291,6 +291,9 @@ describe("BrowserManager", () => {
 		});
 
 		it("keeps owned Xvfb alive when launch options require a browser relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
 			const firstContext = createMockContext();
 			const secondContext = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
@@ -309,6 +312,37 @@ describe("BrowserManager", () => {
 			expect((manager as any).xvfbDisplay).toBe(":123");
 			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
 			expect(secondLaunch.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+
+			await manager.close();
+		});
+
+		it("stops owned Xvfb when virtualDisplay is disabled before a relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":125";
+
+			const profile = createTestProfile();
+			await manager.launch(profile, false, "chromium", { args: ["--virtual-display"] });
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", { args: ["--no-virtual-display"] });
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect((manager as any).xvfbProcess).toBeNull();
+			expect((manager as any).xvfbDisplay).toBeNull();
+			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
+			expect(secondLaunch.headless).toBe(true);
+			expect(secondLaunch.env?.DISPLAY).not.toBe(":125");
 
 			await manager.close();
 		});
