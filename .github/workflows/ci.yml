@@ -176,7 +176,9 @@ jobs:
   # ─── Real-world tests — nightly full suite in isolated serial shards ──────────
   # Real sites are allowed to be slow or hostile, but one scenario must not consume
   # the entire nightly budget. Shards stay serial to avoid rate-limit/shared-IP
-  # pressure while each gets its own runner timeout and diagnostics.
+  # pressure while each gets its own runner timeout and diagnostics. Talox itself
+  # uses the system Chrome channel, so these jobs verify the runner browser instead
+  # of downloading an unused Playwright Chromium bundle for every serial shard.
   real-world-shard:
     name: Real-World · ${{ matrix.group }}
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.grep == '')
@@ -219,8 +221,12 @@ jobs:
 
       - run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Verify runner Chrome prerequisites
+        shell: bash
+        run: |
+          command -v google-chrome
+          google-chrome --version
+          command -v Xvfb
 
       - name: Run real-world shard
         run: npx playwright test ${{ matrix.target }}
@@ -290,8 +296,12 @@ jobs:
 
       - run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Verify runner Chrome prerequisites
+        shell: bash
+        run: |
+          command -v google-chrome
+          google-chrome --version
+          command -v Xvfb
 
       - name: Run filtered real-world tests
         run: npx playwright test --grep "${{ github.event.inputs.grep }}"
