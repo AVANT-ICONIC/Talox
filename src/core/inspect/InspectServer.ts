@@ -48,6 +48,9 @@ export class InspectServer {
 	private cdpSession: import("playwright-core").CDPSession | null = null;
 	private readonly devtoolsClients: Set<WebSocket> = new Set();
 	private running = false;
+	private startInFlight: Promise<void> | null = null;
+	private detachInFlight: Promise<void> | null = null;
+	private connectionHandlerInstalled = false;
 
 	constructor(config?: InspectServerConfig) {
 		this.port = config?.port ?? 9222;
@@ -61,9 +64,11 @@ export class InspectServer {
 	/**
 	 * Attach to a Playwright page and start proxying CDP messages.
 	 *
-	 * Starts the HTTP and WebSocket servers if not already running.
+	 * Starts the HTTP and WebSocket servers if not already running. Concurrent
+	 * callers share one listen attempt, and a failed listen remains retryable.
 	 */
 	async attach(page: Page): Promise<void> {
+		if (this.detachInFlight) await this.detachInFlight;
 		this.page = page;
 
 		try {
@@ -72,49 +77,106 @@ export class InspectServer {
 			// NOSONAR — CDP session creation may fail in some browsers
 		}
 
-		if (!this.running) {
-			this.running = true;
+		if (this.running) return;
+		if (this.startInFlight) {
+			await this.startInFlight;
+			return;
+		}
 
+		if (!this.connectionHandlerInstalled) {
 			this.wss.on("connection", (ws: WebSocket) => {
 				this.handleDevToolsConnection(ws);
 			});
+			this.connectionHandlerInstalled = true;
+		}
 
-			await new Promise<void>((resolve, reject) => {
-				this.httpServer.once("error", reject);
-				this.httpServer.listen(this.port, this.host, () => {
-					this.httpServer.removeListener("error", reject);
-					resolve();
-				});
+		const attempt = new Promise<void>((resolve, reject) => {
+			this.httpServer.once("error", reject);
+			this.httpServer.listen(this.port, this.host, () => {
+				this.httpServer.removeListener("error", reject);
+				this.running = true;
+				resolve();
 			});
+		});
+		this.startInFlight = attempt;
+
+		try {
+			await attempt;
+		} finally {
+			if (this.startInFlight === attempt) this.startInFlight = null;
 		}
 	}
 
 	/**
-	 * Stop proxying and shut down the servers.
+	 * Stop proxying and wait until the inspect sockets are actually released.
 	 */
-	detach(): void {
+	detach(): Promise<void> {
+		if (this.detachInFlight) return this.detachInFlight;
+
+		const attempt = this.runDetach();
+		this.detachInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.detachInFlight === attempt) this.detachInFlight = null;
+			},
+			() => {
+				if (this.detachInFlight === attempt) this.detachInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runDetach(): Promise<void> {
+		const start = this.startInFlight;
+		if (start) await start.catch(() => {});
+
 		const clients = Array.from(this.devtoolsClients);
 		for (const ws of clients) {
 			try {
-				ws.close();
+				ws.terminate();
 			} catch {
-				// NOSONAR
+				try {
+					ws.close();
+				} catch {
+					// NOSONAR — client may already be closed
+				}
 			}
 		}
 		this.devtoolsClients.clear();
 
-		if (this.cdpSession) {
-			this.cdpSession.detach().catch(() => {}); // NOSONAR — detach may fail
-			this.cdpSession = null;
+		const cdpSession = this.cdpSession;
+		this.cdpSession = null;
+		if (cdpSession) {
+			await cdpSession.detach().catch(() => {}); // NOSONAR — detach may fail
 		}
 
 		this.page = null;
 
-		if (this.running) {
-			this.running = false;
-			this.wss.close();
-			this.httpServer.close();
-		}
+		if (!this.running) return;
+
+		await this.closeWebSocketServer();
+		await this.closeHttpServer();
+		this.running = false;
+	}
+
+	private closeWebSocketServer(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			try {
+				this.wss.close(() => resolve());
+			} catch {
+				resolve();
+			}
+		});
+	}
+
+	private closeHttpServer(): Promise<void> {
+		return new Promise<void>((resolve) => {
+			try {
+				this.httpServer.close(() => resolve());
+			} catch {
+				resolve();
+			}
+		});
 	}
 
 	/**
