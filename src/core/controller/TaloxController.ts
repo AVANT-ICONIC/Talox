@@ -148,6 +148,7 @@ export class TaloxController {
 	private videoRecorder: VideoRecorderType | null = null;
 	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
 	private readonly log = createLogger("Controller");
+	private stopInFlight: Promise<void> | null = null;
 	private readonly _sanitizer: ContentSanitizer;
 	readonly quality = new QualityTracker();
 
@@ -350,7 +351,23 @@ export class TaloxController {
 	/**
 	 * Close the browser and finalise any active observe session.
 	 */
-	async stop(): Promise<void> {
+	stop(): Promise<void> {
+		if (this.stopInFlight) return this.stopInFlight;
+
+		const attempt = this.runStop();
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runStop(): Promise<void> {
 		await this.flushHarRecorder();
 		this.disposeCrossOriginManager();
 		this.detachInspectServer();
@@ -362,6 +379,7 @@ export class TaloxController {
 			await this._session.stop();
 		} catch (e) {
 			this.log.error(`Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
+			throw e;
 		}
 	}
 
