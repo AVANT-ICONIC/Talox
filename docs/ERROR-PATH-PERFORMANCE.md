@@ -12,9 +12,19 @@ Profile ownership is released on failed launch, context teardown, `close()`, `cl
 
 ## Invalid selectors
 
-Selector syntax errors reported by Playwright during interaction preflight are propagated immediately. Valid selectors that are temporarily missing, detached, intercepted, outside the viewport, or affected by a wrong-tab condition retain the normal recovery path.
+Selector syntax is validated before full page-state collection. Playwright parser errors therefore fail immediately instead of paying the AX/DOM hydration and retry cost first. Valid selectors that are temporarily missing, detached, intercepted, outside the viewport, or affected by a wrong-tab condition retain the normal recovery path.
 
 Direct Playwright click/type waits use `settings.actionTimeoutMs` (default `5000`) so focused test or application configurations can bound these waits without changing unrelated browser timeouts.
+
+## Explicit browser launches
+
+When a caller explicitly requests a browser such as `chromium`, Talox launches that browser directly. It no longer starts a throwaway detection browser first. Automatic preferred-browser probing remains available when the browser type is omitted.
+
+## Validated impact
+
+On the GitHub Actions Ubuntu browser runner on 2026-08-25, `tests/core/error-paths.test.ts` passed all 20 tests in **57.08 seconds**, down from **113.28 seconds** on the preceding PR head. That is a **49.6% reduction** in total shard duration while retaining the same error-path coverage.
+
+The largest removed cost was malformed-selector handling: ten click/type cases had each spent roughly 5.2 seconds collecting sparse-page state before the parser error was surfaced. Those deterministic waits are no longer present.
 
 ## Lifecycle compatibility
 
