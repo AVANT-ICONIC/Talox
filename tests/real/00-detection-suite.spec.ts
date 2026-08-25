@@ -8,7 +8,7 @@
  *
  * Suites tested:
  * - Sannysoft Bot Detection (bot.sannysoft.com) — current table pass/fail checks
- * - CreepJS (abrahamjuliot.github.io/creepjs) — trust/lie scores
+ * - CreepJS (abrahamjuliot.github.io/creepjs) — headless/stealth/lie metrics
  * - BrowserLeaks (browserleaks.com) — loads without block
  *
  * Mode: smart (headed) — detection tests require a real browser window.
@@ -39,9 +39,10 @@ interface SannysoftResult {
 }
 
 interface CreepJSResult {
-	trustScore: string;
-	visits: number;
-	bot: boolean;
+	likeHeadlessPct: number | null;
+	headlessPct: number | null;
+	stealthPct: number | null;
+	totalLies: number | null;
 	loaded: boolean;
 }
 
@@ -193,44 +194,74 @@ test.describe("Detection Score Suite", () => {
 
 	// ─── CreepJS ──────────────────────────────────────────────────────────
 
-	test("CreepJS — captures trust score and lie detection", async () => {
+	test("CreepJS — captures current headless, stealth, and lie metrics", async () => {
 		await talox.navigate("https://abrahamjuliot.github.io/creepjs/");
-		// CreepJS needs time to run all fingerprint tests
-		await talox.evaluate(`new Promise(r => setTimeout(r, 15000))`);
+
+		// Prefer CreepJS's first-party fingerprint object. Poll briefly because the
+		// full fingerprint is assembled asynchronously after the page becomes usable.
+		await talox.evaluate(`
+			new Promise((resolve) => {
+				const deadline = Date.now() + 20_000;
+				const check = () => {
+					if (window.Fingerprint?.headless) return resolve(true);
+					if (Date.now() >= deadline) return resolve(false);
+					setTimeout(check, 250);
+				};
+				check();
+			})
+		`);
 
 		const result = await talox.evaluate<CreepJSResult>(`
 			(() => {
 				const text = document.body.innerText || '';
+				const fingerprint = window.Fingerprint || {};
+				const headless = fingerprint.headless || {};
+				const lies = fingerprint.lies || {};
 
-				// Extract trust score — CreepJS shows "Trust: X%" in various formats
-				let trustScore = 'unknown';
-				const trustMatch = text.match(/trust[^\\d]*?(\\d+\\.?\\d*)\\s*%/i);
-				if (trustMatch) trustScore = trustMatch[1] + '%';
+				const numeric = (value) => (
+					typeof value === 'number' && Number.isFinite(value) ? value : null
+				);
+				const textMetric = (pattern) => {
+					const match = text.match(pattern);
+					return match ? Number(match[1]) : null;
+				};
 
-				// Check for bot detection keywords
-				const botDetected = /bot|automated|headless|puppeteer|playwright|selenium|webdriver/i.test(text);
-
-				// Extract visit count if visible
-				let visits = 0;
-				const visitMatch = text.match(/(\\d+)\\s*visit/i);
-				if (visitMatch) visits = parseInt(visitMatch[1], 10);
+				const likeHeadlessPct = numeric(headless.likeHeadlessRating) ??
+					textMetric(/(?:^|\\n)\\s*(\\d+(?:\\.\\d+)?)%\\s*like headless\\s*:/im);
+				const headlessPct = numeric(headless.headlessRating) ??
+					textMetric(/(?:^|\\n)\\s*(\\d+(?:\\.\\d+)?)%\\s*headless\\s*:/im);
+				const stealthPct = numeric(headless.stealthRating) ??
+					textMetric(/(?:^|\\n)\\s*(\\d+(?:\\.\\d+)?)%\\s*stealth\\s*:/im);
+				const totalLies = numeric(lies.totalLies) ?? (() => {
+					const match = text.match(/lies\\s*\\((\\d+)\\)/i);
+					return match ? Number(match[1]) : null;
+				})();
 
 				return {
-					trustScore,
-					visits,
-					bot: botDetected,
+					likeHeadlessPct,
+					headlessPct,
+					stealthPct,
+					totalLies,
 					loaded: text.length > 100,
 				};
 			})()
 		`);
 
-		console.log(`[CreepJS] Trust: ${result.trustScore}, Bot detected: ${result.bot}, Visits: ${result.visits}`);
+		console.log(
+			`[CreepJS] like-headless=${result.likeHeadlessPct}% ` +
+				`headless=${result.headlessPct}% stealth=${result.stealthPct}% lies=${result.totalLies}`,
+		);
 		console.log(`[CreepJS] Page loaded: ${result.loaded}`);
 
-		// Page must have loaded and rendered content
+		// Current CreepJS publishes these values in window.Fingerprint and renders
+		// the same percentages in the Headless panel. Null means our measurement
+		// contract is stale or the page never completed, not that the browser scored 0.
 		expect(result.loaded).toBe(true);
+		expect(result.likeHeadlessPct).not.toBeNull();
+		expect(result.headlessPct).not.toBeNull();
+		expect(result.stealthPct).not.toBeNull();
+		expect(result.totalLies).not.toBeNull();
 
-		// Save for tracking
 		const current = loadPreviousResults() || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.creepjs = result;
@@ -269,8 +300,11 @@ test.describe("Detection Score Suite", () => {
 		console.log("\n═══ Detection Score Summary ═══");
 		console.log(`  Timestamp: ${results!.timestamp}`);
 		console.log(`  Sannysoft: ${results!.sannysoft.passed}/${results!.sannysoft.total}`);
-		console.log(`  CreepJS Trust: ${results!.creepjs.trustScore}`);
-		console.log(`  CreepJS Bot: ${results!.creepjs.bot}`);
+		console.log(
+			`  CreepJS: ${results!.creepjs.likeHeadlessPct}% like-headless · ` +
+				`${results!.creepjs.headlessPct}% headless · ${results!.creepjs.stealthPct}% stealth · ` +
+				`${results!.creepjs.totalLies} lies`,
+		);
 		console.log(`  BrowserLeaks: ${results!.browserleaks.loaded ? "✅" : "❌"}`);
 		console.log("═══════════════════════════════\n");
 	});
