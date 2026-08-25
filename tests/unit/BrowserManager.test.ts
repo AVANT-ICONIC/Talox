@@ -528,6 +528,26 @@ describe("BrowserManager", () => {
 				await competingManager.close().catch(() => undefined);
 			}
 		});
+
+		it("rejects concurrent launch calls on the same manager", async () => {
+			const context = createMockContext();
+			let resolveLaunch!: (ctx: ReturnType<typeof createMockContext>) => void;
+			const pendingLaunch = new Promise<ReturnType<typeof createMockContext>>((resolve) => {
+				resolveLaunch = resolve;
+			});
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockImplementationOnce(() => pendingLaunch);
+			const profile = createTestProfile("same-manager-concurrent");
+
+			const firstLaunch = manager.launch(profile);
+			await vi.waitFor(() => expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(1));
+			await expect(manager.launch(profile)).rejects.toThrow("LAUNCH_IN_PROGRESS");
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(1);
+
+			resolveLaunch(context);
+			await expect(firstLaunch).resolves.toBe(context);
+			await manager.close();
+		});
+
 	});
 
 	// ─── Context Management ─────────────────────────────────────────────────

@@ -196,6 +196,7 @@ export class BrowserManager {
 	private config: TaloxConfig;
 	private detectedBrowsers: DetectedBrowser[] = [];
 	private launchOptionsHash: string | null = null;
+	private launchInFlight = false;
 
 	private readonly contexts: Set<BrowserContext> = new Set();
 	private readonly processCleanup = () => this.closeAllSync();
@@ -784,6 +785,11 @@ export class BrowserManager {
 		browserType?: BrowserType,
 		extraOptions?: any,
 	): Promise<BrowserContext> {
+		if (this.launchInFlight) {
+			throw new Error("LAUNCH_IN_PROGRESS: Browser launch is already in progress for this manager.");
+		}
+		this.launchInFlight = true;
+		try {
 		// A duplicate persistent profile is a deterministic local conflict. Reject it
 		// before browser discovery or Xvfb startup instead of waiting on Chrome locks.
 		this.assertPersistentProfileAvailable(profile.userDataDir);
@@ -864,6 +870,9 @@ export class BrowserManager {
 			this.launchOptionsHash = null;
 			this.releasePersistentProfileOwnership();
 			throw error;
+		}
+		} finally {
+			this.launchInFlight = false;
 		}
 	}
 
