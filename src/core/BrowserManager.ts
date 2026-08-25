@@ -423,6 +423,15 @@ export class BrowserManager {
 		});
 	}
 
+	private async closeContextForRelaunch(): Promise<void> {
+		const ctx = this.context;
+		if (!ctx) return;
+		await ctx.close();
+		this.contexts.delete(ctx);
+		if (this.context === ctx) this.context = null;
+		this.unregisterProcessCleanupIfIdle();
+	}
+
 	private resolveLauncher(actualBrowserType: BrowserType, _isAdaptive: boolean): any {
 		// Use standard playwright-core with channel: "chrome" for all browser types.
 		// Patchright's addInitScript is broken (callback never executes), which means
@@ -757,9 +766,10 @@ export class BrowserManager {
 			return this.context;
 		}
 
-		// Close existing browser if configuration changed
+		// Close only the browser context when launch configuration changes. Keep an
+		// owned Xvfb alive because launchOptions may already be pinned to that display.
 		if (this.context) {
-			await this.close();
+			await this.closeContextForRelaunch();
 		}
 
 		this.launchOptionsHash = newHash;

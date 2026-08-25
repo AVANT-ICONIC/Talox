@@ -290,6 +290,29 @@ describe("BrowserManager", () => {
 			);
 		});
 
+		it("keeps owned Xvfb alive when launch options require a browser relaunch", async () => {
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":123";
+
+			const profile = createTestProfile();
+			await manager.launch(profile, false, "chromium", { viewport: { width: 800, height: 600 } });
+			await manager.launch(profile, false, "chromium", { viewport: { width: 1024, height: 768 } });
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(xvfb.kill).not.toHaveBeenCalled();
+			expect((manager as any).xvfbDisplay).toBe(":123");
+			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
+			expect(secondLaunch.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+
+			await manager.close();
+		});
+
 		it("pins browser launch env to the Xvfb display owned by this manager", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
