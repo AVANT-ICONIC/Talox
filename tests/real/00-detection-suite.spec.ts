@@ -7,7 +7,7 @@
  * are captured, not based on achieving a specific score.
  *
  * Suites tested:
- * - Sannysoft Bot Detection (bot.sannysoft.com) — 31 checks
+ * - Sannysoft Bot Detection (bot.sannysoft.com) — current table pass/fail checks
  * - CreepJS (abrahamjuliot.github.io/creepjs) — trust/lie scores
  * - BrowserLeaks (browserleaks.com) — loads without block
  *
@@ -35,6 +35,7 @@ interface SannysoftResult {
 	passed: number;
 	failed: number;
 	failedChecks: string[];
+	unclassifiedChecks: string[];
 }
 
 interface CreepJSResult {
@@ -77,8 +78,8 @@ test.describe("Detection Score Suite", () => {
 
 	// ─── Sannysoft ────────────────────────────────────────────────────────
 
-	test("Sannysoft Bot Detection — captures all 31 check results", async () => {
-		const state = await talox.navigate("https://bot.sannysoft.com/");
+	test("Sannysoft Bot Detection — captures current check results", async () => {
+		await talox.navigate("https://bot.sannysoft.com/");
 		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
 		const result = await talox.evaluate<SannysoftResult>(`
@@ -88,32 +89,69 @@ test.describe("Detection Score Suite", () => {
 				let failed = 0;
 				let total = 0;
 				const failedChecks = [];
+				const unclassifiedChecks = [];
+
+				const colorStatus = (cell) => {
+					const color = getComputedStyle(cell).backgroundColor || '';
+					const match = color.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i);
+					if (!match) return 'unknown';
+					const red = Number(match[1]);
+					const green = Number(match[2]);
+					const blue = Number(match[3]);
+					if (green >= red + 20 && green >= blue + 20) return 'passed';
+					if (red >= green + 20 && red >= blue + 20) return 'failed';
+					return 'unknown';
+				};
+
+				const classify = (cell, value) => {
+					const className = String(cell.className || '').toLowerCase();
+					const normalizedValue = value.toLowerCase();
+					if (
+						className.includes('failed') ||
+						normalizedValue === 'failed' ||
+						normalizedValue.includes('(failed)')
+					) return 'failed';
+					if (
+						className.includes('passed') ||
+						normalizedValue === 'passed' ||
+						normalizedValue.includes('(passed)')
+					) return 'passed';
+					return colorStatus(cell);
+				};
 
 				tables.forEach(table => {
-					const rows = table.querySelectorAll('tr');
-					rows.forEach(row => {
+					const rows = [];
+					table.querySelectorAll('tr').forEach(row => {
 						const cells = row.querySelectorAll('td');
-						if (cells.length >= 2) {
-							const label = cells[0]?.textContent?.trim() || '';
-							const value = cells[1]?.textContent?.trim() || '';
-							const bg = cells[1]?.style?.backgroundColor || '';
-							// Sannysoft uses green (#cbf3cb or similar) for pass, red for fail
-							const isGreen = bg.includes('cbf3cb') || bg.includes('green') || bg.includes('#cbf3cb');
-							const isRed = bg.includes('ffc7c7') || bg.includes('red') || bg.includes('#ffc7c7');
-							if (label && (isGreen || isRed)) {
-								total++;
-								if (isGreen) {
-									passed++;
-								} else {
-									failed++;
-									failedChecks.push(label + ': ' + value);
-								}
-							}
+						if (cells.length < 2) return;
+						const label = cells[0]?.textContent?.trim() || '';
+						if (!label) return;
+						const cell = cells[1];
+						const value = cell?.textContent?.trim() || '';
+						rows.push({ label, value, status: classify(cell, value) });
+					});
+
+					// Sannysoft also contains raw fingerprint/detail tables that are not
+					// pass/fail tests. A scored table must expose at least one explicit
+					// pass/fail signal via class, result text, or its computed green/red cell.
+					if (!rows.some(row => row.status !== 'unknown')) return;
+
+					rows.forEach(({ label, value, status }) => {
+						if (status === 'unknown') {
+							unclassifiedChecks.push(label + ': ' + value);
+							return;
+						}
+						total++;
+						if (status === 'failed') {
+							failed++;
+							failedChecks.push(label + ': ' + value);
+						} else {
+							passed++;
 						}
 					});
 				});
 
-				return { total, passed, failed, failedChecks };
+				return { total, passed, failed, failedChecks, unclassifiedChecks };
 			})()
 		`);
 
@@ -121,11 +159,12 @@ test.describe("Detection Score Suite", () => {
 		if (result.failedChecks.length > 0) {
 			console.log(`[Sannysoft] Failed checks: ${result.failedChecks.join(", ")}`);
 		}
+		if (result.unclassifiedChecks.length > 0) {
+			console.warn(`[Sannysoft] Unclassified checks: ${result.unclassifiedChecks.join(", ")}`);
+		}
 
-		// We must detect at least some checks — the page must have loaded
-		expect(result.total).toBeGreaterThan(0);
-		// Document current score — do NOT fail on low scores
-		// This tracks regressions over time
+		// Document current score — do NOT fail on low scores. Only parser/page
+		// failures are errors; actual failed checks are compatibility evidence.
 		const previous = loadPreviousResults();
 		if (previous?.sannysoft) {
 			const prevScore = previous.sannysoft.passed;
@@ -139,17 +178,23 @@ test.describe("Detection Score Suite", () => {
 			}
 		}
 
-		// Save for future comparison
-		const current = loadPreviousResults() || ({} as DetectionResults);
+		// Persist even a parser failure before asserting. That keeps the final
+		// regression-summary test from cascading into a duplicate missing-field failure.
+		const current = previous || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.sannysoft = result;
 		saveResults(current as DetectionResults);
+
+		// A valid measurement needs at least one classified row and no partially
+		// rendered rows inside tables that Sannysoft has identified as scored.
+		expect(result.total).toBeGreaterThan(0);
+		expect(result.unclassifiedChecks).toHaveLength(0);
 	});
 
 	// ─── CreepJS ──────────────────────────────────────────────────────────
 
 	test("CreepJS — captures trust score and lie detection", async () => {
-		const state = await talox.navigate("https://abrahamjuliot.github.io/creepjs/");
+		await talox.navigate("https://abrahamjuliot.github.io/creepjs/");
 		// CreepJS needs time to run all fingerprint tests
 		await talox.evaluate(`new Promise(r => setTimeout(r, 15000))`);
 
@@ -195,7 +240,7 @@ test.describe("Detection Score Suite", () => {
 	// ─── BrowserLeaks ─────────────────────────────────────────────────────
 
 	test("BrowserLeaks — loads without block", async () => {
-		const state = await talox.navigate("https://browserleaks.com/");
+		await talox.navigate("https://browserleaks.com/");
 		await talox.evaluate(`new Promise(r => setTimeout(r, 3000))`);
 
 		const title = await talox.evaluate<string>("document.title");
