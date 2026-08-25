@@ -2,6 +2,10 @@
 
 Talox v9 raises the minimum supported Node.js runtime from 18 to 20 and moves page-state collection onto Playwright 1.62's modern ARIA snapshot API.
 
+## Release baseline
+
+The v9.0.0 repository baseline uses Node.js 20+ and Playwright 1.62.1 while keeping the public `TaloxPageState` contract at version 1.
+
 ## Required runtime change
 
 Talox v9 requires Node.js 20 or newer.
