@@ -11,7 +11,6 @@ async function main() {
     settings: {
       ...PRESETS.observe,
       humanTakeoverEnabled: true,
-      overlay: true,
       autoHeadedEscalation: false,
       verbosity: 3,
       perceptionDepth: 'full',
@@ -19,7 +18,7 @@ async function main() {
   });
 
   try {
-    await talox.launch('browser-lab', 'sandbox', {
+    await talox.launch('browser-lab', 'sandbox', 'chromium', {
       headed: true,
       overlay: true,
       record: true,
@@ -45,7 +44,7 @@ async function main() {
     console.log('Markdown snapshot:', snapshot);
 
     const structured = await tools.extractVisibleStructuredContent();
-    console.log('Structured sections:', structured.sections.map((s) => s.heading).join(', '));
+    console.log('Structured sections:', structured.sections.map((section) => section.heading).join(', '));
   } finally {
     await talox.stop();
   }

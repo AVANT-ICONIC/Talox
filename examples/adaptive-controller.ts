@@ -1,10 +1,9 @@
 /**
  * Adaptive Session Example
  *
- * Demonstrates launching Talox in adaptive mode for resilient, human-paced
- * interaction on real-world web UIs. The Biomechanical Interaction Engine
- * handles all mouse/keyboard interactions with variable timing, Bezier curves,
- * and realistic keystroke cadence.
+ * Demonstrates Talox's modern settings-first model for resilient,
+ * human-paced interaction on real-world web UIs. The interaction engine
+ * handles mouse/keyboard timing, curved movement, and adaptive stealth.
  *
  * Use this pattern when:
  * - Interacting with complex or fragile real-world interfaces
@@ -14,12 +13,19 @@
 
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController('./profiles');
+const talox = new TaloxController('./profiles', {
+  settings: {
+    adaptiveStealthEnabled: true,
+    stealthLevel: 'high',
+    humanStealth: 1,
+    navigationWaitUntil: 'domcontentloaded',
+  },
+});
 
-// Launch with an 'ops' profile (persistent, domain-restricted) in adaptive mode
-await talox.launch('my-agent', 'ops', 'adaptive');
+// The third launch argument is the browser engine, not a Talox mode.
+await talox.launch('my-agent', 'ops', 'chromium');
 
-// navigate() returns a TaloxPageState — the full structured JSON contract
+// navigate() returns the full TaloxPageState contract.
 const state = await talox.navigate('https://example.com');
 
 console.log('URL:', state.url);
@@ -27,14 +33,13 @@ console.log('Title:', state.title);
 console.log('Interactive elements:', state.interactiveElements.length);
 console.log('Bugs detected:', state.bugs.length);
 
-// Click by selector — HumanMouse handles the trajectory automatically
-await talox.click({ selector: 'a[href="/about"]' });
+// Example Domain contains a normal link, so this remains a runnable interaction.
+await talox.click('a');
 
-// Type with realistic keystroke timing and variable cadence
-await talox.type({ text: 'hello world', selector: 'input[name="search"]' });
+// Type uses the same string-selector API when a page contains an input:
+// await talox.type('input[name="search"]', 'hello world');
 
-// Get updated state after interaction
-const nextState = await talox.getState();
-console.log('AX-Tree nodes after interaction:', nextState.nodes.length);
+const nextState = await talox.getState('agent');
+console.log('Current URL after interaction:', nextState.url);
 
 await talox.stop();
