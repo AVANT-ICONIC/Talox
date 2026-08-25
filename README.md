@@ -86,7 +86,7 @@ Talox is a **local browser runtime** — agents work inside a real browser with 
 ```typescript
 import { TaloxController } from 'talox';
 
-const talox = new TaloxController({ settings: { verbosity: 0 } });  // v4 shorthand
+const talox = new TaloxController({ settings: { verbosity: 0 } });  // config-object shorthand
 
 // Agent does everything with full stealth — always on
 await talox.launch('my-agent', 'ops');
@@ -97,8 +97,9 @@ await talox.stop();
 ```
 
 ```typescript
-// Headed mode — shows browser with glow frame + fake cursor overlay
-const talox = new TaloxController({ headed: true });  // v4 shorthand
+// Headed mode — shows browser with glow frame + cursor overlay
+const talox = new TaloxController({ settings: { headed: true } });
+await talox.launch('my-agent', 'ops');
 
 // Human Takeover — agent pauses, human does a step (e.g., login, 2FA)
 await talox.requestHumanTakeover('Need 2FA code');
@@ -172,8 +173,8 @@ Talox keeps `playwright` and `playwright-core` on the same version. System Chrom
 ```typescript
 import { TaloxController } from 'talox';
 
-// v4: config object as first arg
-const talox = new TaloxController({ headless: true });
+// Config object as first arg. Headless is the default because settings.headed is false.
+const talox = new TaloxController();
 
 await talox.launch('my-agent', 'ops');
 
@@ -254,7 +255,11 @@ mcp2cli run talox-mcp -- talox_navigate --url https://example.com
 
 ### OpenAI function calling
 
-Talox can act as the backend for an OpenAI function-calling loop: the model decides when to ask Talox to navigate, click, or read state, and you just forward the structured result back into the prompt.
+Talox can act as the backend for an OpenAI function-calling loop. `getTaloxTools()` returns schemas that map directly to public `TaloxController` methods, so the model only sees arguments Talox can actually execute.
+
+The current function-tool surface is:
+
+`talox_navigate`, `talox_click`, `talox_type`, `talox_get_state`, `talox_describe_page`, `talox_get_intent_state`, `talox_screenshot`, `talox_scroll_to`, `talox_extract_table`, `talox_wait_for_load_state`, `talox_set_verbosity`, `talox_set_headed`, `talox_set_safe_mode`, `talox_verify_visual`, `talox_find_element`, and `talox_evaluate`.
 
 ```typescript
 import OpenAI from 'openai';
@@ -341,7 +346,7 @@ exporter.stdin.end();
 await talox.stop();
 ```
 
-Any local script that reads from stdin or a temporary file can pick apart `state.interactiveElements`, `state.bugs`, or `state.timings` before feeding the result back to another automation layer.
+Any local script that reads from stdin or a temporary file can pick apart `state.interactiveElements`, `state.bugs`, or `state.timing` before feeding the result back to another automation layer.
 
 ---
 
@@ -351,12 +356,12 @@ Any local script that reads from stdin or a temporary file can pick apart `state
 - **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, browser-computed ARIA perception with geometry active by default, no mode required
 - **Agent overlay with human takeover** — visual layer shows agent working (cyan glow), human can pause and take control anytime
 - **Human-paced mouse movement** — HumanMouse generates Bezier curves with Fitts's Law timing, jitter, and biomechanical easing for realistic interaction
-- **Structured state contract** — every action returns a single JSON object: AX-Tree, interactive elements, console, network, bugs, screenshots
-- **Deep observability** — full AX-Tree snapshots, console capture, network failure tracking, layout bug detection, visual regression
+- **Structured state contract** — every action returns a single JSON object: ARIA nodes, interactive elements, console, network, bugs, screenshots
+- **Deep observability** — browser-computed ARIA snapshots, console capture, network failure tracking, layout bug detection, visual regression
 - **Resilient interaction** — self-healing selectors, semantic element resolution, challenge detection and adaptation
 - **Session artifacts** — interaction timeline, screenshots, event log, annotations, and bug summaries for debugging
 - **Policy-as-code** — YAML-based action restrictions per profile
-- **LLM-native API** — 14 function-calling tools compatible with OpenAI, Claude, and other LLM APIs
+- **LLM-native API** — 16 controller-aligned function-calling tools compatible with OpenAI, Claude, and other LLM APIs
 
 ---
 
@@ -367,7 +372,7 @@ v6.0.0 introduces a self-driving execution engine. `AutonomousLoop` runs a plan-
 ```typescript
 import { TaloxController, AutonomousLoop, LLMPlanner } from 'talox';
 
-const talox = new TaloxController({ headless: true });
+const talox = new TaloxController(); // headless by default
 await talox.launch('auto-agent', 'ops');
 
 const planner = new LLMPlanner({ apiKey: process.env.OPENAI_API_KEY });
@@ -421,7 +426,7 @@ When `settings.headed === true`, Talox automatically injects a visual overlay in
 
 ### Technical Details
 
-- All overlay elements carry `aria-hidden="true"` — invisible to agent's AX-tree
+- All overlay elements carry `aria-hidden="true"` — invisible to agent's ARIA state
 - Overlay is pure JavaScript, injected via `page.addInitScript()` (persists across navigations)
 - Node.js ↔ browser communication via `page.exposeFunction('__taloxBridge__', handler)` and `__taloxCmd__` dispatcher
 
@@ -429,7 +434,7 @@ When `settings.headed === true`, Talox automatically injects a visual overlay in
 
 ## The Smart Interaction Engine
 
-Smart mode runs the **Biomechanical Ghost Engine** — a mouse and keyboard system that produces human-paced, low-noise interaction patterns suited for fragile or complex real-world interfaces.
+Talox's interaction engine produces human-paced, low-noise interaction patterns suited for fragile or complex real-world interfaces.
 
 - **Fitts's Law** — movement speed scales naturally with target size and distance
 - **Quintic Easing** — natural burst-and-settle acceleration curves
@@ -447,14 +452,14 @@ This makes Talox significantly more reliable on real-world UIs that are sensitiv
 
 Talox provides maximum observability into what the agent sees, without interfering with it:
 
-- Full AX-Tree snapshot as agent-readable JSON
+- Browser-computed ARIA snapshot as agent-readable JSON
 - All interactive elements with bounding boxes
 - Console errors, warnings, and logs
 - Network failures and 4xx/5xx responses
 - Layout bug detection: overlaps, clipped elements, invisible CTAs
 - Visual regression via Pixelmatch + SSIM
 - OCR text extraction from screenshots (Tesseract.js)
-- AX-Tree structural diffing between states
+- Structural diffing between states
 - GhostVisualizer: overlays interaction paths on screenshots for replay
 - Runtime verbosity control via `setVerbosity(0-3)` for pulling debug data on demand
 - `getDebugSnapshot()` returns current state + recent events at any time
@@ -468,14 +473,14 @@ Talox provides maximum observability into what the agent sees, without interferi
 │                      TaloxController                         │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐ │
 │  │ BrowserManager│  │  HumanMouse  │  │ PageStateCollector │ │
-│  │  (Playwright) │  │  Interaction │  │  AX-Tree + DOM     │ │
+│  │  (Playwright) │  │  Interaction │  │  ARIA + DOM        │ │
 │  └──────────────┘  └──────────────┘  └────────────────────┘ │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐ │
 │  │  VisionGate  │  │  RulesEngine │  │   PolicyEngine     │ │
 │  │  SSIM + OCR  │  │  Bug detect  │  │   YAML policies    │ │
 │  └──────────────┘  └──────────────┘  └────────────────────┘ │
 │  ┌──────────────┐  ┌──────────────────────────────────────┐  │
-│  │  TaloxTools  │  │         EventEmitter                │  │
+│  │  TaloxTools  │  │            EventBus                 │  │
 │  │  LLM Schema  │  │   (navigation, errors, bugs)        │  │
 │  └──────────────┘  └──────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
@@ -487,24 +492,24 @@ Talox provides maximum observability into what the agent sees, without interferi
        Selector
 ```
 
-As of v1.2.0, `TaloxController` is a thin orchestrator delegating to `EventBus`, `ModeManager`, `ActionExecutor`, and `SessionManager`. See `docs/TALOX-ARCHITECTURE.md` for the full module map.
+`TaloxController` is a thin orchestrator delegating browser lifecycle to `SessionManager`, interactions to `ActionExecutor`, events to `EventBus`, and adaptive behavior to `AdaptationEngine`. See `docs/TALOX-ARCHITECTURE.md` for the full module map.
 
 | Module | Role |
 | :--- | :--- |
-| `TaloxController` | Main orchestration API, mode/preset manager |
+| `TaloxController` | Public orchestration API and runtime settings coordinator |
 | `BrowserManager` | Playwright/Chromium lifecycle, persistent profiles |
-| `HumanMouse` | Biomechanical Ghost Engine |
-| `PageStateCollector` | AX-Tree + DOM harvester → agent-ready JSON |
+| `HumanMouse` | Biomechanical interaction engine |
+| `PageStateCollector` | ARIA + DOM harvester → agent-ready JSON |
 | `VisionGate` | Visual verification: SSIM, Pixelmatch, OCR, baseline vault |
 | `RulesEngine` | Layout bug detection via bounding box analysis |
-| `SemanticMapper` | Maps AX-Tree to semantic entities for intent-based interaction |
+| `SemanticMapper` | Maps page state to semantic entities for intent-based interaction |
 | `SelfHealingSelector` | Auto-rebuilds selectors when DOM changes |
 | `NetworkMocker` | Record / replay / mock network traffic |
-| `AXTreeDiffer` | Structural diff between AX-Tree snapshots |
+| `AXTreeDiffer` | Structural diff between page-state snapshots |
 | `GhostVisualizer` | Interaction path overlay for session replay and debugging |
 | `PolicyEngine` | YAML-based action restrictions per profile |
-| `TaloxTools` | LLM function calling schema for AI agents |
-| `EventEmitter` | Real-time notifications for navigation, errors, bugs |
+| `TaloxTools` | LLM function-calling schema aligned with controller methods |
+| `EventBus` | Typed runtime notifications for navigation, errors, bugs, and adaptation |
 
 ---
 
@@ -517,7 +522,6 @@ Every `navigate()` and `getState()` call returns a `TaloxPageState` — a single
   url: string;
   title: string;
   timestamp: string;
-  mode: TaloxMode;
 
   console: {
     errors: string[];
@@ -526,22 +530,34 @@ Every `navigate()` and `getState()` call returns a `TaloxPageState` — a single
   };
 
   network: {
-    failedRequests: Array<{ url: string; status: number }>;
+    failedRequests: Array<{ url: string; status: number; type?: string }>;
+    exceptions?: any[];
   };
 
-  axTree?: TaloxNode;          // full AX-Tree root
-  nodes: TaloxNode[];          // flat list of all AX nodes
-  interactiveElements: Array<{ // buttons, inputs, links with bounding boxes
+  nodes: TaloxNode[];
+  interactiveElements: Array<{
     id: string;
     tagName: string;
     role?: string;
     text?: string;
     boundingBox: { x: number; y: number; width: number; height: number };
     isActionable?: boolean;
+    cursorDetected?: boolean;
+    detectionMethod?: 'cursor-style' | 'onclick-attr' | 'tabindex';
+    trust?: 'first-party' | 'external';
   }>;
 
-  bugs: TaloxBug[];            // detected layout/JS/network issues
-  screenshots?: { fullPage?: string };
+  bugs: TaloxBug[];
+
+  axTree?: TaloxNode;
+  timing?: TaloxStateTiming;
+  diff?: TaloxStateDiff;
+  profileId?: string;
+  domainHints?: string[];
+  screenshots?: {
+    fullPage?: string;
+    crops?: Array<{ id: string; path: string; reason: string }>;
+  };
 }
 ```
 
@@ -554,13 +570,10 @@ JSON Schema: [`src/schema/TaloxPageState.schema.json`](./src/schema/TaloxPageSta
 ### LLM Function Schema
 
 ```typescript
-import { getTaloxTools, TaloxController } from 'talox';
+import { getTaloxTools } from 'talox';
 
 const tools = getTaloxTools();
-// Returns 14 tool definitions: navigate, click, type, get_state,
-// describe_page, get_intent_state, screenshot, scroll_to,
-// extract_table, wait_for_load_state, set_mode, verify_visual,
-// find_element, evaluate
+// Returns 16 controller-aligned tool definitions.
 ```
 
 ### Semantic Page Understanding
@@ -578,9 +591,9 @@ const intent = await talox.getIntentState();
 ### Event-Driven Workflows
 
 ```typescript
-talox.on('navigation', (event) => console.log('Navigated to:', event.data.url));
-talox.on('consoleError', (event) => console.log('Error:', event.data.error));
-talox.on('bugDetected', (event) => console.log('Bug:', event.data));
+talox.on('navigation', (event) => console.log('Navigated to:', event.url));
+talox.on('consoleError', (event) => console.log('Error:', event.error));
+talox.on('bugDetected', (bug) => console.log('Bug:', bug));
 ```
 
 ### Utility Methods
@@ -590,7 +603,7 @@ await talox.screenshot();
 await talox.screenshot({ selector: '#hero', path: 'hero.png' });
 await talox.scrollTo('#footer', 'center');
 const rows = await talox.extractTable('table.product-list');
-const title = await talox.evaluate(() => document.title);
+const title = await talox.evaluate<string>('document.title');
 const element = await talox.findElement('Submit', 'button');
 ```
 
@@ -614,11 +627,9 @@ Playwright's Chromium requires system dependencies that aren't present on a bare
 npx playwright install chromium --with-deps
 ```
 
-Talox defaults to `headless: true`, so no display server is needed. The required Chromium flags (`--no-sandbox`, `--disable-dev-shm-usage`) are set automatically.
+Talox defaults to `settings.headed: false`, so no display server is needed for ordinary headless use. On Linux without a display, Talox can also use Xvfb when `virtualDisplay` is enabled for a headed browser fingerprint. The required Chromium flags are managed by the runtime.
 
-All features work fully headless — including screenshots, visual diff (Pixelmatch/SSIM), OCR (Tesseract.js), and GhostVisualizer. None of these require a display; they operate on pixel buffers and pure JS.
-
-If you're on a low-memory VPS (< 1GB), set `PLAYWRIGHT_CHROMIUM_SANDBOX=0` as an environment variable as well.
+Screenshots, visual diff (Pixelmatch/SSIM), OCR (Tesseract.js), and GhostVisualizer operate on browser output and do not require a physical display.
 
 ---
 
@@ -638,7 +649,7 @@ talox.on('sessionEnd', ({ reportPath, interactionCount, annotationCount }) => {
   console.log(`${interactionCount} steps · ${annotationCount} issues found`);
 });
 
-// Headless session with overlay-driven annotations and session report
+// Headed observe session with overlay-driven annotations and session report
 await talox.launch('ai-test-run', 'qa', 'chromium', {
   output: 'both',
   outputDir: './test-sessions',
@@ -653,7 +664,7 @@ for (const bug of state.bugs) {
     window.__taloxEmit__('annotation:add', {
       interactionIndex: 1,
       labels: ['bug'],
-      comment: ${JSON.stringify(bug.message)},
+      comment: ${JSON.stringify(bug.description)},
       element: { tag: 'body', text: '' },
     });
   `);
@@ -704,15 +715,15 @@ This produces a Markdown report with every issue attached to the specific elemen
 
 | Feature | Detail |
 | :--- | :--- |
-| Engine | Playwright (Chromium, Firefox, WebKit) |
-| Interaction | Fitts's Law + Quintic easing + Bezier curves, synthetic mouse events (OS cursor stays still) |
-| Perception | AX-Tree + DOM + Console + Network → single JSON contract, always on |
-| Overlay | Agent glow frame, fake cursor trail, human takeover layer (when headed: true) |
-| Visual Diff | Pixelmatch (1px), SSIM, OCR (Tesseract.js) |
-| Verbosity | Runtime control via `setVerbosity(0-3)`, no modes |
-| LLM Tools | 14 function-calling tools for AI agents |
-| Events | navigation, stateChanged, consoleError, bugDetected, agentThinking, agentActing, cursorClicked |
-| Node.js | ≥ 18 |
+| Engine | Playwright / playwright-core (Chromium, Firefox, WebKit) |
+| Interaction | Fitts's Law + quintic easing + Bezier curves, synthetic mouse events |
+| Perception | Browser-computed ARIA + DOM + Console + Network → single JSON contract |
+| Overlay | Agent glow frame, cursor trail, human takeover layer when headed |
+| Visual Diff | Pixelmatch, SSIM, OCR (Tesseract.js) |
+| Verbosity | Runtime control via `setVerbosity(0-3)`, no mode switch required |
+| LLM Tools | 16 controller-aligned function-calling tools |
+| Events | Typed `EventBus` payloads for navigation, state, errors, bugs, adaptation, takeover, and loop activity |
+| Node.js | ≥ 20 |
 
 ---
 
