@@ -65,6 +65,7 @@ export const DEFAULT_CONFIG: TaloxConfig = {
 		perceptionDepth: "full",
 		fidgetEnabled: true,
 		humanStealth: 0.5,
+		actionTimeoutMs: 5000,
 		typoProbability: 0.05,
 		adaptiveStealthEnabled: true,
 		adaptiveStealthSensitivity: 1,

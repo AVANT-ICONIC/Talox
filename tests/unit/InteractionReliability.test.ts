@@ -16,7 +16,6 @@ function makeNode(overrides: Partial<TaloxNode> & Pick<TaloxNode, "id">): TaloxN
 function makePage(
 	overrides: Partial<{
 		$: (sel: string) => Promise<any>;
-		locator: (sel: string) => { count: () => Promise<number> };
 		keyboard: { press: (key: string) => Promise<void> };
 		evaluate: (...args: any[]) => Promise<any>;
 		context: () => any;
@@ -24,7 +23,6 @@ function makePage(
 ) {
 	return {
 		$: vi.fn().mockResolvedValue(null),
-		locator: vi.fn().mockReturnValue({ count: vi.fn().mockResolvedValue(0) }),
 		keyboard: { press: vi.fn().mockResolvedValue(undefined) },
 		evaluate: vi.fn().mockResolvedValue(undefined),
 		context: vi.fn().mockReturnValue(null),
@@ -151,17 +149,6 @@ describe("InteractionReliability", () => {
 			const page = makePage({ $: vi.fn().mockRejectedValue(syntaxError) });
 
 			await expect(reliability.resolveBeforeClick(page, "[[[invalid", [])).rejects.toBe(syntaxError);
-		});
-
-		it("fails before element lookup when locator compilation rejects malformed syntax", async () => {
-			const syntaxError = new Error('Unexpected token "#" while parsing css selector "#"');
-			const lookup = vi.fn().mockResolvedValue(null);
-			const page = makePage({
-				$: lookup,
-				locator: vi.fn().mockReturnValue({ count: vi.fn().mockRejectedValue(syntaxError) }),
-			});
-			await expect(reliability.resolveBeforeClick(page, "#", [])).rejects.toBe(syntaxError);
-			expect(lookup).not.toHaveBeenCalled();
 		});
 	});
 

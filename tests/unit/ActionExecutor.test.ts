@@ -143,6 +143,7 @@ const defaultSettings = {
 	typoProbability: 0,
 	fidgetEnabled: false,
 	humanStealth: 0,
+	actionTimeoutMs: 5000,
 	stealthLevel: "low" as const,
 	adaptiveStealthEnabled: false,
 	automaticThinkingEnabled: false,
@@ -396,6 +397,14 @@ describe("ActionExecutor", () => {
 			expect(mockPage.click).toHaveBeenCalledWith("", { timeout: 5000 });
 		});
 
+		it("uses configured action timeout for raw clicks", async () => {
+			const { executor, mockPage } = makeExecutor({ settings: { safeMode: true, actionTimeoutMs: 125 } });
+
+			await executor.click("#btn");
+
+			expect(mockPage.click).toHaveBeenCalledWith("", { timeout: 125 });
+		});
+
 		it("uses HumanMouse.click in biomechanical mode (humanStealth > 0)", async () => {
 			const { HumanMouse } = await import("../../src/core/HumanMouse.js");
 			const { executor, events } = makeExecutor({ settings: { humanStealth: 0.5, safeMode: false } });
@@ -486,6 +495,14 @@ describe("ActionExecutor", () => {
 
 			// The reliability pre-flight resolves the selector; mock returns ''.
 			expect(mockPage.type).toHaveBeenCalledWith("", "hello", { timeout: 5000 });
+		});
+
+		it("uses configured action timeout for raw typing", async () => {
+			const { executor, mockPage } = makeExecutor({ settings: { safeMode: true, actionTimeoutMs: 125 } });
+
+			await executor.type("#input", "hello");
+
+			expect(mockPage.type).toHaveBeenCalledWith("", "hello", { timeout: 125 });
 		});
 
 		it("records an artifact for the type action", async () => {

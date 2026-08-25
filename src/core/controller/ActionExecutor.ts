@@ -343,7 +343,7 @@ export class ActionExecutor {
 		if (attentionFrame && targetBox) {
 			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
 		} else {
-			await page.click(selector, { timeout: 5000 });
+			await page.click(selector, { timeout: this.settings.actionTimeoutMs });
 		}
 	}
 
@@ -499,7 +499,7 @@ export class ActionExecutor {
 			await page.mouse.click(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
 			await page.keyboard.type(text);
 		} else {
-			await page.type(selector, text, { timeout: 5000 });
+			await page.type(selector, text, { timeout: this.settings.actionTimeoutMs });
 		}
 	}
 

@@ -214,7 +214,7 @@ describe("error-path: invalid selector handling", () => {
 	beforeAll(async () => {
 		tmpDir = makeTmpDir();
 		talox = new TaloxController(tmpDir, {
-			settings: { headed: false, verbosity: 0 },
+			settings: { headed: false, verbosity: 0, safeMode: true, actionTimeoutMs: 150 },
 		});
 		await talox.launch("err-selector", "sandbox", "chromium");
 		await talox.navigate("about:blank");
