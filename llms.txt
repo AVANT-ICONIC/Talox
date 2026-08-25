@@ -197,7 +197,7 @@ const talox = new TaloxController('./profiles', {
 });
 
 await talox.launch('agent-id', 'ops', 'chromium');
-await talox.requestHumanTakeover('Need 2FA code');
+await talox.requestHumanTakeover('2fa-required');
 // Human completes the step, then:
 talox.resumeAgent();
 ```
