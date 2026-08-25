@@ -277,24 +277,35 @@ export class TaloxController {
 		observeOptions?: ObserveSessionOptions,
 	): Promise<void> {
 		this.behavioralDNA = this._session.generateBehavioralDNA(profileId);
-		await this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);
 
-		const page = this._session.getPlaywrightPage();
-		if (!page) return;
-
-		// headed:true activates the full agent overlay (cursor + glow + takeover button)
 		try {
-			await this._takeover.initialize(page, this.settings.headed);
-		} catch (e) {
-			await this._session.stop();
-			throw new Error(`Takeover initialization failed: ${e instanceof Error ? e.message : String(e)}`);
-		}
+			await this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);
 
-		this.setupOriginHeaders(page);
-		this.setupHarRecording(page);
-		this.setupCrossOriginManager(page);
-		await this.setupInspectServer(page);
-		this.setupVideoRecording(page);
+			const page = this._session.getPlaywrightPage();
+			if (!page) return;
+
+			// headed:true activates the full agent overlay (cursor + glow + takeover button)
+			try {
+				await this._takeover.initialize(page, this.settings.headed);
+			} catch (error) {
+				throw new Error(`Takeover initialization failed: ${error instanceof Error ? error.message : String(error)}`);
+			}
+
+			this.setupOriginHeaders(page);
+			this.setupHarRecording(page);
+			this.setupCrossOriginManager(page);
+			await this.setupInspectServer(page);
+			this.setupVideoRecording(page);
+		} catch (error) {
+			try {
+				await this.stop();
+			} catch (cleanupError) {
+				this.log.error(
+					`Cleanup after launch failure failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+				);
+			}
+			throw error;
+		}
 	}
 
 	/** Install per-origin headers if configured. */
