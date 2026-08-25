@@ -81,6 +81,45 @@ console.log("Packed imports OK");
 
 	run(process.execPath, ["--input-type=module", "--eval", importSmoke], { cwd: consumerDir });
 
+	const typeSmokePath = join(consumerDir, "type-smoke.ts");
+	writeFileSync(
+		typeSmokePath,
+		`import { TaloxController } from "talox";
+import { listTaloxPlugins } from "talox/plugins";
+import { BUILT_IN_PLATFORM_ADAPTERS } from "talox/adapters";
+import { createLocalVisionReasoner } from "talox/local-vision";
+
+const publicSurface = {
+  TaloxController,
+  listTaloxPlugins,
+  BUILT_IN_PLATFORM_ADAPTERS,
+  createLocalVisionReasoner,
+};
+
+void publicSurface;
+`,
+		"utf8",
+	);
+
+	const tscPath = join(repoRoot, "node_modules", "typescript", "bin", "tsc");
+	run(
+		process.execPath,
+		[
+			tscPath,
+			typeSmokePath,
+			"--noEmit",
+			"--strict",
+			"--target",
+			"ES2022",
+			"--module",
+			"NodeNext",
+			"--moduleResolution",
+			"NodeNext",
+		],
+		{ cwd: consumerDir },
+	);
+	process.stdout.write("Packed TypeScript declarations OK\n");
+
 	// npm scripts prepend the consumer's local node_modules/.bin to PATH on every
 	// supported platform, avoiding direct .cmd execution quirks on Windows while
 	// still proving that the installed package generated a working `talox` bin.
