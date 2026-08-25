@@ -108,7 +108,8 @@ SonarQube dashboard (local): http://localhost:7372/dashboard?id=talox
 - **Modern ARIA state:** browser-computed accessibility roles/names and bounding boxes are the primary `TaloxPageState.nodes` source.
 - **Post-v8.1 platform work:** MCP, community plugins, Replay UI, cross-origin iframe trust, Platform Adapters, and Local VLM are included.
 - **Reliability work:** deterministic browser-error fast paths, BrowserManager/Xvfb lifecycle hardening, profile ownership protection, and synthetic-document collection fast paths are included.
-- **Validation baseline:** 127 unit test files / 1,975 unit tests plus all six browser integration shards, the browser aggregate gate, and Docker runtime/sandbox gates green.
+- **Release engineering:** GitHub releases use a manual dry-run-first gate; validation runs read-only and repository write permission is isolated to the final publish job.
+- **Validation baseline:** 128 unit test files / 1,983 unit tests plus all six browser integration shards, the browser aggregate gate, Docker runtime/sandbox gates, and release-contract validation green.
 
 ### Current Status (2026-08-21) — v8.1.0
 

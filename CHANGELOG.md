@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Platform Adapters** — built-in WordPress, WooCommerce, Shopify, GitHub, and Slack knowledge layered into planner context without replacing live Talox state.
 - **Local VLM integration** — zero-dependency Ollama and OpenAI-compatible local multimodal providers exposed through `talox/local-vision`.
 - **Modern ARIA page state** — Playwright 1.62 ARIA snapshots with browser-computed bounding boxes are now the primary semantic source for `TaloxPageState.nodes`, with legacy accessibility and DOM collectors retained as compatibility fallbacks.
+- **Guarded GitHub release gate** — manual, dry-run-first release automation validates tag/version/changelog alignment, typecheck, build, unit tests, runtime dependency audit, package contents, and Chromium integration before a separately permissioned publish job may create the GitHub tag/release.
 
 ### Changed
 
@@ -32,7 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Tests
 
-- **127 unit test files / 1,975 unit tests** verified passing on the final v9 release baseline, together with all six browser integration shards, the browser aggregate gate, and Docker build/runtime/sandbox smoke gates.
+- **128 unit test files / 1,983 unit tests** verified passing on the final v9 release baseline, together with all six browser integration shards, the browser aggregate gate, Docker build/runtime/sandbox smoke gates, and release-contract validation.
 
 ---
 
