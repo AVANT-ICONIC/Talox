@@ -58,7 +58,8 @@
     "lint": "biome check src tests",
     "lint:fix": "biome check --fix src tests",
     "format": "biome format --write src tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:examples": "tsc --noEmit -p tsconfig.examples.json"
   },
   "keywords": [
     "browser-runtime",
