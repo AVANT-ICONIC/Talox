@@ -292,6 +292,9 @@ describe("BrowserManager", () => {
 		});
 
 		it("keeps owned Xvfb alive when launch options require a browser relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
 			const firstContext = createMockContext();
 			const secondContext = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
@@ -314,6 +317,66 @@ describe("BrowserManager", () => {
 			await manager.close();
 		});
 
+		it("stops owned Xvfb when virtualDisplay is disabled before a relaunch", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":125";
+
+			const profile = createTestProfile();
+			await manager.launch(profile, false, "chromium", { args: ["--virtual-display"] });
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", { args: ["--no-virtual-display"] });
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect((manager as any).xvfbProcess).toBeNull();
+			expect((manager as any).xvfbDisplay).toBeNull();
+			const secondLaunch = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[1][1];
+			expect(secondLaunch.headless).toBe(true);
+			expect(secondLaunch.env?.DISPLAY).not.toBe(":125");
+
+			await manager.close();
+		});
+
+		it("relaunches when only virtualDisplay changes", async () => {
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: true } as any,
+			});
+			const firstContext = createMockContext();
+			const secondContext = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(firstContext)
+				.mockResolvedValueOnce(secondContext);
+			const xvfb = { kill: vi.fn() };
+			(manager as any).xvfbProcess = xvfb;
+			(manager as any).xvfbDisplay = ":126";
+
+			const profile = createTestProfile();
+			const launchOptions = { headless: false };
+			await manager.launch(profile, false, "chromium", launchOptions);
+			manager.updateConfig({
+				settings: { ...manager.getConfig().settings, virtualDisplay: false } as any,
+			});
+			await manager.launch(profile, false, "chromium", launchOptions);
+
+			expect(firstContext.close).toHaveBeenCalledTimes(1);
+			expect(chromium.launchPersistentContext).toHaveBeenCalledTimes(2);
+			expect(xvfb.kill).toHaveBeenCalledWith("SIGTERM");
+			expect(manager.getContext()).toBe(secondContext);
+
+			await manager.close();
+		});
+
 		it("pins browser launch env to the Xvfb display owned by this manager", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
@@ -323,6 +386,23 @@ describe("BrowserManager", () => {
 
 			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
 			expect(callArgs.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
+		});
+
+		it("preserves caller-provided browser env while pinning Xvfb DISPLAY", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			(manager as any).xvfbDisplay = ":124";
+
+			await manager.launch(createTestProfile(), false, "chromium", {
+				env: { TALOX_TEST_ONLY: "kept", PATH: "/restricted" },
+			});
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.env).toEqual({
+				TALOX_TEST_ONLY: "kept",
+				PATH: "/restricted",
+				DISPLAY: ":124",
+			});
 		});
 
 		it("includes expected chromium args", async () => {
