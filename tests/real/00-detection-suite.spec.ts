@@ -63,6 +63,14 @@ function saveResults(results: DetectionResults): void {
 	fs.writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2));
 }
 
+function logLowerIsBetterDelta(label: string, current: number | null, previous: number | null): void {
+	if (current === null || previous === null || current === previous) return;
+	const delta = current - previous;
+	const direction = delta > 0 ? "REGRESSION" : "IMPROVEMENT";
+	const log = delta > 0 ? console.warn : console.log;
+	log(`[CreepJS] ${direction}: ${label} ${previous} → ${current} (${delta > 0 ? "+" : ""}${delta})`);
+}
+
 test.describe("Detection Score Suite", () => {
 	test.setTimeout(300_000);
 
@@ -164,18 +172,28 @@ test.describe("Detection Score Suite", () => {
 			console.warn(`[Sannysoft] Unclassified checks: ${result.unclassifiedChecks.join(", ")}`);
 		}
 
-		// Document current score — do NOT fail on low scores. Only parser/page
-		// failures are errors; actual failed checks are compatibility evidence.
+		// Compare pass rates rather than raw counts because Sannysoft can add or
+		// remove checks over time. A changed denominator should not manufacture a
+		// regression or improvement by itself.
 		const previous = loadPreviousResults();
-		if (previous?.sannysoft) {
-			const prevScore = previous.sannysoft.passed;
-			if (result.passed < prevScore) {
+		if (previous?.sannysoft?.total > 0 && result.total > 0) {
+			const previousRate = previous.sannysoft.passed / previous.sannysoft.total;
+			const currentRate = result.passed / result.total;
+			const deltaPoints = (currentRate - previousRate) * 100;
+			if (deltaPoints < -0.01) {
 				console.warn(
-					`[Sannysoft] REGRESSION: ${result.passed} < previous ${prevScore}. ` +
-						`New failures: ${result.failedChecks.join(", ")}`,
+					`[Sannysoft] REGRESSION: ${(previousRate * 100).toFixed(1)}% → ` +
+						`${(currentRate * 100).toFixed(1)}% (${deltaPoints.toFixed(1)} pp). ` +
+						`Failures: ${result.failedChecks.join(", ")}`,
 				);
-			} else if (result.passed > prevScore) {
-				console.log(`[Sannysoft] IMPROVEMENT: ${result.passed} > previous ${prevScore}`);
+			} else if (deltaPoints > 0.01) {
+				console.log(
+					`[Sannysoft] IMPROVEMENT: ${(previousRate * 100).toFixed(1)}% → ` +
+						`${(currentRate * 100).toFixed(1)}% (+${deltaPoints.toFixed(1)} pp)`,
+				);
+			}
+			if (previous.sannysoft.total !== result.total) {
+				console.log(`[Sannysoft] Check count changed: ${previous.sannysoft.total} → ${result.total}`);
 			}
 		}
 
@@ -262,7 +280,15 @@ test.describe("Detection Score Suite", () => {
 		expect(result.stealthPct).not.toBeNull();
 		expect(result.totalLies).not.toBeNull();
 
-		const current = loadPreviousResults() || ({} as DetectionResults);
+		const previous = loadPreviousResults();
+		if (previous?.creepjs) {
+			logLowerIsBetterDelta("like-headless", result.likeHeadlessPct, previous.creepjs.likeHeadlessPct ?? null);
+			logLowerIsBetterDelta("headless", result.headlessPct, previous.creepjs.headlessPct ?? null);
+			logLowerIsBetterDelta("stealth", result.stealthPct, previous.creepjs.stealthPct ?? null);
+			logLowerIsBetterDelta("lies", result.totalLies, previous.creepjs.totalLies ?? null);
+		}
+
+		const current = previous || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.creepjs = result;
 		saveResults(current as DetectionResults);
