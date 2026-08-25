@@ -76,7 +76,18 @@ describe("AutonomousLoop integration", () => {
 	let browserAvailable = true;
 
 	beforeAll(async () => {
-		controller = new TaloxController(path.join(__dirname, "../../temp-profiles"));
+		controller = new TaloxController(path.join(__dirname, "../../temp-profiles"), {
+			settings: {
+				safeMode: true,
+				automaticThinkingEnabled: false,
+				humanStealth: 0,
+				fidgetEnabled: false,
+				adaptiveStealthEnabled: false,
+				typoProbability: 0,
+				typingDelayMin: 0,
+				typingDelayMax: 0,
+			},
+		});
 		try {
 			await controller.launch(`loop-integration-${Date.now()}`, "sandbox");
 		} catch (error) {

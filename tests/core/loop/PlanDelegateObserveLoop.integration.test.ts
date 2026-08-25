@@ -43,6 +43,7 @@ describe("PlanDelegateObserveLoop integration", () => {
 				headed: false,
 				verbosity: 0,
 				safeMode: true,
+				automaticThinkingEnabled: false,
 				humanStealth: 0,
 				fidgetEnabled: false,
 				adaptiveStealthEnabled: false,
