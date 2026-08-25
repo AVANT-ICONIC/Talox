@@ -47,7 +47,7 @@ export const LEGACY_MODE_VALUES: LegacyTaloxMode[] = [
  * Check if a value is a valid legacy mode.
  * @deprecated Legacy modes are deprecated in v2.
  * @param value - The value to check
- * @returns True if the value is a valid LegacyTaloxMode
+ * @returns True if value is a valid LegacyTaloxMode
  *
  * @example
  * ```typescript
@@ -223,7 +223,7 @@ export interface TaloxSettings {
 
 	/**
 	 * Wait state strategy during page navigation.
-	 * @default "networkidle"
+	 * @default "domcontentloaded"
 	 */
 	navigationWaitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit";
 
@@ -335,7 +335,7 @@ export const DEFAULT_SETTINGS: TaloxSettings = {
 	sessionIdleTimeoutMs: 300000,
 	enableCrossOriginIframes: false,
 	virtualDisplay: false,
-	navigationWaitUntil: "networkidle",
+	navigationWaitUntil: "domcontentloaded",
 	contentSafety: "warn",
 	networkGuard: "off",
 	trustedDomains: [],
