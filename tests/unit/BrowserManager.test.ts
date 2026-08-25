@@ -324,6 +324,23 @@ describe("BrowserManager", () => {
 			expect(callArgs.env).toEqual(expect.objectContaining({ DISPLAY: ":123" }));
 		});
 
+		it("preserves caller-provided browser env while pinning Xvfb DISPLAY", async () => {
+			const mockCtx = createMockContext();
+			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);
+			(manager as any).xvfbDisplay = ":124";
+
+			await manager.launch(createTestProfile(), false, "chromium", {
+				env: { TALOX_TEST_ONLY: "kept", PATH: "/restricted" },
+			});
+
+			const callArgs = (chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mock.calls[0][1];
+			expect(callArgs.env).toEqual({
+				TALOX_TEST_ONLY: "kept",
+				PATH: "/restricted",
+				DISPLAY: ":124",
+			});
+		});
+
 		it("includes expected chromium args", async () => {
 			const mockCtx = createMockContext();
 			(chromium.launchPersistentContext as ReturnType<typeof vi.fn>).mockResolvedValue(mockCtx);

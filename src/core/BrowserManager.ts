@@ -747,8 +747,10 @@ export class BrowserManager {
 		if (this.xvfbDisplay) {
 			// DISPLAY is process-global, so overlapping managers can change it between
 			// Xvfb readiness and Chromium spawn. Pin this browser to the display owned
-			// by this manager instead of trusting ambient process.env.DISPLAY.
-			launchOptions.env = { ...process.env, DISPLAY: this.xvfbDisplay };
+			// by this manager. Preserve an explicitly supplied launch environment; only
+			// inherit the Talox process environment when the caller did not provide one.
+			const launchEnv = launchOptions.env as NodeJS.ProcessEnv | undefined;
+			launchOptions.env = { ...(launchEnv ?? process.env), DISPLAY: this.xvfbDisplay };
 		}
 
 		// Compute hash of launch options to detect config changes
