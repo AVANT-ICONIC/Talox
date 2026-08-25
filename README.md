@@ -44,6 +44,8 @@
   ·
   <a href="./docs/TALOX-ROADMAP.md">Roadmap</a>
   ·
+  <a href="./docs/V9-MIGRATION.md">v9 Migration</a>
+  ·
   <a href="./CHANGELOG.md">Changelog</a>
 </p>
 
@@ -79,7 +81,7 @@
 
 ## Overview
 
-Talox is a **local browser runtime** — agents work inside a real browser with maximum stealth and human-like behavior. Everything is always on: HumanMouse (Bezier paths, Fitts's Law), BotDetector, AdaptationEngine, full AX-tree perception — no modes, no toggling. Every action returns a structured JSON contract: AX-Tree, DOM state, console output, network events, and visual diffs — ready for any agent to consume directly, without parsing HTML or interpreting screenshots.
+Talox is a **local browser runtime** — agents work inside a real browser with maximum stealth and human-like behavior. Everything is always on: HumanMouse (Bezier paths, Fitts's Law), BotDetector, AdaptationEngine, browser-computed ARIA perception with geometry — no modes, no toggling. Every action returns a structured JSON contract: ARIA semantics with geometry, DOM state, console output, network events, and visual diffs — ready for any agent to consume directly, without parsing HTML or interpreting screenshots.
 
 ```typescript
 import { TaloxController } from 'talox';
@@ -115,7 +117,7 @@ talox.resumeAgent();  // or auto-resumes after timeout
 | Stealth / human-like interaction layer | — | ✓ Biomechanical Ghost Engine |
 | Structured agent-readable page state | — | ✓ Single JSON contract |
 | Resilient interaction defaults | — | ✓ Self-healing selectors, semantic resolution |
-| Deep observability in one contract | — | ✓ AX-Tree, console, network, bugs |
+| Deep observability in one contract | — | ✓ ARIA state, console, network, bugs |
 | Human takeover / debug visibility | — | ✓ Agent overlay, takeover bridge |
 | Real-world UI workflows | Fragile | ✓ Human-paced, adaptive timing |
 
@@ -158,13 +160,14 @@ npx playwright install chromium --with-deps
 
 ### Dependencies explained
 
-Talox ships two browser automation packages:
+Talox pins its Playwright runtime packages together:
 
 | Package | Role | When it's used |
 | :--- | :--- | :--- |
-| **playwright-core** | Chromium automation engine | All core automation: navigating, clicking, typing, AX-tree collection, console/network interception. Uses system Chrome for real browser fingerprint. |
+| **playwright** | Managed Playwright runtime | Keeps Playwright-managed browser binaries and CLI tooling aligned with the Talox runtime. |
+| **playwright-core** | Browser automation engine | Core automation, modern ARIA state collection, console/network interception, and system-Chrome control. |
 
-Talox uses `playwright-core` with `channel: "chrome"` for maximum stealth — system Chrome provides a real browser fingerprint. The 19-layer JS stealth stack is injected via `addInitScript` before any page scripts run.
+Talox keeps `playwright` and `playwright-core` on the same version. System Chrome can be selected for a real installed-browser fingerprint, while Playwright-managed Chromium remains supported for CI, Docker, and portable environments. The 19-layer JS stealth stack is injected via `addInitScript` before any page scripts run.
 
 ```typescript
 import { TaloxController } from 'talox';
@@ -345,7 +348,7 @@ Any local script that reads from stdin or a temporary file can pick apart `state
 ## Key Capabilities
 
 - **Persistent browser profiles** — each agent gets its own isolated browser context with session continuity across runs
-- **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, full AX-tree perception active by default, no mode required
+- **Everything always on** — HumanMouse, BotDetector, AdaptationEngine, browser-computed ARIA perception with geometry active by default, no mode required
 - **Agent overlay with human takeover** — visual layer shows agent working (cyan glow), human can pause and take control anytime
 - **Human-paced mouse movement** — HumanMouse generates Bezier curves with Fitts's Law timing, jitter, and biomechanical easing for realistic interaction
 - **Structured state contract** — every action returns a single JSON object: AX-Tree, interactive elements, console, network, bugs, screenshots
