@@ -87,8 +87,8 @@ jobs:
       - name: Runtime dependency audit
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Verify package contents
-        run: npm pack --dry-run
+      - name: Smoke packed package in a fresh consumer
+        run: npm run test:package
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
