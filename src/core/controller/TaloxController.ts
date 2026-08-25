@@ -381,7 +381,7 @@ export class TaloxController {
 	private async runStop(): Promise<void> {
 		await this.flushHarRecorder();
 		this.disposeCrossOriginManager();
-		this.detachInspectServer();
+		await this.detachInspectServer();
 		await this.flushVideoRecorder();
 		this.persistTakeoverHistory();
 		await this.disposeOriginHeaders();
@@ -416,10 +416,11 @@ export class TaloxController {
 	}
 
 	/** Detach inspect server if active. */
-	private detachInspectServer(): void {
+	private async detachInspectServer(): Promise<void> {
 		if (!this.inspectServer) return;
-		this.inspectServer.detach();
-		this.inspectServer = null;
+		const server = this.inspectServer;
+		await server.detach();
+		if (this.inspectServer === server) this.inspectServer = null;
 	}
 
 	/** Flush video recording if active. */
