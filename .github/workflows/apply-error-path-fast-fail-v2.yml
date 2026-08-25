@@ -1,0 +1,29 @@
+name: Apply deterministic error fast-fail
+
+on:
+  push:
+    branches:
+      - perf/error-path-fast-fail-v2
+    paths:
+      - .github/workflows/apply-error-path-fast-fail-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: perf/error-path-fast-fail-v2
+      - name: Apply fast-fail patch
+        run: python3 .github/scripts/apply_error_path_fast_fail_v2.py
+      - name: Commit patch and remove helpers
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/BrowserManager.ts src/core/InteractionReliability.ts tests/unit/BrowserManager.test.ts tests/unit/InteractionReliability.test.ts tests/core/error-paths.test.ts
+          git rm .github/workflows/apply-error-path-fast-fail-v2.yml .github/scripts/apply_error_path_fast_fail_v2.py
+          git commit -m "perf: fail fast on deterministic browser errors"
+          git push origin HEAD:perf/error-path-fast-fail-v2
