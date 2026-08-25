@@ -302,8 +302,8 @@ describe("BrowserManager", () => {
 			(manager as any).xvfbDisplay = ":123";
 
 			const profile = createTestProfile();
-			await manager.launch(profile, false, "chromium", { viewport: { width: 800, height: 600 } });
-			await manager.launch(profile, false, "chromium", { viewport: { width: 1024, height: 768 } });
+			await manager.launch(profile, false, "chromium", { args: ["--first-launch"] });
+			await manager.launch(profile, false, "chromium", { args: ["--replacement-launch"] });
 
 			expect(firstContext.close).toHaveBeenCalledTimes(1);
 			expect(xvfb.kill).not.toHaveBeenCalled();
