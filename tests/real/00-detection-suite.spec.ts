@@ -35,6 +35,7 @@ interface SannysoftResult {
 	passed: number;
 	failed: number;
 	failedChecks: string[];
+	unclassifiedChecks: string[];
 }
 
 interface CreepJSResult {
@@ -83,33 +84,74 @@ test.describe("Detection Score Suite", () => {
 
 		const result = await talox.evaluate<SannysoftResult>(`
 			(() => {
-				const rows = document.querySelectorAll('table tr');
+				const tables = document.querySelectorAll('table');
 				let passed = 0;
 				let failed = 0;
 				let total = 0;
 				const failedChecks = [];
+				const unclassifiedChecks = [];
 
-				rows.forEach(row => {
-					const cells = row.querySelectorAll('td');
-					if (cells.length < 2) return;
+				const colorStatus = (cell) => {
+					const color = getComputedStyle(cell).backgroundColor || '';
+					const match = color.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i);
+					if (!match) return 'unknown';
+					const red = Number(match[1]);
+					const green = Number(match[2]);
+					const blue = Number(match[3]);
+					if (green >= red + 20 && green >= blue + 20) return 'passed';
+					if (red >= green + 20 && red >= blue + 20) return 'failed';
+					return 'unknown';
+				};
 
-					const label = cells[0]?.textContent?.trim() || '';
-					if (!label) return;
+				const classify = (cell, value) => {
+					const className = String(cell.className || '').toLowerCase();
+					const normalizedValue = value.toLowerCase();
+					if (
+						className.includes('failed') ||
+						normalizedValue === 'failed' ||
+						normalizedValue.includes('(failed)')
+					) return 'failed';
+					if (
+						className.includes('passed') ||
+						normalizedValue === 'passed' ||
+						normalizedValue.includes('(passed)')
+					) return 'passed';
+					return colorStatus(cell);
+				};
 
-					const value = cells[1]?.textContent?.trim() || '';
-					const className = String(cells[1]?.className || '').toLowerCase();
-					const isFailed = className.includes('failed');
+				tables.forEach(table => {
+					const rows = [];
+					table.querySelectorAll('tr').forEach(row => {
+						const cells = row.querySelectorAll('td');
+						if (cells.length < 2) return;
+						const label = cells[0]?.textContent?.trim() || '';
+						if (!label) return;
+						const cell = cells[1];
+						const value = cell?.textContent?.trim() || '';
+						rows.push({ label, value, status: classify(cell, value) });
+					});
 
-					total++;
-					if (isFailed) {
-						failed++;
-						failedChecks.push(label + ': ' + value);
-					} else {
-						passed++;
-					}
+					// Sannysoft also contains raw fingerprint/detail tables that are not
+					// pass/fail tests. A scored table must expose at least one explicit
+					// pass/fail signal via class, result text, or its computed green/red cell.
+					if (!rows.some(row => row.status !== 'unknown')) return;
+
+					rows.forEach(({ label, value, status }) => {
+						if (status === 'unknown') {
+							unclassifiedChecks.push(label + ': ' + value);
+							return;
+						}
+						total++;
+						if (status === 'failed') {
+							failed++;
+							failedChecks.push(label + ': ' + value);
+						} else {
+							passed++;
+						}
+					});
 				});
 
-				return { total, passed, failed, failedChecks };
+				return { total, passed, failed, failedChecks, unclassifiedChecks };
 			})()
 		`);
 
@@ -117,9 +159,12 @@ test.describe("Detection Score Suite", () => {
 		if (result.failedChecks.length > 0) {
 			console.log(`[Sannysoft] Failed checks: ${result.failedChecks.join(", ")}`);
 		}
+		if (result.unclassifiedChecks.length > 0) {
+			console.warn(`[Sannysoft] Unclassified checks: ${result.unclassifiedChecks.join(", ")}`);
+		}
 
-		// Document current score — do NOT fail on low scores. Only a parser/page
-		// failure (zero captured rows) is an error; actual failed checks are evidence.
+		// Document current score — do NOT fail on low scores. Only parser/page
+		// failures are errors; actual failed checks are compatibility evidence.
 		const previous = loadPreviousResults();
 		if (previous?.sannysoft) {
 			const prevScore = previous.sannysoft.passed;
@@ -133,15 +178,17 @@ test.describe("Detection Score Suite", () => {
 			}
 		}
 
-		// Persist even a zero-row parser result before failing. That keeps the final
-		// regression-summary test from cascading into a second unrelated failure.
+		// Persist even a parser failure before asserting. That keeps the final
+		// regression-summary test from cascading into a duplicate missing-field failure.
 		const current = previous || ({} as DetectionResults);
 		current.timestamp = new Date().toISOString();
 		current.sannysoft = result;
 		saveResults(current as DetectionResults);
 
-		// We must detect at least some checks — the page/parser must have worked.
+		// A valid measurement needs at least one classified row and no partially
+		// rendered rows inside tables that Sannysoft has identified as scored.
 		expect(result.total).toBeGreaterThan(0);
+		expect(result.unclassifiedChecks).toHaveLength(0);
 	});
 
 	// ─── CreepJS ──────────────────────────────────────────────────────────
