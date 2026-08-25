@@ -20,15 +20,15 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: talox-release
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Validate and release
+  validate:
+    name: Validate release
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -102,8 +102,55 @@ jobs:
           echo "Release dry run passed for $RELEASE_TAG."
           echo "No tag or GitHub Release was created."
 
+  publish:
+    name: Publish GitHub Release
+    needs: validate
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_CONFIRM: ${{ inputs.confirm }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Reverify release boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Releases must be dispatched from main; received $GITHUB_REF"
+            exit 1
+          fi
+
+          if [ "$RELEASE_CONFIRM" != "RELEASE $RELEASE_TAG" ]; then
+            echo "Release confirmation changed or is invalid."
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            echo "Tag $RELEASE_TAG appeared after validation. Refusing to continue."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $RELEASE_TAG appeared after validation. Refusing to continue."
+            exit 1
+          fi
+
+      - name: Prepare release notes and reverify version contract
+        run: node scripts/prepare-release.mjs "$RELEASE_TAG" release-notes.md
+
       - name: Create GitHub Release
-        if: ${{ !inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
