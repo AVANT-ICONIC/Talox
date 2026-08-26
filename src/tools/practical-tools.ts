@@ -100,7 +100,7 @@ export async function searchOnSite(talox: TaloxController, query: string, limit:
           const selector =
             el.tagName.toLowerCase()
             + (el.id ? '#' + el.id : '')
-            + (el.className ? '.' + el.className.toString().trim().split(/\s+/).filter(Boolean).join('.') : '');
+            + (el.className ? '.' + el.className.toString().trim().split(/\\s+/).filter(Boolean).join('.') : '');
           matches.push({
             selector,
             snippet: snippet.slice(0, 160),
