@@ -135,7 +135,7 @@ export class TaloxController {
 	private behavioralDNA: any = null;
 
 	private takeoverState: "AGENT_RUNNING" | "WAITING_FOR_HUMAN" = "AGENT_RUNNING";
-	private autoResumeTimer: NodeJS.Timeout | null = null;
+	private pendingTakeoverResolve: (() => void) | null = null;
 	private readonly takeoverHistory: TakeoverSummary[] = [];
 	private readonly observing: boolean;
 	private originHeaders: OriginHeaders | null = null;
@@ -409,6 +409,9 @@ export class TaloxController {
 			this.log.error(`Error during stop(): ${e instanceof Error ? e.message : String(e)}`);
 			throw e;
 		}
+
+		this.finishPendingTakeover();
+		this._takeover.dispose();
 
 		if (evidenceFailed) throw evidenceFailure;
 	}
@@ -757,20 +760,13 @@ export class TaloxController {
 	async requestHumanTakeover(reason?: string): Promise<void> {
 		if (this.takeoverState === "WAITING_FOR_HUMAN") return;
 
+		this.takeoverState = "WAITING_FOR_HUMAN";
 		return new Promise<void>((resolve) => {
-			this._events.once("agentResumed", (_e) => resolve());
-
-			this.takeoverState = "WAITING_FOR_HUMAN";
-			// TakeoverBridge listens to this event to update the overlay
+			this.pendingTakeoverResolve = resolve;
+			// TakeoverBridge owns timeout policy and emits agentResumed on completion.
 			this._takeover.requestTakeover(reason).catch((e) => {
 				this.log.error(`Takeover request failed: ${e instanceof Error ? e.message : String(e)}`);
 			});
-
-			if (this.settings.humanTakeoverTimeoutMs > 0) {
-				this.autoResumeTimer = setTimeout(() => {
-					this.resumeAgent();
-				}, this.settings.humanTakeoverTimeoutMs);
-			}
 		});
 	}
 
@@ -780,14 +776,6 @@ export class TaloxController {
 	 */
 	resumeAgent(): void {
 		if (this.takeoverState !== "WAITING_FOR_HUMAN") return;
-
-		if (this.autoResumeTimer) {
-			clearTimeout(this.autoResumeTimer);
-			this.autoResumeTimer = null;
-		}
-
-		this.takeoverState = "AGENT_RUNNING";
-		// TakeoverBridge listens to this event to restore the overlay
 		this._takeover.resumeAgent();
 	}
 
@@ -809,12 +797,20 @@ export class TaloxController {
 	}
 
 	private recordTakeoverResume(payload: TaloxEventMap["agentResumed"]): void {
+		this.finishPendingTakeover();
 		if (payload.summary) {
 			this.takeoverHistory.push(payload.summary);
 			this._session.artifactBuilder.addAction("takeoverResumed", payload.summary);
 		} else {
 			this._session.artifactBuilder.addAction("takeoverResumed", payload);
 		}
+	}
+
+	private finishPendingTakeover(): void {
+		this.takeoverState = "AGENT_RUNNING";
+		const resolve = this.pendingTakeoverResolve;
+		this.pendingTakeoverResolve = null;
+		resolve?.();
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
