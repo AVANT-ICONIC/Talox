@@ -27,6 +27,7 @@ function makeMockContext() {
 function makeRoute(overrides: Record<string, any> = {}) {
 	return {
 		continue: vi.fn(async () => {}),
+		fallback: vi.fn(async () => {}),
 		fulfill: vi.fn(async () => {}),
 		...overrides,
 	};
@@ -94,7 +95,7 @@ describe("NetworkMocker", () => {
 	});
 
 	describe("recording handler captures request data", () => {
-		it("records a request when handler is invoked", async () => {
+		it("records a request while falling through to earlier routes", async () => {
 			const onRecording = vi.fn();
 			await mocker.startRecording(onRecording);
 			const handler = mockPage._handlers[0]!;
@@ -114,7 +115,8 @@ describe("NetworkMocker", () => {
 
 			await handler(route, request);
 
-			expect(route.continue).toHaveBeenCalled();
+			expect(route.fallback).toHaveBeenCalled();
+			expect(route.continue).not.toHaveBeenCalled();
 			const recordings = mocker.getRecordings();
 			expect(recordings).toHaveLength(1);
 			expect(recordings[0]!.url).toBe("https://example.com/page");
@@ -141,7 +143,7 @@ describe("NetworkMocker", () => {
 			expect(recordings[0]!.requestBody).toBe('{"key":"value"}');
 		});
 
-		it("stops recording when handler is called after stop", async () => {
+		it("falls through when a stale recording handler is called after stop", async () => {
 			await mocker.startRecording();
 			const handler = mockPage._handlers[0]!;
 
@@ -152,6 +154,8 @@ describe("NetworkMocker", () => {
 			await handler(route, request);
 
 			expect(mocker.getRecordings()).toEqual([]);
+			expect(route.fallback).toHaveBeenCalled();
+			expect(route.continue).not.toHaveBeenCalled();
 		});
 	});
 
@@ -188,9 +192,10 @@ describe("NetworkMocker", () => {
 					body: '{"result":true}',
 				}),
 			);
+			expect(route.fallback).not.toHaveBeenCalled();
 		});
 
-		it("continues request when no matching recording", async () => {
+		it("falls through when no recording matches", async () => {
 			await mocker.startReplaying([]);
 			const handler = mockPage._handlers[mockPage._handlers.length - 1]!;
 
@@ -201,7 +206,8 @@ describe("NetworkMocker", () => {
 			});
 
 			await handler(route, request);
-			expect(route.continue).toHaveBeenCalled();
+			expect(route.fallback).toHaveBeenCalled();
+			expect(route.continue).not.toHaveBeenCalled();
 		});
 
 		it("stopReplaying resets state", async () => {
@@ -231,6 +237,19 @@ describe("NetworkMocker", () => {
 			const routePattern = mockPage.route.mock.calls[0]?.[0];
 			expect(routePattern).toBeInstanceOf(RegExp);
 			expect((routePattern as RegExp).test("https://api.example.com/data")).toBe(true);
+		});
+
+		it("falls through instead of terminating the route chain when a mock does not match", async () => {
+			await mocker.addMock({ urlPattern: "api.example.com", status: 200 });
+			const handler = mockPage._handlers[0]!;
+			const route = makeRoute();
+			const request = makeRequest({ url: vi.fn(() => "https://other.example.com/data") });
+
+			await handler(route, request);
+
+			expect(route.fallback).toHaveBeenCalled();
+			expect(route.fulfill).not.toHaveBeenCalled();
+			expect(route.continue).not.toHaveBeenCalled();
 		});
 
 		it("clears all mocks", async () => {

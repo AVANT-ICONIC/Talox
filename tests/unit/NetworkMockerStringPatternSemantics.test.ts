@@ -20,6 +20,7 @@ function makePage() {
 function makeRoute() {
 	return {
 		continue: vi.fn(async () => {}),
+		fallback: vi.fn(async () => {}),
 		fulfill: vi.fn(async () => {}),
 	};
 }
@@ -48,8 +49,10 @@ describe("NetworkMocker string pattern semantics", () => {
 
 		expect(matchingRoute.fulfill).toHaveBeenCalledOnce();
 		expect(matchingRoute.continue).not.toHaveBeenCalled();
+		expect(matchingRoute.fallback).not.toHaveBeenCalled();
 		expect(nonMatchingRoute.fulfill).not.toHaveBeenCalled();
-		expect(nonMatchingRoute.continue).toHaveBeenCalledOnce();
+		expect(nonMatchingRoute.fallback).toHaveBeenCalledOnce();
+		expect(nonMatchingRoute.continue).not.toHaveBeenCalled();
 	});
 
 	it("keeps the caller-visible mock pattern unchanged while owning the registered matcher", async () => {

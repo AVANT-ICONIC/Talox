@@ -86,11 +86,13 @@ export class NetworkMocker {
 
 		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.isRecording) {
-				await route.continue();
+				await route.fallback();
 				return;
 			}
 
-			await route.continue();
+			// Recording is observational. Fall through so earlier security/policy routes
+			// can still inspect or block the request before it reaches the network.
+			await route.fallback();
 
 			try {
 				const response: Response | null = await request.response();
@@ -135,7 +137,7 @@ export class NetworkMocker {
 					this.recordingHandler(recording);
 				}
 			} catch {
-				// Recording is best-effort after the request has already continued.
+				// Recording is best-effort after the request has already fallen through.
 			}
 		};
 
@@ -177,7 +179,7 @@ export class NetworkMocker {
 
 		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.isReplaying) {
-				await route.continue();
+				await route.fallback();
 				return;
 			}
 
@@ -199,7 +201,7 @@ export class NetworkMocker {
 
 				await route.fulfill(fulfillOptions);
 			} else {
-				await route.continue();
+				await route.fallback();
 			}
 		};
 
@@ -224,7 +226,7 @@ export class NetworkMocker {
 		const routePattern = this.createStatelessRoutePattern(mock.urlPattern);
 		const handler: RouteHandler = async (route: Route, request: Request) => {
 			if (!this.matchesPattern(request.url(), routePattern)) {
-				await route.continue();
+				await route.fallback();
 				return;
 			}
 
