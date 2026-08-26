@@ -61,6 +61,9 @@ export class CrossOriginManager {
 	private nextFrameId = 1;
 	private page: Page | null = null;
 	private mainCdpSession: CDPSession | null = null;
+	private readonly frameAttachedListener = (frame: Frame): Promise<void> => this.handleFrameAttached(frame);
+	private readonly frameNavigatedListener = (frame: Frame): Promise<void> => this.handleFrameNavigated(frame);
+	private readonly frameDetachedListener = (frame: Frame): void => this.handleFrameDetached(frame);
 
 	constructor(options: CrossOriginManagerOptions = {}) {
 		const configured = [...(options.trustedDomains ?? []), ...(options.trustedOrigins ?? [])];
@@ -70,13 +73,20 @@ export class CrossOriginManager {
 	/**
 	 * Install frame listeners on the given page.
 	 * Call after the page has been created (e.g. after `launch()`).
+	 * Reinstalling on the same page is idempotent; moving the manager to a new
+	 * page detaches listeners and frame sessions owned by the previous page.
 	 */
 	install(page: Page): void {
-		this.page = page;
+		if (this.page === page) return;
+		if (this.page) {
+			this.removePageListeners();
+			this.clearSessions();
+		}
 
-		page.on("frameattached", (frame: Frame) => this.handleFrameAttached(frame));
-		page.on("framenavigated", (frame: Frame) => this.handleFrameNavigated(frame));
-		page.on("framedetached", (frame: Frame) => this.handleFrameDetached(frame));
+		this.page = page;
+		page.on("frameattached", this.frameAttachedListener);
+		page.on("framenavigated", this.frameNavigatedListener);
+		page.on("framedetached", this.frameDetachedListener);
 	}
 
 	/** Look up the CDP session for a given stable frame ID. */
@@ -176,12 +186,10 @@ export class CrossOriginManager {
 		return session.cdpSession.send(command as any, params);
 	}
 
-	/** Clean up all CDP sessions and remove manager state. */
+	/** Clean up all CDP sessions, page listeners, and manager state. */
 	dispose(): void {
-		for (const [, session] of Array.from(this.sessions.entries())) {
-			session.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
-		}
-		this.sessions.clear();
+		this.removePageListeners();
+		this.clearSessions();
 		this.assignedFrameIds.clear();
 		this.mainCdpSession = null;
 		this.page = null;
@@ -242,6 +250,24 @@ export class CrossOriginManager {
 		if (existing) {
 			existing.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
 			this.sessions.delete(frameId);
+		}
+	}
+
+	private clearSessions(): void {
+		for (const session of this.sessions.values()) {
+			session.cdpSession.detach().catch(() => {}); // NOSONAR — best-effort cleanup
+		}
+		this.sessions.clear();
+	}
+
+	private removePageListeners(): void {
+		if (!this.page) return;
+		try {
+			this.page.off("frameattached", this.frameAttachedListener);
+			this.page.off("framenavigated", this.frameNavigatedListener);
+			this.page.off("framedetached", this.frameDetachedListener);
+		} catch {
+			// NOSONAR — page may already be closed
 		}
 	}
 
