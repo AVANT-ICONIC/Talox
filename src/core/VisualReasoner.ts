@@ -64,6 +64,12 @@ export interface VisualQuestionPayload {
 
 export type VisualEmitter = (payload: VisualQuestionPayload) => void;
 
+export interface VisualScope {
+	emitter?: VisualEmitter;
+	screenshotFormat?: ScreenshotFormat;
+	reasoner?: VisualReasoner | null;
+}
+
 let screenshotFormat: ScreenshotFormat = "base64";
 
 export function setScreenshotFormat(format: ScreenshotFormat): void {
@@ -87,19 +93,29 @@ const pending = new Map<string, PendingQuestion>();
 
 /** Standalone emit function. Controller-bound perception uses a scoped emitter. */
 let emitVisual: VisualEmitter | null = null;
-/** Weak ownership keeps controller/session routing isolated without retaining dead collectors. */
-const scopedVisualEmitters = new WeakMap<object, VisualEmitter>();
+/** Weak ownership keeps controller/session visual settings isolated without retaining dead collectors. */
+const scopedVisualScopes = new WeakMap<object, VisualScope>();
 
 export function setVisualEmitter(fn: VisualEmitter | null): void {
 	emitVisual = fn;
 }
 
+export function setScopedVisualScope(owner: object, scope: VisualScope): void {
+	scopedVisualScopes.set(owner, scope);
+}
+
+export function getScopedVisualScope(owner: object): VisualScope | undefined {
+	return scopedVisualScopes.get(owner);
+}
+
 export function setScopedVisualEmitter(owner: object, emitter: VisualEmitter): void {
-	scopedVisualEmitters.set(owner, emitter);
+	const scope = scopedVisualScopes.get(owner) ?? {};
+	scope.emitter = emitter;
+	scopedVisualScopes.set(owner, scope);
 }
 
 export function getScopedVisualEmitter(owner: object): VisualEmitter | undefined {
-	return scopedVisualEmitters.get(owner);
+	return scopedVisualScopes.get(owner)?.emitter;
 }
 
 /**
@@ -117,37 +133,67 @@ export async function askVisual(
 	timeoutMs = 15_000,
 	emitter?: VisualEmitter,
 ): Promise<string | null> {
-	const id = `vis-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	return askVisualInternal(screenshot, question, timeoutMs, {
+		emitter: emitter ?? emitVisual ?? undefined,
+		screenshotFormat,
+		reasoner: currentReasoner,
+	});
+}
 
-	// Format the image
+export async function askVisualScoped(
+	owner: object,
+	screenshot: Buffer,
+	question: string,
+	timeoutMs = 15_000,
+): Promise<string | null> {
+	const scope = scopedVisualScopes.get(owner);
+	const scopedReasoner = scope && Object.hasOwn(scope, "reasoner") ? (scope.reasoner ?? null) : currentReasoner;
+	return askVisualInternal(screenshot, question, timeoutMs, {
+		emitter: scope?.emitter ?? emitVisual ?? undefined,
+		screenshotFormat: scope?.screenshotFormat ?? screenshotFormat,
+		reasoner: scopedReasoner,
+	});
+}
+
+private interface ActiveVisualScope {
+	emitter?: VisualEmitter;
+	screenshotFormat: ScreenshotFormat;
+	reasoner: VisualReasoner | null;
+}
+
+async function askVisualInternal(
+	screenshot: Buffer,
+	question: string,
+	timeoutMs: number,
+	scope: ActiveVisualScope,
+): Promise<string | null> {
+	const id = `vis-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const activeFormat = scope.screenshotFormat;
+
 	let imageData: string;
-	if (screenshotFormat === "base64") {
+	if (activeFormat === "base64") {
 		imageData = `data:image/png;base64,${screenshot.toString("base64")}`;
-	} else if (screenshotFormat === "buffer") {
+	} else if (activeFormat === "buffer") {
 		imageData = screenshot.toString("base64");
 	} else {
 		// file format — not implemented yet, fall back to base64
 		imageData = `data:image/png;base64,${screenshot.toString("base64")}`;
 	}
 
-	// Create a promise that resolves when resolveVisual() is called
 	const promise = new Promise<string | null>((resolve) => {
 		const timer = setTimeout(() => {
 			pending.delete(id);
-			resolve(null); // Timeout — will trigger fallback
+			resolve(null);
 		}, timeoutMs);
 
 		pending.set(id, { resolve, timer });
 	});
 
-	// Prefer a session-scoped emitter; retain the global emitter for standalone API use.
-	const activeEmitter = emitter ?? emitVisual;
-	if (activeEmitter) {
-		activeEmitter({ id, question, image: { format: screenshotFormat, data: imageData } });
+	if (scope.emitter) {
+		scope.emitter({ id, question, image: { format: activeFormat, data: imageData } });
 		log.info(`Visual question emitted: "${question.slice(0, 60)}..." (timeout: ${timeoutMs}ms)`);
 	}
 
-	// Wait for agent response
 	const agentAnswer = await promise;
 
 	if (agentAnswer !== null) {
@@ -155,9 +201,8 @@ export async function askVisual(
 		return agentAnswer;
 	}
 
-	// Fallback: try registered VisualReasoner
 	log.info("Agent did not respond — trying registered VisualReasoner fallback");
-	return askVisualFallback(screenshot, question);
+	return askVisualFallback(screenshot, question, scope.reasoner);
 }
 
 /**
@@ -193,14 +238,18 @@ export function getVisualReasoner(): VisualReasoner | null {
 	return currentReasoner;
 }
 
-async function askVisualFallback(screenshot: Buffer, question: string): Promise<string | null> {
-	if (!currentReasoner) return null;
+async function askVisualFallback(
+	screenshot: Buffer,
+	question: string,
+	reasoner: VisualReasoner | null = currentReasoner,
+): Promise<string | null> {
+	if (!reasoner) return null;
 
 	try {
 		const start = Date.now();
-		const answer = await currentReasoner.analyze(screenshot, question);
+		const answer = await reasoner.analyze(screenshot, question);
 		if (answer !== null) {
-			log.info(`${currentReasoner.name} answered in ${Date.now() - start}ms`);
+			log.info(`${reasoner.name} answered in ${Date.now() - start}ms`);
 		}
 		return answer;
 	} catch (err) {
