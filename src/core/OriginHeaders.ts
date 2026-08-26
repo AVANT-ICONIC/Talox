@@ -96,6 +96,11 @@ export class OriginHeaders {
 		};
 	}
 
+	private pageIsClosed(page: Page, error: unknown): boolean {
+		if (typeof page.isClosed === "function" && page.isClosed()) return true;
+		return error instanceof Error && /(?:page|target|context).*closed|closed.*(?:page|target|context)/i.test(error.message);
+	}
+
 	async dispose(): Promise<void> {
 		const page = this.installedPage;
 		const handler = this.routeHandler;
@@ -107,7 +112,7 @@ export class OriginHeaders {
 		try {
 			await page.unroute("**/*", handler);
 		} catch (error) {
-			if (typeof page.isClosed === "function" && page.isClosed()) {
+			if (this.pageIsClosed(page, error)) {
 				// Closed pages cannot retain an active route; ownership is already gone.
 				this.installedPage = null;
 				this.routeHandler = null;
