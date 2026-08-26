@@ -359,8 +359,17 @@ export class HarRecorder {
 
 	private computeTotalDuration(): number {
 		if (this.entries.length === 0) return 0;
-		const first = new Date(this.entries[0]!.startedDateTime).getTime();
-		const last = new Date(this.entries.at(-1)!.startedDateTime).getTime();
-		return last - first;
+
+		let earliestStart = Number.POSITIVE_INFINITY;
+		let latestEnd = Number.NEGATIVE_INFINITY;
+		for (const entry of this.entries) {
+			const start = new Date(entry.startedDateTime).getTime();
+			if (!Number.isFinite(start)) continue;
+			earliestStart = Math.min(earliestStart, start);
+			latestEnd = Math.max(latestEnd, start + Math.max(0, entry.time));
+		}
+
+		if (!Number.isFinite(earliestStart) || !Number.isFinite(latestEnd)) return 0;
+		return Math.max(0, latestEnd - earliestStart);
 	}
 }
