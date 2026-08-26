@@ -28,7 +28,7 @@ function makeRoute() {
 }
 
 const credentialUrl =
-	"https://api-user:url-password-secret@example.com/api?token=query-secret-value&mode=full";
+	"https://api-user:url-password-secret@example.com/token/path-token-secret/api?token=query-secret-value&code=oauth-code-secret&mode=full";
 
 function rawRecording(): NetworkRecording {
 	return {
@@ -41,6 +41,7 @@ function rawRecording(): NetworkRecording {
 			cookie: "session=cookie-secret-value",
 			"content-type": "application/json",
 			"x-custom": "Bearer custom-header-secret-value",
+			"x-amz-security-token": "aws-session-secret-value",
 		},
 		responseHeaders: {
 			"content-type": "application/json",
@@ -50,6 +51,7 @@ function rawRecording(): NetworkRecording {
 		},
 		requestBody: JSON.stringify({
 			password: "body-password-secret",
+			refresh_token: "refresh-token-secret",
 			nested: { api_key: "nested-api-secret" },
 			keep: "visible",
 		}),
@@ -80,11 +82,15 @@ describe("NetworkMocker persisted credential safety", () => {
 
 		for (const secret of [
 			"url-password-secret",
+			"path-token-secret",
 			"query-secret-value",
+			"oauth-code-secret",
 			"request-secret-value",
 			"cookie-secret-value",
 			"custom-header-secret-value",
+			"aws-session-secret-value",
 			"body-password-secret",
+			"refresh-token-secret",
 			"nested-api-secret",
 			"response-token-secret",
 			"response-cookie-secret-value",
@@ -100,6 +106,7 @@ describe("NetworkMocker persisted credential safety", () => {
 		expect(recording.url).toContain("REDACTED");
 		expect(recording.requestHeaders.authorization).toBeUndefined();
 		expect(recording.requestHeaders.cookie).toBeUndefined();
+		expect(recording.requestHeaders["x-amz-security-token"]).toBeUndefined();
 		expect(recording.requestHeaders["x-custom"]).toBe("Bearer [REDACTED]");
 		expect(recording.responseHeaders["set-cookie"]).toBeUndefined();
 		expect(recording.responseHeaders["www-authenticate"]).toBeUndefined();
