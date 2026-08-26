@@ -193,6 +193,7 @@ export class TakeoverBridge {
 	private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
 	private headed = false;
 	private currentPage: Page | null = null;
+	private currentPageCloseHandler: (() => void) | null = null;
 	private takeoverStartedAt: string | null = null;
 	private takeoverReason: string | undefined = undefined;
 	private takeoverStartedUrl: string | null = null;
@@ -212,10 +213,13 @@ export class TakeoverBridge {
 	 * Only injects when headed=true. Safe to re-call with a new page (SessionManager swaps).
 	 */
 	async initialize(page: Page, headed: boolean): Promise<void> {
+		this.detachPageCloseHandler();
 		this.headed = headed;
 		this.currentPage = page;
 
 		if (!headed) return; // headless: no overlay
+
+		this.installPageCloseHandler(page);
 
 		// 1. Inject overlay bundle — persists across ALL navigations
 		await page.addInitScript(AGENT_OVERLAY_SCRIPT);
@@ -261,6 +265,7 @@ export class TakeoverBridge {
 			this.eventBus.off("agentResumed", this.agentResumedHandler);
 			this.eventSubscriptionsInstalled = false;
 		}
+		this.detachPageCloseHandler();
 		this.currentPage = null;
 		this.headed = false;
 		this.state = "AGENT_RUNNING";
@@ -344,6 +349,20 @@ export class TakeoverBridge {
 	}
 
 	// ─── Helpers ─────────────────────────────────────────────────────────────
+
+	private installPageCloseHandler(page: Page): void {
+		const handler = () => {
+			if (this.currentPage === page) this.dispose();
+		};
+		this.currentPageCloseHandler = handler;
+		page.on("close", handler);
+	}
+
+	private detachPageCloseHandler(): void {
+		if (!this.currentPage || !this.currentPageCloseHandler) return;
+		this.currentPage.off("close", this.currentPageCloseHandler);
+		this.currentPageCloseHandler = null;
+	}
 
 	private buildSummary(endReason: "manual" | "timeout"): TakeoverSummary | undefined {
 		if (!this.takeoverStartedAt) return undefined;
