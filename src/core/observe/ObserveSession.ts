@@ -32,7 +32,7 @@ import type {
 	SessionReportExtras,
 } from "../../types/session-report.js";
 import type { ArtifactBuilder } from "../ArtifactBuilder.js";
-import type { EventBus } from "../controller/EventBus.js";
+import type { EventBus, EventHandler } from "../controller/EventBus.js";
 import { createLogger } from "../Logger.js";
 import { AnnotationBuffer } from "./AnnotationBuffer.js";
 import { OverlayInjector } from "./OverlayInjector.js";
@@ -73,6 +73,7 @@ export class ObserveSession {
 	private readonly failureLog: FailureEntry[] = [];
 	private readonly diffLog: InteractionDiff[] = [];
 	private readonly bugSummaries: BugSummaryEntry[] = [];
+	private readonly listenerDisposers: Array<() => void> = [];
 	private lastUrl: string | null = null;
 	private readonly artifactBuilder: ArtifactBuilder;
 
@@ -135,7 +136,7 @@ export class ObserveSession {
 		}
 
 		// Track console errors
-		this.page.on("console", (msg: any) => {
+		const onConsole = (msg: any) => {
 			if (msg.type() === "error") {
 				const last = this.interactions.at(-1);
 				if (last) {
@@ -146,10 +147,14 @@ export class ObserveSession {
 					url: this.page.url?.() ?? "",
 				});
 			}
+		};
+		this.page.on("console", onConsole);
+		this.listenerDisposers.push(() => {
+			if (typeof this.page.off === "function") this.page.off("console", onConsole);
 		});
 
 		// Track network failures
-		this.page.on("requestfailed", (request: any) => {
+		const onRequestFailed = (request: any) => {
 			const failure = {
 				url: request.url(),
 				status: request.failure()?.errorText ? -1 : 0,
@@ -164,10 +169,14 @@ export class ObserveSession {
 				status: failure.status,
 				type: failure.type,
 			});
+		};
+		this.page.on("requestfailed", onRequestFailed);
+		this.listenerDisposers.push(() => {
+			if (typeof this.page.off === "function") this.page.off("requestfailed", onRequestFailed);
 		});
 
 		// Track page navigations
-		this.page.on("framenavigated", (frame: any) => {
+		const onFrameNavigated = (frame: any) => {
 			if (frame !== this.page.mainFrame?.()) return;
 			const url = frame.url();
 			if (!url || url === "about:blank") return;
@@ -182,6 +191,10 @@ export class ObserveSession {
 			};
 			this.interactions.push(interaction);
 			this.eventBus.emit("navigation", { url, title: "" });
+		};
+		this.page.on("framenavigated", onFrameNavigated);
+		this.listenerDisposers.push(() => {
+			if (typeof this.page.off === "function") this.page.off("framenavigated", onFrameNavigated);
 		});
 
 		const logEvent = <K extends keyof TaloxEventMap>(event: K, payload?: TaloxEventMap[K]) => {
@@ -192,8 +205,8 @@ export class ObserveSession {
 			});
 		};
 
-		this.eventBus.on("navigation", (payload) => logEvent("navigation", payload));
-		this.eventBus.on("consoleError", (payload) => {
+		this.subscribe("navigation", (payload) => logEvent("navigation", payload));
+		this.subscribe("consoleError", (payload) => {
 			logEvent("consoleError", payload);
 			this.recordFailure({
 				type: "console",
@@ -202,7 +215,7 @@ export class ObserveSession {
 				interactionIndex: this.interactions.length,
 			});
 		});
-		this.eventBus.on("networkError", (payload) => {
+		this.subscribe("networkError", (payload) => {
 			logEvent("networkError", payload);
 			this.recordFailure({
 				type: "network",
@@ -212,10 +225,10 @@ export class ObserveSession {
 				interactionIndex: this.interactions.length,
 			});
 		});
-		this.eventBus.on("annotationAdded", (payload) => logEvent("annotationAdded", payload));
-		this.eventBus.on("annotationUndone", (payload) => logEvent("annotationUndone", payload));
-		this.eventBus.on("stateChanged", (payload) => logEvent("stateChanged", payload));
-		this.eventBus.on("bugDetected", (payload) => {
+		this.subscribe("annotationAdded", (payload) => logEvent("annotationAdded", payload));
+		this.subscribe("annotationUndone", (payload) => logEvent("annotationUndone", payload));
+		this.subscribe("stateChanged", (payload) => logEvent("stateChanged", payload));
+		this.subscribe("bugDetected", (payload) => {
 			logEvent("bugDetected", payload);
 			this.bugSummaries.push({
 				id: payload.id,
@@ -226,13 +239,17 @@ export class ObserveSession {
 				evidence: payload.evidence?.screenshotRef,
 			});
 		});
-		this.eventBus.on("adapted", (payload) => logEvent("adapted", payload));
+		this.subscribe("adapted", (payload) => logEvent("adapted", payload));
 
 		// Auto-finalize on browser close
-		this.context.on("close", () => {
+		const onContextClose = () => {
 			this.finalize().catch((err: unknown) => {
 				this.log.error("Failed to finalize observe session:", err);
 			});
+		};
+		this.context.on("close", onContextClose);
+		this.listenerDisposers.push(() => {
+			if (typeof this.context.off === "function") this.context.off("close", onContextClose);
 		});
 
 		console.info(
@@ -327,13 +344,24 @@ export class ObserveSession {
 		});
 
 		this.eventBus.emit("sessionEnd", sessionEndPayload);
-
+		this.disposeListeners();
 		this.buffer.clear();
 
 		console.info(
 			`[Talox] Observe session ended · ${report.summary.totalInteractions} interactions · ` +
 				`${report.summary.totalAnnotations} annotations · ${Math.round(report.durationMs / 1000)}s`,
 		);
+	}
+
+	private subscribe<K extends keyof TaloxEventMap>(event: K, handler: EventHandler<TaloxEventMap[K]>): void {
+		this.eventBus.on(event, handler);
+		this.listenerDisposers.push(() => this.eventBus.off(event, handler));
+	}
+
+	private disposeListeners(): void {
+		for (const dispose of this.listenerDisposers.splice(0)) {
+			dispose();
+		}
 	}
 
 	private recordFailure(entry: FailureEntry): void {
