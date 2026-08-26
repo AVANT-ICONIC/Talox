@@ -66,4 +66,16 @@ describe("PolicyEngine scoped amount context", () => {
 		expect(engine.isActionAllowed("ops", "purchase", { amount: 500 })).toBe(false);
 		expect(engine.isActionAllowed("ops", "purchase")).toBe(true);
 	});
+
+	it("clears persistent amount context when policies are reset", () => {
+		const engine = new PolicyEngine();
+		configurePurchaseLimit(engine);
+		engine.setAmountContext(50);
+		expect(engine.isActionAllowed("ops", "purchase")).toBe(true);
+
+		engine.clearPolicies();
+		configurePurchaseLimit(engine);
+
+		expect(engine.isActionAllowed("ops", "purchase")).toBe(false);
+	});
 });
