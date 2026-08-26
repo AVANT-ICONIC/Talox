@@ -87,6 +87,7 @@ export async function exportMarkdownSnapshot(talox: TaloxController, destPath: s
 }
 
 export async function searchOnSite(talox: TaloxController, query: string, limit: number = 5): Promise<SearchResult[]> {
+	const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 5;
 	const results = await talox.evaluate<SearchResult[]>(`( () => {
       const matches: Array<{ selector: string; snippet: string; tag: string }> = [];
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, { acceptNode: () => NodeFilter.FILTER_ACCEPT }, false);
@@ -99,16 +100,16 @@ export async function searchOnSite(talox: TaloxController, query: string, limit:
           const selector =
             el.tagName.toLowerCase()
             + (el.id ? '#' + el.id : '')
-            + (el.className ? '.' + el.className.toString().split(/s+/).join('.') : '');
+            + (el.className ? '.' + el.className.toString().trim().split(/\s+/).filter(Boolean).join('.') : '');
           matches.push({
             selector,
             snippet: snippet.slice(0, 160),
             tag: el.tagName.toLowerCase(),
           });
-          if (matches.length >= ${limit}) break;
+          if (matches.length >= ${safeLimit}) break;
         }
       }
-      return matches.slice(0, ${limit});
+      return matches.slice(0, ${safeLimit});
     })();`);
 	return results;
 }
