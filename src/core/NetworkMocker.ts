@@ -29,6 +29,7 @@ type RouteHandler = (route: Route, request: Request) => Promise<void>;
 
 interface MockRouteRegistration {
 	mock: MockResponse;
+	routePattern: string | RegExp;
 	handler: RouteHandler;
 }
 
@@ -56,6 +57,13 @@ export class NetworkMocker {
 
 	private generateId(): string {
 		return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+	}
+
+	private createStatelessRoutePattern(pattern: string | RegExp): string | RegExp {
+		if (typeof pattern === "string" || (!pattern.global && !pattern.sticky)) return pattern;
+		const flags = pattern.flags.replace(/[gy]/g, "");
+		const source = pattern.sticky ? `^(?:${pattern.source})` : pattern.source;
+		return new RegExp(source, flags);
 	}
 
 	private matchesPattern(url: string, pattern: string | RegExp): boolean {
@@ -209,8 +217,9 @@ export class NetworkMocker {
 	}
 
 	async addMock(mock: MockResponse): Promise<void> {
+		const routePattern = this.createStatelessRoutePattern(mock.urlPattern);
 		const handler: RouteHandler = async (route: Route, request: Request) => {
-			if (!this.matchesPattern(request.url(), mock.urlPattern)) {
+			if (!this.matchesPattern(request.url(), routePattern)) {
 				await route.continue();
 				return;
 			}
@@ -236,8 +245,8 @@ export class NetworkMocker {
 			await route.fulfill(fulfillOptions);
 		};
 
-		await this.page.route(mock.urlPattern, handler);
-		this.mockRoutes.push({ mock, handler });
+		await this.page.route(routePattern, handler);
+		this.mockRoutes.push({ mock, routePattern, handler });
 	}
 
 	async clearMocks(): Promise<void> {
@@ -245,7 +254,7 @@ export class NetworkMocker {
 		if (registrations.length === 0) return;
 
 		const results = await Promise.allSettled(
-			registrations.map(({ mock, handler }) => this.page.unroute(mock.urlPattern, handler)),
+			registrations.map(({ routePattern, handler }) => this.page.unroute(routePattern, handler)),
 		);
 		const removedHandlers = new Set<RouteHandler>();
 		let firstFailure: unknown;
