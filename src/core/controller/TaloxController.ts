@@ -379,17 +379,25 @@ export class TaloxController {
 	}
 
 	private async runStop(): Promise<void> {
-		await this.flushHarRecorder();
+		let evidenceFailure: unknown;
+		let evidenceFailed = false;
+		try {
+			await this.flushHarRecorder();
+		} catch (error) {
+			evidenceFailure = error;
+			evidenceFailed = true;
+		}
+
 		this.disposeCrossOriginManager();
 		await this.detachInspectServer();
 
-		let videoFailure: unknown;
-		let videoFailed = false;
 		try {
 			await this.flushVideoRecorder();
 		} catch (error) {
-			videoFailure = error;
-			videoFailed = true;
+			if (!evidenceFailed) {
+				evidenceFailure = error;
+				evidenceFailed = true;
+			}
 		}
 
 		this.persistTakeoverHistory();
@@ -402,21 +410,23 @@ export class TaloxController {
 			throw e;
 		}
 
-		if (videoFailed) throw videoFailure;
+		if (evidenceFailed) throw evidenceFailure;
 	}
 
 	/** Flush HAR recording if active. */
 	private async flushHarRecorder(): Promise<void> {
 		if (!this.harRecorder) return;
+		const recorder = this.harRecorder;
 		try {
-			const result = await this.harRecorder.stop();
+			const result = await recorder.stop();
 			if (this.settings.verbosity >= 1) {
 				this.log.info(`HAR recording saved: ${result.outputPath} (${result.entryCount} entries)`);
 			}
 		} catch (e) {
 			this.log.error(`HAR flush failed: ${e instanceof Error ? e.message : String(e)}`);
+			throw e;
 		}
-		this.harRecorder = null;
+		if (this.harRecorder === recorder) this.harRecorder = null;
 	}
 
 	/** Dispose cross-origin iframe manager. */
