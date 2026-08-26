@@ -28,6 +28,8 @@ interface DevToolsTarget {
 	webSocketDebuggerUrl: string;
 }
 
+type CdpEventHandler = (event: { method: string; params?: unknown }) => void;
+
 // ─── Implementation ─────────────────────────────────────────────────────────
 
 /**
@@ -47,6 +49,7 @@ export class InspectServer {
 	private page: Page | null = null;
 	private cdpSession: import("playwright-core").CDPSession | null = null;
 	private readonly devtoolsClients: Set<WebSocket> = new Set();
+	private readonly clientEventHandlers = new Map<WebSocket, CdpEventHandler>();
 	private running = false;
 	private attachInFlight: Promise<void> | null = null;
 	private detachInFlight: Promise<void> | null = null;
@@ -92,11 +95,14 @@ export class InspectServer {
 		const previousSession = this.cdpSession;
 		this.cdpSession = null;
 		if (previousSession) {
+			this.unbindClientsFromSession(previousSession);
 			await previousSession.detach().catch(() => {}); // NOSONAR — previous page may already be closed
 		}
 
 		try {
-			this.cdpSession = await page.context().newCDPSession(page);
+			const nextSession = await page.context().newCDPSession(page);
+			this.cdpSession = nextSession;
+			this.bindClientsToSession(nextSession);
 		} catch {
 			// NOSONAR — CDP session creation may fail in some browsers
 		}
@@ -145,6 +151,10 @@ export class InspectServer {
 		const attach = this.attachInFlight;
 		if (attach) await attach.catch(() => {});
 
+		const cdpSession = this.cdpSession;
+		this.cdpSession = null;
+		if (cdpSession) this.unbindClientsFromSession(cdpSession);
+
 		const clients = Array.from(this.devtoolsClients);
 		for (const ws of clients) {
 			try {
@@ -158,9 +168,8 @@ export class InspectServer {
 			}
 		}
 		this.devtoolsClients.clear();
+		this.clientEventHandlers.clear();
 
-		const cdpSession = this.cdpSession;
-		this.cdpSession = null;
 		const cdpDetach = cdpSession ? cdpSession.detach().catch(() => {}) : Promise.resolve();
 
 		this.page = null;
@@ -252,12 +261,13 @@ export class InspectServer {
 	private handleDevToolsConnection(ws: WebSocket): void {
 		this.devtoolsClients.add(ws);
 
-		const onCdpEvent = ({ method, params }: { method: string; params?: unknown }) => {
+		const onCdpEvent: CdpEventHandler = ({ method, params }) => {
 			const msg = JSON.stringify({ method, params });
 			if (ws.readyState === ws.OPEN) {
 				ws.send(msg);
 			}
 		};
+		this.clientEventHandlers.set(ws, onCdpEvent);
 
 		if (this.cdpSession) {
 			this.cdpSession.on("event", onCdpEvent);
@@ -271,10 +281,23 @@ export class InspectServer {
 
 		ws.on("close", () => {
 			this.devtoolsClients.delete(ws);
+			this.clientEventHandlers.delete(ws);
 			if (this.cdpSession) {
 				this.cdpSession.off("event", onCdpEvent);
 			}
 		});
+	}
+
+	private bindClientsToSession(session: import("playwright-core").CDPSession): void {
+		for (const handler of this.clientEventHandlers.values()) {
+			session.on("event", handler);
+		}
+	}
+
+	private unbindClientsFromSession(session: import("playwright-core").CDPSession): void {
+		for (const handler of this.clientEventHandlers.values()) {
+			session.off("event", handler);
+		}
 	}
 
 	private async forwardToCdp(raw: RawData): Promise<void> {
