@@ -53,13 +53,13 @@ export type PerceptionPreset = "cheap" | "medium" | "heavy";
 export interface PerceptionLayerFlags {
 	/** Collect AX tree + interactive elements. Always true — required for all presets. */
 	structural: boolean;
-	/** Collect console errors + failed HTTP requests. */
+	/** Collect console errors + failed network requests. */
 	network: boolean;
 	/** Run RulesEngine structural diff + layout bug analysis. */
 	bugs: boolean;
 	/** Run ChallengeDetector scan. */
 	challenge: boolean;
-	/** Capture full-page PNG capture. */
+	/** Capture full-page screenshot PNG. */
 	screenshot: boolean;
 }
 
