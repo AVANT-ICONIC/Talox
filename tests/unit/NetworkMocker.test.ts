@@ -219,7 +219,7 @@ describe("NetworkMocker", () => {
 	});
 
 	describe("addMock / clearMocks / getMocks", () => {
-		it("adds a mock and registers route", async () => {
+		it("adds a mock and registers a substring route", async () => {
 			const mock: MockResponse = {
 				urlPattern: "api.example.com",
 				status: 200,
@@ -228,7 +228,9 @@ describe("NetworkMocker", () => {
 			await mocker.addMock(mock);
 
 			expect(mocker.getMocks()).toHaveLength(1);
-			expect(mockPage.route).toHaveBeenCalledWith("api.example.com", expect.any(Function));
+			const routePattern = mockPage.route.mock.calls[0]?.[0];
+			expect(routePattern).toBeInstanceOf(RegExp);
+			expect((routePattern as RegExp).test("https://api.example.com/data")).toBe(true);
 		});
 
 		it("clears all mocks", async () => {

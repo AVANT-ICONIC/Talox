@@ -60,7 +60,11 @@ export class NetworkMocker {
 	}
 
 	private createStatelessRoutePattern(pattern: string | RegExp): string | RegExp {
-		if (typeof pattern === "string" || (!pattern.global && !pattern.sticky)) return pattern;
+		if (typeof pattern === "string") {
+			const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			return new RegExp(escaped);
+		}
+		if (!pattern.global && !pattern.sticky) return pattern;
 		const flags = pattern.flags.replace(/[gy]/g, "");
 		const source = pattern.sticky ? `^(?:${pattern.source})` : pattern.source;
 		return new RegExp(source, flags);
