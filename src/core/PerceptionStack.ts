@@ -44,7 +44,7 @@
 import type { TaloxPageState } from "../types/index.js";
 import type { ChallengeDetector, ChallengeState } from "./ChallengeDetector.js";
 import type { PageStateCollector } from "./PageStateCollector.js";
-import { askVisual, getScopedVisualEmitter } from "./VisualReasoner.js";
+import { askVisualScoped } from "./VisualReasoner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,7 +189,7 @@ export class PerceptionStack {
 			const page = this.collector.getPage();
 			if (!page) return null;
 			const screenshot = await page.screenshot({ type: "png", fullPage: false });
-			return await askVisual(screenshot, question, 15_000, getScopedVisualEmitter(this.collector));
+			return await askVisualScoped(this.collector, screenshot, question, 15_000);
 		} catch {
 			return null;
 		}
