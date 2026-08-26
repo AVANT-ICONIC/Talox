@@ -89,22 +89,29 @@ export class InspectServer {
 		const detach = this.detachInFlight;
 		if (detach) await detach;
 
-		this.page = page;
 		await this.ensureServerStarted();
 
 		const previousSession = this.cdpSession;
-		this.cdpSession = null;
-		if (previousSession) {
-			this.unbindClientsFromSession(previousSession);
-			await previousSession.detach().catch(() => {}); // NOSONAR — previous page may already be closed
+		const previousPage = this.page;
+		let nextSession: import("playwright-core").CDPSession;
+		try {
+			nextSession = await page.context().newCDPSession(page);
+		} catch {
+			// Preserve a working attachment when a replacement page cannot provide CDP.
+			// On first attach, keep historical behavior and expose the requested page
+			// through /json even though CDP proxying is unavailable.
+			if (!previousSession) this.page = page;
+			else this.page = previousPage;
+			return;
 		}
 
-		try {
-			const nextSession = await page.context().newCDPSession(page);
-			this.cdpSession = nextSession;
-			this.bindClientsToSession(nextSession);
-		} catch {
-			// NOSONAR — CDP session creation may fail in some browsers
+		if (previousSession) this.unbindClientsFromSession(previousSession);
+		this.cdpSession = nextSession;
+		this.page = page;
+		this.bindClientsToSession(nextSession);
+
+		if (previousSession && previousSession !== nextSession) {
+			await previousSession.detach().catch(() => {}); // NOSONAR — previous page may already be closed
 		}
 	}
 
