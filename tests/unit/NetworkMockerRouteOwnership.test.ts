@@ -41,7 +41,11 @@ describe("NetworkMocker route ownership", () => {
 
 		expect(page._registrations).toHaveLength(2);
 		expect(page._registrations.some(({ handler }) => handler === externalHandler)).toBe(true);
-		expect(page._registrations.some(({ pattern }) => pattern === "api.example.com")).toBe(true);
+		expect(
+			page._registrations.some(
+				({ pattern }) => pattern instanceof RegExp && pattern.test("https://api.example.com/data"),
+			),
+		).toBe(true);
 		expect(page.unrouteAll).not.toHaveBeenCalled();
 	});
 
