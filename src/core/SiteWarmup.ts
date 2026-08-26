@@ -125,14 +125,28 @@ export const genericVerificationWarmup: WarmupStrategy = {
  */
 export type WarmupMap = Map<string, WarmupStrategy>;
 
+/** Private snapshots keep default registry construction independent from exported mutable objects. */
+const DEFAULT_REDDIT_WARMUP: WarmupStrategy = { ...redditWarmup };
+const DEFAULT_CLOUDFLARE_WARMUP: WarmupStrategy = { ...cloudflareWarmup };
+
+function createBuiltInWarmups(): WarmupMap {
+	return new Map([
+		["reddit.com", { ...DEFAULT_REDDIT_WARMUP }],
+		["cloudflare.com", { ...DEFAULT_CLOUDFLARE_WARMUP }],
+		["*", { ...DEFAULT_CLOUDFLARE_WARMUP }],
+	]);
+}
+
 /**
  * Pre-registered built-in warmups for known sites.
+ *
+ * This exported map retains its historical strategy identities for backwards
+ * compatibility, while default `SiteWarmupRegistry` instances are created from
+ * private snapshots instead of using this object as shared constructor state.
  */
 export const BUILT_IN_WARMUPS: WarmupMap = new Map([
 	["reddit.com", redditWarmup],
 	["cloudflare.com", cloudflareWarmup],
-	// The cloudflare warmup is also the default for any site that triggers it.
-	// It is registered as a fallback via the '*' key.
 	["*", cloudflareWarmup],
 ]);
 
@@ -143,8 +157,10 @@ export const BUILT_IN_WARMUPS: WarmupMap = new Map([
 export class SiteWarmupRegistry {
 	private readonly warmups: WarmupMap;
 
-	constructor(builtins: WarmupMap = BUILT_IN_WARMUPS) {
-		this.warmups = new Map(builtins);
+	constructor(builtins?: WarmupMap) {
+		// Preserve caller-provided strategy identity while giving every default
+		// registry fresh built-in strategy objects of its own.
+		this.warmups = builtins ? new Map(builtins) : createBuiltInWarmups();
 	}
 
 	/**
