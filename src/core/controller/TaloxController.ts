@@ -79,7 +79,6 @@ import {
 	resolveVisual,
 	type ScreenshotFormat,
 	setScreenshotFormat,
-	setVisualEmitter,
 	setVisualReasoner,
 	type VisualReasoner,
 } from "../VisualReasoner.js";
@@ -196,7 +195,6 @@ export class TaloxController {
 		}
 
 		this._events = new EventBus<TaloxEventMap>();
-		setVisualEmitter((payload) => this._events.emit("visualQuestion", payload));
 		this._challenge = new ChallengeDetector();
 		this._session = new SessionManager(this.settings, this._events, baseDir);
 		this._takeover = new TakeoverBridge(this._events, this.settings.humanTakeoverTimeoutMs);

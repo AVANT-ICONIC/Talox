@@ -31,6 +31,7 @@ import { PolicyEngine } from "../PolicyEngine.js";
 import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
+import { setScopedVisualEmitter } from "../VisualReasoner.js";
 import { VisionGate } from "../VisionGate.js";
 import type { EventBus } from "./EventBus.js";
 
@@ -142,7 +143,7 @@ export class SessionManager {
 			this.dialogHandler.install(page);
 		}
 
-		const stateCollector = new PageStateCollector(page);
+		const stateCollector = this.createStateCollector(page);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
 		this.pageMousePositions.set(0, { x: 0, y: 0 });
@@ -236,7 +237,7 @@ export class SessionManager {
 			this.dialogHandler.install(newPage);
 		}
 
-		const stateCollector = new PageStateCollector(newPage);
+		const stateCollector = this.createStateCollector(newPage);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
 		this.pageMousePositions.set(0, { x: 0, y: 0 });
@@ -291,7 +292,7 @@ export class SessionManager {
 			this.dialogHandler.install(page);
 		}
 
-		const stateCollector = new PageStateCollector(page);
+		const stateCollector = this.createStateCollector(page);
 		this.activePageIndex = this.pages.length;
 		this.pages.push(stateCollector);
 		this.pageMousePositions.set(this.activePageIndex, { x: 0, y: 0 });
@@ -755,6 +756,12 @@ export class SessionManager {
 	}
 
 	// ─── Internal Helpers ─────────────────────────────────────────────────────────
+
+	private createStateCollector(page: Page): PageStateCollector {
+		const collector = new PageStateCollector(page);
+		setScopedVisualEmitter(collector, (payload) => this.events.emit("visualQuestion", payload));
+		return collector;
+	}
 
 	/** Returns the current mouse position for the active page (used by auto-thinking interval). */
 	private getCurrentMousePos(): Point {
