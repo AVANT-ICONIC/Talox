@@ -14,6 +14,8 @@ function makePage() {
 		addInitScript: vi.fn().mockResolvedValue(undefined),
 		exposeFunction: vi.fn().mockResolvedValue(undefined),
 		evaluate: vi.fn().mockResolvedValue(undefined),
+		on: vi.fn(),
+		off: vi.fn(),
 		url: vi.fn().mockReturnValue("https://example.com"),
 	};
 }

@@ -193,9 +193,13 @@ export class TakeoverBridge {
 	private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
 	private headed = false;
 	private currentPage: Page | null = null;
+	private currentPageCloseHandler: (() => void) | null = null;
 	private takeoverStartedAt: string | null = null;
 	private takeoverReason: string | undefined = undefined;
 	private takeoverStartedUrl: string | null = null;
+	private eventSubscriptionsInstalled = false;
+	private readonly takeoverRequestedHandler = () => void this.onTakeoverRequested();
+	private readonly agentResumedHandler = (event: TaloxEventMap["agentResumed"]) => void this.onAgentResumed(event.reason);
 
 	constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
 		this.eventBus = eventBus;
@@ -209,10 +213,13 @@ export class TakeoverBridge {
 	 * Only injects when headed=true. Safe to re-call with a new page (SessionManager swaps).
 	 */
 	async initialize(page: Page, headed: boolean): Promise<void> {
+		this.detachPageCloseHandler();
 		this.headed = headed;
 		this.currentPage = page;
 
 		if (!headed) return; // headless: no overlay
+
+		this.installPageCloseHandler(page);
 
 		// 1. Inject overlay bundle — persists across ALL navigations
 		await page.addInitScript(AGENT_OVERLAY_SCRIPT);
@@ -237,9 +244,7 @@ export class TakeoverBridge {
 			// Already registered
 		}
 
-		// 4. Subscribe to EventBus events
-		this.eventBus.on("humanTakeoverRequested", () => void this.onTakeoverRequested());
-		this.eventBus.on("agentResumed", (e) => void this.onAgentResumed(e.reason));
+		this.ensureEventSubscriptions();
 	}
 
 	/**
@@ -247,6 +252,26 @@ export class TakeoverBridge {
 	 */
 	async reinitialize(page: Page): Promise<void> {
 		return this.initialize(page, this.headed);
+	}
+
+	/** Release EventBus subscriptions, timers, and the current page reference. */
+	dispose(): void {
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = null;
+		}
+		if (this.eventSubscriptionsInstalled) {
+			this.eventBus.off("humanTakeoverRequested", this.takeoverRequestedHandler);
+			this.eventBus.off("agentResumed", this.agentResumedHandler);
+			this.eventSubscriptionsInstalled = false;
+		}
+		this.detachPageCloseHandler();
+		this.currentPage = null;
+		this.headed = false;
+		this.state = "AGENT_RUNNING";
+		this.takeoverStartedAt = null;
+		this.takeoverReason = undefined;
+		this.takeoverStartedUrl = null;
 	}
 
 	/** Signal agent is paused (human has control). */
@@ -274,8 +299,19 @@ export class TakeoverBridge {
 
 	// ─── EventBus handlers ────────────────────────────────────────────────────
 
+	private ensureEventSubscriptions(): void {
+		if (this.eventSubscriptionsInstalled) return;
+		this.eventBus.on("humanTakeoverRequested", this.takeoverRequestedHandler);
+		this.eventBus.on("agentResumed", this.agentResumedHandler);
+		this.eventSubscriptionsInstalled = true;
+	}
+
 	private async onTakeoverRequested(): Promise<void> {
 		this.state = "WAITING_FOR_HUMAN";
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = null;
+		}
 		// Register timeout before awaiting overlay update so fake-timer tests work correctly
 		if (this.timeoutMs > 0) {
 			this.timeoutTimer = setTimeout(() => {
@@ -313,6 +349,20 @@ export class TakeoverBridge {
 	}
 
 	// ─── Helpers ─────────────────────────────────────────────────────────────
+
+	private installPageCloseHandler(page: Page): void {
+		const handler = () => {
+			if (this.currentPage === page) this.dispose();
+		};
+		this.currentPageCloseHandler = handler;
+		page.on("close", handler);
+	}
+
+	private detachPageCloseHandler(): void {
+		if (!this.currentPage || !this.currentPageCloseHandler) return;
+		this.currentPage.off("close", this.currentPageCloseHandler);
+		this.currentPageCloseHandler = null;
+	}
 
 	private buildSummary(endReason: "manual" | "timeout"): TakeoverSummary | undefined {
 		if (!this.takeoverStartedAt) return undefined;
