@@ -12,6 +12,8 @@ export interface OriginHeaderConfig {
 	[origin: string]: Record<string, string>;
 }
 
+type RouteHandler = (route: Route) => Promise<void>;
+
 /**
  * Manages per-origin HTTP headers and installs request interception on a Playwright page.
  *
@@ -20,14 +22,15 @@ export interface OriginHeaderConfig {
  * const headers = new OriginHeaders({
  *   'https://api.example.com': { 'Authorization': 'Bearer token123' },
  * });
- * headers.install(page);
+ * await headers.install(page);
  * // All requests to https://api.example.com now include the Authorization header.
  * ```
  */
 export class OriginHeaders {
 	private readonly config: Map<string, Record<string, string>> = new Map();
 	private installedPage: Page | null = null;
-	private routeHandler: ((route: Route) => Promise<void>) | null = null;
+	private routeHandler: RouteHandler | null = null;
+	private rollbackRoutes: Array<{ page: Page; handler: RouteHandler }> = [];
 
 	constructor(config?: OriginHeaderConfig) {
 		if (config) {
@@ -61,14 +64,34 @@ export class OriginHeaders {
 		return {};
 	}
 
-	install(page: Page): void {
-		this.installedPage = page;
-		this.routeHandler = this.createRouteHandler();
+	async install(page: Page): Promise<void> {
+		if (this.installedPage === page && this.routeHandler) return;
 
-		void page.route("**/*", this.routeHandler);
+		const nextHandler = this.createRouteHandler();
+		const routePromise = page.route("**/*", nextHandler);
+		if (routePromise) await routePromise;
+
+		const previousPage = this.installedPage;
+		const previousHandler = this.routeHandler;
+		if (previousPage && previousHandler) {
+			try {
+				await previousPage.unroute("**/*", previousHandler);
+			} catch (error) {
+				try {
+					await page.unroute("**/*", nextHandler);
+				} catch {
+					// Preserve ownership so dispose() can retry removing the rollback route.
+					this.rollbackRoutes.push({ page, handler: nextHandler });
+				}
+				throw error;
+			}
+		}
+
+		this.installedPage = page;
+		this.routeHandler = nextHandler;
 	}
 
-	private createRouteHandler(): (route: Route) => Promise<void> {
+	private createRouteHandler(): RouteHandler {
 		return async (route: Route) => {
 			const request = route.request();
 			const url = request.url();
@@ -117,6 +140,17 @@ export class OriginHeaders {
 			this.installedPage = null;
 			this.routeHandler = null;
 		}
+
+		const rollbackRoutes = this.rollbackRoutes;
+		this.rollbackRoutes = [];
+		for (const { page, handler } of rollbackRoutes) {
+			try {
+				await page.unroute("**/*", handler);
+			} catch {
+				// NOSONAR — page may already be closed
+			}
+		}
+
 		this.config.clear();
 	}
 }
