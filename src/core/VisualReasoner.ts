@@ -87,6 +87,7 @@ const log = createLogger("Vision");
 interface PendingQuestion {
 	resolve: (answer: string | null) => void;
 	timer: ReturnType<typeof setTimeout>;
+	owner: object | undefined;
 }
 
 const pending = new Map<string, PendingQuestion>();
@@ -137,6 +138,7 @@ export async function askVisual(
 		emitter: emitter ?? emitVisual ?? undefined,
 		screenshotFormat,
 		reasoner: currentReasoner,
+		pendingOwner: undefined,
 	});
 }
 
@@ -152,6 +154,7 @@ export async function askVisualScoped(
 		emitter: scope?.emitter ?? emitVisual ?? undefined,
 		screenshotFormat: scope?.screenshotFormat ?? screenshotFormat,
 		reasoner: scopedReasoner,
+		pendingOwner: scope,
 	});
 }
 
@@ -159,6 +162,7 @@ interface ActiveVisualScope {
 	emitter: VisualEmitter | undefined;
 	screenshotFormat: ScreenshotFormat;
 	reasoner: VisualReasoner | null;
+	pendingOwner: object | undefined;
 }
 
 async function askVisualInternal(
@@ -186,7 +190,7 @@ async function askVisualInternal(
 			resolve(null);
 		}, timeoutMs);
 
-		pending.set(id, { resolve, timer });
+		pending.set(id, { resolve, timer, owner: scope.pendingOwner });
 	});
 
 	if (scope.emitter) {
@@ -205,9 +209,15 @@ async function askVisualInternal(
 	return askVisualFallback(screenshot, question, scope.reasoner);
 }
 
+function settlePendingVisual(id: string, entry: PendingQuestion, answer: string): void {
+	clearTimeout(entry.timer);
+	pending.delete(id);
+	entry.resolve(answer);
+}
+
 /**
  * Resolve a pending visual question.
- * Called by the hosting agent after it processes the screenshot.
+ * Called by standalone hosts and retained as the backwards-compatible unrestricted resolver.
  */
 export function resolveVisual(id: string, answer: string): void {
 	const entry = pending.get(id);
@@ -216,9 +226,29 @@ export function resolveVisual(id: string, answer: string): void {
 		return;
 	}
 
-	clearTimeout(entry.timer);
-	pending.delete(id);
-	entry.resolve(answer);
+	settlePendingVisual(id, entry, answer);
+}
+
+/** Resolve a visual question only when it belongs to the caller's scoped visual session. */
+export function resolveVisualScoped(owner: object, id: string, answer: string): boolean {
+	const scope = scopedVisualScopes.get(owner);
+	if (!scope) {
+		log.warn(`resolveVisualScoped called without a visual scope for id: ${id}`);
+		return false;
+	}
+
+	const entry = pending.get(id);
+	if (!entry) {
+		log.warn(`resolveVisualScoped called for unknown id: ${id}`);
+		return false;
+	}
+	if (entry.owner !== scope) {
+		log.warn(`resolveVisualScoped rejected ownership mismatch for id: ${id}`);
+		return false;
+	}
+
+	settlePendingVisual(id, entry, answer);
+	return true;
 }
 
 // ─── VisualReasoner Fallback ─────────────────────────────────────────────────
