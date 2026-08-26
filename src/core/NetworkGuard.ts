@@ -62,23 +62,36 @@ function buildInitScript(options: NetworkGuardOptions): string {
 	var TALOX_NG_PROFILE = ${JSON.stringify(profileClass)};
 
 	if (TALOX_NG_LEVEL === 'off') return;
+	if (window.__taloxNetworkGuardInstalled === true) return;
 
 	// ── Helpers ──────────────────────────────────────────────────────────
 
+	function normalizeUrlInput(url) {
+		if (typeof url === 'string') return url;
+		if (url && typeof url.url === 'string') return url.url;
+		if (url && typeof url.href === 'string') return url.href;
+		try { return String(url); } catch(e) { return null; }
+	}
+
 	function isSameOrigin(url) {
+		var normalized = normalizeUrlInput(url);
+		if (normalized === null) return false;
 		try {
-			return new URL(url, location.href).origin === location.origin;
+			return new URL(normalized, location.href).origin === location.origin;
 		} catch(e) { return false; }
 	}
 
 	function isSpecialScheme(url) {
-		return /^(blob|data|javascript|about):/i.test(url);
+		var normalized = normalizeUrlInput(url);
+		return normalized !== null && /^(blob|data|javascript|about):/i.test(normalized);
 	}
 
 	function isAllowed(url) {
-		if (isSameOrigin(url) || isSpecialScheme(url)) return true;
+		var normalized = normalizeUrlInput(url);
+		if (normalized === null) return false;
+		if (isSameOrigin(normalized) || isSpecialScheme(normalized)) return true;
 		try {
-			var host = new URL(url, location.href).hostname;
+			var host = new URL(normalized, location.href).hostname;
 			for (var i = 0; i < TALOX_NG_ALLOW.length; i++) {
 				if (TALOX_NG_ALLOW[i] === '*' || host === TALOX_NG_ALLOW[i] || host.endsWith('.' + TALOX_NG_ALLOW[i])) {
 					return true;
@@ -130,7 +143,7 @@ function buildInitScript(options: NetworkGuardOptions): string {
 
 	var _origFetch = window.fetch;
 	window.fetch = function(url, init) {
-		var urlStr = typeof url === 'string' ? url : (url.url || '');
+		var urlStr = normalizeUrlInput(url);
 		if (!isAllowed(urlStr)) {
 			logBlocked('fetch', urlStr);
 			if (TALOX_NG_LEVEL === 'strict') {
@@ -164,6 +177,7 @@ function buildInitScript(options: NetworkGuardOptions): string {
 		return _origSend.apply(this, arguments);
 	};
 
+	window.__taloxNetworkGuardInstalled = true;
 })();`;
 }
 
