@@ -16,6 +16,14 @@ describe("Logger credential redaction", () => {
 		expect(value).not.toContain("user:password");
 	});
 
+	it("redacts labeled secrets outside query strings", () => {
+		const secret = "abcdefgh12345678";
+		const value = redactLogString(`blocked https://example.com/redirect/token=${secret}/next`);
+
+		expect(value).not.toContain(secret);
+		expect(value).toContain("token=[REDACTED]");
+	});
+
 	it("redacts bearer and explicit API-key values", () => {
 		const value = redactLogString("Authorization: Bearer abcdefgh12345678 X-API-Key=supersecret123");
 
