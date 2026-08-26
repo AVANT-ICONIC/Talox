@@ -98,7 +98,7 @@ export class OriginHeaders {
 			const extraHeaders = this.getHeadersForUrl(url);
 
 			if (Object.keys(extraHeaders).length === 0) {
-				await route.continue();
+				await route.fallback();
 				return;
 			}
 
@@ -108,7 +108,9 @@ export class OriginHeaders {
 				...extraHeaders,
 			};
 
-			await route.continue({ headers: mergedHeaders });
+			// Use fallback rather than continue so earlier security/policy routes can
+			// inspect the final injected headers before the request reaches the network.
+			await route.fallback({ headers: mergedHeaders });
 		};
 	}
 
