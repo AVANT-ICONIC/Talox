@@ -57,7 +57,8 @@ function rawRecording(): NetworkRecording {
 		}),
 		responseBody: JSON.stringify({ token: "response-token-secret", ok: true }),
 		timestamp: 1,
-	};
+		futureCredential: "future-field-secret",
+	} as NetworkRecording;
 }
 
 describe("NetworkMocker persisted credential safety", () => {
@@ -94,6 +95,7 @@ describe("NetworkMocker persisted credential safety", () => {
 			"nested-api-secret",
 			"response-token-secret",
 			"response-cookie-secret-value",
+			"future-field-secret",
 		]) {
 			expect(persistedText).not.toContain(secret);
 		}
@@ -101,6 +103,7 @@ describe("NetworkMocker persisted credential safety", () => {
 		const persisted = JSON.parse(persistedText) as NetworkRecording[];
 		expect(persisted).toHaveLength(1);
 		const recording = persisted[0]!;
+		expect(recording).not.toHaveProperty("futureCredential");
 		expect(recording.replayUrl).toBe(recording.url);
 		expect(recording.url).toContain("mode=full");
 		expect(recording.url).toContain("REDACTED");
