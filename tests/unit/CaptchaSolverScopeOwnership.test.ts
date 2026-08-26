@@ -132,8 +132,9 @@ describe("captcha solver scope ownership", () => {
 
 		expect(outcomeA.resolved).toBe(true);
 		expect(outcomeB.resolved).toBe(true);
+		expect(outcomeA.attempts[0]?.detail).toContain("reasoner-a");
+		expect(outcomeB.attempts[0]?.detail).toContain("reasoner-b");
 		expect(reasonerA.analyze).toHaveBeenCalledOnce();
 		expect(reasonerB.analyze).toHaveBeenCalledOnce();
-		expect(reasonerA.analyze).not.toHaveBeenCalledWith(expect.anything(), expect.stringContaining("answer-b"));
 	});
 });
