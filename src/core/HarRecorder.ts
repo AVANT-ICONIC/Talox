@@ -93,7 +93,7 @@ interface PendingRequest {
 }
 
 type RequestHandler = (request: Request) => void;
-type ResponseHandler = (response: Response) => void;
+type ResponseHandler = (response: Response) => Promise<void>;
 
 // ─── HarRecorder ────────────────────────────────────────────────────────────
 
@@ -131,13 +131,14 @@ export class HarRecorder {
 			if (this.recording) this.captureRequest(request);
 		};
 		const responseHandler: ResponseHandler = (response) => {
-			if (!this.recording) return;
+			if (!this.recording) return Promise.resolve();
 			const capture = this.captureResponse(response);
 			this.responseCaptures.add(capture);
 			void capture.then(
 				() => this.responseCaptures.delete(capture),
 				() => this.responseCaptures.delete(capture),
 			);
+			return capture;
 		};
 
 		page.on("request", requestHandler);
