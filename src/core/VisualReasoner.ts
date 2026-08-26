@@ -205,7 +205,13 @@ async function askVisualInternal(
 	});
 
 	if (scope.emitter) {
-		scope.emitter({ id, question, image: { format: activeFormat, data: imageData } });
+		try {
+			scope.emitter({ id, question, image: { format: activeFormat, data: imageData } });
+		} catch (error) {
+			const entry = pending.get(id);
+			if (entry) settlePendingVisual(id, entry, VISUAL_CANCELLED);
+			throw error;
+		}
 		log.info(`Visual question emitted: "${question.slice(0, 60)}..." (timeout: ${timeoutMs}ms)`);
 	}
 
