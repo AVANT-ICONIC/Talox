@@ -250,6 +250,25 @@ export class TakeoverBridge {
 		return this.initialize(page, this.headed);
 	}
 
+	/** Release EventBus subscriptions, timers, and the current page reference. */
+	dispose(): void {
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = null;
+		}
+		if (this.eventSubscriptionsInstalled) {
+			this.eventBus.off("humanTakeoverRequested", this.takeoverRequestedHandler);
+			this.eventBus.off("agentResumed", this.agentResumedHandler);
+			this.eventSubscriptionsInstalled = false;
+		}
+		this.currentPage = null;
+		this.headed = false;
+		this.state = "AGENT_RUNNING";
+		this.takeoverStartedAt = null;
+		this.takeoverReason = undefined;
+		this.takeoverStartedUrl = null;
+	}
+
 	/** Signal agent is paused (human has control). */
 	async requestTakeover(reason?: string): Promise<void> {
 		const timestamp = new Date().toISOString();
