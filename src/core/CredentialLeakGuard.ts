@@ -20,6 +20,8 @@ const EXPLICIT_SENSITIVE_HEADERS = new Set([
 	"proxy-authorization",
 	"x-api-key",
 	"api-key",
+	"x-api-token",
+	"api-token",
 	"x-auth-token",
 	"x-access-token",
 	"access-token",
@@ -27,9 +29,9 @@ const EXPLICIT_SENSITIVE_HEADERS = new Set([
 	"x-goog-api-key",
 ]);
 
-const SENSITIVE_HEADER_NAME = /^(?:x[-_])?(?:api[-_]?key|auth[-_]?token|access[-_]?token|secret[-_]?key)$/i;
+const SENSITIVE_HEADER_NAME = /^(?:x[-_])?(?:api[-_]?(?:key|token)|auth[-_]?token|access[-_]?token|secret[-_]?key)$/i;
 const JWT_VALUE = /eyJ[\w-]{10,}\.[\w-]{10,}/i;
-const LABELED_SECRET_VALUE = /(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,}/i;
+const LABELED_SECRET_VALUE = /["']?(?:api[_-]?key|api[_-]?token|secret|token|password|authorization)["']?\s*[:=]\s*["']?(?:bearer\s+|basic\s+)?[\w.+/=-]{8,}/i;
 const AUTH_SCHEME_VALUE = /^\s*(?:bearer|basic)\s+\S{8,}/i;
 
 function textContainsCredential(text: string): boolean {
@@ -39,6 +41,16 @@ function textContainsCredential(text: string): boolean {
 function sensitiveHeaderName(name: string): boolean {
 	const normalized = name.trim().toLowerCase();
 	return EXPLICIT_SENSITIVE_HEADERS.has(normalized) || SENSITIVE_HEADER_NAME.test(normalized);
+}
+
+/** Return a destination safe for security logs without query, path, or user-info secrets. */
+export function credentialSafeDestination(url: string): string {
+	try {
+		const parsed = new URL(url);
+		return parsed.origin === "null" ? parsed.protocol : parsed.origin;
+	} catch {
+		return "<invalid-url>";
+	}
 }
 
 /**
