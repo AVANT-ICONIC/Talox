@@ -49,7 +49,7 @@ export class PolicyEngine {
 	};
 
 	private yamlLoaded = false;
-	private _currentAmount = 0;
+	private _currentAmount: number | null = null;
 
 	async loadPolicyFromYAML(filePath: string): Promise<void> {
 		try {
@@ -104,6 +104,9 @@ export class PolicyEngine {
 				!rule.domains || rule.domains.length === 0 || rule.domains.some((domain) => this.urlMatchesDomain(url, domain));
 			if (!domainMatch) continue;
 
+			const requiresAmount = rule.conditions?.some((condition) => condition.field === "amount") ?? false;
+			if (requiresAmount && this._currentAmount === null) return false;
+
 			const conditionsMet =
 				!rule.conditions || rule.conditions.every((condition) => this.evaluateCondition(condition, url, action));
 			if (!conditionsMet) continue;
@@ -127,9 +130,12 @@ export class PolicyEngine {
 			case "action":
 				fieldValue = action;
 				break;
-			case "amount":
-				fieldValue = this.extractAmountFromContext();
+			case "amount": {
+				const amount = this.extractAmountFromContext();
+				if (amount === null) return false;
+				fieldValue = amount;
 				break;
+			}
 			default:
 				return false;
 		}
@@ -201,7 +207,7 @@ export class PolicyEngine {
 		}
 	}
 
-	private extractAmountFromContext(): number {
+	private extractAmountFromContext(): number | null {
 		return this._currentAmount;
 	}
 
@@ -233,10 +239,14 @@ export class PolicyEngine {
 
 	isActionAllowed(profileClass: ProfileClass, action: string, context?: Record<string, any>): boolean {
 		if (this.yamlLoaded && this.yamlPolicies[profileClass]) {
-			if (context?.amount !== undefined) {
-				this._currentAmount = context.amount;
+			const hasScopedAmount = context?.amount !== undefined;
+			const previousAmount = this._currentAmount;
+			if (hasScopedAmount) this._currentAmount = context.amount;
+			try {
+				return this.evaluateYAMLPolicy(profileClass, context?.url || "", action);
+			} finally {
+				if (hasScopedAmount) this._currentAmount = previousAmount;
 			}
-			return this.evaluateYAMLPolicy(profileClass, context?.url || "", action);
 		}
 
 		if (profileClass === "ops" && this.isDestructiveAction(action)) {
@@ -258,5 +268,6 @@ export class PolicyEngine {
 			this.yamlPolicies[key] = null;
 		}
 		this.yamlLoaded = false;
+		this._currentAmount = null;
 	}
 }
