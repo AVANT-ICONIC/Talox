@@ -196,6 +196,9 @@ export class TakeoverBridge {
 	private takeoverStartedAt: string | null = null;
 	private takeoverReason: string | undefined = undefined;
 	private takeoverStartedUrl: string | null = null;
+	private eventSubscriptionsInstalled = false;
+	private readonly takeoverRequestedHandler = () => void this.onTakeoverRequested();
+	private readonly agentResumedHandler = (event: TaloxEventMap["agentResumed"]) => void this.onAgentResumed(event.reason);
 
 	constructor(eventBus: EventBus<TaloxEventMap>, timeoutMs = 120_000) {
 		this.eventBus = eventBus;
@@ -237,9 +240,7 @@ export class TakeoverBridge {
 			// Already registered
 		}
 
-		// 4. Subscribe to EventBus events
-		this.eventBus.on("humanTakeoverRequested", () => void this.onTakeoverRequested());
-		this.eventBus.on("agentResumed", (e) => void this.onAgentResumed(e.reason));
+		this.ensureEventSubscriptions();
 	}
 
 	/**
@@ -274,8 +275,19 @@ export class TakeoverBridge {
 
 	// ─── EventBus handlers ────────────────────────────────────────────────────
 
+	private ensureEventSubscriptions(): void {
+		if (this.eventSubscriptionsInstalled) return;
+		this.eventBus.on("humanTakeoverRequested", this.takeoverRequestedHandler);
+		this.eventBus.on("agentResumed", this.agentResumedHandler);
+		this.eventSubscriptionsInstalled = true;
+	}
+
 	private async onTakeoverRequested(): Promise<void> {
 		this.state = "WAITING_FOR_HUMAN";
+		if (this.timeoutTimer) {
+			clearTimeout(this.timeoutTimer);
+			this.timeoutTimer = null;
+		}
 		// Register timeout before awaiting overlay update so fake-timer tests work correctly
 		if (this.timeoutMs > 0) {
 			this.timeoutTimer = setTimeout(() => {
