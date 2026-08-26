@@ -56,10 +56,23 @@ export class OriginHeaders {
 	}
 
 	install(page: Page): void {
-		this.installedPage = page;
-		this.routeHandler = this.createRouteHandler();
+		if (this.installedPage === page && this.routeHandler) return;
+		if (this.installedPage || this.routeHandler) {
+			throw new Error("OriginHeaders is already installed on another page. Call dispose() before reinstalling.");
+		}
 
-		void page.route("**/*", this.routeHandler);
+		const routeHandler = this.createRouteHandler();
+		this.installedPage = page;
+		this.routeHandler = routeHandler;
+
+		void page.route("**/*", routeHandler).catch(() => {
+			// Registration failed before this ownership became usable. Release only
+			// if no later lifecycle operation has replaced the same page/handler pair.
+			if (this.installedPage === page && this.routeHandler === routeHandler) {
+				this.installedPage = null;
+				this.routeHandler = null;
+			}
+		});
 	}
 
 	private createRouteHandler(): (route: Route) => Promise<void> {
@@ -84,12 +97,28 @@ export class OriginHeaders {
 	}
 
 	async dispose(): Promise<void> {
-		if (this.installedPage && this.routeHandler) {
-			try {
-				await this.installedPage.unroute("**/*", this.routeHandler);
-			} catch {
-				// NOSONAR — page may already be closed
+		const page = this.installedPage;
+		const handler = this.routeHandler;
+		if (!page || !handler) {
+			this.config.clear();
+			return;
+		}
+
+		try {
+			await page.unroute("**/*", handler);
+		} catch (error) {
+			if (typeof page.isClosed === "function" && page.isClosed()) {
+				// Closed pages cannot retain an active route; ownership is already gone.
+				this.installedPage = null;
+				this.routeHandler = null;
+				this.config.clear();
+				return;
 			}
+			// Preserve page/handler/config so a transient cleanup failure can be retried.
+			throw error;
+		}
+
+		if (this.installedPage === page && this.routeHandler === handler) {
 			this.installedPage = null;
 			this.routeHandler = null;
 		}
