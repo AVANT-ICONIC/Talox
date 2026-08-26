@@ -1,8 +1,14 @@
 import type { BrowserContext, Page, Request, Response, Route } from "playwright-core";
+import {
+	sanitizeCredentialText,
+	sanitizeRecordingHeaders,
+	sanitizeRecordingUrl,
+} from "./NetworkRecordingSanitizer.js";
 
 export interface NetworkRecording {
 	id: string;
 	url: string;
+	replayUrl?: string;
 	method: string;
 	status: number;
 	requestHeaders: Record<string, string>;
@@ -35,9 +41,9 @@ interface MockRouteRegistration {
 
 /**
  * Records and replays network traffic for testing and replay scenarios.
- * Captures full request/response pairs (headers, bodies), replays saved
- * recordings by intercepting and fulfilling matching requests, and supports
- * adding individual mock responses with configurable URL patterns and delays.
+ * Captures full request/response pairs in memory, persists credential-sanitized
+ * recordings, replays saved recordings, and supports individual mock responses
+ * with configurable URL patterns and delays.
  */
 export class NetworkMocker {
 	private readonly context: BrowserContext;
@@ -183,7 +189,14 @@ export class NetworkMocker {
 				return;
 			}
 
-			const matchingRecording = this.recordings.find((r) => r.url === request.url() && r.method === request.method());
+			const requestUrl = request.url();
+			const requestReplayUrl = sanitizeRecordingUrl(requestUrl);
+			const requestMethod = request.method();
+			const matchingRecording = this.recordings.find((recording) => {
+				const comparableRequestUrl = recording.replayUrl === undefined ? requestUrl : requestReplayUrl;
+				const recordedUrl = recording.replayUrl ?? recording.url;
+				return recordedUrl === comparableRequestUrl && recording.method === requestMethod;
+			});
 
 			if (matchingRecording) {
 				const fulfillOptions: {
@@ -285,7 +298,31 @@ export class NetworkMocker {
 
 	async saveToFile(filePath: string): Promise<void> {
 		const fs = await import("node:fs/promises");
-		const data = JSON.stringify(this.recordings, null, 2);
+		const persistedRecordings = this.recordings.map((recording) => {
+			const replayUrl = sanitizeRecordingUrl(recording.replayUrl ?? recording.url);
+			const responseHeaders = sanitizeRecordingHeaders(recording.responseHeaders);
+			const requestBody =
+				recording.requestBody === undefined ? undefined : sanitizeCredentialText(recording.requestBody);
+			const responseBody =
+				recording.responseBody === undefined ? undefined : sanitizeCredentialText(recording.responseBody);
+
+			if (responseBody !== recording.responseBody) {
+				for (const headerName of Object.keys(responseHeaders)) {
+					if (headerName.toLowerCase() === "content-length") delete responseHeaders[headerName];
+				}
+			}
+
+			return {
+				...recording,
+				url: replayUrl,
+				replayUrl,
+				requestHeaders: sanitizeRecordingHeaders(recording.requestHeaders),
+				responseHeaders,
+				...(requestBody === undefined ? {} : { requestBody }),
+				...(responseBody === undefined ? {} : { responseBody }),
+			};
+		});
+		const data = JSON.stringify(persistedRecordings, null, 2);
 		await fs.writeFile(filePath, data, "utf-8");
 	}
 
