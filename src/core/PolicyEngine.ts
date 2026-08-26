@@ -268,5 +268,6 @@ export class PolicyEngine {
 			this.yamlPolicies[key] = null;
 		}
 		this.yamlLoaded = false;
+		this._currentAmount = null;
 	}
 }
