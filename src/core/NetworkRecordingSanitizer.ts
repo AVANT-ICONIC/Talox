@@ -20,16 +20,22 @@ const EXPLICIT_SENSITIVE_HEADERS = new Set([
 	"x-goog-api-key",
 	"client-secret",
 	"x-client-secret",
+	"x-amz-security-token",
+	"x-aws-ec2-metadata-token",
+	"x-csrf-token",
+	"x-xsrf-token",
 ]);
 
 const SENSITIVE_HEADER_NAME =
-	/^(?:x[-_])?(?:api[-_]?(?:key|token)|auth[-_]?token|access[-_]?token|secret[-_]?key|client[-_]?secret)$/i;
+	/^(?:x[-_])?(?:api[-_]?(?:key|token)|auth[-_]?token|(?:access|refresh|id)[-_]?token|secret[-_]?key|client[-_]?secret)$/i;
 const SENSITIVE_FIELD_NAME =
-	/^(?:access[-_]?token|auth[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|cookie|set[-_]?cookie)$/i;
+	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|cookie|set[-_]?cookie|session(?:[-_]?id)?|sid)$/i;
 const SENSITIVE_QUERY_NAME =
-	/^(?:access[-_]?token|auth[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization)$/i;
+	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|session(?:[-_]?id)?|sid|code)$/i;
 const LABELED_SECRET_VALUE =
-	/(\b(?:access[_-]?token|auth[_-]?token|api[_-]?(?:key|token)|client[_-]?secret|secret|token|password|passwd|authorization)\b\s*[:=]\s*["']?)(?:bearer\s+|basic\s+)?[^\s,;&}"']+/gi;
+	/(\b(?:(?:access|refresh|id|auth)[_-]?token|api[_-]?(?:key|token)|client[_-]?secret|secret|token|password|passwd|authorization|session(?:[_-]?id)?|sid)\b\s*[:=]\s*["']?)(?:bearer\s+|basic\s+)?[^\s,;&}"']+/gi;
+const SENSITIVE_PATH_VALUE =
+	/(\/(?:(?:access|refresh|id|auth)[_-]?token|api[_-]?(?:key|token)|client[_-]?secret|secret|token|password|passwd|authorization|session(?:[_-]?id)?)\/)[^/?#\s]+/gi;
 const AUTH_SCHEME_VALUE = /\b(bearer|basic)\s+[^\s,;&}"']+/gi;
 const JWT_VALUE = /\beyJ[\w-]{10,}\.[\w-]{10,}(?:\.[\w-]{10,})?\b/g;
 const URL_USER_INFO = /(https?:\/\/)[^/@\s]+@/gi;
@@ -77,6 +83,7 @@ function sanitizeJsonValue(value: unknown): { value: unknown; changed: boolean }
 function sanitizeCredentialTextFallback(value: string): string {
 	return value
 		.replace(URL_USER_INFO, `$1${REDACTED}@`)
+		.replace(SENSITIVE_PATH_VALUE, `$1${REDACTED}`)
 		.replace(LABELED_SECRET_VALUE, `$1${REDACTED}`)
 		.replace(AUTH_SCHEME_VALUE, `$1 ${REDACTED}`)
 		.replace(JWT_VALUE, REDACTED);
@@ -113,8 +120,8 @@ export function sanitizeRecordingHeaders(headers: Record<string, string>): Recor
 
 /**
  * Produce the explicit URL representation used by safe persisted recordings.
- * Sensitive query values and URL user-info are removed, while path, host,
- * query ordering, and non-sensitive query values remain stable for replay.
+ * Sensitive URL values are normalized while host, route shape, query ordering,
+ * and non-sensitive query values remain stable for replay.
  */
 export function sanitizeRecordingUrl(url: string): string {
 	try {
