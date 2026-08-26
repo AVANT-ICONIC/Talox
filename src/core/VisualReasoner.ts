@@ -87,9 +87,19 @@ const pending = new Map<string, PendingQuestion>();
 
 /** Standalone emit function. Controller-bound perception uses a scoped emitter. */
 let emitVisual: VisualEmitter | null = null;
+/** Weak ownership keeps controller/session routing isolated without retaining dead collectors. */
+const scopedVisualEmitters = new WeakMap<object, VisualEmitter>();
 
 export function setVisualEmitter(fn: VisualEmitter | null): void {
 	emitVisual = fn;
+}
+
+export function setScopedVisualEmitter(owner: object, emitter: VisualEmitter): void {
+	scopedVisualEmitters.set(owner, emitter);
+}
+
+export function getScopedVisualEmitter(owner: object): VisualEmitter | undefined {
+	return scopedVisualEmitters.get(owner);
 }
 
 /**
