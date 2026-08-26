@@ -125,16 +125,25 @@ export const genericVerificationWarmup: WarmupStrategy = {
  */
 export type WarmupMap = Map<string, WarmupStrategy>;
 
+/** Internal immutable-by-convention snapshots so exported defaults cannot become constructor state. */
+const BUILT_IN_WARMUP_DEFINITIONS: ReadonlyArray<readonly [string, WarmupStrategy]> = [
+	["reddit.com", { ...redditWarmup }],
+	["cloudflare.com", { ...cloudflareWarmup }],
+	["*", { ...cloudflareWarmup }],
+];
+
+function createBuiltInWarmups(): WarmupMap {
+	return new Map(BUILT_IN_WARMUP_DEFINITIONS.map(([hostname, strategy]) => [hostname, { ...strategy }]));
+}
+
 /**
  * Pre-registered built-in warmups for known sites.
+ *
+ * This exported map remains mutable for backwards compatibility, but default
+ * `SiteWarmupRegistry` instances are created from private snapshots instead of
+ * using this object as shared constructor state.
  */
-export const BUILT_IN_WARMUPS: WarmupMap = new Map([
-	["reddit.com", redditWarmup],
-	["cloudflare.com", cloudflareWarmup],
-	// The cloudflare warmup is also the default for any site that triggers it.
-	// It is registered as a fallback via the '*' key.
-	["*", cloudflareWarmup],
-]);
+export const BUILT_IN_WARMUPS: WarmupMap = createBuiltInWarmups();
 
 /**
  * Registry that maps hostname suffixes to {@link WarmupStrategy} instances.
@@ -143,14 +152,16 @@ export const BUILT_IN_WARMUPS: WarmupMap = new Map([
 export class SiteWarmupRegistry {
 	private readonly warmups: WarmupMap;
 
-	constructor(builtins: WarmupMap = BUILT_IN_WARMUPS) {
-		this.warmups = new Map(builtins);
+	constructor(builtins?: WarmupMap) {
+		// Preserve caller-provided map reference semantics while giving every
+		// default registry fresh built-in strategy objects of its own.
+		this.warmups = builtins ? new Map(builtins) : createBuiltInWarmups();
 	}
 
 	/**
 	 * Register a warmup strategy for a hostname suffix.
 	 *
-	 * @param hostname - Hostname suffix to match (e.g., `"reddit.com"`).
+	 * @param hostname - Hostname suffix to match (e.g., `"reddit.com").
 	 *                   Use `"*"` to register a catch-all fallback.
 	 * @param strategy - The warmup strategy.
 	 */
