@@ -5,6 +5,8 @@ export interface CredentialLeakCheckInput {
 	url: string;
 	headers?: Record<string, string>;
 	postData?: string | null;
+	/** Exact header name/value pairs explicitly configured by Talox for this destination. */
+	trustedHeaders?: Record<string, string>;
 }
 
 export interface CredentialLeakDetection {
@@ -43,23 +45,37 @@ function sensitiveHeaderName(name: string): boolean {
 	return EXPLICIT_SENSITIVE_HEADERS.has(normalized) || SENSITIVE_HEADER_NAME.test(normalized);
 }
 
+function normalizeHeaders(headers?: Record<string, string>): Map<string, string> {
+	const normalized = new Map<string, string>();
+	for (const [name, value] of Object.entries(headers ?? {})) {
+		normalized.set(name.trim().toLowerCase(), String(value));
+	}
+	return normalized;
+}
+
 /**
  * Detect likely credential exfiltration without returning or logging secret values.
  *
  * Explicit authentication/token headers are treated as credentials whenever they
- * contain a non-empty value. Other header values are inspected only for strong
- * credential shapes so benign application headers are not blocked wholesale.
+ * contain a non-empty value, unless that exact header name/value pair was explicitly
+ * configured by Talox for the current destination. Other header values are inspected
+ * only for strong credential shapes so benign application headers are not blocked wholesale.
  */
 export function detectCredentialLeak(input: CredentialLeakCheckInput): CredentialLeakDetection {
+	const trustedHeaders = normalizeHeaders(input.trustedHeaders);
+
 	for (const [name, rawValue] of Object.entries(input.headers ?? {})) {
 		const value = String(rawValue ?? "");
 		if (!value.trim()) continue;
+
+		const normalizedName = name.trim().toLowerCase();
+		if (trustedHeaders.get(normalizedName) === value) continue;
 
 		if (sensitiveHeaderName(name) || AUTH_SCHEME_VALUE.test(value) || textContainsCredential(`${name}: ${value}`)) {
 			return {
 				blocked: true,
 				source: "header",
-				headerName: name.toLowerCase(),
+				headerName: normalizedName,
 			};
 		}
 	}
