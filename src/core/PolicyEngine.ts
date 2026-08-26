@@ -1,5 +1,6 @@
 import * as fs from "fs-extra";
 import * as yaml from "js-yaml";
+import { isIP } from "node:net";
 import type { ProfileClass } from "../types/index.js";
 import { createLogger } from "./Logger.js";
 
@@ -88,18 +89,17 @@ export class PolicyEngine {
 		const list = this.allowlists[profileClass];
 		if (!list) return false;
 		if (list.includes("*")) return true;
-		return list.some((domain) => url.includes(domain));
+		return list.some((domain) => this.urlMatchesDomain(url, domain));
 	}
 
 	private evaluateYAMLPolicy(profileClass: ProfileClass, url: string, action: string): boolean {
 		const policy = this.yamlPolicies[profileClass];
 		if (!policy) return false;
 
-		const domain = this.extractDomain(url);
 		const matchedRule = policy.rules.find((rule) => {
 			const actionMatch = rule.action === "*" || rule.action === action;
 			const domainMatch =
-				!rule.domains || rule.domains.length === 0 || rule.domains.some((d) => url.includes(d) || domain === d);
+				!rule.domains || rule.domains.length === 0 || rule.domains.some((domain) => this.urlMatchesDomain(url, domain));
 			return actionMatch && domainMatch;
 		});
 
@@ -159,10 +159,39 @@ export class PolicyEngine {
 						return false;
 					}
 				}
-				return false;
 			default:
 				return false;
 		}
+	}
+
+	private urlMatchesDomain(url: string, domainPattern: string): boolean {
+		const pattern = domainPattern.trim().toLowerCase();
+		if (!pattern) return false;
+		if (pattern === "*") return true;
+		if (pattern === "about:blank") return url === "about:blank";
+
+		let requestHost: string;
+		try {
+			requestHost = new URL(url).hostname.toLowerCase();
+		} catch {
+			return false;
+		}
+
+		let allowedHost: string;
+		try {
+			const normalizedPattern = pattern.startsWith("*.") ? pattern.slice(2) : pattern;
+			const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(normalizedPattern)
+				? normalizedPattern
+				: `http://${normalizedPattern}`;
+			allowedHost = new URL(candidate).hostname.toLowerCase();
+		} catch {
+			return false;
+		}
+
+		if (!allowedHost) return false;
+		if (requestHost === allowedHost) return true;
+		if (isIP(allowedHost)) return false;
+		return requestHost.endsWith(`.${allowedHost}`);
 	}
 
 	private extractDomain(url: string): string {
