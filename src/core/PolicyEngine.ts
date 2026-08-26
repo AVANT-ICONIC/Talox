@@ -204,7 +204,7 @@ export class PolicyEngine {
 	}
 
 	private extractAmountFromContext(): number {
-		return 0;
+		return this._currentAmount;
 	}
 
 	setAmountContext(amount: number): void {
