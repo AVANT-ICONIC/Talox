@@ -297,7 +297,7 @@ export class TaloxController {
 				throw new Error(`Takeover initialization failed: ${error instanceof Error ? error.message : String(error)}`);
 			}
 
-			this.setupOriginHeaders(page);
+			await this.setupOriginHeaders(page);
 			this.setupHarRecording(page);
 			this.setupCrossOriginManager(page);
 			await this.setupInspectServer(page);
@@ -315,10 +315,11 @@ export class TaloxController {
 	}
 
 	/** Install per-origin headers if configured. */
-	private setupOriginHeaders(page: import("playwright-core").Page): void {
+	private async setupOriginHeaders(page: import("playwright-core").Page): Promise<void> {
 		if (!this.originHeaderConfig) return;
-		this.originHeaders = new OriginHeaders(this.originHeaderConfig);
-		this.originHeaders.install(page);
+		const headers = new OriginHeaders(this.originHeaderConfig);
+		this.originHeaders = headers;
+		await headers.install(page);
 	}
 
 	/** Start HAR recording if configured. */
