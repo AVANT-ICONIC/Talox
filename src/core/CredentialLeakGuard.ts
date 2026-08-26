@@ -43,16 +43,6 @@ function sensitiveHeaderName(name: string): boolean {
 	return EXPLICIT_SENSITIVE_HEADERS.has(normalized) || SENSITIVE_HEADER_NAME.test(normalized);
 }
 
-/** Return a destination safe for security logs without query, path, or user-info secrets. */
-export function credentialSafeDestination(url: string): string {
-	try {
-		const parsed = new URL(url);
-		return parsed.origin === "null" ? parsed.protocol : parsed.origin;
-	} catch {
-		return "<invalid-url>";
-	}
-}
-
 /**
  * Detect likely credential exfiltration without returning or logging secret values.
  *
