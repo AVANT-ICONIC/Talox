@@ -46,10 +46,16 @@ export class OriginHeaders {
 	}
 
 	getHeadersForUrl(url: string): Record<string, string> {
-		const origins = Array.from(this.config.keys());
-		for (const origin of origins) {
-			if (url.startsWith(origin)) {
-				return { ...this.config.get(origin)! };
+		let requestUrl: URL;
+		try {
+			requestUrl = new URL(url);
+		} catch {
+			return {};
+		}
+
+		for (const [configuredTarget, headers] of this.config) {
+			if (this.matchesTarget(requestUrl, configuredTarget)) {
+				return { ...headers };
 			}
 		}
 		return {};
@@ -81,6 +87,24 @@ export class OriginHeaders {
 
 			await route.continue({ headers: mergedHeaders });
 		};
+	}
+
+	private matchesTarget(requestUrl: URL, configuredTarget: string): boolean {
+		let targetUrl: URL;
+		try {
+			targetUrl = new URL(configuredTarget);
+		} catch {
+			return false;
+		}
+
+		if (requestUrl.origin !== targetUrl.origin) return false;
+
+		const targetPath = targetUrl.pathname;
+		if (targetPath === "/" || targetPath === "") return true;
+		if (requestUrl.pathname === targetPath) return true;
+
+		const pathPrefix = targetPath.endsWith("/") ? targetPath : `${targetPath}/`;
+		return requestUrl.pathname.startsWith(pathPrefix);
 	}
 
 	async dispose(): Promise<void> {
