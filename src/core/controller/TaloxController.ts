@@ -75,7 +75,12 @@ import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
-import { getScopedVisualScope, resolveVisual, type ScreenshotFormat, type VisualReasoner } from "../VisualReasoner.js";
+import {
+	getScopedVisualScope,
+	resolveVisualScoped,
+	type ScreenshotFormat,
+	type VisualReasoner,
+} from "../VisualReasoner.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import type { EventHandler } from "./EventBus.js";
 import { EventBus } from "./EventBus.js";
@@ -1384,7 +1389,12 @@ export class TaloxController {
 	 * @param answer The answer to the visual question
 	 */
 	resolveVisual(id: string, answer: string): void {
-		resolveVisual(id, answer);
+		const collector = this._session.getActivePage();
+		if (!collector) {
+			this.log.warn(`Cannot resolve visual question without an active page: ${id}`);
+			return;
+		}
+		resolveVisualScoped(collector, id, answer);
 	}
 
 	/**

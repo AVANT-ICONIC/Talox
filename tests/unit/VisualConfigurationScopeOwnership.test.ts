@@ -97,6 +97,10 @@ describe("visual configuration scope ownership", () => {
 		const controllerB = new TaloxController();
 		const collectorA = createCollector(controllerA._session);
 		const collectorB = createCollector(controllerB._session);
+		controllerA._session.pages = [collectorA];
+		controllerA._session.activePageIndex = 0;
+		controllerB._session.pages = [collectorB];
+		controllerB._session.activePageIndex = 0;
 		const formatsA: VisualReasoner.ScreenshotFormat[] = [];
 		const formatsB: VisualReasoner.ScreenshotFormat[] = [];
 
