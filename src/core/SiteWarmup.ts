@@ -125,25 +125,30 @@ export const genericVerificationWarmup: WarmupStrategy = {
  */
 export type WarmupMap = Map<string, WarmupStrategy>;
 
-/** Internal immutable-by-convention snapshots so exported defaults cannot become constructor state. */
-const BUILT_IN_WARMUP_DEFINITIONS: ReadonlyArray<readonly [string, WarmupStrategy]> = [
-	["reddit.com", { ...redditWarmup }],
-	["cloudflare.com", { ...cloudflareWarmup }],
-	["*", { ...cloudflareWarmup }],
-];
+/** Private snapshots keep default registry construction independent from exported mutable objects. */
+const DEFAULT_REDDIT_WARMUP: WarmupStrategy = { ...redditWarmup };
+const DEFAULT_CLOUDFLARE_WARMUP: WarmupStrategy = { ...cloudflareWarmup };
 
 function createBuiltInWarmups(): WarmupMap {
-	return new Map(BUILT_IN_WARMUP_DEFINITIONS.map(([hostname, strategy]) => [hostname, { ...strategy }]));
+	return new Map([
+		["reddit.com", { ...DEFAULT_REDDIT_WARMUP }],
+		["cloudflare.com", { ...DEFAULT_CLOUDFLARE_WARMUP }],
+		["*", { ...DEFAULT_CLOUDFLARE_WARMUP }],
+	]);
 }
 
 /**
  * Pre-registered built-in warmups for known sites.
  *
- * This exported map remains mutable for backwards compatibility, but default
- * `SiteWarmupRegistry` instances are created from private snapshots instead of
- * using this object as shared constructor state.
+ * This exported map retains its historical strategy identities for backwards
+ * compatibility, while default `SiteWarmupRegistry` instances are created from
+ * private snapshots instead of using this object as shared constructor state.
  */
-export const BUILT_IN_WARMUPS: WarmupMap = createBuiltInWarmups();
+export const BUILT_IN_WARMUPS: WarmupMap = new Map([
+	["reddit.com", redditWarmup],
+	["cloudflare.com", cloudflareWarmup],
+	["*", cloudflareWarmup],
+]);
 
 /**
  * Registry that maps hostname suffixes to {@link WarmupStrategy} instances.
@@ -153,15 +158,15 @@ export class SiteWarmupRegistry {
 	private readonly warmups: WarmupMap;
 
 	constructor(builtins?: WarmupMap) {
-		// Preserve caller-provided map reference semantics while giving every
-		// default registry fresh built-in strategy objects of its own.
+		// Preserve caller-provided strategy identity while giving every default
+		// registry fresh built-in strategy objects of its own.
 		this.warmups = builtins ? new Map(builtins) : createBuiltInWarmups();
 	}
 
 	/**
 	 * Register a warmup strategy for a hostname suffix.
 	 *
-	 * @param hostname - Hostname suffix to match (e.g., `"reddit.com").
+	 * @param hostname - Hostname suffix to match (e.g., `"reddit.com"`).
 	 *                   Use `"*"` to register a catch-all fallback.
 	 * @param strategy - The warmup strategy.
 	 */
