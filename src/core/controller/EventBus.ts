@@ -62,9 +62,10 @@ export class EventBus<TMap extends object> {
 	 * Unsubscribe a specific handler from an event.
 	 */
 	off<K extends keyof TMap>(event: K, handler: EventHandler<TMap[K]>): void {
+		const before = this.emitter.listenerCount(event as string);
 		this.emitter.off(event as string, handler as (...args: unknown[]) => void);
-		const current = this.counts.get(event) ?? 0;
-		if (current > 0) this.counts.set(event, current - 1);
+		const after = this.emitter.listenerCount(event as string);
+		if (after < before) this.counts.set(event, after);
 	}
 
 	// ─── Emit ──────────────────────────────────────────────────────────────────
