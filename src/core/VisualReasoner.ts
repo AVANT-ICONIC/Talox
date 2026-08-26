@@ -156,7 +156,7 @@ export async function askVisualScoped(
 }
 
 interface ActiveVisualScope {
-	emitter?: VisualEmitter;
+	emitter: VisualEmitter | undefined;
 	screenshotFormat: ScreenshotFormat;
 	reasoner: VisualReasoner | null;
 }
