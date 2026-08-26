@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectCredentialLeak } from "../../src/core/CredentialLeakGuard.js";
+import { credentialSafeDestination, detectCredentialLeak } from "../../src/core/CredentialLeakGuard.js";
 
 describe("detectCredentialLeak", () => {
 	it("blocks bearer authorization headers without exposing the value", () => {
@@ -47,6 +47,17 @@ describe("detectCredentialLeak", () => {
 		expect(result).toEqual({ blocked: true, source: "body" });
 	});
 
+	it("detects quoted JSON credential fields", () => {
+		const result = detectCredentialLeak({
+			method: "POST",
+			url: "https://example.com/session",
+			headers: { "content-type": "application/json" },
+			postData: JSON.stringify({ password: "correct-horse-battery-staple" }),
+		});
+
+		expect(result).toEqual({ blocked: true, source: "body" });
+	});
+
 	it("scans URLs for credentials regardless of HTTP method", () => {
 		const result = detectCredentialLeak({
 			method: "GET",
@@ -70,5 +81,20 @@ describe("detectCredentialLeak", () => {
 		});
 
 		expect(result).toEqual({ blocked: false });
+	});
+});
+
+describe("credentialSafeDestination", () => {
+	it("keeps only the origin so URL credentials never reach logs", () => {
+		const secret = "super-secret-token";
+		const destination = credentialSafeDestination(`https://user:password@example.com/private/${secret}?token=${secret}`);
+
+		expect(destination).toBe("https://example.com");
+		expect(destination).not.toContain(secret);
+		expect(destination).not.toContain("password");
+	});
+
+	it("fails closed for malformed destinations", () => {
+		expect(credentialSafeDestination("not a URL token=abcdefgh12345678")).toBe("<invalid-url>");
 	});
 });
