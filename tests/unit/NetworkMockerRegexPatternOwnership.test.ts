@@ -20,6 +20,7 @@ function makePage() {
 function makeRoute() {
 	return {
 		continue: vi.fn(async () => {}),
+		fallback: vi.fn(async () => {}),
 		fulfill: vi.fn(async () => {}),
 	};
 }
@@ -51,6 +52,8 @@ describe("NetworkMocker stateful RegExp ownership", () => {
 		expect(secondRoute.fulfill).toHaveBeenCalledOnce();
 		expect(firstRoute.continue).not.toHaveBeenCalled();
 		expect(secondRoute.continue).not.toHaveBeenCalled();
+		expect(firstRoute.fallback).not.toHaveBeenCalled();
+		expect(secondRoute.fallback).not.toHaveBeenCalled();
 		expect(original.lastIndex).toBe(0);
 	});
 
@@ -72,7 +75,8 @@ describe("NetworkMocker stateful RegExp ownership", () => {
 
 		expect(matchingRoute.fulfill).toHaveBeenCalledOnce();
 		expect(shiftedRoute.fulfill).not.toHaveBeenCalled();
-		expect(shiftedRoute.continue).toHaveBeenCalledOnce();
+		expect(shiftedRoute.fallback).toHaveBeenCalledOnce();
+		expect(shiftedRoute.continue).not.toHaveBeenCalled();
 		expect(original.lastIndex).toBe(0);
 	});
 
