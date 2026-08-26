@@ -44,7 +44,7 @@
 import type { TaloxPageState } from "../types/index.js";
 import type { ChallengeDetector, ChallengeState } from "./ChallengeDetector.js";
 import type { PageStateCollector } from "./PageStateCollector.js";
-import { askVisual } from "./VisualReasoner.js";
+import { askVisual, getScopedVisualEmitter } from "./VisualReasoner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,13 +53,13 @@ export type PerceptionPreset = "cheap" | "medium" | "heavy";
 export interface PerceptionLayerFlags {
 	/** Collect AX tree + interactive elements. Always true — required for all presets. */
 	structural: boolean;
-	/** Collect console errors + failed network requests. */
+	/** Collect console errors + failed HTTP requests. */
 	network: boolean;
 	/** Run RulesEngine structural diff + layout bug analysis. */
 	bugs: boolean;
 	/** Run ChallengeDetector scan. */
 	challenge: boolean;
-	/** Capture full-page screenshot PNG. */
+	/** Capture full-page PNG capture. */
 	screenshot: boolean;
 }
 
@@ -189,7 +189,7 @@ export class PerceptionStack {
 			const page = this.collector.getPage();
 			if (!page) return null;
 			const screenshot = await page.screenshot({ type: "png", fullPage: false });
-			return await askVisual(screenshot, question);
+			return await askVisual(screenshot, question, 15_000, getScopedVisualEmitter(this.collector));
 		} catch {
 			return null;
 		}
