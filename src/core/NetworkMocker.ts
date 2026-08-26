@@ -298,7 +298,7 @@ export class NetworkMocker {
 
 	async saveToFile(filePath: string): Promise<void> {
 		const fs = await import("node:fs/promises");
-		const persistedRecordings = this.recordings.map((recording) => {
+		const persistedRecordings = this.recordings.map((recording): NetworkRecording => {
 			const replayUrl = sanitizeRecordingUrl(recording.replayUrl ?? recording.url);
 			const responseHeaders = sanitizeRecordingHeaders(recording.responseHeaders);
 			const requestBody =
@@ -312,15 +312,19 @@ export class NetworkMocker {
 				}
 			}
 
-			return {
-				...recording,
+			const persisted: NetworkRecording = {
+				id: recording.id,
 				url: replayUrl,
 				replayUrl,
+				method: recording.method,
+				status: recording.status,
 				requestHeaders: sanitizeRecordingHeaders(recording.requestHeaders),
 				responseHeaders,
-				...(requestBody === undefined ? {} : { requestBody }),
-				...(responseBody === undefined ? {} : { responseBody }),
+				timestamp: recording.timestamp,
 			};
+			if (requestBody !== undefined) persisted.requestBody = requestBody;
+			if (responseBody !== undefined) persisted.responseBody = responseBody;
+			return persisted;
 		});
 		const data = JSON.stringify(persistedRecordings, null, 2);
 		await fs.writeFile(filePath, data, "utf-8");
