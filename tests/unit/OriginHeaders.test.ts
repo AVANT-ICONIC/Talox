@@ -25,6 +25,7 @@ function createMockRoute(url: string, headers: Record<string, string>) {
 			headers: vi.fn().mockReturnValue(headers),
 		}),
 		continue: vi.fn().mockResolvedValue(undefined),
+		fallback: vi.fn().mockResolvedValue(undefined),
 	};
 }
 
@@ -135,7 +136,7 @@ describe("OriginHeaders", () => {
 			expect(page.route).toHaveBeenCalledWith("**/*", expect.any(Function));
 		});
 
-		it("route handler adds headers for matching URLs", async () => {
+		it("route handler adds headers and falls back to earlier routes", async () => {
 			const oh = new OriginHeaders({
 				"https://example.com": { Authorization: "Bearer tok" },
 			});
@@ -150,15 +151,16 @@ describe("OriginHeaders", () => {
 			await handler(route);
 
 			expect(route.request).toHaveBeenCalled();
-			expect(route.continue).toHaveBeenCalledWith({
+			expect(route.fallback).toHaveBeenCalledWith({
 				headers: {
 					"content-type": "application/json",
 					Authorization: "Bearer tok",
 				},
 			});
+			expect(route.continue).not.toHaveBeenCalled();
 		});
 
-		it("route handler continues without modification for non-matching URLs", async () => {
+		it("route handler falls back without modification for non-matching URLs", async () => {
 			const oh = new OriginHeaders({
 				"https://api.example.com": { Authorization: "Bearer tok" },
 			});
@@ -170,7 +172,8 @@ describe("OriginHeaders", () => {
 
 			await handler(route);
 
-			expect(route.continue).toHaveBeenCalledWith();
+			expect(route.fallback).toHaveBeenCalledWith();
+			expect(route.continue).not.toHaveBeenCalled();
 		});
 
 		it("dispose unroutes and clears config", async () => {
