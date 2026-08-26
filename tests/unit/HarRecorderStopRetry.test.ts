@@ -13,6 +13,9 @@ function createPage() {
 		on: vi.fn((event: string, handler: (...args: any[]) => any) => {
 			listeners.set(event, handler);
 		}),
+		off: vi.fn((event: string, handler: (...args: any[]) => any) => {
+			if (listeners.get(event) === handler) listeners.delete(event);
+		}),
 		listener: (event: string) => {
 			const handler = listeners.get(event);
 			if (!handler) throw new Error(`missing ${event} listener`);
