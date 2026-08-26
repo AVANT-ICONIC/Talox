@@ -56,6 +56,14 @@ export interface OpenAIVisionConfig {
 
 export type ScreenshotFormat = "base64" | "file" | "buffer";
 
+export interface VisualQuestionPayload {
+	id: string;
+	question: string;
+	image: { format: ScreenshotFormat; data: string };
+}
+
+export type VisualEmitter = (payload: VisualQuestionPayload) => void;
+
 let screenshotFormat: ScreenshotFormat = "base64";
 
 export function setScreenshotFormat(format: ScreenshotFormat): void {
@@ -77,12 +85,10 @@ interface PendingQuestion {
 
 const pending = new Map<string, PendingQuestion>();
 
-/** Emit function — set by TaloxController when EventBus is ready. */
-let emitVisual:
-	| ((payload: { id: string; question: string; image: { format: ScreenshotFormat; data: string } }) => void)
-	| null = null;
+/** Standalone emit function. Controller-bound perception uses a scoped emitter. */
+let emitVisual: VisualEmitter | null = null;
 
-export function setVisualEmitter(fn: typeof emitVisual): void {
+export function setVisualEmitter(fn: VisualEmitter | null): void {
 	emitVisual = fn;
 }
 
@@ -93,8 +99,14 @@ export function setVisualEmitter(fn: typeof emitVisual): void {
  * @param screenshot PNG screenshot buffer
  * @param question  Natural language question
  * @param timeoutMs Max wait for agent response (default: 15000)
+ * @param emitter   Optional scoped emitter. Falls back to the standalone emitter.
  */
-export async function askVisual(screenshot: Buffer, question: string, timeoutMs = 15_000): Promise<string | null> {
+export async function askVisual(
+	screenshot: Buffer,
+	question: string,
+	timeoutMs = 15_000,
+	emitter?: VisualEmitter,
+): Promise<string | null> {
 	const id = `vis-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 	// Format the image
@@ -118,9 +130,10 @@ export async function askVisual(screenshot: Buffer, question: string, timeoutMs 
 		pending.set(id, { resolve, timer });
 	});
 
-	// Emit the event for the hosting agent
-	if (emitVisual) {
-		emitVisual({ id, question, image: { format: screenshotFormat, data: imageData } });
+	// Prefer a session-scoped emitter; retain the global emitter for standalone API use.
+	const activeEmitter = emitter ?? emitVisual;
+	if (activeEmitter) {
+		activeEmitter({ id, question, image: { format: screenshotFormat, data: imageData } });
 		log.info(`Visual question emitted: "${question.slice(0, 60)}..." (timeout: ${timeoutMs}ms)`);
 	}
 
