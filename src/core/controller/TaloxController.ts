@@ -75,13 +75,7 @@ import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
-import {
-	resolveVisual,
-	type ScreenshotFormat,
-	setScreenshotFormat,
-	setVisualReasoner,
-	type VisualReasoner,
-} from "../VisualReasoner.js";
+import { resolveVisual, type ScreenshotFormat, type VisualReasoner } from "../VisualReasoner.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import type { EventHandler } from "./EventBus.js";
 import { EventBus } from "./EventBus.js";
@@ -1392,11 +1386,11 @@ export class TaloxController {
 	 * - `"buffer"` — raw base64 (for in-process SDK usage)
 	 */
 	setScreenshotFormat(format: ScreenshotFormat): void {
-		setScreenshotFormat(format);
+		this._session.setScreenshotFormat(format);
 	}
 
 	useVision(reasoner: VisualReasoner | null): void {
-		setVisualReasoner(reasoner);
+		this._session.setVisualReasoner(reasoner);
 	}
 
 	useSolver(solver: CaptchaSolver): void {
