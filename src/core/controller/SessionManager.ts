@@ -31,7 +31,12 @@ import { PolicyEngine } from "../PolicyEngine.js";
 import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
-import { setScopedVisualEmitter } from "../VisualReasoner.js";
+import {
+	type ScreenshotFormat,
+	setScopedVisualScope,
+	type VisualReasoner,
+	type VisualScope,
+} from "../VisualReasoner.js";
 import { VisionGate } from "../VisionGate.js";
 import type { EventBus } from "./EventBus.js";
 
@@ -77,6 +82,7 @@ export class SessionManager {
 	private fingerprint: FingerprintProfile | null = null;
 	private readonly fingerprintGen = new FingerprintGenerator();
 	private _networkGuard: NetworkGuard | null = null;
+	private readonly visualScope: VisualScope;
 
 	constructor(
 		private readonly settings: TaloxSettings,
@@ -90,6 +96,7 @@ export class SessionManager {
 		this.visionGate = new VisionGate();
 		this.policyEngine = new PolicyEngine();
 		this.dialogHandler = new AutoDialogHandler(events, settings.verbosity);
+		this.visualScope = { emitter: (payload) => this.events.emit("visualQuestion", payload) };
 	}
 
 	// ─── Launch ──────────────────────────────────────────────────────────────────
@@ -375,6 +382,14 @@ export class SessionManager {
 	}
 
 	// ─── Visual Verification ─────────────────────────────────────────────────────
+
+	setScreenshotFormat(format: ScreenshotFormat): void {
+		this.visualScope.screenshotFormat = format;
+	}
+
+	setVisualReasoner(reasoner: VisualReasoner | null): void {
+		this.visualScope.reasoner = reasoner;
+	}
 
 	async verifyVisual(baselineKey: string, autoSave: boolean = false): Promise<any> {
 		const page = this.getPage();
@@ -759,7 +774,7 @@ export class SessionManager {
 
 	private createStateCollector(page: Page): PageStateCollector {
 		const collector = new PageStateCollector(page);
-		setScopedVisualEmitter(collector, (payload) => this.events.emit("visualQuestion", payload));
+		setScopedVisualScope(collector, this.visualScope);
 		return collector;
 	}
 
