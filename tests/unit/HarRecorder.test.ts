@@ -53,6 +53,9 @@ function createMockPage() {
 			listeners[event] = listeners[event] || [];
 			listeners[event].push(handler);
 		}),
+		off: vi.fn().mockImplementation((event: string, handler: (...args: any[]) => any) => {
+			listeners[event] = (listeners[event] || []).filter((candidate) => candidate !== handler);
+		}),
 		getListeners: (event: string) => listeners[event] || [],
 	};
 }
@@ -82,7 +85,7 @@ describe("HarRecorder", () => {
 			const page = createMockPage();
 			recorder.start(page as any);
 			recorder.start(page as any);
-			expect(page.on).toHaveBeenCalledTimes(2); // once per start call
+			expect(page.on).toHaveBeenCalledTimes(2); // one request + one response listener
 		});
 
 		it("stop sets recording to false", async () => {
