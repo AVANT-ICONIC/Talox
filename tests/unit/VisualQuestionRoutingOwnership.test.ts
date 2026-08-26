@@ -3,15 +3,7 @@ import { PerceptionStack } from "../../src/core/PerceptionStack.js";
 import { EventBus } from "../../src/core/controller/EventBus.js";
 import { SessionManager } from "../../src/core/controller/SessionManager.js";
 import { TaloxController } from "../../src/core/controller/TaloxController.js";
-import {
-	askVisual,
-	getScopedVisualEmitter,
-	resolveVisual,
-	setScopedVisualEmitter,
-	setVisualEmitter,
-	setVisualReasoner,
-	type VisualQuestionPayload,
-} from "../../src/core/VisualReasoner.js";
+import * as VisualReasoner from "../../src/core/VisualReasoner.js";
 import type { TaloxEventMap } from "../../src/types/events.js";
 import { DEFAULT_SETTINGS } from "../../src/types/settings.js";
 
@@ -32,21 +24,27 @@ function makePage() {
 }
 
 afterEach(() => {
-	setVisualEmitter(null);
-	setVisualReasoner(null);
+	VisualReasoner.setVisualEmitter(null);
+	VisualReasoner.setVisualReasoner(null);
 });
 
 describe("visual question routing ownership", () => {
 	it("routes concurrent perception questions only to their owning collectors", async () => {
 		const collectorA = makeCollector();
 		const collectorB = makeCollector();
-		const emitterA = vi.fn((payload: VisualQuestionPayload) => resolveVisual(payload.id, "answer-a"));
-		const emitterB = vi.fn((payload: VisualQuestionPayload) => resolveVisual(payload.id, "answer-b"));
-		const globalEmitter = vi.fn((payload: VisualQuestionPayload) => resolveVisual(payload.id, "wrong-global-answer"));
+		const emitterA = vi.fn((payload: VisualReasoner.VisualQuestionPayload) =>
+			VisualReasoner.resolveVisual(payload.id, "answer-a"),
+		);
+		const emitterB = vi.fn((payload: VisualReasoner.VisualQuestionPayload) =>
+			VisualReasoner.resolveVisual(payload.id, "answer-b"),
+		);
+		const globalEmitter = vi.fn((payload: VisualReasoner.VisualQuestionPayload) =>
+			VisualReasoner.resolveVisual(payload.id, "wrong-global-answer"),
+		);
 
-		setVisualEmitter(globalEmitter);
-		setScopedVisualEmitter(collectorA, emitterA);
-		setScopedVisualEmitter(collectorB, emitterB);
+		VisualReasoner.setVisualEmitter(globalEmitter);
+		VisualReasoner.setScopedVisualEmitter(collectorA, emitterA);
+		VisualReasoner.setScopedVisualEmitter(collectorB, emitterB);
 
 		const [answerA, answerB] = await Promise.all([
 			new PerceptionStack(collectorA).askVisual("question-a"),
@@ -63,10 +61,12 @@ describe("visual question routing ownership", () => {
 	});
 
 	it("keeps the global emitter as the standalone fallback", async () => {
-		const globalEmitter = vi.fn((payload: VisualQuestionPayload) => resolveVisual(payload.id, "standalone-answer"));
-		setVisualEmitter(globalEmitter);
+		const globalEmitter = vi.fn((payload: VisualReasoner.VisualQuestionPayload) =>
+			VisualReasoner.resolveVisual(payload.id, "standalone-answer"),
+		);
+		VisualReasoner.setVisualEmitter(globalEmitter);
 
-		const answer = await askVisual(Buffer.from("fake-png"), "standalone-question", 100);
+		const answer = await VisualReasoner.askVisual(Buffer.from("fake-png"), "standalone-question", 100);
 
 		expect(answer).toBe("standalone-answer");
 		expect(globalEmitter).toHaveBeenCalledOnce();
@@ -85,19 +85,19 @@ describe("visual question routing ownership", () => {
 
 		const collectorA = (managerA as any).createStateCollector(makePage());
 		const collectorB = (managerB as any).createStateCollector(makePage());
-		const payloadA: VisualQuestionPayload = {
+		const payloadA: VisualReasoner.VisualQuestionPayload = {
 			id: "a",
 			question: "owned-by-a",
 			image: { format: "base64", data: "a" },
 		};
-		const payloadB: VisualQuestionPayload = {
+		const payloadB: VisualReasoner.VisualQuestionPayload = {
 			id: "b",
 			question: "owned-by-b",
 			image: { format: "base64", data: "b" },
 		};
 
-		getScopedVisualEmitter(collectorA)?.(payloadA);
-		getScopedVisualEmitter(collectorB)?.(payloadB);
+		VisualReasoner.getScopedVisualEmitter(collectorA)?.(payloadA);
+		VisualReasoner.getScopedVisualEmitter(collectorB)?.(payloadB);
 
 		expect(seenA).toHaveBeenCalledOnce();
 		expect(seenA).toHaveBeenCalledWith(payloadA);
@@ -106,12 +106,14 @@ describe("visual question routing ownership", () => {
 	});
 
 	it("constructing controllers does not overwrite the standalone emitter", async () => {
-		const standaloneEmitter = vi.fn((payload: VisualQuestionPayload) => resolveVisual(payload.id, "still-standalone"));
-		setVisualEmitter(standaloneEmitter);
+		const standaloneEmitter = vi.fn((payload: VisualReasoner.VisualQuestionPayload) =>
+			VisualReasoner.resolveVisual(payload.id, "still-standalone"),
+		);
+		VisualReasoner.setVisualEmitter(standaloneEmitter);
 
 		new TaloxController();
 		new TaloxController();
-		const answer = await askVisual(Buffer.from("fake-png"), "after-controller-construction", 100);
+		const answer = await VisualReasoner.askVisual(Buffer.from("fake-png"), "after-controller-construction", 100);
 
 		expect(answer).toBe("still-standalone");
 		expect(standaloneEmitter).toHaveBeenCalledOnce();
