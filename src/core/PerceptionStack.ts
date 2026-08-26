@@ -44,7 +44,7 @@
 import type { TaloxPageState } from "../types/index.js";
 import type { ChallengeDetector, ChallengeState } from "./ChallengeDetector.js";
 import type { PageStateCollector } from "./PageStateCollector.js";
-import { askVisualScoped } from "./VisualReasoner.js";
+import { askVisualScoped, cancelScopedVisualQuestions } from "./VisualReasoner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ export type PerceptionPreset = "cheap" | "medium" | "heavy";
 export interface PerceptionLayerFlags {
 	/** Collect AX tree + interactive elements. Always true — required for all presets. */
 	structural: boolean;
-	/** Collect console errors + failed network requests. */
+	/** Collect console errors + failed HTTP requests. */
 	network: boolean;
 	/** Run RulesEngine structural diff + layout bug analysis. */
 	bugs: boolean;
@@ -117,6 +117,8 @@ export const PERCEPTION_PRESETS: Record<PerceptionPreset, PerceptionLayerFlags> 
 
 // ─── PerceptionStack ──────────────────────────────────────────────────────────
 
+const visualCloseBoundCollectors = new WeakSet<PageStateCollector>();
+
 /**
  * Composable wrapper around `PageStateCollector` that assembles perception
  * into presets and caches results within a single agent action cycle.
@@ -136,7 +138,17 @@ export class PerceptionStack {
 	constructor(
 		private readonly collector: PageStateCollector,
 		private readonly challengeDetector: ChallengeDetector | null = null,
-	) {}
+	) {
+		if (!visualCloseBoundCollectors.has(collector)) {
+			const page = collector.getPage();
+			if (page && typeof page.on === "function") {
+				visualCloseBoundCollectors.add(collector);
+				page.on("close", () => {
+					cancelScopedVisualQuestions(collector);
+				});
+			}
+		}
+	}
 
 	// ─── Public API ─────────────────────────────────────────────────────────────
 

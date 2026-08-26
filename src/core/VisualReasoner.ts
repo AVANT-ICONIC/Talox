@@ -83,11 +83,14 @@ export function getScreenshotFormat(): ScreenshotFormat {
 // ─── Event-based Resolution ──────────────────────────────────────────────────
 
 const log = createLogger("Vision");
+const VISUAL_CANCELLED = Symbol("visual-cancelled");
+type VisualQuestionResolution = string | null | typeof VISUAL_CANCELLED;
 
 interface PendingQuestion {
-	resolve: (answer: string | null) => void;
+	resolve: (answer: VisualQuestionResolution) => void;
 	timer: ReturnType<typeof setTimeout>;
-	owner: object | undefined;
+	resolutionOwner: object | undefined;
+	sourceOwner: object | undefined;
 }
 
 const pending = new Map<string, PendingQuestion>();
@@ -138,7 +141,8 @@ export async function askVisual(
 		emitter: emitter ?? emitVisual ?? undefined,
 		screenshotFormat,
 		reasoner: currentReasoner,
-		pendingOwner: undefined,
+		resolutionOwner: undefined,
+		sourceOwner: undefined,
 	});
 }
 
@@ -154,7 +158,8 @@ export async function askVisualScoped(
 		emitter: scope?.emitter ?? emitVisual ?? undefined,
 		screenshotFormat: scope?.screenshotFormat ?? screenshotFormat,
 		reasoner: scopedReasoner,
-		pendingOwner: scope,
+		resolutionOwner: scope,
+		sourceOwner: owner,
 	});
 }
 
@@ -162,7 +167,8 @@ interface ActiveVisualScope {
 	emitter: VisualEmitter | undefined;
 	screenshotFormat: ScreenshotFormat;
 	reasoner: VisualReasoner | null;
-	pendingOwner: object | undefined;
+	resolutionOwner: object | undefined;
+	sourceOwner: object | undefined;
 }
 
 async function askVisualInternal(
@@ -184,13 +190,18 @@ async function askVisualInternal(
 		imageData = `data:image/png;base64,${screenshot.toString("base64")}`;
 	}
 
-	const promise = new Promise<string | null>((resolve) => {
+	const promise = new Promise<VisualQuestionResolution>((resolve) => {
 		const timer = setTimeout(() => {
 			pending.delete(id);
 			resolve(null);
 		}, timeoutMs);
 
-		pending.set(id, { resolve, timer, owner: scope.pendingOwner });
+		pending.set(id, {
+			resolve,
+			timer,
+			resolutionOwner: scope.resolutionOwner,
+			sourceOwner: scope.sourceOwner,
+		});
 	});
 
 	if (scope.emitter) {
@@ -199,6 +210,11 @@ async function askVisualInternal(
 	}
 
 	const agentAnswer = await promise;
+
+	if (agentAnswer === VISUAL_CANCELLED) {
+		log.info(`Visual question cancelled because its source page closed`);
+		return null;
+	}
 
 	if (agentAnswer !== null) {
 		log.info(`Agent resolved visual question in time`);
@@ -209,10 +225,24 @@ async function askVisualInternal(
 	return askVisualFallback(screenshot, question, scope.reasoner);
 }
 
-function settlePendingVisual(id: string, entry: PendingQuestion, answer: string): void {
+function settlePendingVisual(id: string, entry: PendingQuestion, answer: VisualQuestionResolution): void {
 	clearTimeout(entry.timer);
 	pending.delete(id);
 	entry.resolve(answer);
+}
+
+/**
+ * Cancel pending scoped visual questions that originated from one perception owner.
+ * Cancellation resolves callers with `null` and never invokes the VLM timeout fallback.
+ */
+export function cancelScopedVisualQuestions(owner: object): number {
+	let cancelled = 0;
+	for (const [id, entry] of pending) {
+		if (entry.sourceOwner !== owner) continue;
+		settlePendingVisual(id, entry, VISUAL_CANCELLED);
+		cancelled++;
+	}
+	return cancelled;
 }
 
 /**
@@ -242,7 +272,7 @@ export function resolveVisualScoped(owner: object, id: string, answer: string): 
 		log.warn(`resolveVisualScoped called for unknown id: ${id}`);
 		return false;
 	}
-	if (entry.owner !== scope) {
+	if (entry.resolutionOwner !== scope) {
 		log.warn(`resolveVisualScoped rejected ownership mismatch for id: ${id}`);
 		return false;
 	}
