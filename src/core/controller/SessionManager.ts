@@ -22,6 +22,7 @@ import type { TaloxSettings } from "../../types/settings.js";
 import { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { AutoDialogHandler } from "../AutoDialogHandler.js";
 import { BrowserManager, type BrowserType } from "../BrowserManager.js";
+import { detectCredentialLeak } from "../CredentialLeakGuard.js";
 import { FingerprintGenerator, type FingerprintProfile } from "../FingerprintGenerator.js";
 import { createLogger } from "../Logger.js";
 import { createNetworkGuard, type NetworkGuard } from "../NetworkGuard.js";
@@ -648,28 +649,29 @@ export class SessionManager {
 		if (!this.profile || this.profile.class === "sandbox") return;
 
 		// 1. Outbound Request Guard
-		await page.route("**/*", (route: any) => {
+		await page.route("**/*", async (route: any) => {
 			const request = route.request();
 			const method = request.method();
 			const url = request.url();
 
-			if ((method === "POST" || method === "PUT") && this.profile?.class === "ops") {
-				const postData = request.postData() || "";
-				// Match JWT tokens (eyJ...), API keys, bearer tokens, and common secret patterns
-				const jwtRegex = /(eyJ[\w-]{10,}\.[\w-]{10,})/i;
-				const secretKeyRegex = /(?:api[_-]?key|secret|token|password|bearer)\s*[:=]\s*['"]?[\w-]{8,}/i;
+			if (this.profile?.class === "ops") {
+				const detection = detectCredentialLeak({
+					method,
+					url,
+					headers: request.headers(),
+					postData: request.postData(),
+				});
 
-				if (
-					jwtRegex.test(postData) ||
-					secretKeyRegex.test(postData) ||
-					jwtRegex.test(url) ||
-					secretKeyRegex.test(url)
-				) {
-					this.log.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak to ${url}`);
+				if (detection.blocked) {
+					const detail =
+						detection.source === "header" && detection.headerName
+							? `header ${detection.headerName}`
+							: detection.source ?? "request";
+					this.log.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak via ${detail} to ${url}`);
 					return route.abort("accessdenied");
 				}
 			}
-			route.continue();
+			await route.continue();
 		});
 
 		// 2. Per-Tab Behavior Monitoring (Popup Storms / Dialogs)

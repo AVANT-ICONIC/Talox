@@ -26,6 +26,31 @@ const LEVEL_MAP: Record<LogLevel, number> = {
 	silent: 4,
 };
 
+const SENSITIVE_QUERY_PARAM =
+	/([?&](?:access[_-]?token|auth[_-]?token|api[_-]?key|api[_-]?token|token|secret|password|authorization)=)[^&#\s]*/gi;
+const SENSITIVE_HEADER_VALUE =
+	/(\b(?:authorization|proxy-authorization|x-api-key|api-key|x-api-token|api-token|x-auth-token|x-access-token|access-token|x-secret-key|x-goog-api-key)\b\s*[:=]\s*)(?:bearer\s+|basic\s+)?[^\s,;]+/gi;
+const LABELED_SECRET_VALUE =
+	/(\b(?:access[_-]?token|auth[_-]?token|api[_-]?key|api[_-]?token|token|secret|password|authorization)\b\s*[:=]\s*["']?)(?:bearer\s+|basic\s+)?[A-Za-z0-9._~+/=-]{8,}/gi;
+const AUTH_SCHEME_VALUE = /\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
+const JWT_VALUE = /\beyJ[\w-]{10,}\.[\w-]{10,}(?:\.[\w-]{10,})?\b/g;
+const URL_USER_INFO = /(https?:\/\/)[^/@\s]+@/gi;
+
+/** Redact common credential shapes before they reach console output. */
+export function redactLogString(value: string): string {
+	return value
+		.replace(URL_USER_INFO, "$1[REDACTED]@")
+		.replace(SENSITIVE_QUERY_PARAM, "$1[REDACTED]")
+		.replace(SENSITIVE_HEADER_VALUE, "$1[REDACTED]")
+		.replace(LABELED_SECRET_VALUE, "$1[REDACTED]")
+		.replace(AUTH_SCHEME_VALUE, "$1 [REDACTED]")
+		.replace(JWT_VALUE, "[REDACTED_JWT]");
+}
+
+function redactLogArgs(args: unknown[]): unknown[] {
+	return args.map((arg) => (typeof arg === "string" ? redactLogString(arg) : arg));
+}
+
 function resolveLevel(): number {
 	const env = (globalThis as Record<string, unknown>).TALOX_LOG_LEVEL;
 	if (typeof env === "string" && env in LEVEL_MAP) return LEVEL_MAP[env as LogLevel];
@@ -61,16 +86,16 @@ export function createLogger(prefix: string): Logger {
 	const tag = `[Talox ${prefix}]`;
 	return {
 		debug(...args: unknown[]) {
-			if (currentLevel <= LEVEL_MAP.debug) console.log(tag, ...args);
+			if (currentLevel <= LEVEL_MAP.debug) console.log(tag, ...redactLogArgs(args));
 		},
 		info(...args: unknown[]) {
-			if (currentLevel <= LEVEL_MAP.info) console.log(tag, ...args);
+			if (currentLevel <= LEVEL_MAP.info) console.log(tag, ...redactLogArgs(args));
 		},
 		warn(...args: unknown[]) {
-			if (currentLevel <= LEVEL_MAP.warn) console.warn(tag, ...args);
+			if (currentLevel <= LEVEL_MAP.warn) console.warn(tag, ...redactLogArgs(args));
 		},
 		error(...args: unknown[]) {
-			if (currentLevel <= LEVEL_MAP.error) console.error(tag, ...args);
+			if (currentLevel <= LEVEL_MAP.error) console.error(tag, ...redactLogArgs(args));
 		},
 	};
 }
