@@ -96,21 +96,19 @@ export class PolicyEngine {
 		const policy = this.yamlPolicies[profileClass];
 		if (!policy) return false;
 
-		const matchedRule = policy.rules.find((rule) => {
+		for (const rule of policy.rules) {
 			const actionMatch = rule.action === "*" || rule.action === action;
+			if (!actionMatch) continue;
+
 			const domainMatch =
 				!rule.domains || rule.domains.length === 0 || rule.domains.some((domain) => this.urlMatchesDomain(url, domain));
-			return actionMatch && domainMatch;
-		});
+			if (!domainMatch) continue;
 
-		if (matchedRule) {
-			if (matchedRule.conditions) {
-				const conditionsMet = matchedRule.conditions.every((condition) =>
-					this.evaluateCondition(condition, url, action),
-				);
-				return matchedRule.effect === "allow" ? conditionsMet : !conditionsMet;
-			}
-			return matchedRule.effect === "allow";
+			const conditionsMet =
+				!rule.conditions || rule.conditions.every((condition) => this.evaluateCondition(condition, url, action));
+			if (!conditionsMet) continue;
+
+			return rule.effect === "allow";
 		}
 
 		return policy.defaultEffect === "allow";
