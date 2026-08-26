@@ -84,8 +84,13 @@ export function getScreenshotFormat(): ScreenshotFormat {
 
 const log = createLogger("Vision");
 
+type PendingResolution =
+	| { kind: "answer"; answer: string }
+	| { kind: "timeout" }
+	| { kind: "cancelled" };
+
 interface PendingQuestion {
-	resolve: (answer: string | null) => void;
+	resolve: (resolution: PendingResolution) => void;
 	timer: ReturnType<typeof setTimeout>;
 	owner: object | undefined;
 }
@@ -184,10 +189,10 @@ async function askVisualInternal(
 		imageData = `data:image/png;base64,${screenshot.toString("base64")}`;
 	}
 
-	const promise = new Promise<string | null>((resolve) => {
+	const promise = new Promise<PendingResolution>((resolve) => {
 		const timer = setTimeout(() => {
 			pending.delete(id);
-			resolve(null);
+			resolve({ kind: "timeout" });
 		}, timeoutMs);
 
 		pending.set(id, { resolve, timer, owner: scope.pendingOwner });
@@ -198,11 +203,15 @@ async function askVisualInternal(
 		log.info(`Visual question emitted: "${question.slice(0, 60)}..." (timeout: ${timeoutMs}ms)`);
 	}
 
-	const agentAnswer = await promise;
+	const resolution = await promise;
 
-	if (agentAnswer !== null) {
-		log.info(`Agent resolved visual question in time`);
-		return agentAnswer;
+	if (resolution.kind === "answer") {
+		log.info("Agent resolved visual question in time");
+		return resolution.answer;
+	}
+	if (resolution.kind === "cancelled") {
+		log.info("Visual question cancelled because its session ended");
+		return null;
 	}
 
 	log.info("Agent did not respond — trying registered VisualReasoner fallback");
@@ -212,7 +221,13 @@ async function askVisualInternal(
 function settlePendingVisual(id: string, entry: PendingQuestion, answer: string): void {
 	clearTimeout(entry.timer);
 	pending.delete(id);
-	entry.resolve(answer);
+	entry.resolve({ kind: "answer", answer });
+}
+
+function cancelPendingVisual(id: string, entry: PendingQuestion): void {
+	clearTimeout(entry.timer);
+	pending.delete(id);
+	entry.resolve({ kind: "cancelled" });
 }
 
 /**
@@ -249,6 +264,20 @@ export function resolveVisualScoped(owner: object, id: string, answer: string): 
 
 	settlePendingVisual(id, entry, answer);
 	return true;
+}
+
+/** Cancel all pending visual questions belonging to the caller's visual session. */
+export function cancelVisualQuestionsScoped(owner: object): number {
+	const scope = scopedVisualScopes.get(owner);
+	if (!scope) return 0;
+
+	let cancelled = 0;
+	for (const [id, entry] of pending) {
+		if (entry.owner !== scope) continue;
+		cancelPendingVisual(id, entry);
+		cancelled++;
+	}
+	return cancelled;
 }
 
 // ─── VisualReasoner Fallback ─────────────────────────────────────────────────
