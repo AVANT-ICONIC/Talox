@@ -53,7 +53,7 @@ import type { TaloxSettings } from "../../types/settings.js";
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; // NOSONAR
 import { formatAgentError } from "../AgentErrors.js";
 import type { BrowserType } from "../BrowserManager.js";
-import { type CaptchaSolver, registerSolver } from "../CaptchaSolver.js";
+import type { CaptchaSolver } from "../CaptchaSolver.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
 import type { ChallengeOutcome } from "../ChallengeResolver.js";
@@ -75,7 +75,7 @@ import type { SkillLoader } from "../skills/SkillLoader.js";
 import { AdaptationEngine } from "../smart/AdaptationEngine.js";
 import type { VideoRecorder as VideoRecorderType } from "../VideoRecorder.js";
 import { VideoRecorder as VideoRecorderClass } from "../VideoRecorder.js";
-import { resolveVisual, type ScreenshotFormat, type VisualReasoner } from "../VisualReasoner.js";
+import { getScopedVisualScope, resolveVisual, type ScreenshotFormat, type VisualReasoner } from "../VisualReasoner.js";
 import { ActionExecutor } from "./ActionExecutor.js";
 import type { EventHandler } from "./EventBus.js";
 import { EventBus } from "./EventBus.js";
@@ -113,7 +113,8 @@ export class TaloxController {
 	readonly _adapt: AdaptationEngine;
 	readonly _takeover: TakeoverBridge;
 	readonly _challenge: ChallengeDetector;
-	private readonly _challengeResolver: ChallengeResolver = new ChallengeResolver();
+	private readonly _challengeResolver: ChallengeResolver;
+	private readonly captchaSolvers: CaptchaSolver[] = [];
 
 	skillLoader?: SkillLoader; // NOSONAR — optional, set externally before launch
 
@@ -191,6 +192,14 @@ export class TaloxController {
 		this._events = new EventBus<TaloxEventMap>();
 		this._challenge = new ChallengeDetector();
 		this._session = new SessionManager(this.settings, this._events, baseDir);
+		this._challengeResolver = new ChallengeResolver({
+			captchaSolvers: this.captchaSolvers,
+			getVisualReasoner: () => {
+				const collector = this._session.getActivePage();
+				if (!collector) return null;
+				return getScopedVisualScope(collector)?.reasoner ?? null;
+			},
+		});
 		this._takeover = new TakeoverBridge(this._events, this.settings.humanTakeoverTimeoutMs);
 		this.observing = Boolean(mergedConfig.observe);
 		this._adapt = new AdaptationEngine(
@@ -1394,7 +1403,7 @@ export class TaloxController {
 	}
 
 	useSolver(solver: CaptchaSolver): void {
-		registerSolver(solver);
+		this.captchaSolvers.push(solver);
 	}
 
 	/**
