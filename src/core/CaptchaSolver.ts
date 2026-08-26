@@ -25,7 +25,7 @@
 
 import type { Page } from "playwright-core";
 import { createLogger } from "./Logger.js";
-import { getVisualReasoner } from "./VisualReasoner.js";
+import { getVisualReasoner, type VisualReasoner } from "./VisualReasoner.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,22 +67,27 @@ export interface CaptchaSolver {
 	solve(page: Page, challenge: CaptchaChallenge): Promise<CaptchaSolution | null>;
 }
 
+/** Dependencies for one CAPTCHA solve attempt. Omit them for standalone global behavior. */
+export interface CaptchaSolverRunOptions {
+	/** Custom solvers to try before the built-in VLM solver. */
+	solvers?: readonly CaptchaSolver[];
+	/** Provider for the VLM fallback. Defaults to the standalone global VisualReasoner. */
+	getVisualReasoner?: () => VisualReasoner | null;
+}
+
 // ─── Built-in: VLM-based Solver ───────────────────────────────────────────────
 
 const log = createLogger("Solver");
 
 /**
- * Creates a CAPTCHA solver backed by the registered VisualReasoner (VLM).
+ * Creates a CAPTCHA solver backed by a VisualReasoner (VLM).
  *
- * When a captcha is detected, this solver:
- * 1. Screenshots the captcha element (or full page as fallback)
- * 2. Asks the VLM: "Read the text in this CAPTCHA image. Reply with ONLY the characters."
- * 3. Returns the VLM's answer as the token
- *
- * Requires a VisualReasoner to be registered via `setVisualReasoner()`.
- * If no VLM is registered, this solver returns null and falls through.
+ * The optional provider makes controller/session ownership explicit. Standalone
+ * callers that omit it retain the historical global VisualReasoner behavior.
  */
-export function createVLMCaptchaSolver(): CaptchaSolver {
+export function createVLMCaptchaSolver(
+	reasonerProvider: () => VisualReasoner | null = getVisualReasoner,
+): CaptchaSolver {
 	return {
 		name: "Talox VLM",
 
@@ -123,7 +128,7 @@ export function createVLMCaptchaSolver(): CaptchaSolver {
 		},
 
 		async solve(page, challenge) {
-			const reasoner = getVisualReasoner();
+			const reasoner = reasonerProvider();
 			if (!reasoner) {
 				log.info("No VisualReasoner registered — captcha solving unavailable");
 				return null;
@@ -188,7 +193,7 @@ export function createVLMCaptchaSolver(): CaptchaSolver {
 
 let registeredSolvers: CaptchaSolver[] = [];
 
-/** Register a solver. Solver is appended — solvers are tried in registration order. */
+/** Register a standalone solver. Solver is appended — solvers are tried in registration order. */
 export function registerSolver(solver: CaptchaSolver): void {
 	registeredSolvers.push(solver);
 	log.info(`Registered solver: ${solver.name}`);
@@ -203,13 +208,16 @@ export function getSolvers(): readonly CaptchaSolver[] {
 }
 
 /**
- * Try all registered solvers in sequence.
- * The built-in VLM solver is always tried LAST (after custom solvers).
- * Returns the first successful solution, or null if all fail.
+ * Try custom solvers in sequence and then the built-in VLM solver.
+ *
+ * When `options` are omitted, this preserves the historical standalone global
+ * registry + global VisualReasoner behavior. Controller-bound callers can pass
+ * their own solver list and reasoner provider to avoid cross-session leakage.
  */
-export async function trySolve(page: Page): Promise<CaptchaSolution | null> {
-	// Always include the VLM solver as fallback
-	const allSolvers = [...registeredSolvers, createVLMCaptchaSolver()];
+export async function trySolve(page: Page, options: CaptchaSolverRunOptions = {}): Promise<CaptchaSolution | null> {
+	const customSolvers = options.solvers ?? registeredSolvers;
+	const reasonerProvider = options.getVisualReasoner ?? getVisualReasoner;
+	const allSolvers = [...customSolvers, createVLMCaptchaSolver(reasonerProvider)];
 
 	for (const solver of allSolvers) {
 		log.info(`Attempting solver: ${solver.name}`);

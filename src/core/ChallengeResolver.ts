@@ -39,8 +39,9 @@ import type { Page } from "playwright-core";
  */
 
 import type { TakeoverReason } from "../types/events.js";
-import { trySolve } from "./CaptchaSolver.js";
+import { type CaptchaSolver, type CaptchaSolverRunOptions, trySolve } from "./CaptchaSolver.js";
 import type { ChallengeType, DetectedChallenge } from "./ChallengeDetector.js";
+import type { VisualReasoner } from "./VisualReasoner.js";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ResolutionStrategy =
@@ -95,6 +96,10 @@ export interface ChallengeResolverOptions {
 	 * @default 8000
 	 */
 	spaHydrationTimeoutMs?: number;
+	/** Controller/session-owned custom CAPTCHA solvers. Omit for the standalone global registry. */
+	captchaSolvers?: readonly CaptchaSolver[];
+	/** Controller/session-owned VisualReasoner provider for the built-in CAPTCHA fallback. */
+	getVisualReasoner?: () => VisualReasoner | null;
 }
 
 // ─── Consent/Age-Gate dismiss selectors ─────────────────────────────────────
@@ -134,12 +139,18 @@ export class ChallengeResolver {
 	private readonly baseDelayMs: number;
 	private readonly maxDelayMs: number;
 	private readonly spaHydrationTimeoutMs: number;
+	private readonly captchaSolveOptions: CaptchaSolverRunOptions;
 
 	constructor(options: ChallengeResolverOptions = {}) {
 		this.maxRetries = options.maxRetries ?? 3;
 		this.baseDelayMs = options.baseDelayMs ?? 1500;
 		this.maxDelayMs = options.maxDelayMs ?? 15_000;
 		this.spaHydrationTimeoutMs = options.spaHydrationTimeoutMs ?? 8_000;
+		this.captchaSolveOptions = {};
+		if (options.captchaSolvers !== undefined) this.captchaSolveOptions.solvers = options.captchaSolvers;
+		if (options.getVisualReasoner !== undefined) {
+			this.captchaSolveOptions.getVisualReasoner = options.getVisualReasoner;
+		}
 	}
 
 	// ─── Public API ─────────────────────────────────────────────────────────────
@@ -207,7 +218,7 @@ export class ChallengeResolver {
 
 		// Try external solvers (VLM-based or custom)
 		try {
-			const solution = await trySolve(page);
+			const solution = await trySolve(page, this.captchaSolveOptions);
 			if (solution) {
 				// Inject the token — handles reCAPTCHA/hCaptcha callbacks + form submits
 				try {
