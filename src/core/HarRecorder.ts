@@ -92,6 +92,9 @@ interface PendingRequest {
 	timestamp: number;
 }
 
+type RequestHandler = (request: Request) => void;
+type ResponseHandler = (response: Response) => void;
+
 // ─── HarRecorder ────────────────────────────────────────────────────────────
 
 export class HarRecorder {
@@ -100,6 +103,11 @@ export class HarRecorder {
 	private recording = false;
 	private readonly entries: HarEntry[] = [];
 	private readonly pending = new Map<Request, PendingRequest>();
+	private readonly responseCaptures = new Set<Promise<void>>();
+	private page: Page | null = null;
+	private requestHandler: RequestHandler | null = null;
+	private responseHandler: ResponseHandler | null = null;
+	private stopInFlight: Promise<HarResult> | null = null;
 	private readonly version = "5.0.1";
 
 	constructor(options: HarRecorderOptions) {
@@ -115,17 +123,79 @@ export class HarRecorder {
 	 */
 	start(page: Page): void {
 		if (this.recording) return;
-		this.recording = true;
+		if (this.page || this.requestHandler || this.responseHandler) {
+			throw new Error("Cannot start HAR recording while previous page listeners await cleanup. Call stop() again first.");
+		}
 
-		page.on("request", (req: Request) => this.captureRequest(req));
-		page.on("response", (res: Response) => this.captureResponse(res));
+		const requestHandler: RequestHandler = (request) => {
+			if (this.recording) this.captureRequest(request);
+		};
+		const responseHandler: ResponseHandler = (response) => {
+			if (!this.recording) return;
+			const capture = this.captureResponse(response);
+			this.responseCaptures.add(capture);
+			void capture.then(
+				() => this.responseCaptures.delete(capture),
+				() => this.responseCaptures.delete(capture),
+			);
+		};
+
+		page.on("request", requestHandler);
+		this.page = page;
+		this.requestHandler = requestHandler;
+
+		try {
+			page.on("response", responseHandler);
+			this.responseHandler = responseHandler;
+		} catch (error) {
+			try {
+				page.off("request", requestHandler);
+				this.page = null;
+				this.requestHandler = null;
+			} catch {
+				// Keep listener ownership so a later stop() can retry cleanup.
+			}
+			throw error;
+		}
+
+		this.recording = true;
 	}
 
 	/**
 	 * Flush all captured entries to a HAR 1.2 file and return a summary.
 	 */
-	async stop(): Promise<HarResult> {
+	stop(): Promise<HarResult> {
+		if (this.stopInFlight) return this.stopInFlight;
+
+		const attempt = this.runStop();
+		this.stopInFlight = attempt;
+		attempt.then(
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+			() => {
+				if (this.stopInFlight === attempt) this.stopInFlight = null;
+			},
+		);
+		return attempt;
+	}
+
+	private async runStop(): Promise<HarResult> {
 		this.recording = false;
+
+		let listenerFailure: unknown;
+		let listenerCleanupFailed = false;
+		try {
+			this.detachPageListeners();
+		} catch (error) {
+			listenerFailure = error;
+			listenerCleanupFailed = true;
+		}
+
+		if (this.responseCaptures.size > 0) {
+			await Promise.allSettled([...this.responseCaptures]);
+		}
+		this.pending.clear();
 
 		const har: HarFile = {
 			log: {
@@ -137,11 +207,14 @@ export class HarRecorder {
 
 		writeFileSync(this.outputPath, JSON.stringify(har, null, 2), "utf-8");
 
-		return {
+		const result = {
 			outputPath: this.outputPath,
 			entryCount: this.entries.length,
 			totalDurationMs: this.computeTotalDuration(),
 		};
+
+		if (listenerCleanupFailed) throw listenerFailure;
+		return result;
 	}
 
 	isRecording(): boolean {
@@ -153,6 +226,40 @@ export class HarRecorder {
 	}
 
 	// ── Internal helpers ───────────────────────────────────────────────────
+
+	private detachPageListeners(): void {
+		const page = this.page;
+		if (!page) return;
+
+		let firstFailure: unknown;
+		let failed = false;
+		const requestHandler = this.requestHandler;
+		if (requestHandler) {
+			try {
+				page.off("request", requestHandler);
+				if (this.requestHandler === requestHandler) this.requestHandler = null;
+			} catch (error) {
+				firstFailure = error;
+				failed = true;
+			}
+		}
+
+		const responseHandler = this.responseHandler;
+		if (responseHandler) {
+			try {
+				page.off("response", responseHandler);
+				if (this.responseHandler === responseHandler) this.responseHandler = null;
+			} catch (error) {
+				if (!failed) firstFailure = error;
+				failed = true;
+			}
+		}
+
+		if (!this.requestHandler && !this.responseHandler && this.page === page) {
+			this.page = null;
+		}
+		if (failed) throw firstFailure;
+	}
 
 	private captureRequest(req: Request): void {
 		const headers = this.headersToArray(req.headers());
