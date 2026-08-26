@@ -74,22 +74,38 @@ export class EventBus<TMap extends object> {
 	 * Emit an event with its typed payload.
 	 * All listeners are called synchronously. Errors thrown by listeners are
 	 * caught and re-emitted as `'error'` events (if any listener is registered),
-	 * or logged to stderr — they never propagate to the caller.
+	 * or logged to stderr — they never propagate to the caller or block later listeners.
 	 */
 	emit<K extends keyof TMap>(event: K, ...[data]: TMap[K] extends undefined ? [] : [TMap[K]]): void {
-		try {
-			this.emitter.emit(event as string, data);
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			const stack = err instanceof Error ? err.stack : undefined;
+		this.emitSafely(event as string, data);
+	}
 
-			// Avoid infinite loop: only re-emit 'error' if this isn't already 'error'
-			if (event !== "error" && this.emitter.listenerCount("error") > 0) {
-				this.emitter.emit("error", { message, stack });
-			} else {
-				this.log.error(`Unhandled error in '${String(event)}' listener:`, err);
+	private emitSafely(event: string, data: unknown): void {
+		const listeners = this.emitter.rawListeners(event);
+		if (event === "error" && listeners.length === 0) {
+			this.log.error("Unhandled 'error' event:", data);
+			return;
+		}
+
+		for (const listener of listeners) {
+			try {
+				(listener as (...args: unknown[]) => void).call(this.emitter, data);
+			} catch (error) {
+				this.handleListenerError(event, error);
 			}
 		}
+	}
+
+	private handleListenerError(event: string, error: unknown): void {
+		const message = error instanceof Error ? error.message : String(error);
+		const stack = error instanceof Error ? error.stack : undefined;
+
+		if (event !== "error" && this.emitter.listenerCount("error") > 0) {
+			this.emitSafely("error", { message, stack });
+			return;
+		}
+
+		this.log.error(`Unhandled error in '${event}' listener:`, error);
 	}
 
 	// ─── One-time Subscription ─────────────────────────────────────────────────
