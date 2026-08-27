@@ -1,0 +1,33 @@
+name: Apply setHeaded shared-settings fix
+
+on:
+  push:
+    branches:
+      - fix/set-headed-shared-settings
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/set-headed-shared-settings
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Apply asserted patch
+        run: node scripts/apply-set-headed-shared-settings.mjs
+      - name: Remove one-shot patch machinery
+        run: rm scripts/apply-set-headed-shared-settings.mjs .github/workflows/apply-set-headed-shared-settings.yml
+      - name: Validate diff and commit
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/controller/TaloxController.ts tests/unit/TaloxControllerSetHeadedSharedSettings.test.ts scripts/apply-set-headed-shared-settings.mjs .github/workflows/apply-set-headed-shared-settings.yml
+          git commit -m "fix: let SessionManager own headed mode transition"
+          git push origin HEAD:fix/set-headed-shared-settings
