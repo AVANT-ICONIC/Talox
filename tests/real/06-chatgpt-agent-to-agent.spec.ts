@@ -18,10 +18,18 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { TaloxController } from "../../src/index.js";
+import { waitFor } from "./helpers.js";
 
 let talox: TaloxController;
 let profileDir: string;
 const adaptedEvents: any[] = [];
+
+function hasInteractiveControl(state: any): boolean {
+	return (state?.nodes ?? []).some((node: any) => {
+		const role = (node.role ?? "").toLowerCase();
+		return role === "button" || ["textbox", "input", "searchbox"].includes(role);
+	});
+}
 
 test.describe("Scenario 6 — ChatGPT agent-to-agent (guest mode)", () => {
 	test.setTimeout(180_000); // Streaming responses can take time
@@ -58,10 +66,22 @@ test.describe("Scenario 6 — ChatGPT agent-to-agent (guest mode)", () => {
 	// ── Step 2: Handle landing page (may show "Start chatting" or redirect) ─────
 
 	test("Step 2 — page has interactive elements (not a static error page)", async () => {
-		// Re-navigate for worker-restart resilience; also gives SPA time to settle
+		// Re-navigate for worker-restart resilience. ChatGPT hydrates asynchronously,
+		// so assert against freshly sampled state rather than the navigation snapshot.
 		await talox.waitForTimeout(1000);
-		const state = await talox.navigate("https://chat.openai.com");
-		await talox.waitForTimeout(2000);
+		let state = await talox.navigate("https://chat.openai.com");
+		try {
+			await waitFor(
+				async () => {
+					state = await talox.getState();
+					return hasInteractiveControl(state);
+				},
+				20_000,
+				1000,
+			);
+		} catch {
+			// Keep the final sample so a genuinely static/error page still fails below.
+		}
 
 		const hasButton = state.nodes.some((n) => (n.role ?? "").toLowerCase() === "button");
 		const hasInput = state.nodes.some((n) => ["textbox", "input", "searchbox"].includes((n.role ?? "").toLowerCase()));
