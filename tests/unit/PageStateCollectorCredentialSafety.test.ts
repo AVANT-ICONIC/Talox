@@ -7,6 +7,8 @@ const FAST_OPTS = {
 	domFallbackThreshold: 1,
 };
 
+type Box = { x: number; y: number; width: number; height: number };
+
 function makeBasePage(overrides: Record<string, unknown> = {}) {
 	return {
 		url: vi.fn(() => "https://example.com/login"),
@@ -19,6 +21,10 @@ function makeBasePage(overrides: Record<string, unknown> = {}) {
 		evaluate: vi.fn(async () => []),
 		...overrides,
 	};
+}
+
+function makePasswordAwareDollarEval(passwordBoxes: Box[]) {
+	return vi.fn(async (selector: string) => (selector === 'input[type="password"]' ? passwordBoxes : []));
 }
 
 const previousInput = globalThis.HTMLInputElement;
@@ -88,6 +94,77 @@ describe("PageStateCollector DOM fallback credential safety", () => {
 
 		expect(state.nodes[0]?.name).toBe("Account password");
 		expect((state.interactiveElements[0] as any)?.text).toBe("Account password");
+		expect(JSON.stringify(state)).not.toContain(secret);
+	});
+});
+
+describe("PageStateCollector accessibility credential safety", () => {
+	const passwordBox = { x: 10, y: 20, width: 200, height: 30 };
+	const emailBox = { x: 10, y: 70, width: 200, height: 30 };
+
+	it("scrubs legacy AX password values while preserving ordinary textbox values", async () => {
+		const secret = "legacy-password-secret";
+		const axSnapshot = {
+			role: "WebArea",
+			name: "",
+			children: [
+				{ role: "textbox", name: "Password", value: secret, box: passwordBox },
+				{ role: "textbox", name: "Email", value: "user@test.com", box: emailBox },
+			],
+		};
+		const page = makeBasePage({
+			accessibility: { snapshot: vi.fn(async () => axSnapshot) },
+			$$eval: makePasswordAwareDollarEval([passwordBox]),
+		});
+		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
+
+		const state = await collector.collect();
+
+		expect(state.nodes[0]?.name).toBe("Password");
+		expect(state.nodes[0]?.attributes?.value).toBeUndefined();
+		expect(state.nodes[1]?.attributes?.value).toBe("user@test.com");
+		expect(JSON.stringify(state)).not.toContain(secret);
+	});
+
+	it("scrubs modern ARIA textbox text for the matching password DOM box", async () => {
+		const secret = "modern-password-secret";
+		const ariaSnapshot = [
+			`- textbox "Password" [box=10,20,200,30]: ${secret}`,
+			'- textbox "Email" [box=10,70,200,30]: user@test.com',
+		].join("\n");
+		const page = makeBasePage({
+			ariaSnapshot: vi.fn(async () => ariaSnapshot),
+			accessibility: undefined,
+			$$eval: makePasswordAwareDollarEval([passwordBox]),
+		});
+		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
+
+		const state = await collector.collect();
+
+		expect(state.nodes[0]?.name).toBe("Password");
+		expect(state.nodes[0]?.attributes?.text).toBeUndefined();
+		expect(state.nodes[1]?.attributes?.text).toBe("user@test.com");
+		expect(JSON.stringify(state)).not.toContain(secret);
+	});
+
+	it("fails closed for text-entry values when password DOM detection errors", async () => {
+		const secret = "password-during-dom-error";
+		const axSnapshot = {
+			role: "WebArea",
+			name: "",
+			children: [{ role: "textbox", name: "Password", value: secret, box: passwordBox }],
+		};
+		const page = makeBasePage({
+			accessibility: { snapshot: vi.fn(async () => axSnapshot) },
+			$$eval: vi.fn(async () => {
+				throw new Error("DOM unavailable");
+			}),
+		});
+		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
+
+		const state = await collector.collect();
+
+		expect(state.nodes[0]?.attributes?.value).toBeUndefined();
 		expect(JSON.stringify(state)).not.toContain(secret);
 	});
 });
