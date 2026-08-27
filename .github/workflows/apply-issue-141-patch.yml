@@ -1,0 +1,109 @@
+name: Apply issue 141 patch
+
+on:
+  push:
+    branches:
+      - fix/multipage-active-state-sync
+    paths:
+      - .github/workflows/apply-issue-141-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/multipage-active-state-sync
+          fetch-depth: 0
+      - name: Apply exact state-sync patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          session_path = Path("src/core/controller/SessionManager.ts")
+          session = session_path.read_text()
+
+          replacements = [
+              (
+                  "\tlastState: TaloxPageState | null = null;\n",
+                  "\tprivate _lastState: TaloxPageState | null = null;\n"
+                  "\tprivate readonly pageLastStates = new WeakMap<PageStateCollector, TaloxPageState>();\n\n"
+                  "\tget lastState(): TaloxPageState | null {\n"
+                  "\t\treturn this._lastState;\n"
+                  "\t}\n\n"
+                  "\tset lastState(state: TaloxPageState | null) {\n"
+                  "\t\tthis._lastState = state;\n"
+                  "\t\tconst activePage = this.getActivePage();\n"
+                  "\t\tif (!activePage) return;\n"
+                  "\t\tif (state) this.pageLastStates.set(activePage, state);\n"
+                  "\t\telse this.pageLastStates.delete(activePage);\n"
+                  "\t}\n",
+              ),
+              (
+                  "\t\tthis.activePageIndex = 0;\n\t\tthis.pages = [stateCollector];\n\t\tthis.pageMousePositions.set(0, { x: 0, y: 0 });\n\t\tthis.artifactBuilder.addAction(\"launch\", { profileId, profileClass, browserType, launchOptions });\n",
+                  "\t\tthis.activePageIndex = 0;\n\t\tthis.pages = [stateCollector];\n\t\tthis.activateCachedStateForActivePage();\n\t\tthis.pageMousePositions.set(0, { x: 0, y: 0 });\n\t\tthis.artifactBuilder.addAction(\"launch\", { profileId, profileClass, browserType, launchOptions });\n",
+              ),
+              (
+                  "\t\tconst stateCollector = this.createStateCollector(newPage);\n\t\tthis.activePageIndex = 0;\n\t\tthis.pages = [stateCollector];\n\t\tthis.pageMousePositions.set(0, { x: 0, y: 0 });\n",
+                  "\t\tconst stateCollector = this.createStateCollector(newPage);\n\t\tthis.activePageIndex = 0;\n\t\tthis.pages = [stateCollector];\n\t\tthis.activateCachedStateForActivePage();\n\t\tthis.pageMousePositions.set(0, { x: 0, y: 0 });\n",
+              ),
+              (
+                  "\t\tconst stateCollector = this.createStateCollector(page);\n\t\tthis.activePageIndex = this.pages.length;\n\t\tthis.pages.push(stateCollector);\n\t\tthis.pageMousePositions.set(this.activePageIndex, { x: 0, y: 0 });\n",
+                  "\t\tconst stateCollector = this.createStateCollector(page);\n\t\tthis.activePageIndex = this.pages.length;\n\t\tthis.pages.push(stateCollector);\n\t\tthis.activateCachedStateForActivePage();\n\t\tthis.pageMousePositions.set(this.activePageIndex, { x: 0, y: 0 });\n",
+              ),
+              (
+                  "\t\t} else if (this.activePageIndex > index) {\n\t\t\tthis.activePageIndex--;\n\t\t}\n\n\t\tthis.artifactBuilder.addAction(\"closePage\", { index });\n",
+                  "\t\t} else if (this.activePageIndex > index) {\n\t\t\tthis.activePageIndex--;\n\t\t}\n\n\t\tthis.activateCachedStateForActivePage();\n\t\tthis.artifactBuilder.addAction(\"closePage\", { index });\n",
+              ),
+              (
+                  "\t\tthis.activePageIndex = index;\n\t\tthis.artifactBuilder.addAction(\"switchPage\", { index });\n",
+                  "\t\tthis.activePageIndex = index;\n\t\tthis.activateCachedStateForActivePage();\n\t\tthis.artifactBuilder.addAction(\"switchPage\", { index });\n",
+              ),
+              (
+                  "\tprivate createStateCollector(page: Page): PageStateCollector {\n",
+                  "\tprivate activateCachedStateForActivePage(): void {\n"
+                  "\t\tconst activePage = this.getActivePage();\n"
+                  "\t\tthis._lastState = activePage ? (this.pageLastStates.get(activePage) ?? null) : null;\n"
+                  "\t}\n\n"
+                  "\tprivate createStateCollector(page: Page): PageStateCollector {\n",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = session.count(old)
+              if count != 1:
+                  raise SystemExit(f"SessionManager patch anchor matched {count} times: {old[:80]!r}")
+              session = session.replace(old, new, 1)
+          session_path.write_text(session)
+
+          controller_path = Path("src/core/controller/TaloxController.ts")
+          controller = controller_path.read_text()
+          controller_replacements = [
+              (
+                  "\t\t\tconst state = await this._actions.click(selector);\n\t\t\tconst adapted = await this._adapt.evaluate(state);\n",
+                  "\t\t\tconst state = await this._actions.click(selector);\n\t\t\tthis._session.lastState = state;\n\t\t\tconst adapted = await this._adapt.evaluate(state);\n",
+              ),
+              (
+                  "\t\ttry {\n\t\t\treturn await this._actions.type(selector, text);\n\t\t} catch (error: unknown) {\n",
+                  "\t\ttry {\n\t\t\tconst state = await this._actions.type(selector, text);\n\t\t\tthis._session.lastState = state;\n\t\t\treturn state;\n\t\t} catch (error: unknown) {\n",
+              ),
+          ]
+          for old, new in controller_replacements:
+              count = controller.count(old)
+              if count != 1:
+                  raise SystemExit(f"TaloxController patch anchor matched {count} times: {old[:80]!r}")
+              controller = controller.replace(old, new, 1)
+          controller_path.write_text(controller)
+
+          Path(".github/workflows/apply-issue-141-patch.yml").unlink()
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/controller/SessionManager.ts src/core/controller/TaloxController.ts .github/workflows/apply-issue-141-patch.yml
+          git diff --cached --check
+          git commit -m "fix: scope cached page state to the active tab"
+          git push origin HEAD:fix/multipage-active-state-sync
