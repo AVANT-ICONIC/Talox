@@ -76,6 +76,15 @@ export class VideoRecorder {
 	}
 
 	/**
+	 * Move an active recording to another page without resetting captured frames.
+	 * A null page temporarily pauses frame capture until another page is assigned.
+	 */
+	retarget(page: Page | null): void {
+		if (!this.recording) return;
+		this.page = page;
+	}
+
+	/**
 	 * Stop capturing and encode the recorded frames into the output file.
 	 * Failed finalization keeps captured frames available for a later retry.
 	 *
