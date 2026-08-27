@@ -350,6 +350,11 @@ export function diffPageState(prev: TaloxPageState, curr: TaloxPageState): Talox
 		}
 	}
 
+	const prevInteractiveIds = new Set(prev.interactiveElements.map((element) => element.id));
+	const currInteractiveIds = new Set(curr.interactiveElements.map((element) => element.id));
+	const interactiveAdded = Array.from(currInteractiveIds).filter((id) => !prevInteractiveIds.has(id)).length;
+	const interactiveRemoved = Array.from(prevInteractiveIds).filter((id) => !currInteractiveIds.has(id)).length;
+
 	const prevBugIds = new Set(prev.bugs.map((b) => b.id));
 	const currBugIds = new Set(curr.bugs.map((b) => b.id));
 	const bugsAdded = curr.bugs.filter((b) => !prevBugIds.has(b.id));
@@ -376,8 +381,8 @@ export function diffPageState(prev: TaloxPageState, curr: TaloxPageState): Talox
 		nodesAdded,
 		nodesRemoved,
 		nodesChanged,
-		interactiveAdded: Math.max(0, curr.interactiveElements.length - prev.interactiveElements.length),
-		interactiveRemoved: Math.max(0, prev.interactiveElements.length - curr.interactiveElements.length),
+		interactiveAdded,
+		interactiveRemoved,
 		bugsAdded,
 		bugsResolved,
 		newConsoleErrors,
