@@ -15,15 +15,17 @@ function makeState(url: string): TaloxPageState {
 	};
 }
 
-function makeCollector(state: TaloxPageState) {
+function makeCollector() {
 	const close = vi.fn().mockResolvedValue(undefined);
 	return {
-		collector: {
-			getLastState: vi.fn(() => state),
-			getPage: () => ({ close }),
-		} as any,
+		collector: { getPage: () => ({ close }) } as any,
 		close,
 	};
+}
+
+function cacheStateForPage(session: SessionManager, pageIndex: number, state: TaloxPageState): void {
+	session.activePageIndex = pageIndex;
+	session.lastState = state;
 }
 
 describe("SessionManager active page state", () => {
@@ -35,18 +37,18 @@ describe("SessionManager active page state", () => {
 		);
 		const firstState = makeState("https://first.example");
 		const secondState = makeState("https://second.example");
-		const first = makeCollector(firstState);
-		const second = makeCollector(secondState);
+		const first = makeCollector();
+		const second = makeCollector();
 
 		session.pages = [first.collector, second.collector];
-		session.activePageIndex = 0;
-		session.lastState = firstState;
+		cacheStateForPage(session, 0, firstState);
+		cacheStateForPage(session, 1, secondState);
+		cacheStateForPage(session, 0, firstState);
 
 		session.switchPage(1);
 
 		expect(session.activePageIndex).toBe(1);
 		expect(session.lastState).toBe(secondState);
-		expect(second.collector.getLastState).toHaveBeenCalledOnce();
 	});
 
 	it("switches the session cache to the surviving page when the active page closes", async () => {
@@ -57,19 +59,18 @@ describe("SessionManager active page state", () => {
 		);
 		const firstState = makeState("https://first.example");
 		const secondState = makeState("https://second.example");
-		const first = makeCollector(firstState);
-		const second = makeCollector(secondState);
+		const first = makeCollector();
+		const second = makeCollector();
 
 		session.pages = [first.collector, second.collector];
-		session.activePageIndex = 1;
-		session.lastState = secondState;
+		cacheStateForPage(session, 0, firstState);
+		cacheStateForPage(session, 1, secondState);
 
 		await session.closePage(1);
 
 		expect(second.close).toHaveBeenCalledOnce();
 		expect(session.activePageIndex).toBe(0);
 		expect(session.lastState).toBe(firstState);
-		expect(first.collector.getLastState).toHaveBeenCalledOnce();
 	});
 
 	it("clears the session cache when the final page closes", async () => {
@@ -79,11 +80,10 @@ describe("SessionManager active page state", () => {
 			".",
 		);
 		const state = makeState("https://only.example");
-		const only = makeCollector(state);
+		const only = makeCollector();
 
 		session.pages = [only.collector];
-		session.activePageIndex = 0;
-		session.lastState = state;
+		cacheStateForPage(session, 0, state);
 
 		await session.closePage(0);
 
