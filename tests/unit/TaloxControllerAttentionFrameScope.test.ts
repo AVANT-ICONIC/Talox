@@ -46,6 +46,7 @@ describe("TaloxController attention frame ownership", () => {
 		controller.switchPage(0);
 		await controller.triggerThinkingBehavior();
 		expect(thinking.mock.calls[1]?.[1]).toEqual(firstFrame);
+		expect(thinking).toHaveBeenCalledTimes(2);
 	});
 
 	it("restores only the surviving page frame when the active page closes", async () => {
