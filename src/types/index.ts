@@ -338,6 +338,16 @@ export function diffPageState(prev: TaloxPageState, curr: TaloxPageState): Talox
 		if (p.role !== c.role) {
 			nodesChanged.push({ id, field: "role", prev: p.role, curr: c.role });
 		}
+		const pBox = p.boundingBox;
+		const cBox = c.boundingBox;
+		if (pBox.x !== cBox.x || pBox.y !== cBox.y || pBox.width !== cBox.width || pBox.height !== cBox.height) {
+			nodesChanged.push({
+				id,
+				field: "boundingBox",
+				prev: JSON.stringify(pBox),
+				curr: JSON.stringify(cBox),
+			});
+		}
 	}
 
 	const prevBugIds = new Set(prev.bugs.map((b) => b.id));
