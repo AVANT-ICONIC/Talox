@@ -245,7 +245,12 @@ export class CrossOriginManager {
 
 			// A tab switch/recreation can retire the page while CDP session creation
 			// is still in flight. Never let that late result leak into the new page.
-			if (this.page !== page || this.pageGeneration !== generation) {
+			if (
+				this.page !== page ||
+				this.pageGeneration !== generation ||
+				frame.url() !== frameUrl ||
+				parentFrame.url() !== parentUrl
+			) {
 				cdpSession.detach().catch(() => {}); // NOSONAR — best-effort stale cleanup
 				return;
 			}

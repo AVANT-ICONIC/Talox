@@ -78,6 +78,51 @@ describe("CrossOriginManager active-page bootstrap", () => {
 		expect(oldCdp.detach).toHaveBeenCalledOnce();
 	});
 
+	it("does not let a late pre-navigation session overwrite the newer frame origin", async () => {
+		const parent = {
+			name: vi.fn(() => "parent"),
+			url: vi.fn(() => "https://parent.example/page"),
+			parentFrame: vi.fn(() => null),
+		};
+		let childUrl = "https://old.example/embed";
+		const child = {
+			name: vi.fn(() => "navigating-child"),
+			url: vi.fn(() => childUrl),
+			parentFrame: vi.fn(() => parent),
+		};
+		const sessions = [
+			{ send: vi.fn(async () => ({})), detach: vi.fn(async () => undefined) },
+			{ send: vi.fn(async () => ({})), detach: vi.fn(async () => undefined) },
+		];
+		const resolvers: Array<(value: any) => void> = [];
+		const { page, newCDPSession } = createPage(
+			[child],
+			() => new Promise((resolve) => resolvers.push(resolve)),
+		);
+		const manager = new CrossOriginManager();
+
+		manager.install(page as any);
+		await flushAsyncWork();
+		expect(newCDPSession).toHaveBeenCalledTimes(1);
+
+		childUrl = "https://new.example/embed";
+		const navigation = page._emit("framenavigated", child);
+		await flushAsyncWork();
+		expect(newCDPSession).toHaveBeenCalledTimes(2);
+
+		resolvers[1]!(sessions[1]);
+		await navigation;
+		expect(manager.getSession("navigating-child")?.origin).toBe("https://new.example");
+
+		resolvers[0]!(sessions[0]);
+		await flushAsyncWork();
+
+		expect(sessions[0].detach).toHaveBeenCalledOnce();
+		expect(sessions[1].detach).not.toHaveBeenCalled();
+		expect(manager.getSession("navigating-child")?.cdpSession).toBe(sessions[1]);
+		expect(manager.getSession("navigating-child")?.origin).toBe("https://new.example");
+	});
+
 	it("keeps only one live CDP session when bootstrap races a frameattached event", async () => {
 		const child = createFrame("racy-child");
 		const sessions = [
