@@ -342,8 +342,24 @@ export class TaloxController {
 	/** Install cross-origin iframe manager if enabled. */
 	private setupCrossOriginManager(page: import("playwright-core").Page): void {
 		if (!this.settings.enableCrossOriginIframes) return;
-		this.crossOriginManager = new CrossOriginManagerClass({ trustedDomains: this.settings.trustedDomains });
+		if (!this.crossOriginManager) {
+			this.crossOriginManager = new CrossOriginManagerClass({ trustedDomains: this.settings.trustedDomains });
+		}
 		this.crossOriginManager.install(page);
+	}
+
+	/** Keep cross-origin iframe tracking aligned with Talox's active page. */
+	private retargetCrossOriginManagerToActivePage(): void {
+		if (!this.settings.enableCrossOriginIframes) {
+			this.disposeCrossOriginManager();
+			return;
+		}
+		const page = this._session.getPlaywrightPage();
+		if (!page) {
+			this.disposeCrossOriginManager();
+			return;
+		}
+		this.setupCrossOriginManager(page);
 	}
 
 	/** Start inspect server if configured. */
@@ -747,6 +763,7 @@ export class TaloxController {
 		if (page && this.harRecorder?.isRecording()) {
 			this.harRecorder.startContext(page.context());
 		}
+		this.retargetCrossOriginManagerToActivePage();
 		this.retargetVideoRecorderToActivePage();
 	}
 
@@ -999,15 +1016,18 @@ export class TaloxController {
 
 	async openPage(url: string): Promise<TaloxPageState> {
 		const state = await this._session.openPage(url);
+		this.retargetCrossOriginManagerToActivePage();
 		this.retargetVideoRecorderToActivePage();
 		return state;
 	}
 	async closePage(index: number): Promise<void> {
 		await this._session.closePage(index);
+		this.retargetCrossOriginManagerToActivePage();
 		this.retargetVideoRecorderToActivePage();
 	}
 	switchPage(index: number): void {
 		this._session.switchPage(index);
+		this.retargetCrossOriginManagerToActivePage();
 		this.retargetVideoRecorderToActivePage();
 	}
 	getPageCount(): number {
