@@ -1078,7 +1078,7 @@ export class TaloxController {
 	async triggerThinkingBehavior(): Promise<void> {
 		return this._session.triggerThinkingBehavior(
 			this.getCurrentLastMousePos(),
-			this.attentionFrame,
+			this.getAttentionFrame(),
 			this.clampToFrame.bind(this),
 		);
 	}
