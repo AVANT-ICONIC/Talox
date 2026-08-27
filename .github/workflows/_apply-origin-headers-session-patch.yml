@@ -1,0 +1,286 @@
+name: Apply origin headers session patch
+
+on:
+  push:
+    branches:
+      - fix/origin-headers-session-lifecycle
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/origin-headers-session-lifecycle
+      - name: Apply focused source and regression patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          session = "src/core/controller/SessionManager.ts"
+          replace_once(
+              session,
+              'import type { EventBus } from "./EventBus.js";\n',
+              'import type { EventBus } from "./EventBus.js";\n\ntype PreNavigationPageHook = (page: Page) => Promise<void>;\n',
+          )
+          replace_once(
+              session,
+              '\tasync setHeadedMode(headed: boolean): Promise<void> {',
+              '\tasync setHeadedMode(headed: boolean, beforeNavigation?: PreNavigationPageHook): Promise<void> {',
+          )
+          replace_once(
+              session,
+              '\t\tawait this.attachSecurityHooks(newPage);\n\n\t\t// Re-install auto-dialog handler on new page',
+              '\t\tawait this.attachSecurityHooks(newPage);\n\t\tif (beforeNavigation) await beforeNavigation(newPage);\n\n\t\t// Re-install auto-dialog handler on new page',
+          )
+          replace_once(
+              session,
+              '\tasync openPage(url: string): Promise<TaloxPageState> {',
+              '\tasync openPage(url: string, beforeNavigation?: PreNavigationPageHook): Promise<TaloxPageState> {',
+          )
+          replace_once(
+              session,
+              '\t\tawait this.attachSecurityHooks(page);\n\n\t\t// Install auto-dialog handler on new page',
+              '\t\tawait this.attachSecurityHooks(page);\n\t\tif (beforeNavigation) await beforeNavigation(page);\n\n\t\t// Install auto-dialog handler on new page',
+          )
+
+          controller = "src/core/controller/TaloxController.ts"
+          replace_once(
+              controller,
+              '''\tprivate async setupOriginHeaders(page: import("playwright-core").Page): Promise<void> {\n\t\tif (!this.originHeaderConfig) return;\n\t\tconst headers = new OriginHeaders(this.originHeaderConfig);\n\t\tthis.originHeaders = headers;\n\t\tawait headers.install(page);\n\t}''',
+              '''\tprivate async setupOriginHeaders(page: import("playwright-core").Page): Promise<void> {\n\t\tif (!this.originHeaderConfig) return;\n\t\tthis.originHeaders ??= new OriginHeaders(this.originHeaderConfig);\n\t\tawait this.originHeaders.installSessionPage(page);\n\t}''',
+          )
+          replace_once(
+              controller,
+              '\t\tawait this._session.setHeadedMode(headed);',
+              '\t\tawait this._session.setHeadedMode(headed, (page) => this.setupOriginHeaders(page));',
+          )
+          replace_once(
+              controller,
+              '\t\tconst state = await this._session.openPage(url);',
+              '\t\tconst state = await this._session.openPage(url, (page) => this.setupOriginHeaders(page));',
+          )
+
+          Path("tests/unit/OriginHeadersSessionLifecycle.test.ts").write_text(r'''import { describe, expect, it, vi } from "vitest";
+import { OriginHeaders } from "../../src/core/OriginHeaders.js";
+
+function createPage() {
+	return {
+		route: vi.fn().mockResolvedValue(undefined),
+		unroute: vi.fn().mockResolvedValue(undefined),
+	};
+}
+
+describe("OriginHeaders session lifecycle", () => {
+	it("keeps sibling-page routes installed and is idempotent per page", async () => {
+		const headers = new OriginHeaders({
+			"https://api.example.com": { Authorization: "Bearer secret" },
+		});
+		const firstPage = createPage();
+		const secondPage = createPage();
+
+		await headers.installSessionPage(firstPage as any);
+		await headers.installSessionPage(secondPage as any);
+		await headers.installSessionPage(firstPage as any);
+
+		expect(firstPage.route).toHaveBeenCalledTimes(1);
+		expect(secondPage.route).toHaveBeenCalledTimes(1);
+		expect(firstPage.unroute).not.toHaveBeenCalled();
+		expect(secondPage.unroute).not.toHaveBeenCalled();
+
+		await headers.dispose();
+		expect(firstPage.unroute).toHaveBeenCalledTimes(1);
+		expect(secondPage.unroute).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not claim ownership when a session route registration fails", async () => {
+		const headers = new OriginHeaders({
+			"https://api.example.com": { Authorization: "Bearer secret" },
+		});
+		const page = createPage();
+		page.route.mockRejectedValue(new Error("route unavailable"));
+
+		await expect(headers.installSessionPage(page as any)).rejects.toThrow("route unavailable");
+		await headers.dispose();
+
+		expect(page.unroute).not.toHaveBeenCalled();
+	});
+
+	it("disposes every session route best-effort even when one page is already gone", async () => {
+		const headers = new OriginHeaders({
+			"https://api.example.com": { Authorization: "Bearer secret" },
+		});
+		const closedPage = createPage();
+		const livePage = createPage();
+
+		await headers.installSessionPage(closedPage as any);
+		await headers.installSessionPage(livePage as any);
+		closedPage.unroute.mockRejectedValue(new Error("page closed"));
+
+		await expect(headers.dispose()).resolves.toBeUndefined();
+		expect(closedPage.unroute).toHaveBeenCalledTimes(1);
+		expect(livePage.unroute).toHaveBeenCalledTimes(1);
+	});
+});
+''')
+
+          Path("tests/unit/OriginHeadersSessionRouting.test.ts").write_text(r'''import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const snapshotMocks = vi.hoisted(() => ({
+	capture: vi.fn(),
+	restore: vi.fn(),
+}));
+
+vi.mock("../../src/core/SessionSnapshot.js", () => ({
+	captureSessionSnapshot: snapshotMocks.capture,
+	restoreSessionSnapshot: snapshotMocks.restore,
+}));
+
+import { TaloxController } from "../../src/core/controller/TaloxController.js";
+
+const snapshot = {
+	url: "https://api.example.com/account",
+	title: "Account",
+	capturedAt: "2026-08-27T00:00:00.000Z",
+	cookies: [],
+	localStorage: {},
+	sessionStorage: {},
+	scrollX: 0,
+	scrollY: 0,
+};
+
+const emptyState = {
+	url: "https://api.example.com/account",
+	title: "Account",
+	nodes: [],
+	interactiveElements: [],
+	console: { logs: [], errors: [], warnings: [] },
+	network: { requests: [], failedRequests: [] },
+	bugs: [],
+	timestamp: "2026-08-27T00:00:00.000Z",
+};
+
+function createPage(order: string[]) {
+	return {
+		route: vi.fn(async () => {
+			order.push("route");
+		}),
+		unroute: vi.fn().mockResolvedValue(undefined),
+		on: vi.fn(),
+		goto: vi.fn(async () => {
+			order.push("goto");
+		}),
+		isClosed: vi.fn(() => false),
+	};
+}
+
+function createController() {
+	return new TaloxController("/tmp/talox-origin-session-routing", {
+		originHeaders: {
+			"https://api.example.com": { Authorization: "Bearer secret" },
+		},
+		settings: {
+			automaticThinkingEnabled: false,
+			autoDialogHandling: false,
+		},
+	});
+}
+
+function installCollectorStub(session: any, page: any) {
+	const collector = {
+		getPage: () => page,
+		collect: vi.fn(async () => ({ ...emptyState, bugs: [] })),
+	};
+	session.createStateCollector = vi.fn(() => collector);
+	vi.spyOn(session.rulesEngine, "analyze").mockReturnValue([]);
+	return collector;
+}
+
+describe("OriginHeaders session routing", () => {
+	beforeEach(() => {
+		snapshotMocks.capture.mockReset();
+		snapshotMocks.restore.mockReset();
+		snapshotMocks.capture.mockResolvedValue(snapshot);
+		snapshotMocks.restore.mockResolvedValue(undefined);
+	});
+
+	it("installs security then origin headers before the first openPage navigation", async () => {
+		const order: string[] = [];
+		const controller = createController();
+		const session = controller._session as any;
+		const page = createPage(order);
+		session.profile = {
+			id: "origin-routing-profile",
+			class: "qa",
+			purpose: "origin routing regression",
+			userDataDir: "/tmp/talox-origin-session-routing/origin-routing-profile",
+			metadata: { createdAt: "", lastUsed: "" },
+		};
+		vi.spyOn(session.browserManager, "newPage").mockResolvedValue(page as any);
+		vi.spyOn(session, "injectStealthScripts").mockResolvedValue(undefined);
+		installCollectorStub(session, page);
+
+		await controller.openPage("https://api.example.com/account");
+
+		expect(order).toEqual(["route", "route", "goto"]);
+	});
+
+	it("installs origin headers on the recreated page before snapshot restoration navigation", async () => {
+		const order: string[] = [];
+		const controller = createController();
+		const session = controller._session as any;
+		const oldPage = createPage([]);
+		const newPage = createPage(order);
+		const oldContext = {};
+		const newContext = { newPage: vi.fn(async () => newPage) };
+		const oldCollector = { getPage: () => oldPage };
+		const newCollector = installCollectorStub(session, newPage);
+		session.profile = {
+			id: "origin-headed-profile",
+			class: "qa",
+			purpose: "origin headed routing regression",
+			userDataDir: "/tmp/talox-origin-session-routing/origin-headed-profile",
+			metadata: { createdAt: "", lastUsed: "" },
+		};
+		session.pages = [oldCollector];
+		session.activePageIndex = 0;
+		vi.spyOn(session.browserManager, "getContext").mockReturnValue(oldContext as any);
+		vi.spyOn(session.browserManager, "close").mockResolvedValue(undefined);
+		vi.spyOn(session.browserManager, "launch").mockResolvedValue(newContext as any);
+		vi.spyOn(session, "injectStealthScripts").mockResolvedValue(undefined);
+		session.createStateCollector = vi.fn(() => newCollector);
+		snapshotMocks.restore.mockImplementation(async () => {
+			order.push("restore");
+		});
+
+		await controller.setHeaded(true);
+		session.stopSessionIdleMonitor();
+
+		expect(order).toEqual(["route", "route", "restore"]);
+	});
+});
+''')
+
+          Path(".github/workflows/_apply-origin-headers-session-patch.yml").unlink()
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/controller/SessionManager.ts src/core/controller/TaloxController.ts tests/unit/OriginHeadersSessionLifecycle.test.ts tests/unit/OriginHeadersSessionRouting.test.ts .github/workflows/_apply-origin-headers-session-patch.yml
+          git commit -m "fix: keep origin headers across session pages"
+          git push origin HEAD:fix/origin-headers-session-lifecycle
