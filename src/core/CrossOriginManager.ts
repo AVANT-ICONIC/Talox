@@ -60,6 +60,7 @@ export class CrossOriginManager {
 	private readonly assignedFrameIds = new Set<string>();
 	private nextFrameId = 1;
 	private page: Page | null = null;
+	private pageGeneration = 0;
 	private mainCdpSession: CDPSession | null = null;
 	private readonly frameAttachedListener = (frame: Frame): Promise<void> => this.handleFrameAttached(frame);
 	private readonly frameNavigatedListener = (frame: Frame): Promise<void> => this.handleFrameNavigated(frame);
@@ -78,6 +79,7 @@ export class CrossOriginManager {
 	 */
 	install(page: Page): void {
 		if (this.page === page) return;
+		this.pageGeneration++;
 		if (this.page) {
 			this.removePageListeners();
 			this.clearSessions();
@@ -87,6 +89,14 @@ export class CrossOriginManager {
 		page.on("frameattached", this.frameAttachedListener);
 		page.on("framenavigated", this.frameNavigatedListener);
 		page.on("framedetached", this.frameDetachedListener);
+
+		// Rebinding can happen after navigation (for example openPage/switchPage),
+		// so bootstrap child frames that already exist instead of waiting for a
+		// future frame event that may never fire.
+		const existingFrames = typeof page.frames === "function" ? page.frames() : [];
+		for (const frame of existingFrames) {
+			if (frame.parentFrame()) void this.tryCreateSession(frame);
+		}
 	}
 
 	/** Look up the CDP session for a given stable frame ID. */
@@ -188,6 +198,7 @@ export class CrossOriginManager {
 
 	/** Clean up all CDP sessions, page listeners, and manager state. */
 	dispose(): void {
+		this.pageGeneration++;
 		this.removePageListeners();
 		this.clearSessions();
 		this.assignedFrameIds.clear();
@@ -214,7 +225,9 @@ export class CrossOriginManager {
 	}
 
 	private async tryCreateSession(frame: Frame): Promise<void> {
-		if (!this.page) return;
+		const page = this.page;
+		const generation = this.pageGeneration;
+		if (!page) return;
 
 		const parentFrame = frame.parentFrame();
 		if (!parentFrame) return;
@@ -228,9 +241,21 @@ export class CrossOriginManager {
 		try {
 			// Playwright scopes this CDP session to the OOPIF target. Passing the
 			// page here would make a trust-gated frame command execute on the page.
-			const cdpSession = await this.page.context().newCDPSession(frame);
+			const cdpSession = await page.context().newCDPSession(frame);
+
+			// A tab switch/recreation can retire the page while CDP session creation
+			// is still in flight. Never let that late result leak into the new page.
+			if (this.page !== page || this.pageGeneration !== generation) {
+				cdpSession.detach().catch(() => {}); // NOSONAR — best-effort stale cleanup
+				return;
+			}
+
 			const frameId = this.resolveFrameId(frame);
 			const trust = this.assessTrust(frameUrl, parentUrl);
+			const existing = this.sessions.get(frameId);
+			if (existing && existing.cdpSession !== cdpSession) {
+				existing.cdpSession.detach().catch(() => {}); // NOSONAR — collapse bootstrap/event races
+			}
 
 			this.sessions.set(frameId, {
 				frameId,
