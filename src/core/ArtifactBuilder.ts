@@ -1,7 +1,7 @@
 import { sanitizeSessionArtifact } from "./SessionArtifactSanitizer.js";
 
 const REDACTED = "[REDACTED]";
-const TEXT_ENTRY_ACTIONS = new Set(["type", "input", "fill"]);
+const TEXT_ENTRY_ACTIONS = new Set(["type", "input", "fill", "change"]);
 
 export interface VisualContext {
 	mouseX?: number;
