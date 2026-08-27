@@ -362,6 +362,7 @@ export function diffPageState(prev: TaloxPageState, curr: TaloxPageState): Talox
 
 	const prevErrors = new Set(prev.console.errors);
 	const newConsoleErrors = curr.console.errors.filter((e) => !prevErrors.has(e));
+
 	const prevFailedUrls = new Set(prev.network.failedRequests.map((r) => `${r.url}::${r.status}`));
 	const newFailedRequests = curr.network.failedRequests
 		.filter((r) => !prevFailedUrls.has(`${r.url}::${r.status}`))
