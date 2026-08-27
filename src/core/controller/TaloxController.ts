@@ -324,17 +324,19 @@ export class TaloxController {
 		await headers.install(page);
 	}
 
-	/** Start HAR recording if configured. */
+	/** Start session-wide HAR recording if configured. */
 	private setupHarRecording(page: import("playwright-core").Page): void {
 		if (!this.harRecordingConfig?.enabled) return;
-		const harOpts: HarRecorderOptions = {
-			outputPath: this.harRecordingConfig.outputPath,
-		};
-		if (this.harRecordingConfig.includeContent !== undefined) {
-			harOpts.includeContent = this.harRecordingConfig.includeContent;
+		if (!this.harRecorder) {
+			const harOpts: HarRecorderOptions = {
+				outputPath: this.harRecordingConfig.outputPath,
+			};
+			if (this.harRecordingConfig.includeContent !== undefined) {
+				harOpts.includeContent = this.harRecordingConfig.includeContent;
+			}
+			this.harRecorder = new HarRecorderClass(harOpts);
 		}
-		this.harRecorder = new HarRecorderClass(harOpts);
-		this.harRecorder.start(page);
+		this.harRecorder.startContext(page.context());
 	}
 
 	/** Install cross-origin iframe manager if enabled. */
@@ -735,6 +737,10 @@ export class TaloxController {
 		this.settings.headed = headed;
 		await this._session.setHeadedMode(headed);
 		if (frame) this.setAttentionFrameForActivePage(frame);
+		const page = this._session.getPlaywrightPage();
+		if (page && this.harRecorder?.isRecording()) {
+			this.harRecorder.startContext(page.context());
+		}
 	}
 
 	isHeaded(): boolean {
