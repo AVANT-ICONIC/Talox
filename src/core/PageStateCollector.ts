@@ -1,6 +1,8 @@
 import { load as loadYaml } from "js-yaml";
 import type { Page, Response } from "playwright-core";
 import type { CursorDetectionMethod, TaloxNode, TaloxPageState } from "../types/index.js";
+import { sanitizeRecordingUrl } from "./NetworkRecordingSanitizer.js";
+import { sanitizeSessionArtifact } from "./SessionArtifactSanitizer.js";
 
 export interface RetryOptions {
 	maxRetries: number;
@@ -935,7 +937,7 @@ export class PageStateCollector {
 		}
 
 		const collectStart = Date.now();
-		const url = this.page.url();
+		const url = sanitizeRecordingUrl(this.page.url());
 		const title = await this.page.title();
 		// Browser-synthetic documents do not have an application hydration lifecycle.
 		// Retrying an empty AX tree here only adds deterministic backoff delay. Keep
@@ -1017,8 +1019,13 @@ export class PageStateCollector {
 			url,
 			title,
 			timestamp: collectedAt,
-			console: { errors: [...this.consoleErrors] },
-			network: { failedRequests: [...this.failedRequests] },
+			console: { errors: sanitizeSessionArtifact([...this.consoleErrors]) },
+			network: {
+				failedRequests: this.failedRequests.map((request) => ({
+					...request,
+					url: sanitizeRecordingUrl(request.url),
+				})),
+			},
 			nodes,
 			interactiveElements: allInteractiveElements,
 			bugs: [],
