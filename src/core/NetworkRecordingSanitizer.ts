@@ -31,7 +31,7 @@ const SENSITIVE_HEADER_NAME =
 const SENSITIVE_FIELD_NAME =
 	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|cookie|set[-_]?cookie|session(?:[-_]?id)?|sid)$/i;
 const SENSITIVE_QUERY_NAME =
-	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|session(?:[-_]?id)?|sid|code)$/i;
+	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|session(?:[-_]?id)?|sid|code|credential|sig(?:nature)?|policy|key[-_]?pair[-_]?id|googleaccessid|awsaccesskeyid|x[-_]?(?:amz|goog)[-_]?(?:signature|credential|security[-_]?token))$/i;
 const LABELED_SECRET_VALUE =
 	/(\b(?:(?:access|refresh|id|auth)[_-]?token|api[_-]?(?:key|token)|client[_-]?secret|secret|token|password|passwd|authorization|session(?:[_-]?id)?|sid)\b\s*[:=]\s*["']?)(?:bearer\s+|basic\s+)?[^\s,;&}"']+/gi;
 const SENSITIVE_PATH_VALUE =
@@ -121,20 +121,29 @@ export function sanitizeRecordingHeaders(headers: Record<string, string>): Recor
 /**
  * Produce the explicit URL representation used by safe persisted recordings.
  * Sensitive URL values are normalized while host, route shape, query ordering,
- * and non-sensitive query values remain stable for replay.
+ * and non-sensitive query values remain stable for replay. Benign URLs are
+ * returned byte-for-byte so redaction does not introduce unrelated URL
+ * canonicalization (for example adding a trailing slash to a bare origin).
  */
 export function sanitizeRecordingUrl(url: string): string {
+	const fallbackSanitized = sanitizeCredentialTextFallback(url);
 	try {
 		const parsed = new URL(url);
+		let changed = fallbackSanitized !== url;
 		if (parsed.username || parsed.password) {
 			parsed.username = REDACTED;
 			parsed.password = REDACTED;
+			changed = true;
 		}
 		for (const [name] of parsed.searchParams) {
-			if (SENSITIVE_QUERY_NAME.test(name)) parsed.searchParams.set(name, REDACTED);
+			if (SENSITIVE_QUERY_NAME.test(name)) {
+				parsed.searchParams.set(name, REDACTED);
+				changed = true;
+			}
 		}
+		if (!changed) return url;
 		return sanitizeCredentialTextFallback(parsed.toString());
 	} catch {
-		return sanitizeCredentialTextFallback(url);
+		return fallbackSanitized;
 	}
 }
