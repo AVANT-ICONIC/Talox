@@ -1,9 +1,10 @@
 name: Apply origin headers session patch
 
 on:
-  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
     branches:
-      - fix/origin-headers-session-lifecycle
+      - main
 
 permissions:
   contents: write
