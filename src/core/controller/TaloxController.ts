@@ -84,7 +84,7 @@ import {
 import { ActionExecutor } from "./ActionExecutor.js";
 import type { EventHandler } from "./EventBus.js";
 import { EventBus } from "./EventBus.js";
-import { SessionManager } from "./SessionManager.js";
+import { type AttentionFrame, SessionManager } from "./SessionManager.js";
 import { TakeoverBridge } from "./TakeoverBridge.js";
 
 export type { BehavioralDNA } from "../../types/index.js";
@@ -125,7 +125,8 @@ export class TaloxController {
 
 	settings: TaloxSettings;
 
-	private attentionFrame: { x: number; y: number; width: number; height: number; selector?: string } | null = null;
+	private readonly pageAttentionFrames = new WeakMap<PageStateCollector, AttentionFrame>();
+	private pendingAttentionFrame: AttentionFrame | null = null;
 	private readonly viewportScale: number = 1;
 
 	private globalLastMousePos: Point = { x: 0, y: 0 };
@@ -236,7 +237,7 @@ export class TaloxController {
 			() => this._session.profile,
 			() => this.getCurrentLastMousePos(),
 			(pos) => this.setCurrentLastMousePos(pos),
-			() => this.attentionFrame,
+			() => this.getAttentionFrame(),
 			(x, y) => this.clampToFrame(x, y),
 			(sel) => this.findElementInFrame(sel),
 			undefined,
@@ -286,6 +287,7 @@ export class TaloxController {
 
 		try {
 			await this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);
+			this.bindPendingAttentionFrameToActivePage();
 
 			const page = this._session.getPlaywrightPage();
 			if (!page) return;
@@ -410,6 +412,7 @@ export class TaloxController {
 		this.persistTakeoverHistory();
 		await this.disposeOriginHeaders();
 
+		this.pendingAttentionFrame = this.getAttentionFrame();
 		try {
 			await this._session.stop();
 		} catch (e) {
@@ -728,8 +731,10 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	async setHeaded(headed: boolean): Promise<void> {
+		const frame = this.getAttentionFrame();
 		this.settings.headed = headed;
 		await this._session.setHeadedMode(headed);
+		if (frame) this.setAttentionFrameForActivePage(frame);
 	}
 
 	isHeaded(): boolean {
@@ -859,44 +864,74 @@ export class TaloxController {
 	// ATTENTION FRAME
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	async setAttentionFrame(
-		selector: string,
-	): Promise<{ x: number; y: number; width: number; height: number; selector?: string }> {
+	private getActiveAttentionFrameOwner(): PageStateCollector | null {
+		const activePage = this._session.getActivePage();
+		if (!activePage || activePage.getPage().isClosed()) return null;
+		return activePage;
+	}
+
+	private getAttentionFrameForActivePage(): AttentionFrame | null {
+		const activePage = this.getActiveAttentionFrameOwner();
+		if (!activePage) return this.pendingAttentionFrame;
+		return this.pageAttentionFrames.get(activePage) ?? null;
+	}
+
+	private setAttentionFrameForActivePage(frame: AttentionFrame | null): void {
+		const activePage = this.getActiveAttentionFrameOwner();
+		if (!activePage) {
+			this.pendingAttentionFrame = frame;
+			return;
+		}
+		if (frame) this.pageAttentionFrames.set(activePage, frame);
+		else this.pageAttentionFrames.delete(activePage);
+	}
+
+	private bindPendingAttentionFrameToActivePage(): void {
+		if (!this.pendingAttentionFrame) return;
+		const activePage = this.getActiveAttentionFrameOwner();
+		if (!activePage) return;
+		this.pageAttentionFrames.set(activePage, this.pendingAttentionFrame);
+		this.pendingAttentionFrame = null;
+	}
+
+	async setAttentionFrame(selector: string): Promise<AttentionFrame> {
 		const page = this._session.getPage();
 		const element = await page.$(selector);
 		if (!element) throw new Error(`Element not found for selector: ${selector}`);
 		const box = await element.boundingBox();
 		if (!box) throw new Error(`Unable to get bounding box for selector: ${selector}`);
-		this.attentionFrame = { ...box, selector };
-		this._session.artifactBuilder.addAction("setAttentionFrame", { selector, frame: this.attentionFrame });
-		return this.attentionFrame!;
+		const frame: AttentionFrame = { ...box, selector };
+		this.setAttentionFrameForActivePage(frame);
+		this._session.artifactBuilder.addAction("setAttentionFrame", { selector, frame });
+		return frame;
 	}
 
-	setAttentionFrameBox(x: number, y: number, width: number, height: number) {
-		this.attentionFrame = { x, y, width, height };
+	setAttentionFrameBox(x: number, y: number, width: number, height: number): AttentionFrame {
+		const frame: AttentionFrame = { x, y, width, height };
+		this.setAttentionFrameForActivePage(frame);
 		this._session.artifactBuilder.addAction("setAttentionFrameBox", { x, y, width, height });
-		return this.attentionFrame;
+		return frame;
 	}
 
 	clearAttentionFrame(): void {
-		this.attentionFrame = null;
+		this.setAttentionFrameForActivePage(null);
 		this._session.artifactBuilder.addAction("clearAttentionFrame", {});
 	}
 
-	getAttentionFrame() {
-		return this.attentionFrame;
+	getAttentionFrame(): AttentionFrame | null {
+		return this.getAttentionFrameForActivePage();
 	}
 
 	isElementInFrame(elementBox: { x: number; y: number; width: number; height: number }): boolean {
-		if (!this.attentionFrame) return true;
-		const f = this.attentionFrame;
+		const f = this.getAttentionFrame();
+		if (!f) return true;
 		const cx = elementBox.x + elementBox.width / 2;
 		const cy = elementBox.y + elementBox.height / 2;
 		return cx >= f.x && cx <= f.x + f.width && cy >= f.y && cy <= f.y + f.height;
 	}
 
 	async getElementsInFrame(): Promise<TaloxNode[]> {
-		if (!this.attentionFrame) throw new Error("No attention frame set.");
+		if (!this.getAttentionFrame()) throw new Error("No attention frame set.");
 		const allNodes: TaloxNode[] = this._session.lastState?.nodes ?? [];
 		return allNodes.filter((n) => n.boundingBox && this.isElementInFrame(n.boundingBox));
 	}
@@ -909,7 +944,7 @@ export class TaloxController {
 			const box = await el.boundingBox();
 			if (box && this.isElementInFrame(box)) return { element: el, box };
 		}
-		if (!this.attentionFrame) {
+		if (!this.getAttentionFrame()) {
 			const box = await elements[0]?.boundingBox();
 			if (box) return { element: elements[0], box };
 		}
@@ -917,26 +952,28 @@ export class TaloxController {
 	}
 
 	scaleAXToViewport(axX: number, axY: number, axWidth: number, axHeight: number) {
-		if (!this.attentionFrame) return { x: axX, y: axY, width: axWidth, height: axHeight };
+		const frame = this.getAttentionFrame();
+		if (!frame) return { x: axX, y: axY, width: axWidth, height: axHeight };
 		return {
-			x: this.attentionFrame.x + axX * this.attentionFrame.width,
-			y: this.attentionFrame.y + axY * this.attentionFrame.height,
-			width: axWidth * this.attentionFrame.width,
-			height: axHeight * this.attentionFrame.height,
+			x: frame.x + axX * frame.width,
+			y: frame.y + axY * frame.height,
+			width: axWidth * frame.width,
+			height: axHeight * frame.height,
 		};
 	}
 
 	viewportToScaleAX(vpX: number, vpY: number) {
-		if (!this.attentionFrame) return { axX: vpX, axY: vpY };
+		const frame = this.getAttentionFrame();
+		if (!frame) return { axX: vpX, axY: vpY };
 		return {
-			axX: (vpX - this.attentionFrame.x) / this.attentionFrame.width,
-			axY: (vpY - this.attentionFrame.y) / this.attentionFrame.height,
+			axX: (vpX - frame.x) / frame.width,
+			axY: (vpY - frame.y) / frame.height,
 		};
 	}
 
 	clampToFrame(x: number, y: number): Point {
-		if (!this.attentionFrame) return { x, y };
-		const f = this.attentionFrame;
+		const f = this.getAttentionFrame();
+		if (!f) return { x, y };
 		return {
 			x: Math.max(f.x, Math.min(x, f.x + f.width)),
 			y: Math.max(f.y, Math.min(y, f.y + f.height)),
@@ -1048,7 +1085,7 @@ export class TaloxController {
 	async triggerThinkingBehavior(): Promise<void> {
 		return this._session.triggerThinkingBehavior(
 			this.getCurrentLastMousePos(),
-			this.attentionFrame,
+			this.getAttentionFrame(),
 			this.clampToFrame.bind(this),
 		);
 	}
