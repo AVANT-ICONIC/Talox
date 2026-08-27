@@ -31,7 +31,7 @@ const SENSITIVE_HEADER_NAME =
 const SENSITIVE_FIELD_NAME =
 	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|cookie|set[-_]?cookie|session(?:[-_]?id)?|sid)$/i;
 const SENSITIVE_QUERY_NAME =
-	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|session(?:[-_]?id)?|sid|code)$/i;
+	/^(?:(?:access|refresh|id|auth)[-_]?token|api[-_]?(?:key|token)|client[-_]?secret|secret|token|password|passwd|authorization|session(?:[-_]?id)?|sid|code|credential|sig(?:nature)?|policy|key[-_]?pair[-_]?id|googleaccessid|awsaccesskeyid|x[-_]?(?:amz|goog)[-_]?(?:signature|credential|security[-_]?token))$/i;
 const LABELED_SECRET_VALUE =
 	/(\b(?:(?:access|refresh|id|auth)[_-]?token|api[_-]?(?:key|token)|client[_-]?secret|secret|token|password|passwd|authorization|session(?:[_-]?id)?|sid)\b\s*[:=]\s*["']?)(?:bearer\s+|basic\s+)?[^\s,;&}"']+/gi;
 const SENSITIVE_PATH_VALUE =
