@@ -2,6 +2,31 @@ import { sanitizeSessionArtifact } from "./SessionArtifactSanitizer.js";
 
 const REDACTED = "[REDACTED]";
 const TEXT_ENTRY_ACTIONS = new Set(["type", "input", "fill", "change"]);
+const SENSITIVE_KEY_FRAGMENTS = [
+	"password",
+	"passwd",
+	"token",
+	"secret",
+	"apikey",
+	"api-key",
+	"api_key",
+	"authorization",
+	"cookie",
+];
+
+function redactCompositeSensitiveFields(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map((entry) => redactCompositeSensitiveFields(entry));
+	if (!value || typeof value !== "object") return value;
+
+	const sanitized: Record<string, unknown> = {};
+	for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+		const normalizedKey = key.toLowerCase();
+		sanitized[key] = SENSITIVE_KEY_FRAGMENTS.some((fragment) => normalizedKey.includes(fragment))
+			? REDACTED
+			: redactCompositeSensitiveFields(entry);
+	}
+	return sanitized;
+}
 
 export interface VisualContext {
 	mouseX?: number;
@@ -164,7 +189,8 @@ export class ArtifactBuilder {
 
 	private sanitizePayload(payload: any): Record<string, any> {
 		if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
-		return sanitizeSessionArtifact(payload) as Record<string, any>;
+		const sanitized = sanitizeSessionArtifact(payload) as Record<string, any>;
+		return redactCompositeSensitiveFields(sanitized) as Record<string, any>;
 	}
 
 	exportAsJSON(options: ExportOptions = {}): string {
