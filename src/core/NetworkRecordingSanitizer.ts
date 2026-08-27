@@ -121,20 +121,29 @@ export function sanitizeRecordingHeaders(headers: Record<string, string>): Recor
 /**
  * Produce the explicit URL representation used by safe persisted recordings.
  * Sensitive URL values are normalized while host, route shape, query ordering,
- * and non-sensitive query values remain stable for replay.
+ * and non-sensitive query values remain stable for replay. Benign URLs are
+ * returned byte-for-byte so redaction does not introduce unrelated URL
+ * canonicalization (for example adding a trailing slash to a bare origin).
  */
 export function sanitizeRecordingUrl(url: string): string {
+	const fallbackSanitized = sanitizeCredentialTextFallback(url);
 	try {
 		const parsed = new URL(url);
+		let changed = fallbackSanitized !== url;
 		if (parsed.username || parsed.password) {
 			parsed.username = REDACTED;
 			parsed.password = REDACTED;
+			changed = true;
 		}
 		for (const [name] of parsed.searchParams) {
-			if (SENSITIVE_QUERY_NAME.test(name)) parsed.searchParams.set(name, REDACTED);
+			if (SENSITIVE_QUERY_NAME.test(name)) {
+				parsed.searchParams.set(name, REDACTED);
+				changed = true;
+			}
 		}
+		if (!changed) return url;
 		return sanitizeCredentialTextFallback(parsed.toString());
 	} catch {
-		return sanitizeCredentialTextFallback(url);
+		return fallbackSanitized;
 	}
 }
