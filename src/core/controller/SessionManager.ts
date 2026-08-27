@@ -324,6 +324,12 @@ export class SessionManager {
 
 		this.pages.splice(index, 1);
 		this.pageMousePositions.delete(index);
+		for (let pageIndex = index + 1; pageIndex <= this.pages.length; pageIndex++) {
+			const position = this.pageMousePositions.get(pageIndex);
+			if (position) this.pageMousePositions.set(pageIndex - 1, position);
+			else this.pageMousePositions.delete(pageIndex - 1);
+		}
+		this.pageMousePositions.delete(this.pages.length);
 
 		if (this.activePageIndex === index) {
 			this.activePageIndex = this.pages.length > 0 ? 0 : -1;
