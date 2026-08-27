@@ -166,7 +166,7 @@ export class SessionReporter {
 
 	private isBase64(value: string): boolean {
 		if (!value) return false;
-		const normalized = value.trim().replaceAll(/\s+/g, "");
+		const normalized = value.trim().replaceAll(/\\s+/g, "");
 		return /^[A-Za-z0-9+/=]+$/.test(normalized) && normalized.length % 4 === 0;
 	}
 
