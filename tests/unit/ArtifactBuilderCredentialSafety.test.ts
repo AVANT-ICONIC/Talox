@@ -43,6 +43,18 @@ describe("ArtifactBuilder credential safety", () => {
 		expectAbsentEverywhere(builder, [typedSecret]);
 	});
 
+	it("treats CHANGE values as text-entry material too", () => {
+		const builder = new ArtifactBuilder();
+		const typedSecret = "change-action-secret";
+
+		builder.addAction("CHANGE", { selector: "#credential", value: typedSecret });
+
+		const action = builder.getTrace().actions[0]!;
+		expect(action.payload.value).toBe(REDACTED);
+		expect(action.payload.valueLength).toBe(typedSecret.length);
+		expectAbsentEverywhere(builder, [typedSecret]);
+	});
+
 	it("recursively sanitizes URL, nested, and credential-shaped payload values", () => {
 		const builder = new ArtifactBuilder();
 		const urlPassword = "url-password-secret";
