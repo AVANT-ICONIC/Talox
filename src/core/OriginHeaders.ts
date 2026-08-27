@@ -31,6 +31,7 @@ export class OriginHeaders {
 	private installedPage: Page | null = null;
 	private routeHandler: RouteHandler | null = null;
 	private rollbackRoutes: Array<{ page: Page; handler: RouteHandler }> = [];
+	private readonly sessionRoutes = new Map<Page, RouteHandler>();
 
 	constructor(config?: OriginHeaderConfig) {
 		if (config) {
@@ -91,6 +92,20 @@ export class OriginHeaders {
 		this.routeHandler = nextHandler;
 	}
 
+	/**
+	 * Install a route owned by the current Talox session without replacing routes
+	 * already installed on sibling pages. Repeated installs on the same page are
+	 * idempotent and failed registrations never claim ownership.
+	 */
+	async installSessionPage(page: Page): Promise<void> {
+		if (this.sessionRoutes.has(page)) return;
+
+		const handler = this.createRouteHandler();
+		const routePromise = page.route("**/*", handler);
+		if (routePromise) await routePromise;
+		this.sessionRoutes.set(page, handler);
+	}
+
 	private createRouteHandler(): RouteHandler {
 		return async (route: Route) => {
 			const request = route.request();
@@ -146,6 +161,16 @@ export class OriginHeaders {
 		const rollbackRoutes = this.rollbackRoutes;
 		this.rollbackRoutes = [];
 		for (const { page, handler } of rollbackRoutes) {
+			try {
+				await page.unroute("**/*", handler);
+			} catch {
+				// NOSONAR — page may already be closed
+			}
+		}
+
+		const sessionRoutes = [...this.sessionRoutes];
+		this.sessionRoutes.clear();
+		for (const [page, handler] of sessionRoutes) {
 			try {
 				await page.unroute("**/*", handler);
 			} catch {
