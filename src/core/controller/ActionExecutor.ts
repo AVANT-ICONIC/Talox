@@ -19,6 +19,7 @@ import type { ArtifactBuilder } from "../ArtifactBuilder.js";
 import { type CursorStepCallback, HumanMouse } from "../HumanMouse.js";
 import { InteractionReliability } from "../InteractionReliability.js";
 import { createLogger } from "../Logger.js";
+import { sanitizeRecordingUrl } from "../NetworkRecordingSanitizer.js";
 import type { PageStateCollector } from "../PageStateCollector.js";
 import type { PolicyEngine } from "../PolicyEngine.js";
 import type { SemanticEntityType, SemanticMapper } from "../SemanticMapper.js";
@@ -145,7 +146,7 @@ export class ActionExecutor {
 
 	private enforcePolicy(profile: any, url: string): void {
 		if (profile && !this.policyEngine.isAllowed(profile.class, url)) {
-			throw new Error(`Policy Violation: URL ${url} not allowed for ${profile.class} profile`);
+			throw new Error(`Policy Violation: URL ${sanitizeRecordingUrl(url)} not allowed for ${profile.class} profile`);
 		}
 	}
 
@@ -177,7 +178,7 @@ export class ActionExecutor {
 				error.name === "TimeoutError" || error.message.includes("timeout") || error.message.includes("Timeout");
 			if (waitState === "networkidle" && isTimeout) {
 				if (this.settings.verbosity >= 1) {
-					console.warn(`[Talox] networkidle navigation timed out for ${url}. Falling back to load.`);
+					this.log.warn(`networkidle navigation timed out for ${sanitizeRecordingUrl(url)}. Falling back to load.`);
 				}
 				await page.goto(url, { waitUntil: "load", timeout: 30000 });
 			} else {
@@ -400,7 +401,7 @@ export class ActionExecutor {
 			/* NOSONAR */
 			// intentionally ignored: collection failure returns minimal state
 			return {
-				url: page.url(),
+				url: sanitizeRecordingUrl(page.url()),
 				title: "Navigating...",
 				timestamp: new Date().toISOString(),
 				console: { errors: [] },
@@ -470,7 +471,7 @@ export class ActionExecutor {
 		const profile = this.getProfile();
 		const settings = this.settings;
 
-		await this.checkRiskyAction("type", `${selector} (text: ${text})`);
+		await this.checkRiskyAction("type", `${selector} (text length: ${text.length})`);
 
 		if (profile && !this.policyEngine.canPerform(profile.class, "type", selector)) {
 			throw new Error(`Policy Violation: Action 'type' on '${selector}' blocked for ${profile.class} profile`);
@@ -886,9 +887,10 @@ export class ActionExecutor {
 	private async checkRiskyAction(action: string, target: string): Promise<void> {
 		const profile = this.getProfile();
 		if (profile?.class === "ops" && this.riskyActionHook) {
-			const isApproved = await this.riskyActionHook(action, target);
+			const safeTarget = action === "navigate" ? sanitizeRecordingUrl(target) : target;
+			const isApproved = await this.riskyActionHook(action, safeTarget);
 			if (!isApproved) {
-				throw new Error(`Human-in-the-Loop blocked risky action: ${action} on ${target}`);
+				throw new Error(`Human-in-the-Loop blocked risky action: ${action} on ${safeTarget}`);
 			}
 		}
 	}
