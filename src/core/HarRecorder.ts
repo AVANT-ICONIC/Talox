@@ -7,7 +7,7 @@
  */
 
 import { writeFileSync } from "node:fs";
-import type { Page, Request, Response } from "playwright-core";
+import type { BrowserContext, Page, Request, Response } from "playwright-core";
 
 // ─── HAR 1.2 Types ──────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ export class HarRecorder {
 	private readonly entries: HarEntry[] = [];
 	private readonly pending = new Map<Request, PendingRequest>();
 	private readonly responseCaptures = new Set<Promise<void>>();
-	private page: Page | null = null;
+	private eventSource: Page | BrowserContext | null = null;
 	private requestHandler: RequestHandler | null = null;
 	private responseHandler: ResponseHandler | null = null;
 	private stopInFlight: Promise<HarResult> | null = null;
@@ -123,10 +123,30 @@ export class HarRecorder {
 	 */
 	start(page: Page): void {
 		if (this.recording) return;
-		if (this.page || this.requestHandler || this.responseHandler) {
+		if (this.eventSource || this.requestHandler || this.responseHandler) {
 			throw new Error("Cannot start HAR recording while previous page listeners await cleanup. Call stop() again first.");
 		}
+		this.attachEventSource(page);
+		this.recording = true;
+	}
 
+	/**
+	 * Record all requests/responses emitted by a browser context.
+	 * Rebinding while recording preserves captured entries and moves listener
+	 * ownership to the replacement context (for headed/headless recreation).
+	 */
+	startContext(context: BrowserContext): void {
+		if (this.recording && this.eventSource === context) return;
+		if (this.recording) {
+			this.detachEventSourceListeners();
+		} else if (this.eventSource || this.requestHandler || this.responseHandler) {
+			throw new Error("Cannot start HAR recording while previous page listeners await cleanup. Call stop() again first.");
+		}
+		this.attachEventSource(context);
+		this.recording = true;
+	}
+
+	private attachEventSource(source: Page | BrowserContext): void {
 		const requestHandler: RequestHandler = (request) => {
 			if (this.recording) this.captureRequest(request);
 		};
@@ -141,25 +161,23 @@ export class HarRecorder {
 			return capture;
 		};
 
-		page.on("request", requestHandler);
-		this.page = page;
+		source.on("request", requestHandler);
+		this.eventSource = source;
 		this.requestHandler = requestHandler;
 
 		try {
-			page.on("response", responseHandler);
+			source.on("response", responseHandler);
 			this.responseHandler = responseHandler;
 		} catch (error) {
 			try {
-				page.off("request", requestHandler);
-				this.page = null;
+				source.off("request", requestHandler);
+				this.eventSource = null;
 				this.requestHandler = null;
 			} catch {
 				// Keep listener ownership so a later stop() can retry cleanup.
 			}
 			throw error;
 		}
-
-		this.recording = true;
 	}
 
 	/**
@@ -187,7 +205,7 @@ export class HarRecorder {
 		let listenerFailure: unknown;
 		let listenerCleanupFailed = false;
 		try {
-			this.detachPageListeners();
+			this.detachEventSourceListeners();
 		} catch (error) {
 			listenerFailure = error;
 			listenerCleanupFailed = true;
@@ -228,16 +246,16 @@ export class HarRecorder {
 
 	// ── Internal helpers ───────────────────────────────────────────────────
 
-	private detachPageListeners(): void {
-		const page = this.page;
-		if (!page) return;
+	private detachEventSourceListeners(): void {
+		const source = this.eventSource;
+		if (!source) return;
 
 		let firstFailure: unknown;
 		let failed = false;
 		const requestHandler = this.requestHandler;
 		if (requestHandler) {
 			try {
-				page.off("request", requestHandler);
+				source.off("request", requestHandler);
 				if (this.requestHandler === requestHandler) this.requestHandler = null;
 			} catch (error) {
 				firstFailure = error;
@@ -248,7 +266,7 @@ export class HarRecorder {
 		const responseHandler = this.responseHandler;
 		if (responseHandler) {
 			try {
-				page.off("response", responseHandler);
+				source.off("response", responseHandler);
 				if (this.responseHandler === responseHandler) this.responseHandler = null;
 			} catch (error) {
 				if (!failed) firstFailure = error;
@@ -256,8 +274,8 @@ export class HarRecorder {
 			}
 		}
 
-		if (!this.requestHandler && !this.responseHandler && this.page === page) {
-			this.page = null;
+		if (!this.requestHandler && !this.responseHandler && this.eventSource === source) {
+			this.eventSource = null;
 		}
 		if (failed) throw firstFailure;
 	}
