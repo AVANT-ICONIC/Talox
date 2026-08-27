@@ -30,6 +30,24 @@ describe("TaloxController attention frame ownership", () => {
 		expect(controller.getAttentionFrame()).toEqual(secondFrame);
 	});
 
+	it("passes only the active page frame into automatic thinking behavior", async () => {
+		const controller = new TaloxController(".");
+		const first = makeCollector();
+		const second = makeCollector();
+		controller._session.pages = [first.collector, second.collector];
+		controller._session.activePageIndex = 0;
+		const firstFrame = controller.setAttentionFrameBox(12, 24, 240, 180);
+		const thinking = vi.spyOn(controller._session, "triggerThinkingBehavior").mockResolvedValue(undefined);
+
+		controller.switchPage(1);
+		await controller.triggerThinkingBehavior();
+		expect(thinking.mock.calls[0]?.[1]).toBeNull();
+
+		controller.switchPage(0);
+		await controller.triggerThinkingBehavior();
+		expect(thinking.mock.calls[1]?.[1]).toEqual(firstFrame);
+	});
+
 	it("restores only the surviving page frame when the active page closes", async () => {
 		const controller = new TaloxController(".");
 		const first = makeCollector();
