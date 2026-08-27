@@ -412,6 +412,7 @@ export class TaloxController {
 		this.persistTakeoverHistory();
 		await this.disposeOriginHeaders();
 
+		this.pendingAttentionFrame = this.getAttentionFrame();
 		try {
 			await this._session.stop();
 		} catch (e) {
@@ -863,14 +864,20 @@ export class TaloxController {
 	// ATTENTION FRAME
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	private getAttentionFrameForActivePage(): AttentionFrame | null {
+	private getActiveAttentionFrameOwner(): PageStateCollector | null {
 		const activePage = this._session.getActivePage();
+		if (!activePage || activePage.getPage().isClosed()) return null;
+		return activePage;
+	}
+
+	private getAttentionFrameForActivePage(): AttentionFrame | null {
+		const activePage = this.getActiveAttentionFrameOwner();
 		if (!activePage) return this.pendingAttentionFrame;
 		return this.pageAttentionFrames.get(activePage) ?? null;
 	}
 
 	private setAttentionFrameForActivePage(frame: AttentionFrame | null): void {
-		const activePage = this._session.getActivePage();
+		const activePage = this.getActiveAttentionFrameOwner();
 		if (!activePage) {
 			this.pendingAttentionFrame = frame;
 			return;
@@ -881,7 +888,7 @@ export class TaloxController {
 
 	private bindPendingAttentionFrameToActivePage(): void {
 		if (!this.pendingAttentionFrame) return;
-		const activePage = this._session.getActivePage();
+		const activePage = this.getActiveAttentionFrameOwner();
 		if (!activePage) return;
 		this.pageAttentionFrames.set(activePage, this.pendingAttentionFrame);
 		this.pendingAttentionFrame = null;
