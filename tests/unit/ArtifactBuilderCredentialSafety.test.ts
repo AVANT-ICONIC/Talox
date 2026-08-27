@@ -55,6 +55,27 @@ describe("ArtifactBuilder credential safety", () => {
 		expectAbsentEverywhere(builder, [typedSecret]);
 	});
 
+	it("preserves broad redaction for composite sensitive field names recursively", () => {
+		const builder = new ArtifactBuilder();
+		const secrets = ["user-password-secret", "csrf-token-secret", "cookie-value-secret"];
+
+		builder.addAction("custom", {
+			userPassword: secrets[0],
+			nested: {
+				csrfToken: secrets[1],
+				cookieValue: secrets[2],
+				label: "safe-metadata",
+			},
+		});
+
+		const action = builder.getTrace().actions[0]!;
+		expect(action.payload.userPassword).toBe(REDACTED);
+		expect(action.payload.nested.csrfToken).toBe(REDACTED);
+		expect(action.payload.nested.cookieValue).toBe(REDACTED);
+		expect(action.payload.nested.label).toBe("safe-metadata");
+		expectAbsentEverywhere(builder, secrets);
+	});
+
 	it("recursively sanitizes URL, nested, and credential-shaped payload values", () => {
 		const builder = new ArtifactBuilder();
 		const urlPassword = "url-password-secret";
