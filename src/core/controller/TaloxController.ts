@@ -756,7 +756,6 @@ export class TaloxController {
 
 	async setHeaded(headed: boolean): Promise<void> {
 		const frame = this.getAttentionFrame();
-		this.settings.headed = headed;
 		await this._session.setHeadedMode(headed);
 		if (frame) this.setAttentionFrameForActivePage(frame);
 		const page = this._session.getPlaywrightPage();
