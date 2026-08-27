@@ -168,7 +168,6 @@ export class PageStateCollector {
 					(e as HTMLInputElement).labels?.[0]?.textContent?.trim() ||
 					(e as HTMLInputElement).placeholder ||
 					e.getAttribute("aria-label")?.trim() ||
-					(e as HTMLInputElement).value ||
 					""
 				);
 			}
