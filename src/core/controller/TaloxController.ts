@@ -370,6 +370,12 @@ export class TaloxController {
 		}
 	}
 
+	/** Keep session video frame capture aligned with Talox's active page. */
+	private retargetVideoRecorderToActivePage(): void {
+		if (!this.videoRecorder?.isRecording()) return;
+		this.videoRecorder.retarget(this._session.getPlaywrightPage());
+	}
+
 	/**
 	 * Close the browser and finalise any active observe session.
 	 */
@@ -741,6 +747,7 @@ export class TaloxController {
 		if (page && this.harRecorder?.isRecording()) {
 			this.harRecorder.startContext(page.context());
 		}
+		this.retargetVideoRecorderToActivePage();
 	}
 
 	isHeaded(): boolean {
@@ -991,13 +998,17 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	async openPage(url: string): Promise<TaloxPageState> {
-		return this._session.openPage(url);
+		const state = await this._session.openPage(url);
+		this.retargetVideoRecorderToActivePage();
+		return state;
 	}
 	async closePage(index: number): Promise<void> {
-		return this._session.closePage(index);
+		await this._session.closePage(index);
+		this.retargetVideoRecorderToActivePage();
 	}
 	switchPage(index: number): void {
-		return this._session.switchPage(index);
+		this._session.switchPage(index);
+		this.retargetVideoRecorderToActivePage();
 	}
 	getPageCount(): number {
 		return this._session.getPageCount();
