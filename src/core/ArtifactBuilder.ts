@@ -1,3 +1,33 @@
+import { sanitizeSessionArtifact } from "./SessionArtifactSanitizer.js";
+
+const REDACTED = "[REDACTED]";
+const TEXT_ENTRY_ACTIONS = new Set(["type", "input", "fill", "change"]);
+const SENSITIVE_KEY_FRAGMENTS = [
+	"password",
+	"passwd",
+	"token",
+	"secret",
+	"apikey",
+	"api-key",
+	"api_key",
+	"authorization",
+	"cookie",
+];
+
+function redactCompositeSensitiveFields(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map((entry) => redactCompositeSensitiveFields(entry));
+	if (!value || typeof value !== "object") return value;
+
+	const sanitized: Record<string, unknown> = {};
+	for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+		const normalizedKey = key.toLowerCase();
+		sanitized[key] = SENSITIVE_KEY_FRAGMENTS.some((fragment) => normalizedKey.includes(fragment))
+			? REDACTED
+			: redactCompositeSensitiveFields(entry);
+	}
+	return sanitized;
+}
+
 export interface VisualContext {
 	mouseX?: number;
 	mouseY?: number;
@@ -44,7 +74,7 @@ export class ArtifactBuilder {
 	addAction(type: string, payload: any, durationMs?: number, visualContext?: VisualContext) {
 		const action: StoredAction = {
 			type,
-			payload,
+			payload: this.sanitizeActionPayload(type, payload),
 			timestamp: new Date().toISOString(),
 		};
 		if (durationMs !== undefined) {
@@ -89,7 +119,7 @@ export class ArtifactBuilder {
 	getTrace() {
 		return {
 			id: `trace-${Date.now()}`,
-			actions: [...this.actions],
+			actions: sanitizeSessionArtifact(this.actions),
 		};
 	}
 
@@ -142,22 +172,25 @@ export class ArtifactBuilder {
 		return typeMap[type] || type;
 	}
 
-	private sanitizePayload(payload: any): Record<string, any> {
-		if (!payload) return {};
-
-		const sensitiveKeys = ["password", "token", "secret", "apiKey", "authorization", "cookie"];
-		const sanitized: Record<string, any> = {};
-
-		for (const [key, value] of Object.entries(payload)) {
-			const lowerKey = key.toLowerCase();
-			if (sensitiveKeys.some((sk) => lowerKey.includes(sk))) {
-				sanitized[key] = "[REDACTED]";
-			} else {
-				sanitized[key] = value;
-			}
+	private sanitizeActionPayload(type: string, payload: any): Record<string, any> {
+		const sanitized = this.sanitizePayload(payload);
+		if (!TEXT_ENTRY_ACTIONS.has(type.toLowerCase()) || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+			return sanitized;
 		}
 
+		for (const field of ["text", "value"] as const) {
+			const originalValue = payload[field];
+			if (typeof originalValue !== "string") continue;
+			sanitized[field] = REDACTED;
+			sanitized[`${field}Length`] = originalValue.length;
+		}
 		return sanitized;
+	}
+
+	private sanitizePayload(payload: any): Record<string, any> {
+		if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
+		const sanitized = sanitizeSessionArtifact(payload) as Record<string, any>;
+		return redactCompositeSensitiveFields(sanitized) as Record<string, any>;
 	}
 
 	exportAsJSON(options: ExportOptions = {}): string {
