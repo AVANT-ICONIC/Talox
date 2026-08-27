@@ -31,6 +31,8 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 	backoffMultiplier: 2,
 };
 
+const TEXT_ENTRY_ROLES = new Set(["textbox", "searchbox"]);
+
 /**
  * Collects the full state of a Playwright page: URL, title, accessibility-tree
  * nodes (with retry and DOM-based fallback), interactive elements (including
@@ -281,7 +283,6 @@ export class PageStateCollector {
 							queryShadowHosts(host.shadowRoot, currentPath);
 						}
 					}
-				}
 
 				queryShadowHosts(document);
 				return results;
@@ -790,6 +791,68 @@ export class PageStateCollector {
 		return result;
 	}
 
+	private stripTextEntryValueAttributes(node: TaloxNode): TaloxNode {
+		if (!TEXT_ENTRY_ROLES.has(node.role.toLowerCase()) || !node.attributes) return node;
+		if (node.attributes.value === undefined && node.attributes.text === undefined) return node;
+
+		const attributes = { ...node.attributes };
+		delete attributes.value;
+		delete attributes.text;
+		const sanitized = { ...node };
+		if (Object.keys(attributes).length > 0) sanitized.attributes = attributes;
+		else delete sanitized.attributes;
+		return sanitized;
+	}
+
+	private boxesMatch(
+		first: { x: number; y: number; width: number; height: number },
+		second: { x: number; y: number; width: number; height: number },
+	): boolean {
+		const intersectionWidth = Math.max(
+			0,
+			Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x),
+		);
+		const intersectionHeight = Math.max(
+			0,
+			Math.min(first.y + first.height, second.y + second.height) - Math.max(first.y, second.y),
+		);
+		const intersectionArea = intersectionWidth * intersectionHeight;
+		const smallerArea = Math.min(first.width * first.height, second.width * second.height);
+		return smallerArea > 0 && intersectionArea / smallerArea >= 0.8;
+	}
+
+	private async scrubPasswordInputValues(nodes: TaloxNode[]): Promise<TaloxNode[]> {
+		const hasTextEntryValues = nodes.some(
+			(node) =>
+				TEXT_ENTRY_ROLES.has(node.role.toLowerCase()) &&
+				(node.attributes?.value !== undefined || node.attributes?.text !== undefined),
+		);
+		if (!hasTextEntryValues) return nodes;
+
+		let passwordBoxes: Array<{ x: number; y: number; width: number; height: number }>;
+		try {
+			passwordBoxes = await this.page.$$eval('input[type="password"]', (elements) =>
+				elements
+					.map((element) => {
+						const rect = element.getBoundingClientRect();
+						return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+					})
+					.filter((box) => box.width > 0 && box.height > 0),
+			);
+		} catch {
+			// If DOM classification fails after an accessibility snapshot already
+			// captured live values, fail closed rather than returning unknown secrets.
+			return nodes.map((node) => this.stripTextEntryValueAttributes(node));
+		}
+
+		if (passwordBoxes.length === 0) return nodes;
+		return nodes.map((node) => {
+			if (!TEXT_ENTRY_ROLES.has(node.role.toLowerCase())) return node;
+			if (!passwordBoxes.some((box) => this.boxesMatch(node.boundingBox, box))) return node;
+			return this.stripTextEntryValueAttributes(node);
+		});
+	}
+
 	private async collectWithRetry(
 		nodeThreshold: number,
 		maxRetriesOverride?: number,
@@ -905,6 +968,10 @@ export class PageStateCollector {
 			// Wait for 500ms before retrying (SPA hydration/loading gap)
 			await this.sleep(500);
 			collectionAttempts++;
+		}
+
+		if (!shouldUseFallback && nodes.length > 0) {
+			nodes = await this.scrubPasswordInputValues(nodes);
 		}
 
 		let interactiveElements: Array<{ id: string; tagName: string; boundingBox: any }> = [];
