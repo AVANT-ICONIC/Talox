@@ -31,6 +31,18 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 	backoffMultiplier: 2,
 };
 
+const TEXT_ENTRY_ROLES = new Set(["textbox", "searchbox"]);
+
+function sanitizeNodeAttributes(
+	role: string,
+	attributes: Record<string, string | boolean>,
+): Record<string, string | boolean> {
+	if (!TEXT_ENTRY_ROLES.has(role.toLowerCase()) || attributes.value === undefined) return attributes;
+	const sanitized = { ...attributes };
+	delete sanitized.value;
+	return sanitized;
+}
+
 /**
  * Collects the full state of a Playwright page: URL, title, accessibility-tree
  * nodes (with retry and DOM-based fallback), interactive elements (including
@@ -168,7 +180,6 @@ export class PageStateCollector {
 					(e as HTMLInputElement).labels?.[0]?.textContent?.trim() ||
 					(e as HTMLInputElement).placeholder ||
 					e.getAttribute("aria-label")?.trim() ||
-					(e as HTMLInputElement).value ||
 					""
 				);
 			}
@@ -710,13 +721,14 @@ export class PageStateCollector {
 		if (typeof value === "string") {
 			const descriptor = this.parseAriaDescriptor(value);
 			if (descriptor?.boundingBox) {
+				const attributes = sanitizeNodeAttributes(descriptor.role, descriptor.attributes);
 				result.push({
 					id: `aria-${result.length}`,
 					role: descriptor.role,
 					name: descriptor.name,
 					description: "",
 					boundingBox: descriptor.boundingBox,
-					...(Object.keys(descriptor.attributes).length > 0 && { attributes: descriptor.attributes }),
+					...(Object.keys(attributes).length > 0 && { attributes }),
 					trust: "first-party",
 				});
 			}
@@ -728,10 +740,10 @@ export class PageStateCollector {
 		for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
 			const descriptor = this.parseAriaDescriptor(key);
 			if (descriptor?.boundingBox) {
-				const attributes = {
+				const attributes = sanitizeNodeAttributes(descriptor.role, {
 					...descriptor.attributes,
 					...this.collectAriaDirectiveAttributes(child),
-				};
+				});
 				if (typeof child === "string" && child.trim()) attributes.text = child.trim();
 
 				result.push({
@@ -776,7 +788,7 @@ export class PageStateCollector {
 					},
 					trust: "first-party",
 				};
-				if (node.value !== undefined) {
+				if (node.value !== undefined && !TEXT_ENTRY_ROLES.has(String(node.role).toLowerCase())) {
 					newNode.attributes = { value: String(node.value) };
 				}
 				result.push(newNode);
