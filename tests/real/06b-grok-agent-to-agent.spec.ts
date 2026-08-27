@@ -18,10 +18,18 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { TaloxController } from "../../src/index.js";
+import { waitFor } from "./helpers.js";
 
 let talox: TaloxController;
 let profileDir: string;
 const adaptedEvents: any[] = [];
+
+function hasInteractiveControl(state: any): boolean {
+	return (state?.nodes ?? []).some((node: any) => {
+		const role = (node.role ?? "").toLowerCase();
+		return role === "button" || ["textbox", "input", "searchbox"].includes(role);
+	});
+}
 
 test.describe("Scenario 6b — Grok agent-to-agent (free mode)", () => {
 	test.setTimeout(180_000);
@@ -74,12 +82,25 @@ test.describe("Scenario 6b — Grok agent-to-agent (free mode)", () => {
 	// ── Step 2: Verify interactive page ─────────────────────────────────────────
 
 	test("Step 2 — page has interactive elements (not a hard block)", async () => {
-		// Re-navigate for worker-restart resilience
+		// Re-navigate for worker-restart resilience. Grok hydrates asynchronously,
+		// so the state returned by navigate() can legitimately be an app shell.
 		let state: any;
 		try {
 			await talox.waitForTimeout(1000);
 			state = await talox.navigate("https://grok.com");
-			await talox.waitForTimeout(2000);
+			try {
+				await waitFor(
+					async () => {
+						state = await talox.getState();
+						return hasInteractiveControl(state);
+					},
+					20_000,
+					1000,
+				);
+			} catch {
+				// Keep the last sampled state. The assertion below should still fail
+				// when a loaded Grok/X page remains genuinely non-interactive.
+			}
 		} catch {
 			try {
 				state = await talox.getState();
