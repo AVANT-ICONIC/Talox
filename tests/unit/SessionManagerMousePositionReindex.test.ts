@@ -11,7 +11,11 @@ function makeCollector() {
 
 describe("SessionManager page mouse position reindexing", () => {
 	it("preserves the surviving page position when closing a middle page", async () => {
-		const session = new SessionManager({ automaticThinkingEnabled: false, verbosity: 0 } as any, { emit: vi.fn() } as any, ".");
+		const session = new SessionManager(
+			{ automaticThinkingEnabled: false, verbosity: 0 } as any,
+			{ emit: vi.fn() } as any,
+			".",
+		);
 		const first = makeCollector();
 		const middle = makeCollector();
 		const last = makeCollector();
