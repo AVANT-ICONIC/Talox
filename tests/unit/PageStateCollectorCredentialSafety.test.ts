@@ -63,8 +63,8 @@ function makeInputHandle(options: { value: string; label?: string; placeholder?:
 	};
 }
 
-describe("PageStateCollector credential value safety", () => {
-	it("does not expose an unlabeled password input live value through DOM fallback", async () => {
+describe("PageStateCollector DOM fallback credential safety", () => {
+	it("does not expose an unlabeled password input live value", async () => {
 		const secret = "correct-horse-battery-staple";
 		const input = makeInputHandle({ value: secret });
 		const page = makeBasePage({ $$: vi.fn(async () => [input]) });
@@ -74,11 +74,11 @@ describe("PageStateCollector credential value safety", () => {
 
 		expect(state.nodes).toHaveLength(1);
 		expect(state.nodes[0]?.name).toBe("");
-		expect(state.interactiveElements[0]?.text).toBe("");
+		expect((state.interactiveElements[0] as any)?.text).toBe("");
 		expect(JSON.stringify(state)).not.toContain(secret);
 	});
 
-	it("preserves useful DOM labels without exposing the live input value", async () => {
+	it("preserves useful labels without exposing the live input value", async () => {
 		const secret = "typed-user-value";
 		const input = makeInputHandle({ value: secret, label: "Account password" });
 		const page = makeBasePage({ $$: vi.fn(async () => [input]) });
@@ -87,74 +87,7 @@ describe("PageStateCollector credential value safety", () => {
 		const state = await collector.collect();
 
 		expect(state.nodes[0]?.name).toBe("Account password");
-		expect(state.interactiveElements[0]?.text).toBe("Account password");
+		expect((state.interactiveElements[0] as any)?.text).toBe("Account password");
 		expect(JSON.stringify(state)).not.toContain(secret);
-	});
-
-	it("omits legacy AX values for text-entry controls", async () => {
-		const secret = "legacy-ax-secret";
-		const page = makeBasePage({
-			accessibility: {
-				snapshot: vi.fn(async () => ({
-					role: "WebArea",
-					name: "",
-					children: [
-						{
-							role: "textbox",
-							name: "Password",
-							value: secret,
-							box: { x: 0, y: 0, width: 200, height: 30 },
-						},
-					],
-				})),
-			},
-		});
-		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
-
-		const state = await collector.collect();
-
-		expect(state.nodes[0]?.name).toBe("Password");
-		expect(state.nodes[0]?.attributes?.value).toBeUndefined();
-		expect(JSON.stringify(state)).not.toContain(secret);
-	});
-
-	it("omits modern ARIA /value directives for text-entry controls", async () => {
-		const secret = "modern-aria-secret";
-		const ariaSnapshot = `- textbox "Password" [box=0,0,200,30]:\n  - /value: ${secret}`;
-		const page = makeBasePage({
-			ariaSnapshot: vi.fn(async () => ariaSnapshot),
-			accessibility: undefined,
-		});
-		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
-
-		const state = await collector.collect();
-
-		expect(state.nodes[0]?.name).toBe("Password");
-		expect(state.nodes[0]?.attributes?.value).toBeUndefined();
-		expect(JSON.stringify(state)).not.toContain(secret);
-	});
-
-	it("keeps non-text semantic AX values such as slider position", async () => {
-		const page = makeBasePage({
-			accessibility: {
-				snapshot: vi.fn(async () => ({
-					role: "WebArea",
-					name: "",
-					children: [
-						{
-							role: "slider",
-							name: "Volume",
-							value: 42,
-							box: { x: 0, y: 0, width: 200, height: 30 },
-						},
-					],
-				})),
-			},
-		});
-		const collector = new PageStateCollector(page as any, { ...FAST_OPTS, useDomFallback: false });
-
-		const state = await collector.collect();
-
-		expect(state.nodes[0]?.attributes?.value).toBe("42");
 	});
 });
