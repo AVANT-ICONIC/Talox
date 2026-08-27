@@ -41,6 +41,8 @@ import {
 import { VisionGate } from "../VisionGate.js";
 import type { EventBus } from "./EventBus.js";
 
+type PreNavigationPageHook = (page: Page) => Promise<void>;
+
 /**
  * Orchestrates the full browser session lifecycle: launching browsers (with
  * stealth injection, fingerprint randomization, and behavioral DNA), managing
@@ -209,7 +211,7 @@ export class SessionManager {
 	 * Observe-mode bypass: if `this.settings.observeBypass` is true the escalation
 	 * is skipped (handled by AdaptationEngine before this point).
 	 */
-	async setHeadedMode(headed: boolean): Promise<void> {
+	async setHeadedMode(headed: boolean, beforeNavigation?: PreNavigationPageHook): Promise<void> {
 		const context = this.browserManager.getContext();
 		const page = this.getPage();
 		const profile = this.profile;
@@ -253,6 +255,7 @@ export class SessionManager {
 		await this.injectNetworkGuard(newPage);
 		await this.injectStealthScripts(newPage);
 		await this.attachSecurityHooks(newPage);
+		if (beforeNavigation) await beforeNavigation(newPage);
 
 		// Re-install auto-dialog handler on new page
 		if (this.settings.autoDialogHandling) {
@@ -302,13 +305,14 @@ export class SessionManager {
 
 	// ─── Multi-Page ──────────────────────────────────────────────────────────────
 
-	async openPage(url: string): Promise<TaloxPageState> {
+	async openPage(url: string, beforeNavigation?: PreNavigationPageHook): Promise<TaloxPageState> {
 		const page = await this.browserManager.newPage();
 
 		await this.injectNetworkGuard(page);
 		await this.injectStealthScripts(page);
 
 		await this.attachSecurityHooks(page);
+		if (beforeNavigation) await beforeNavigation(page);
 
 		// Install auto-dialog handler on new page
 		if (this.settings.autoDialogHandling) {
