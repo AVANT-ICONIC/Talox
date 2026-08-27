@@ -2,10 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { TaloxController } from "../../src/core/controller/TaloxController.js";
 
 function makeCollector() {
-	const close = vi.fn().mockResolvedValue(undefined);
-	return {
-		collector: { getPage: () => ({ close }) } as any,
+	let closed = false;
+	const close = vi.fn().mockImplementation(async () => {
+		closed = true;
+	});
+	const page = {
 		close,
+		isClosed: () => closed,
+	};
+	return {
+		collector: { getPage: () => page } as any,
+		close,
+		markClosed: () => {
+			closed = true;
+		},
 	};
 }
 
@@ -82,6 +92,34 @@ describe("TaloxController attention frame ownership", () => {
 		await controller.launch("attention-frame-test", "qa");
 
 		expect(controller.getAttentionFrame()).toEqual(pendingFrame);
+	});
+
+	it("queues attention frames set after stop and binds them on relaunch", async () => {
+		const controller = new TaloxController(".");
+		const first = makeCollector();
+		const second = makeCollector();
+		controller._session.pages = [first.collector];
+		controller._session.activePageIndex = 0;
+		const stoppedFrame = controller.setAttentionFrameBox(20, 30, 200, 150);
+
+		vi.spyOn(controller._session, "stop").mockImplementation(async () => {
+			first.markClosed();
+		});
+		await controller.stop();
+		expect(controller.getAttentionFrame()).toEqual(stoppedFrame);
+
+		const relaunchedFrame = controller.setAttentionFrameBox(40, 50, 220, 170);
+		expect(controller.getAttentionFrame()).toEqual(relaunchedFrame);
+
+		vi.spyOn(controller._session, "launch").mockImplementation(async () => {
+			controller._session.pages = [second.collector];
+			controller._session.activePageIndex = 0;
+		});
+		vi.spyOn(controller._session, "getPlaywrightPage").mockReturnValue(null);
+
+		await controller.launch("attention-frame-relaunch", "qa");
+
+		expect(controller.getAttentionFrame()).toEqual(relaunchedFrame);
 	});
 
 	it("preserves the active page frame across headed-mode page recreation", async () => {
