@@ -319,9 +319,8 @@ export class TaloxController {
 	/** Install per-origin headers if configured. */
 	private async setupOriginHeaders(page: import("playwright-core").Page): Promise<void> {
 		if (!this.originHeaderConfig) return;
-		const headers = new OriginHeaders(this.originHeaderConfig);
-		this.originHeaders = headers;
-		await headers.install(page);
+		this.originHeaders ??= new OriginHeaders(this.originHeaderConfig);
+		await this.originHeaders.installSessionPage(page);
 	}
 
 	/** Start session-wide HAR recording if configured. */
@@ -756,7 +755,7 @@ export class TaloxController {
 
 	async setHeaded(headed: boolean): Promise<void> {
 		const frame = this.getAttentionFrame();
-		await this._session.setHeadedMode(headed);
+		await this._session.setHeadedMode(headed, (page) => this.setupOriginHeaders(page));
 		if (frame) this.setAttentionFrameForActivePage(frame);
 		const page = this._session.getPlaywrightPage();
 		if (page && this.harRecorder?.isRecording()) {
@@ -1014,7 +1013,7 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	async openPage(url: string): Promise<TaloxPageState> {
-		const state = await this._session.openPage(url);
+		const state = await this._session.openPage(url, (page) => this.setupOriginHeaders(page));
 		this.retargetCrossOriginManagerToActivePage();
 		this.retargetVideoRecorderToActivePage();
 		return state;
