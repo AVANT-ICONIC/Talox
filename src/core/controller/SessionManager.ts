@@ -60,7 +60,20 @@ export class SessionManager {
 	activePageIndex: number = -1;
 	pageMousePositions: Map<number, Point> = new Map();
 	profile: TaloxProfile | null = null;
-	lastState: TaloxPageState | null = null;
+	private _lastState: TaloxPageState | null = null;
+	private readonly pageLastStates = new WeakMap<PageStateCollector, TaloxPageState>();
+
+	get lastState(): TaloxPageState | null {
+		return this._lastState;
+	}
+
+	set lastState(state: TaloxPageState | null) {
+		this._lastState = state;
+		const activePage = this.getActivePage();
+		if (!activePage) return;
+		if (state) this.pageLastStates.set(activePage, state);
+		else this.pageLastStates.delete(activePage);
+	}
 	isFirstNavigation: boolean = true;
 
 	private observeSession: ObserveSession | null = null;
@@ -154,6 +167,7 @@ export class SessionManager {
 		const stateCollector = this.createStateCollector(page);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
+		this.activateCachedStateForActivePage();
 		this.pageMousePositions.set(0, { x: 0, y: 0 });
 		this.artifactBuilder.addAction("launch", { profileId, profileClass, browserType, launchOptions });
 
@@ -248,6 +262,7 @@ export class SessionManager {
 		const stateCollector = this.createStateCollector(newPage);
 		this.activePageIndex = 0;
 		this.pages = [stateCollector];
+		this.activateCachedStateForActivePage();
 		this.pageMousePositions.set(0, { x: 0, y: 0 });
 
 		// 5. Restore session snapshot
@@ -303,6 +318,7 @@ export class SessionManager {
 		const stateCollector = this.createStateCollector(page);
 		this.activePageIndex = this.pages.length;
 		this.pages.push(stateCollector);
+		this.activateCachedStateForActivePage();
 		this.pageMousePositions.set(this.activePageIndex, { x: 0, y: 0 });
 		this.artifactBuilder.addAction("openPage", { url, pageIndex: this.activePageIndex });
 
@@ -337,6 +353,7 @@ export class SessionManager {
 			this.activePageIndex--;
 		}
 
+		this.activateCachedStateForActivePage();
 		this.artifactBuilder.addAction("closePage", { index });
 	}
 
@@ -345,6 +362,7 @@ export class SessionManager {
 			throw new Error(`Invalid page index: ${index}`);
 		}
 		this.activePageIndex = index;
+		this.activateCachedStateForActivePage();
 		this.artifactBuilder.addAction("switchPage", { index });
 	}
 
@@ -779,6 +797,11 @@ export class SessionManager {
 	}
 
 	// ─── Internal Helpers ─────────────────────────────────────────────────────────
+
+	private activateCachedStateForActivePage(): void {
+		const activePage = this.getActivePage();
+		this._lastState = activePage ? (this.pageLastStates.get(activePage) ?? null) : null;
+	}
 
 	private createStateCollector(page: Page): PageStateCollector {
 		const collector = new PageStateCollector(page);

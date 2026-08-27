@@ -579,6 +579,7 @@ export class TaloxController {
 	async click(selector: string): Promise<TaloxPageState> {
 		try {
 			const state = await this._actions.click(selector);
+			this._session.lastState = state;
 			const adapted = await this._adapt.evaluate(state);
 			if (!adapted) this._adapt.recordStrategySuccess(state.url);
 			return state;
@@ -590,7 +591,9 @@ export class TaloxController {
 	/** Type text into an element by CSS selector. Self-heals on failure. */
 	async type(selector: string, text: string): Promise<TaloxPageState> {
 		try {
-			return await this._actions.type(selector, text);
+			const state = await this._actions.type(selector, text);
+			this._session.lastState = state;
+			return state;
 		} catch (error: unknown) {
 			return this.buildErrorState(error);
 		}
