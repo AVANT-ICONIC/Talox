@@ -283,6 +283,7 @@ export class PageStateCollector {
 							queryShadowHosts(host.shadowRoot, currentPath);
 						}
 					}
+				}
 
 				queryShadowHosts(document);
 				return results;
