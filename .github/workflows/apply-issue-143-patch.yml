@@ -1,0 +1,199 @@
+name: Apply issue 143 patch
+
+on:
+  push:
+    branches:
+      - fix/multipage-attention-frame-scope
+    paths:
+      - .github/workflows/apply-issue-143-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/multipage-attention-frame-scope
+          fetch-depth: 0
+      - name: Apply exact attention-frame ownership patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path("src/core/controller/TaloxController.ts")
+          text = path.read_text()
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { SessionManager } from "./SessionManager.js";',
+              'import { type AttentionFrame, SessionManager } from "./SessionManager.js";',
+              "SessionManager import",
+          )
+
+          replace_once(
+              '\tprivate attentionFrame: { x: number; y: number; width: number; height: number; selector?: string } | null = null;\n',
+              '\tprivate readonly pageAttentionFrames = new WeakMap<PageStateCollector, AttentionFrame>();\n\tprivate pendingAttentionFrame: AttentionFrame | null = null;\n',
+              "attention frame field",
+          )
+
+          replace_once(
+              '\t\t\t() => this.attentionFrame,\n',
+              '\t\t\t() => this.getAttentionFrame(),\n',
+              "ActionExecutor frame callback",
+          )
+
+          replace_once(
+              '\t\t\tawait this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);\n\n\t\t\tconst page = this._session.getPlaywrightPage();',
+              '\t\t\tawait this._session.launch(profileId, profileClass, this.settings, browserType, observeOptions);\n\t\t\tthis.bindPendingAttentionFrameToActivePage();\n\n\t\t\tconst page = this._session.getPlaywrightPage();',
+              "launch binding",
+          )
+
+          replace_once(
+              '\tasync setHeaded(headed: boolean): Promise<void> {\n\t\tthis.settings.headed = headed;\n\t\tawait this._session.setHeadedMode(headed);\n\t}\n',
+              '\tasync setHeaded(headed: boolean): Promise<void> {\n\t\tconst frame = this.getAttentionFrame();\n\t\tthis.settings.headed = headed;\n\t\tawait this._session.setHeadedMode(headed);\n\t\tif (frame) this.setAttentionFrameForActivePage(frame);\n\t}\n',
+              "headed mode preservation",
+          )
+
+          start_marker = '\t// ═══════════════════════════════════════════════════════════════════════════\n\t// ATTENTION FRAME\n\t// ═══════════════════════════════════════════════════════════════════════════\n'
+          end_marker = '\t// ═══════════════════════════════════════════════════════════════════════════\n\t// MULTI-PAGE\n\t// ═══════════════════════════════════════════════════════════════════════════\n'
+          if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+              raise SystemExit("attention section markers were not unique")
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          new_section = '''\t// ═══════════════════════════════════════════════════════════════════════════
+\t// ATTENTION FRAME
+\t// ═══════════════════════════════════════════════════════════════════════════
+
+\tprivate getAttentionFrameForActivePage(): AttentionFrame | null {
+\t\tconst activePage = this._session.getActivePage();
+\t\tif (!activePage) return this.pendingAttentionFrame;
+\t\treturn this.pageAttentionFrames.get(activePage) ?? null;
+\t}
+
+\tprivate setAttentionFrameForActivePage(frame: AttentionFrame | null): void {
+\t\tconst activePage = this._session.getActivePage();
+\t\tif (!activePage) {
+\t\t\tthis.pendingAttentionFrame = frame;
+\t\t\treturn;
+\t\t}
+\t\tif (frame) this.pageAttentionFrames.set(activePage, frame);
+\t\telse this.pageAttentionFrames.delete(activePage);
+\t}
+
+\tprivate bindPendingAttentionFrameToActivePage(): void {
+\t\tif (!this.pendingAttentionFrame) return;
+\t\tconst activePage = this._session.getActivePage();
+\t\tif (!activePage) return;
+\t\tthis.pageAttentionFrames.set(activePage, this.pendingAttentionFrame);
+\t\tthis.pendingAttentionFrame = null;
+\t}
+
+\tasync setAttentionFrame(selector: string): Promise<AttentionFrame> {
+\t\tconst page = this._session.getPage();
+\t\tconst element = await page.$(selector);
+\t\tif (!element) throw new Error(`Element not found for selector: ${selector}`);
+\t\tconst box = await element.boundingBox();
+\t\tif (!box) throw new Error(`Unable to get bounding box for selector: ${selector}`);
+\t\tconst frame: AttentionFrame = { ...box, selector };
+\t\tthis.setAttentionFrameForActivePage(frame);
+\t\tthis._session.artifactBuilder.addAction("setAttentionFrame", { selector, frame });
+\t\treturn frame;
+\t}
+
+\tsetAttentionFrameBox(x: number, y: number, width: number, height: number): AttentionFrame {
+\t\tconst frame: AttentionFrame = { x, y, width, height };
+\t\tthis.setAttentionFrameForActivePage(frame);
+\t\tthis._session.artifactBuilder.addAction("setAttentionFrameBox", { x, y, width, height });
+\t\treturn frame;
+\t}
+
+\tclearAttentionFrame(): void {
+\t\tthis.setAttentionFrameForActivePage(null);
+\t\tthis._session.artifactBuilder.addAction("clearAttentionFrame", {});
+\t}
+
+\tgetAttentionFrame(): AttentionFrame | null {
+\t\treturn this.getAttentionFrameForActivePage();
+\t}
+
+\tisElementInFrame(elementBox: { x: number; y: number; width: number; height: number }): boolean {
+\t\tconst f = this.getAttentionFrame();
+\t\tif (!f) return true;
+\t\tconst cx = elementBox.x + elementBox.width / 2;
+\t\tconst cy = elementBox.y + elementBox.height / 2;
+\t\treturn cx >= f.x && cx <= f.x + f.width && cy >= f.y && cy <= f.y + f.height;
+\t}
+
+\tasync getElementsInFrame(): Promise<TaloxNode[]> {
+\t\tif (!this.getAttentionFrame()) throw new Error("No attention frame set.");
+\t\tconst allNodes: TaloxNode[] = this._session.lastState?.nodes ?? [];
+\t\treturn allNodes.filter((n) => n.boundingBox && this.isElementInFrame(n.boundingBox));
+\t}
+
+\tasync findElementInFrame(selector: string): Promise<{ element: any; box: any } | null> {
+\t\tconst page = this._session.getPage();
+\t\tconst elements = await page.$$(selector);
+\t\tif (elements.length === 0) return null;
+\t\tfor (const el of elements) {
+\t\t\tconst box = await el.boundingBox();
+\t\t\tif (box && this.isElementInFrame(box)) return { element: el, box };
+\t\t}
+\t\tif (!this.getAttentionFrame()) {
+\t\t\tconst box = await elements[0]?.boundingBox();
+\t\t\tif (box) return { element: elements[0], box };
+\t\t}
+\t\treturn null;
+\t}
+
+\tscaleAXToViewport(axX: number, axY: number, axWidth: number, axHeight: number) {
+\t\tconst frame = this.getAttentionFrame();
+\t\tif (!frame) return { x: axX, y: axY, width: axWidth, height: axHeight };
+\t\treturn {
+\t\t\tx: frame.x + axX * frame.width,
+\t\t\ty: frame.y + axY * frame.height,
+\t\t\twidth: axWidth * frame.width,
+\t\t\theight: axHeight * frame.height,
+\t\t};
+\t}
+
+\tviewportToScaleAX(vpX: number, vpY: number) {
+\t\tconst frame = this.getAttentionFrame();
+\t\tif (!frame) return { axX: vpX, axY: vpY };
+\t\treturn {
+\t\t\taxX: (vpX - frame.x) / frame.width,
+\t\t\taxY: (vpY - frame.y) / frame.height,
+\t\t};
+\t}
+
+\tclampToFrame(x: number, y: number): Point {
+\t\tconst f = this.getAttentionFrame();
+\t\tif (!f) return { x, y };
+\t\treturn {
+\t\t\tx: Math.max(f.x, Math.min(x, f.x + f.width)),
+\t\t\ty: Math.max(f.y, Math.min(y, f.y + f.height)),
+\t\t};
+\t}
+
+'''
+          text = text[:start] + new_section + text[end:]
+          path.write_text(text)
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git rm .github/workflows/apply-issue-143-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/controller/TaloxController.ts
+          git commit -m "fix: scope attention frames to active tabs"
+          git push origin HEAD:fix/multipage-attention-frame-scope
