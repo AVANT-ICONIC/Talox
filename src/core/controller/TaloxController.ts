@@ -539,7 +539,7 @@ export class TaloxController {
 			if (!adapted) this._adapt.recordStrategySuccess(state.url);
 			return state;
 		} catch (error: unknown) {
-			return this.buildErrorState(error);
+			return this.buildErrorState(error, "navigate");
 		}
 	}
 
@@ -565,7 +565,7 @@ export class TaloxController {
 			if (variant === "agent") return this._sanitizer.sanitizeAgentState(compactState(state, "agent"));
 			return compactState(state, "debug");
 		} catch (error: unknown) {
-			return this.buildErrorState(error);
+			return this.buildErrorState(error, "getState");
 		}
 	}
 
@@ -610,7 +610,7 @@ export class TaloxController {
 			if (!adapted) this._adapt.recordStrategySuccess(state.url);
 			return state;
 		} catch (error: unknown) {
-			return this.buildErrorState(error);
+			return this.buildErrorState(error, "click");
 		}
 	}
 
@@ -621,7 +621,7 @@ export class TaloxController {
 			this._session.lastState = state;
 			return state;
 		} catch (error: unknown) {
-			return this.buildErrorState(error);
+			return this.buildErrorState(error, "type");
 		}
 	}
 
@@ -1525,7 +1525,19 @@ export class TaloxController {
 	 * Build a minimal {@link TaloxPageState} from a caught error, using
 	 * {@link formatAgentError} to produce an AI-friendly message.
 	 */
-	private buildErrorState(error: unknown): TaloxPageState {
+	/**
+	 * A state that says the reading could not be taken.
+	 *
+	 * It used to be `{ url: "", title: "Error" }` and nothing more. That is not
+	 * a failure a caller can detect — it is a page description that happens to
+	 * look odd, and every layer above treated it as a page. `talox screenshot`
+	 * then captured `about:blank` and reported "Annotated screenshot saved",
+	 * exit 0, for a navigation the policy engine had correctly refused.
+	 *
+	 * `failed` makes it testable. The url and title stay as they were so nothing
+	 * that reads them breaks, but no caller ever has to infer from them again.
+	 */
+	private buildErrorState(error: unknown, operation = "unknown"): TaloxPageState {
 		const friendlyMessage = formatAgentError(error);
 		return {
 			url: "",
@@ -1536,6 +1548,7 @@ export class TaloxController {
 			nodes: [],
 			interactiveElements: [],
 			bugs: [],
+			failed: { reason: friendlyMessage, operation },
 		};
 	}
 
