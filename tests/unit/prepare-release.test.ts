@@ -73,7 +73,24 @@ describe("prepareRelease", () => {
 		const release = prepareRelease(`v${packageVersion}`, packageJsonText, changelogText);
 
 		expect(release.version).toBe(packageVersion);
+
+		// ASSERT THE SHAPE OF THE NOTES, NOT A PHRASE FROM ONE OF THEM.
+		//
+		// This line used to be `expect(release.notes).toContain("Node.js runtime
+		// baseline")` — a sentence out of the 9.0.0 section, pinned into a test
+		// that runs against whatever the CURRENT version is. It could only pass
+		// while 9.0.0 was current, so the first version bump after it was written
+		// failed the release workflow: the v9.0.1 dry run went red here on
+		// 2026-09-16 with notes that were perfectly valid.
+		//
+		// A literal like that is a countdown, not a contract. What the test
+		// actually means is "this version has real release notes", and that is
+		// what it now checks: substantial prose, and at least one changelog
+		// bullet, for whichever version package.json currently names.
 		expect(release.notes.length).toBeGreaterThan(100);
-		expect(release.notes).toContain("Node.js runtime baseline");
+		expect(release.notes).toMatch(/^[-*] /m);
+		// And they must belong to THIS version, not be the previous section
+		// picked up because the marker was missing.
+		expect(changelogText).toContain(`## [${packageVersion}]`);
 	});
 });
