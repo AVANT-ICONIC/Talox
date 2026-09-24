@@ -14,6 +14,11 @@ export interface OriginHeaderConfig {
 
 type RouteHandler = (route: Route) => Promise<void>;
 
+interface SessionRouteRegistration {
+	handler: RouteHandler;
+	onClose: () => void;
+}
+
 /**
  * Manages per-origin HTTP headers and installs request interception on a Playwright page.
  *
@@ -31,7 +36,7 @@ export class OriginHeaders {
 	private installedPage: Page | null = null;
 	private routeHandler: RouteHandler | null = null;
 	private rollbackRoutes: Array<{ page: Page; handler: RouteHandler }> = [];
-	private readonly sessionRoutes = new Map<Page, RouteHandler>();
+	private readonly sessionRoutes = new Map<Page, SessionRouteRegistration>();
 
 	constructor(config?: OriginHeaderConfig) {
 		if (config) {
@@ -101,9 +106,28 @@ export class OriginHeaders {
 		if (this.sessionRoutes.has(page)) return;
 
 		const handler = this.createRouteHandler();
-		const routePromise = page.route("**/*", handler);
-		if (routePromise) await routePromise;
-		this.sessionRoutes.set(page, handler);
+		const onClose = () => {
+			this.sessionRoutes.delete(page);
+		};
+		page.once("close", onClose);
+
+		try {
+			const routePromise = page.route("**/*", handler);
+			if (routePromise) await routePromise;
+		} catch (error) {
+			page.off("close", onClose);
+			throw error;
+		}
+
+		this.sessionRoutes.set(page, { handler, onClose });
+
+		// The page can close while route registration is awaiting Playwright.
+		// A close event that fires before ownership is recorded deletes nothing,
+		// so reconcile against the authoritative page state before returning.
+		if (page.isClosed()) {
+			page.off("close", onClose);
+			this.sessionRoutes.delete(page);
+		}
 	}
 
 	private createRouteHandler(): RouteHandler {
@@ -170,7 +194,8 @@ export class OriginHeaders {
 
 		const sessionRoutes = [...this.sessionRoutes];
 		this.sessionRoutes.clear();
-		for (const [page, handler] of sessionRoutes) {
+		for (const [page, { handler, onClose }] of sessionRoutes) {
+			page.off("close", onClose);
 			try {
 				await page.unroute("**/*", handler);
 			} catch {
