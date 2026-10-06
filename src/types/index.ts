@@ -244,6 +244,24 @@ export interface TaloxPageState {
 		fullPage?: string;
 		crops?: Array<{ id: string; path: string; reason: string }>;
 	};
+	/**
+	 * Set when this state is NOT a reading of a page, but a report that the
+	 * reading could not be taken. Absent on every real state.
+	 *
+	 * A failed navigation used to be returned as `{ url: "", title: "Error" }`
+	 * and nothing else, which no caller could tell apart from a real page whose
+	 * title happens to be "Error". `talox screenshot <url>` therefore captured
+	 * `about:blank`, wrote the file, printed "Annotated screenshot saved" and
+	 * exited 0 — the same blank 5,837-byte PNG for every URL on earth.
+	 *
+	 * Callers must branch on this field, never on `title` or on an empty `url`.
+	 */
+	failed?: {
+		/** What went wrong, in the words the thrower used. */
+		reason: string;
+		/** The operation that could not be completed, e.g. "navigate". */
+		operation: string;
+	};
 }
 
 // ─── State Diff ──────────────────────────────────────────────────────────────

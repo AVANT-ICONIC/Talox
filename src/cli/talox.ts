@@ -554,7 +554,26 @@ async function runScreenshot(args: string[]): Promise<void> {
 		await talox.launch(opts.profileId, opts.profileClass, opts.browser);
 
 		if (opts.url) {
-			await talox.navigate(opts.url);
+			// A REFUSED NAVIGATION IS NOT A SCREENSHOT.
+			//
+			// `navigate()` catches everything and returns an error state, so this
+			// call cannot throw. Ignoring its result meant the capture below ran
+			// against `about:blank` and wrote an image of nothing, then said
+			// "saved" and exited 0.
+			//
+			// Measured 2026-09-16: every `talox screenshot <url>` on this machine
+			// produced the identical 5,837-byte blank 1536x864 PNG — for a live
+			// app, for a static file, for anything — because the ops profile
+			// policy refuses http://127.0.0.1 and the refusal was discarded four
+			// frames above the caller. The policy was right. Throwing its verdict
+			// away is what made the tool useless and, worse, quietly useless.
+			const state = await talox.navigate(opts.url);
+			if (state.failed) {
+				console.error(`[Talox CLI] ${state.failed.operation} failed: ${state.failed.reason}`);
+				console.error("[Talox CLI] No screenshot was written — there is no page to capture.");
+				process.exitCode = 1;
+				return;
+			}
 		}
 
 		const buffer = await talox.annotatedScreenshot();

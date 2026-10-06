@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [9.0.1] - 2026-09-16
+
+### Fixed
+
+- **A refused navigation is no longer reported as a screenshot.** `talox screenshot <url>` wrote a 5,837-byte blank PNG and printed "Annotated screenshot saved", exit 0, whenever navigation was refused. `navigate()` returns an error state rather than throwing, and that state was `{ url: "", title: "Error" }` and nothing more, which no caller could tell apart from a real page. The CLI therefore captured `about:blank` and declared success. Page states now carry `failed: { reason, operation }` when the reading could not be taken, set by all four catch sites (`navigate`, `getState`, `click`, `type`), and the screenshot command exits 1 and writes no file when there is no page to capture.
+- **The local machine is allowed by every one of its names.** The `ops` profile allowlist held `localhost` but not `127.0.0.1` or `[::1]`. The same page returned a correct 252 KB capture via `localhost` and a blank image via `127.0.0.1`. Loopback addresses are the same decision the allowlist already made, written out; hostnames merely containing a loopback name (`127.0.0.1.evil.test`) remain refused.
+- **The browser-probe test asserts both platforms.** `resolveBrowserType()` skips the probe on macOS by design since 9.0.0, but its test asserted the probe unconditionally, so it passed only on Linux and was permanently red on macOS. Both branches are now asserted.
+
+---
+
 ## [9.0.0] - 2026-08-25
 
 ### Added

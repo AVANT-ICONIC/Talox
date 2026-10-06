@@ -100,6 +100,23 @@ describe("BrowserManager bundled Playwright detection", () => {
 		}
 	});
 
+	// THE PROBE IS PLATFORM-DEPENDENT AND THE TEST MUST SAY SO.
+	//
+	// `resolveBrowserType()` short-circuits on macOS:
+	//
+	//     if (process.platform === "darwin" || !autoDetect) return actual;
+	//
+	// added 2026-08-25 in "perf: skip deterministic browser setup work". This
+	// test asserted the probe unconditionally, so it passed in CI on Linux and
+	// was permanently red on any maintainer's Mac — found 2026-09-16 with a
+	// full local run: 2,214 of 2,215 passing, this the only failure, failing
+	// identically on a clean checkout of main.
+	//
+	// A test that can only pass on one platform hides a real contract. Both
+	// branches are asserted here, so the perf shortcut is documented rather
+	// than merely tolerated, and removing it fails the suite on macOS.
+	const probesOnLaunch = process.platform !== "darwin";
+
 	it("probes only the preferred browser when no browser is explicitly requested", async () => {
 		const originalDisplay = process.env.DISPLAY;
 		process.env.DISPLAY = ":talox-unit";
@@ -113,7 +130,11 @@ describe("BrowserManager bundled Playwright detection", () => {
 				userDataDir: "/tmp/talox-implicit-browser",
 				metadata: { createdAt: new Date().toISOString(), lastUsed: new Date().toISOString() },
 			}, false);
-			expect(chromiumLaunch).toHaveBeenCalledTimes(1);
+			// On macOS the preferred browser is returned without probing, by
+			// design. Everywhere else the preferred browser is probed exactly
+			// once. Either way, no OTHER browser is ever touched, and the
+			// session is still launched.
+			expect(chromiumLaunch).toHaveBeenCalledTimes(probesOnLaunch ? 1 : 0);
 			expect(firefoxLaunch).not.toHaveBeenCalled();
 			expect(webkitLaunch).not.toHaveBeenCalled();
 			expect(chromiumPersistentContext).toHaveBeenCalledTimes(1);

@@ -36,14 +36,24 @@ export interface YAMLPolicy {
  */
 export class PolicyEngine {
 	private readonly log = createLogger("Policy");
+	/**
+	 * `localhost`, `127.0.0.1` and `[::1]` are ONE machine with three spellings,
+	 * and an allowlist that knows only the first refuses the other two.
+	 *
+	 * Measured 2026-09-16: `talox screenshot http://127.0.0.1:3210/ui/` produced
+	 * a blank 5,837-byte PNG and reported success, while the identical page at
+	 * `http://localhost:3210/ui/` produced a correct 252,349-byte annotated
+	 * capture. Nothing about the target differed except which name was typed.
+	 *
+	 * This is not a policy decision being reversed. The author already decided
+	 * the local machine is reachable for `ops` by putting `localhost` in the
+	 * list; the loopback IPs are the same decision, written out.
+	 */
+	private static readonly LOOPBACK_NAMES = ["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"];
+
 	private readonly allowlists: Record<ProfileClass, string[]> = {
 		qa: ["*"],
-		// 127.0.0.1 and [::1] are the same host as localhost. Apex's cockpit and
-		// every lane's dev server bind the numeric form, and `localhost` already
-		// being allowed meant the numeric spelling was refused for no reason
-		// (CEO-seat decision, 2026-10-07). An IP pattern matches only an exact
-		// hostname (urlMatchesDomain), so no other address is let in.
-		ops: ["google.com", "github.com", "about:blank", "localhost", "127.0.0.1", "[::1]"],
+		ops: ["google.com", "github.com", "about:blank", ...PolicyEngine.LOOPBACK_NAMES],
 		sandbox: ["*"],
 	};
 
