@@ -468,6 +468,12 @@ Talox provides maximum observability into what the agent sees, without interferi
 
 ## Architecture
 
+### Hybrid browser engines
+
+`runBrowserTask()` adds AUTO / LIGHTPANDA / CHROMIUM routing for isolated background workloads. Lightpanda 1.0.0 uses supervised local CDP workers; rendered state, profiles, screenshots, and human takeover retain the existing Chromium workflow. The Inspect dashboard exposes engine selection and live telemetry.
+
+Install the pinned official binary with `node scripts/install-lightpanda.mjs`, then configure `browserEngine.lightpanda.executablePath` or `TALOX_LIGHTPANDA_PATH`. Lightpanda requires explicit controlled content (`trustedContent: true`) because this release does not enforce CSP; untrusted content stays on Chromium. See [installation, architecture, configuration, safety limits, and measured benchmarks](docs/LIGHTPANDA.md).
+
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │                      TaloxController                         │

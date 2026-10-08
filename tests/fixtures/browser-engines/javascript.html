@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Talox JavaScript benchmark</title></head>
+<body><main id="app">Loading</main><script>
+Promise.resolve().then(() => {
+  document.querySelector('#app').innerHTML = '<h1>JS rendered catalog</h1><ul>' + Array.from({ length: 100 }, (_, index) => '<li><a href="/article/' + index + '">Item ' + index + '</a></li>').join('') + '</ul>';
+  window.fixtureReady = true;
+});
+</script></body></html>
