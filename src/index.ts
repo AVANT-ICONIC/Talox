@@ -23,6 +23,13 @@ export { AutoDialogHandler } from "./core/AutoDialogHandler.js";
 // ─── Core Modules ─────────────────────────────────────────────────────────────
 export { BrowserManager, type BrowserType } from "./core/BrowserManager.js";
 export * from "./core/BugEngine.js";
+export { BrowserRouter, isReplaySafe, requiredCapabilities } from "./core/browser/BrowserRouter.js";
+export type { ChromiumEngineOptions } from "./core/browser/ChromiumEngine.js";
+export { ChromiumEngine } from "./core/browser/ChromiumEngine.js";
+export type { LightpandaEngineOptions } from "./core/browser/LightpandaEngine.js";
+export { LightpandaEngine } from "./core/browser/LightpandaEngine.js";
+export type * from "./core/browser/types.js";
+export { BrowserEngineError } from "./core/browser/types.js";
 // ─── CAPTCHA Solver ────────────────────────────────────────────────────────
 export {
 	type CaptchaChallenge,
