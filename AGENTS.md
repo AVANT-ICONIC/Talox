@@ -57,8 +57,8 @@ src/
       OverlayInjector.ts        # Browser overlay for debug annotations
       AnnotationBuffer.ts       # In-memory annotation queue
   types/                        # Public type contracts (TaloxPageState, events, settings)
-  tools/practical-tools.ts      # Utility actions (download, wait, extract)
-  presets.ts                    # Built-in profiles (research, qa, gaming, browser-lab)
+  tools/practical-tools.ts      # Utility actions (openBackgroundTab, captureApiResponse, exportMarkdownSnapshot, searchOnSite, extractVisibleStructuredContent)
+  presets.ts                    # Built-in presets (ops, qa, observe, research, login-heavy)
   index.ts                      # Public exports
 tests/
   unit/                         # Pure unit tests
@@ -78,12 +78,17 @@ tests/
 ## CLI Commands
 
 ```bash
-talox run            # Start autonomous task execution loop
-talox skill create   # Interactively create a new skill file
-talox observe        # Start observation mode with overlay
-talox chat           # Built-in LLM chat mode
-talox doctor         # Run diagnostic checks
-talox init           # Scaffold a new project
+talox observe        # Start observation session with overlay and reports
+talox init [dir]     # Scaffold a browser-lab starter project
+talox screenshot [url]  # Capture annotated PNG
+talox doctor [--fix] # Run environment diagnostics
+talox daemon [--socket|--port] # Start IPC daemon
+talox chat           # Interactive LLM chat session
+talox run "<goal>"   # Autonomous loop; --agents N routes to multi-agent
+talox research "<goal>" --domain <domain>  # A/B research with promotion
+talox skill create   # Create domain skill from markdown file
+talox mcp            # Start MCP server over stdio
+talox replay [session]  # Render persisted session replay UI
 ```
 
 ## Code Health (Avant Radar)
