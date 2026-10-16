@@ -1,0 +1,85 @@
+# Talox Agent Guide
+
+Talox is a TypeScript browser runtime on Playwright with persistent profiles, structured state contracts, observability, replay, multi-agent runs, MCP server, plugins, adapters, local vision, iframe trust, presets and practical tools.
+
+## Decision table
+
+| I need to | Use |
+|---|---|
+| read a page and get structured state | `talox observe` or `TaloxController` + `navigate` |
+| click and type resiliently | `TaloxController` actions with self-healing selectors |
+| fill a form | practical tools `fillForm` via `getPracticalTools(talox)` |
+| login with persistent profile | `talox launch <profileId> <profileClass> chromium` then `navigate` |
+| screenshot or PDF | `talox screenshot <url> --output <file>` |
+| scrape site | `getPracticalTools(talox).searchOnSite` / `extractVisibleStructuredContent` |
+| work with iframes | CrossOriginManager + `iframeTrust` preset |
+| multi-tab | `getPracticalTools(talox).openBackgroundTab` |
+| multi-agent run | `talox run "<goal>" --agents N` |
+| replay a failure | `talox replay <session>` |
+| local vision | `local-vision` exports `LocalVisionReasoner` |
+| MCP server | `talox mcp` |
+| plugins / adapters | `plugins.ts` / `adapters.ts` public exports |
+
+## Recipes
+
+### Read a page
+CLI: `talox observe --profileId observe --profileClass ops --browser chromium`
+API: `await talox.launch('observe','ops','chromium'); await talox.navigate(url);`
+Returns `TaloxPageState`.
+
+### Structured state
+Use `PageStateCollector` via `TaloxController.getPageState()`.
+Returns JSON schema `TaloxPageState.schema.json`.
+
+### Click and type resiliently
+API: `await talox.click(selector)` and `await talox.type(selector, text)`.
+Talox uses `SelfHealingSelector` and `HumanMouse`.
+
+### Forms
+```js
+const tools = getPracticalTools(talox);
+await tools.fillForm({ selector: '#login', fields: { user, pass } });
+```
+
+### Logins with persistent profiles
+`talox launch profileId profileClass chromium` reuses `ProfileVault`.
+
+### Screenshots and PDFs
+`talox screenshot https://example.com --output out.png`
+
+### Scraping
+```js
+const tools = getPracticalTools(talox);
+const hits = await tools.searchOnSite('query', 3);
+const structured = await tools.extractVisibleStructuredContent();
+```
+
+### Iframes
+Enable `iframeTrust` in settings and use `CrossOriginManager`.
+
+### Multi-tab and multi-agent
+`talox run "collect pricing" --agents 2 --max-iterations 10`
+
+### Replay and debugging
+`talox replay ./talox-sessions/session-2026...`
+
+### Local vision
+`import { LocalVisionReasoner } from 'talox/local-vision';`
+
+### MCP server
+`talox mcp`
+
+### Plugins and adapters
+`import { loadPlugin } from 'talox/plugins';`
+
+## Features you didn't know
+`PRESETS`, `TaloxDaemon`, `HarRecorder`, `SiteWarmup`, `VideoRecorder`, `SkillLoader`, `AutonomousLoop` strategies.
+
+## Troubleshooting
+Navigation refused → check PolicyEngine.
+No API key → set OPENAI_API_KEY.
+Session not found → use newest session in ./talox-sessions.
+Blank screenshot → check state.failed.
+
+## macOS Keychain note
+Talox uses Playwright's bundled Chromium with temp profile. No Keychain dialog.
