@@ -11,6 +11,7 @@ import {
 	webkit,
 } from "playwright-core";
 import type { TaloxProfile, TaloxSettings } from "../types/index.js";
+import { chromeLaunchArgs } from "./browser/ChromeLaunchArgs.js";
 import { createLogger } from "./Logger.js";
 
 export type BrowserType = "chromium" | "firefox" | "webkit";
@@ -559,6 +560,10 @@ export class BrowserManager {
 
 		if (this.config.browser.proxy) {
 			launchOptions.proxy = this.config.browser.proxy;
+		}
+
+		if (actualBrowserType === "chromium") {
+			launchOptions.args = chromeLaunchArgs(launchOptions.args as string[]);
 		}
 
 		return launchOptions;

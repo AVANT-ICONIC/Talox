@@ -53,6 +53,17 @@ import type { TaloxSettings } from "../../types/settings.js";
 import { DEFAULT_SETTINGS, resolveLegacyMode } from "../../types/settings.js"; // NOSONAR
 import { formatAgentError } from "../AgentErrors.js";
 import type { BrowserType } from "../BrowserManager.js";
+import { BrowserRouter } from "../browser/BrowserRouter.js";
+import { ChromiumEngine } from "../browser/ChromiumEngine.js";
+import { LightpandaEngine } from "../browser/LightpandaEngine.js";
+import type {
+	BrowserEngineConfig,
+	BrowserEngineTelemetrySnapshot,
+	BrowserTask,
+	BrowserTaskResult,
+	EngineMode,
+} from "../browser/types.js";
+import { BrowserEngineError } from "../browser/types.js";
 import type { CaptchaSolver } from "../CaptchaSolver.js";
 import type { ChallengeState } from "../ChallengeDetector.js";
 import { ChallengeDetector } from "../ChallengeDetector.js";
@@ -111,6 +122,15 @@ export interface DebugSnapshot {
  * All public methods delegate to focused sub-classes. `TaloxController` itself
  * is a thin coordination layer with no embedded logic.
  */
+const ROUTED_SESSION = Symbol("talox-routed-session");
+type RoutedBrowserTask = BrowserTask & {
+	[ROUTED_SESSION]?: {
+		profile: import("../../types/index.js").TaloxProfile | null;
+		context: import("playwright-core").BrowserContext | null;
+		generation: number;
+	};
+};
+
 export class TaloxController {
 	readonly _events: EventBus<TaloxEventMap>;
 	readonly _actions: ActionExecutor;
@@ -149,6 +169,12 @@ export class TaloxController {
 	private readonly videoRecordingConfig: import("../../types/config.js").TaloxConfig["videoRecording"];
 	private readonly log = createLogger("Controller");
 	private stopInFlight: Promise<void> | null = null;
+	private browserRouter: BrowserRouter | null = null;
+	private readonly browserEngineConfig: BrowserEngineConfig;
+	private browserEngineMode: EngineMode;
+	private readonly browserEngineProfileRoot: string;
+	private browserTaskApprovalHook: ((action: string, target: string) => Promise<boolean>) | undefined;
+	private browserTaskGeneration = 0;
 	private readonly _sanitizer: ContentSanitizer;
 	readonly quality = new QualityTracker();
 
@@ -156,6 +182,9 @@ export class TaloxController {
 		// Support TaloxController(config) shorthand when first arg is an object
 		const baseDir = typeof baseDirOrConfig === "string" ? baseDirOrConfig : ".";
 		const mergedConfig = typeof baseDirOrConfig === "object" ? baseDirOrConfig : config;
+		this.browserEngineConfig = mergedConfig.browserEngine ?? {};
+		this.browserEngineMode = this.browserEngineConfig.mode ?? "auto";
+		this.browserEngineProfileRoot = `${baseDir}/.apex/runtime`;
 		// Start with defaults, then apply legacy mode if specified, then apply explicit settings
 		let mergedSettings: TaloxSettings = { ...DEFAULT_SETTINGS };
 
@@ -364,7 +393,11 @@ export class TaloxController {
 	/** Start inspect server if configured. */
 	private async setupInspectServer(page: import("playwright-core").Page): Promise<void> {
 		if (!this.inspectServerConfig) return;
-		this.inspectServer = new InspectServerClass(this.inspectServerConfig);
+		this.inspectServer = new InspectServerClass({
+			...this.inspectServerConfig,
+			engineStatus: () => this.refreshBrowserEngineTelemetry(),
+			setEngineMode: (mode) => this.setBrowserEngineMode(mode),
+		});
 		await this.inspectServer.attach(page);
 		if (this.settings.verbosity >= 1) {
 			this.log.info(`DevTools inspect server: ${this.inspectServer.getAddress()}`);
@@ -396,6 +429,7 @@ export class TaloxController {
 	 */
 	stop(): Promise<void> {
 		if (this.stopInFlight) return this.stopInFlight;
+		this.browserTaskGeneration++;
 
 		const attempt = this.runStop();
 		this.stopInFlight = attempt;
@@ -413,6 +447,15 @@ export class TaloxController {
 	private async runStop(): Promise<void> {
 		let evidenceFailure: unknown;
 		let evidenceFailed = false;
+		if (this.browserRouter) {
+			try {
+				await this.browserRouter.close();
+				this.browserRouter = null;
+			} catch (error) {
+				evidenceFailure = error;
+				evidenceFailed = true;
+			}
+		}
 		try {
 			await this.flushHarRecorder();
 		} catch (error) {
@@ -1421,7 +1464,134 @@ export class TaloxController {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	setOnRiskyActionHook(hook: (action: string, target: string) => Promise<boolean>): void {
+		this.browserTaskApprovalHook = hook;
 		this._actions.setRiskyActionHook(hook);
+	}
+
+	/** Run an isolated background task without fabricating rendered TaloxPageState geometry. */
+	async runBrowserTask(task: BrowserTask): Promise<BrowserTaskResult> {
+		if (this.stopInFlight)
+			throw new BrowserEngineError("router-closed", "Controller is stopping", { dispatched: false });
+		if (this.takeoverState === "WAITING_FOR_HUMAN")
+			throw new BrowserEngineError("invalid-task", "Agent is paused for human takeover", { dispatched: false });
+		const generation = this.browserTaskGeneration;
+		const snapshot: RoutedBrowserTask = { ...task, requiredCapabilities: [...(task.requiredCapabilities ?? [])] };
+		const profile = this._session.profile;
+		snapshot[ROUTED_SESSION] = { profile, context: this._session.getPlaywrightPage()?.context() ?? null, generation };
+		const profileClass = profile?.class ?? "sandbox";
+		const action = task.operation === "fill" ? "type" : task.operation;
+		if (
+			!this._session.policyEngine.isAllowed(profileClass, snapshot.url) ||
+			!this._session.policyEngine.canPerform(profileClass, action, snapshot.selector) ||
+			!this._session.policyEngine.isActionAllowed(profileClass, action, { url: snapshot.url })
+		) {
+			throw new BrowserEngineError("invalid-task", "Browser task blocked by the session policy", { dispatched: false });
+		}
+		if (profile?.class === "ops" || this.settings.networkGuard !== "off" || this.originHeaderConfig)
+			snapshot.requiredCapabilities?.push("request-policy");
+		const approvalHook = this.browserTaskApprovalHook;
+		if (approvalHook) {
+			if (
+				!(await approvalHook("navigate", snapshot.url)) ||
+				!(await approvalHook(action, snapshot.selector ?? snapshot.url))
+			) {
+				throw new BrowserEngineError("invalid-task", "Browser task blocked by the approval hook", {
+					dispatched: false,
+				});
+			}
+		}
+		if (this.stopInFlight || generation !== this.browserTaskGeneration)
+			throw new BrowserEngineError("router-closed", "Browser task approval expired during controller shutdown", {
+				dispatched: false,
+			});
+		if (this.getTakeoverState() === "WAITING_FOR_HUMAN")
+			throw new BrowserEngineError("invalid-task", "Agent paused during browser task approval", { dispatched: false });
+		if (this._session.profile !== profile)
+			throw new BrowserEngineError("invalid-task", "Session changed during browser task approval", {
+				dispatched: false,
+			});
+		if (
+			!this._session.policyEngine.isAllowed(profileClass, snapshot.url) ||
+			!this._session.policyEngine.canPerform(profileClass, action, snapshot.selector) ||
+			!this._session.policyEngine.isActionAllowed(profileClass, action, { url: snapshot.url })
+		) {
+			throw new BrowserEngineError("invalid-task", "Browser task blocked by the updated session policy", {
+				dispatched: false,
+			});
+		}
+		if (this.settings.networkGuard !== "off" && !snapshot.requiredCapabilities?.includes("request-policy"))
+			snapshot.requiredCapabilities?.push("request-policy");
+		return this.getBrowserRouter().execute(snapshot);
+	}
+
+	/** Engine changes affect subsequent routed tasks; running tasks retain their engine. */
+	setBrowserEngineMode(mode: EngineMode): void {
+		const router = this.getBrowserRouter();
+		router.setMode(mode);
+		this.browserEngineMode = mode;
+	}
+
+	getBrowserEngineTelemetry(): BrowserEngineTelemetrySnapshot {
+		return this.getBrowserRouter().getTelemetry();
+	}
+
+	async refreshBrowserEngineTelemetry(): Promise<BrowserEngineTelemetrySnapshot> {
+		return this.getBrowserRouter().refreshResources();
+	}
+
+	private getBrowserRouter(): BrowserRouter {
+		if (!this.browserRouter) {
+			const { lightpanda, ...routing } = this.browserEngineConfig;
+			this.browserRouter = new BrowserRouter({
+				...routing,
+				mode: this.browserEngineMode,
+				beforeDispatch: (task) => this.assertRoutedSession(task),
+				chromium: new ChromiumEngine({
+					profileRoot: this.browserEngineProfileRoot,
+					validateTask: (task) => this.assertRoutedSession(task),
+					getAuthenticatedContext: (task) => (task as RoutedBrowserTask)[ROUTED_SESSION]?.context ?? null,
+					preparePage: async (page) => {
+						await this._session.prepareRoutedPage(page);
+						if (this.originHeaderConfig) await new OriginHeaders(this.originHeaderConfig).install(page);
+					},
+				}),
+				lightpanda: new LightpandaEngine({ ...lightpanda, maxWorkers: routing.concurrency?.lightpanda ?? 2 }),
+			});
+		}
+		return this.browserRouter;
+	}
+
+	private assertRoutedSession(task: BrowserTask): void {
+		const bound = (task as RoutedBrowserTask)[ROUTED_SESSION];
+		if (!bound || bound.generation !== this.browserTaskGeneration || this.stopInFlight)
+			throw new BrowserEngineError("invalid-task", "Browser task session expired before dispatch", {
+				dispatched: false,
+			});
+		if (
+			this.getTakeoverState() === "WAITING_FOR_HUMAN" ||
+			bound.profile !== this._session.profile ||
+			bound.context !== (this._session.getPlaywrightPage()?.context() ?? null)
+		)
+			throw new BrowserEngineError("invalid-task", "Browser task session changed before dispatch", {
+				dispatched: false,
+			});
+		const profileClass = bound.profile?.class ?? "sandbox";
+		const action = task.operation === "fill" ? "type" : task.operation;
+		if (
+			!this._session.policyEngine.isAllowed(profileClass, task.url) ||
+			!this._session.policyEngine.canPerform(profileClass, action, task.selector) ||
+			!this._session.policyEngine.isActionAllowed(profileClass, action, { url: task.url })
+		)
+			throw new BrowserEngineError("invalid-task", "Browser task blocked by the current session policy", {
+				dispatched: false,
+			});
+		if (
+			(this.settings.networkGuard !== "off" || profileClass === "ops") &&
+			!task.requiredCapabilities?.includes("request-policy")
+		)
+			throw new BrowserEngineError("invalid-task", "Network guard changed while the browser task was queued", {
+				dispatched: false,
+			});
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════

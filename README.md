@@ -195,6 +195,12 @@ See [examples/minimal-agent.ts](./examples/minimal-agent.ts) for a copy-paste st
 > **npm package coming soon.** Until then, run the CLI from the repo:
 > `node dist/cli/entry.js observe --help`
 
+- One-shot agent commands, no script needed:
+  - `talox pdf <file-or-url> <out.pdf> [--size Letter|A4]` prints a page to PDF (default: the page's CSS `@page` size, else Letter).
+  - `talox shot <file-or-url> <out.png> [--size WxH] [--scale N] [--full]` saves a screenshot.
+  - `talox text <file-or-url> [--engine auto|lightpanda|chromium] [--json]` prints the readable text. `auto` reads HTTP(S) through Lightpanda when it is installed and replays a failed read once on Chromium.
+
+  Chromium here is always Playwright's bundled build, headless, with a temporary profile, `--use-mock-keychain` and `--password-store=basic`. These commands never launch the installed Google Chrome, so they cannot raise a macOS Keychain dialog. Lightpanda is found at `TALOX_LIGHTPANDA_PATH` or `~/.cache/talox/lightpanda/1.0.0/lightpanda` (`node scripts/install-lightpanda.mjs --cache-dir ~/.cache/talox/lightpanda`). Measurements: `node scripts/benchmark-agent-commands.mjs`, results in `docs/benchmarks/agent-commands.json`.
 - `node dist/cli/entry.js observe` starts the human-visible observe mode with headed browser, overlay, Markdown/HTML reporting, and the `window.__taloxEmit__` bridge so you can annotate interactions while the agent runs.
 - `node dist/cli/entry.js run` starts the autonomous task execution loop with an LLM planner for self-driving browser workflows.
 - `node dist/cli/entry.js skill create` interactively creates a new SKILL.md file for per-site strategies.
@@ -467,6 +473,12 @@ Talox provides maximum observability into what the agent sees, without interferi
 ---
 
 ## Architecture
+
+### Hybrid browser engines
+
+`runBrowserTask()` adds AUTO / LIGHTPANDA / CHROMIUM routing for isolated background workloads. Lightpanda 1.0.0 uses supervised local CDP workers; rendered state, profiles, screenshots, and human takeover retain the existing Chromium workflow. The Inspect dashboard exposes engine selection and live telemetry.
+
+Install the pinned official binary with `node scripts/install-lightpanda.mjs`, then configure `browserEngine.lightpanda.executablePath` or `TALOX_LIGHTPANDA_PATH`. Lightpanda requires explicit controlled content (`trustedContent: true`) because this release does not enforce CSP; untrusted content stays on Chromium. See [installation, architecture, configuration, safety limits, and measured benchmarks](docs/LIGHTPANDA.md).
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐

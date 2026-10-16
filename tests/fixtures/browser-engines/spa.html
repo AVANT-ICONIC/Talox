@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Talox SPA benchmark</title></head>
+<body><main id="app"></main><script>
+const state = { selected: 0, count: 100 };
+function render() {
+  document.querySelector('#app').innerHTML = '<h1>SPA catalog</h1><button id="next">Next</button><p id="selected">' + state.selected + '</p><ul>' + Array.from({ length: state.count }, (_, index) => '<li><a href="/article/' + index + '">Item ' + index + '</a></li>').join('') + '</ul>';
+  document.querySelector('#next').addEventListener('click', () => { state.selected++; history.replaceState(null, '', '#item-' + state.selected); render(); });
+}
+render();
+window.fixtureReady = true;
+</script></body></html>

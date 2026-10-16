@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { runAgentBrowserCommand, shouldUseAgentBrowserCommand } from "./agent-browser.js";
 import { runMcpCommand, shouldUseMcpCommand } from "./mcp.js";
 import { runMultiAgentRun, shouldUseMultiAgentRun } from "./multi-agent-run.js";
 import { normalizeTopLevelHelpArgv } from "./normalize-argv.js";
@@ -13,7 +14,9 @@ if (argv !== rawArgv) {
 }
 
 try {
-	if (shouldUseMcpCommand(argv)) {
+	if (shouldUseAgentBrowserCommand(argv)) {
+		await runAgentBrowserCommand(argv);
+	} else if (shouldUseMcpCommand(argv)) {
 		await runMcpCommand(argv.slice(1));
 	} else if (shouldUseReplayCommand(argv)) {
 		await runReplayCommand(argv.slice(1));

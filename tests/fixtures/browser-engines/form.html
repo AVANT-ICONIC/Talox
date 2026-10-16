@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Talox form benchmark</title></head>
+<body><main><h1>Owned form</h1><form id="details"><label>Name <input id="name" name="name"></label><button type="submit">Save local fixture</button><output id="result"></output></form></main>
+<script>
+document.querySelector('#details').addEventListener('submit', (event) => {
+  event.preventDefault();
+  document.querySelector('#result').textContent = document.querySelector('#name').value;
+});
+</script></body></html>

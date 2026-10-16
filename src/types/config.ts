@@ -3,11 +3,14 @@
  * @description TaloxConfig - what you pass to TaloxController constructor
  */
 
+import type { BrowserEngineConfig } from "../core/browser/types.js";
 import type { InspectServerConfig } from "../core/inspect/InspectServer.js";
 import type { OriginHeaderConfig } from "../core/OriginHeaders.js";
 import type { LegacyTaloxMode, TaloxSettings } from "./settings.js"; // NOSONAR
 
 export interface TaloxConfig {
+	/** Routing for isolated machine tasks. Existing persistent browser APIs remain unchanged. */
+	browserEngine?: BrowserEngineConfig;
 	profile?: string; // session profile name (default: 'default')
 	observe?: boolean; // human drives, agent watches (default: false)
 	settings?: Partial<TaloxSettings>; // override any default setting
