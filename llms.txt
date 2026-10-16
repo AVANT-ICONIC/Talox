@@ -1,12 +1,23 @@
 # Talox
 
-Talox is a local browser runtime for agents built on Playwright. Persistent profiles, structured page state, observability, replay, multi-agent runs, MCP server, plugins, adapters, local vision, iframe trust, presets and practical tools.
+> Local-first, open-source browser runtime for AI agents: persistent profiles, structured page state, resilient interactions, observability, replay, multi-agent execution and MCP.
 
-## Guide
+This checkout's generated inventory describes v9.0.1. Use the task guide before guessing CLI flags or API methods. Browser launch defaults can select system Chrome; the verified recipes explicitly configure bundled Chromium and isolated temporary profiles. Returned page states may contain `failed` even when a promise resolves.
 
-- Agent guide overview: docs/agent-guide/README.md
-- Verified examples: docs/agent-guide/VERIFIED.md
-- Capabilities manifest: docs/capabilities.json
-- Skill: skills/talox/SKILL.md
+## Agent guide
 
-Full guide text: see llms-full.txt
+- [Start here: task decision table](docs/agent-guide/README.md): Pick the operation, launch safely and understand the state contract.
+- [Browse, act, fill, capture and scrape](docs/agent-guide/browsing.md): Exact calls, results, common failures and boundaries.
+- [Frames, tabs, workers and replay](docs/agent-guide/orchestration.md): Session isolation, trust and evidence.
+- [MCP, local vision, plugins and adapters](docs/agent-guide/integrations.md): Agent transport and extension contracts.
+- [CLI flags and defaults](docs/agent-guide/cli-reference.md): Actual parser spellings, positional inputs and traps.
+- [Features agents miss](docs/agent-guide/features.md): Discover the less obvious runtime surfaces.
+- [Troubleshooting](docs/agent-guide/troubleshooting.md): Source-backed errors, causes and fixes.
+- [Verified examples](docs/agent-guide/VERIFIED.md): Executed checks and offline validation limits.
+- [Executable offline recipes](docs/agent-guide/examples.mjs): Fixture, assertions and reproducible commands.
+
+## Machine-readable context
+
+- [Capabilities manifest](docs/capabilities.json): CLI, MCP, API exports/members, presets, environment reads and schema with source locations and derivation limits.
+- [Talox agent skill](skills/talox/SKILL.md): Progressive-disclosure browsing skill and ten frequent calls.
+- [Full guide](llms-full.txt): Concatenated guide for one-shot context loading.
