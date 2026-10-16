@@ -10,6 +10,10 @@ Authentication, rendering, screenshots, visual interaction, and takeover require
 
 Talox's existing policy and explicit approval hook run before a controller task. Tasks requiring request policy enforcement remain on Chromium. Disabling Lightpanda telemetry and core dumps preserves local operation; Talox does not disable TLS verification, CORS, or browser security features to gain compatibility.
 
+### `talox text` and the trusted-content assertion
+
+`talox text <url>` is the one CLI command that reads through Lightpanda by default. It sets `trustedContent: true` for its read, and that is a deliberate decision rather than a bypass: the boundary above exists because CSP protects a user's session from injected script, and this read has no session. Each call starts its own Lightpanda process with no profile, no cookies, no storage state and no credentials, extracts text and exits. A page that needs CSP to protect someone has nothing to protect here. What remains is Lightpanda's own exposure as a young engine without Chromium's OS sandbox; for content you consider hostile, use `--engine chromium`. A failed Lightpanda read is replayed once on Chromium (reading has no side effect to repeat), and `--json` reports `engine`, `selection` and `fallback`. `file:` targets read on Chromium because Lightpanda accepts only HTTP(S).
+
 ## Installation and reproducible pin
 
 The installer downloads only official [lightpanda-io/browser release assets](https://github.com/lightpanda-io/browser/releases/tag/1.0.0). It streams to a private non-executable file, verifies exact size and SHA256, then grants execution permission and installs atomically. Existing cached binaries are verified again; corrupted or unreadable caches error instead of being treated as installed.
