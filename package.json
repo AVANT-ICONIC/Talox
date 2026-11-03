@@ -29,6 +29,9 @@
   "files": [
     "dist/",
     "src/schema/",
+    "scripts/install-lightpanda.mjs",
+    "docs/LIGHTPANDA.md",
+    "docs/benchmarks/lightpanda.json",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

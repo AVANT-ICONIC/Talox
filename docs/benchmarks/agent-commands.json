@@ -1,0 +1,725 @@
+{
+  "date": "2026-10-16T03:07:49.764Z",
+  "host": {
+    "platform": "darwin-arm64",
+    "cpus": 10,
+    "loadBefore": [
+      789.5126953125,
+      305.83837890625,
+      1000.6884765625
+    ],
+    "loadAfter": [
+      948.05224609375,
+      898.8916015625,
+      1015.908203125
+    ]
+  },
+  "runs": 5,
+  "pages": [
+    {
+      "url": "<local>/static.html",
+      "lightpanda": [
+        {
+          "coldStartMs": 420.128833,
+          "pageLoadMs": 39.04491699999994,
+          "extractMs": 5.269374999999968,
+          "closeMs": 0.12616700000000947,
+          "totalMs": 481.30137499999995,
+          "chars": 918,
+          "peakRssBytes": 0,
+          "cliMs": 4431.825917,
+          "cliPeakRssBytes": 169705472
+        },
+        {
+          "coldStartMs": 1116.5398749999986,
+          "pageLoadMs": 129.5809999999983,
+          "extractMs": 16.717874999998457,
+          "closeMs": 0.01525000000037835,
+          "totalMs": 1356.753499999999,
+          "chars": 918,
+          "peakRssBytes": 27705344,
+          "cliMs": 3383.6883750000015,
+          "cliPeakRssBytes": 169689088
+        },
+        {
+          "coldStartMs": 1418.8815419999955,
+          "pageLoadMs": 14.64549999999872,
+          "extractMs": 2.1088330000056885,
+          "closeMs": 0.007833000003302004,
+          "totalMs": 1449.6603329999998,
+          "chars": 918,
+          "peakRssBytes": 16367616,
+          "cliMs": 3385.345666999994,
+          "cliPeakRssBytes": 165183488
+        },
+        {
+          "coldStartMs": 1744.7980409999946,
+          "pageLoadMs": 38.35045900000114,
+          "extractMs": 15.626541999998153,
+          "closeMs": 0.009458000000449829,
+          "totalMs": 1830.1862909999982,
+          "chars": 918,
+          "peakRssBytes": 10993664,
+          "cliMs": 3176.5026669999934,
+          "cliPeakRssBytes": 175456256
+        },
+        {
+          "coldStartMs": 1907.1942089999939,
+          "pageLoadMs": 61.23941700000432,
+          "extractMs": 14.973750000004657,
+          "closeMs": 0.007958000001963228,
+          "totalMs": 2007.9022919999989,
+          "chars": 918,
+          "peakRssBytes": 15515648,
+          "cliMs": 4403.422709000006,
+          "cliPeakRssBytes": 152158208
+        }
+      ],
+      "chromium": [
+        {
+          "coldStartMs": 2410.9765000000007,
+          "pageLoadMs": 31.728084000000308,
+          "extractMs": 30.15587500000038,
+          "closeMs": 1544.952707999999,
+          "totalMs": 4017.8131670000002,
+          "chars": 918,
+          "peakRssBytes": 178552832,
+          "cliMs": 4340.876790999999,
+          "cliPeakRssBytes": 230522880
+        },
+        {
+          "coldStartMs": 1217.9473749999997,
+          "pageLoadMs": 76.20945800000118,
+          "extractMs": 11.761332999998558,
+          "closeMs": 1588.6214169999985,
+          "totalMs": 2894.539582999998,
+          "chars": 918,
+          "peakRssBytes": 112640000,
+          "cliMs": 5026.849917,
+          "cliPeakRssBytes": 387530752
+        },
+        {
+          "coldStartMs": 1605.2437500000015,
+          "pageLoadMs": 160.04174999999668,
+          "extractMs": 105.7668330000015,
+          "closeMs": 1559.3868339999972,
+          "totalMs": 3430.439166999997,
+          "chars": 918,
+          "peakRssBytes": 32522240,
+          "cliMs": 6130.473375000001,
+          "cliPeakRssBytes": 376274944
+        },
+        {
+          "coldStartMs": 1915.1201660000079,
+          "pageLoadMs": 44.0279589999991,
+          "extractMs": 33.870707999987644,
+          "closeMs": 1656.4467500000028,
+          "totalMs": 3649.4655829999974,
+          "chars": 918,
+          "peakRssBytes": 249675776,
+          "cliMs": 4985.345291999998,
+          "cliPeakRssBytes": 315916288
+        },
+        {
+          "coldStartMs": 1769.8112079999992,
+          "pageLoadMs": 31.370458999997936,
+          "extractMs": 13.763749999998254,
+          "closeMs": 1587.918291000009,
+          "totalMs": 3402.8637080000044,
+          "chars": 918,
+          "peakRssBytes": 182403072,
+          "cliMs": 5493.248791000005,
+          "cliPeakRssBytes": 302645248
+        }
+      ],
+      "median": {
+        "lightpanda": {
+          "coldStartMs": 1418.8815419999955,
+          "pageLoadMs": 39.04491699999994,
+          "closeMs": 0.009458000000449829,
+          "totalMs": 1449.6603329999998,
+          "peakRssBytes": 15515648,
+          "cliMs": 3385.345666999994,
+          "cliPeakRssBytes": 169689088
+        },
+        "chromium": {
+          "coldStartMs": 1769.8112079999992,
+          "pageLoadMs": 44.0279589999991,
+          "closeMs": 1587.918291000009,
+          "totalMs": 3430.439166999997,
+          "peakRssBytes": 178552832,
+          "cliMs": 5026.849917,
+          "cliPeakRssBytes": 315916288
+        }
+      },
+      "failures": {
+        "lightpanda": 0,
+        "chromium": 0
+      }
+    },
+    {
+      "url": "<local>/javascript.html",
+      "lightpanda": [
+        {
+          "coldStartMs": 1506.5979999999981,
+          "pageLoadMs": 435.10541599999124,
+          "extractMs": 8.018125000002328,
+          "closeMs": 0.02404200000455603,
+          "totalMs": 1981.393916999994,
+          "chars": 813,
+          "peakRssBytes": 20267008,
+          "cliMs": 3823.7862920000043,
+          "cliPeakRssBytes": 154386432
+        },
+        {
+          "coldStartMs": 874.9369579999911,
+          "pageLoadMs": 426.00791699999536,
+          "extractMs": 1.2287910000013653,
+          "closeMs": 0.00916599998890888,
+          "totalMs": 1309.918458,
+          "chars": 813,
+          "peakRssBytes": 20119552,
+          "cliMs": 2208.989459000004,
+          "cliPeakRssBytes": 171229184
+        },
+        {
+          "coldStartMs": 1856.8237910000025,
+          "pageLoadMs": 187.36841700000514,
+          "extractMs": 284.44775000000664,
+          "closeMs": 0.012000000002444722,
+          "totalMs": 2370.2587919999933,
+          "chars": 813,
+          "peakRssBytes": 5816320,
+          "cliMs": 6405.393624999997,
+          "cliPeakRssBytes": 162037760
+        },
+        {
+          "coldStartMs": 1386.8652920000022,
+          "pageLoadMs": 47.810834000003524,
+          "extractMs": 5.7693750000034925,
+          "closeMs": 0.009999999980209395,
+          "totalMs": 1456.4174169999897,
+          "chars": 813,
+          "peakRssBytes": 19906560,
+          "cliMs": 4884.311791000015,
+          "cliPeakRssBytes": 164839424
+        },
+        {
+          "coldStartMs": 1167.8943330000038,
+          "pageLoadMs": 333.3064160000067,
+          "extractMs": 8.530417000001762,
+          "closeMs": 0.014291999978013337,
+          "totalMs": 1579.1596250000002,
+          "chars": 813,
+          "peakRssBytes": 27656192,
+          "cliMs": 5683.846458999993,
+          "cliPeakRssBytes": 172687360
+        }
+      ],
+      "chromium": [
+        {
+          "coldStartMs": 1330.2575420000067,
+          "pageLoadMs": 30.09504200000083,
+          "extractMs": 10.417082999993,
+          "closeMs": 1642.564458000008,
+          "totalMs": 3013.3341250000085,
+          "chars": 813,
+          "peakRssBytes": 243204096,
+          "cliMs": 4218.042249999999,
+          "cliPeakRssBytes": 229277696
+        },
+        {
+          "coldStartMs": 1453.8644170000043,
+          "pageLoadMs": 24.58012499999313,
+          "extractMs": 29.12866600000416,
+          "closeMs": 1692.5587090000045,
+          "totalMs": 3200.131917000006,
+          "chars": 813,
+          "peakRssBytes": 249839616,
+          "cliMs": 4157.959625000003,
+          "cliPeakRssBytes": 316063744
+        },
+        {
+          "coldStartMs": 1752.6709580000024,
+          "pageLoadMs": 199.95420899998862,
+          "extractMs": 93.64958300002036,
+          "closeMs": 1597.7068750000035,
+          "totalMs": 3643.981625000015,
+          "chars": 813,
+          "peakRssBytes": 82427904,
+          "cliMs": 7465.842750000011,
+          "cliPeakRssBytes": 393216000
+        },
+        {
+          "coldStartMs": 1980.701624999987,
+          "pageLoadMs": 24.986000000004424,
+          "extractMs": 7.89962499999092,
+          "closeMs": 1890.1359590000066,
+          "totalMs": 3903.723208999989,
+          "chars": 813,
+          "peakRssBytes": 83574784,
+          "cliMs": 6843.249207999994,
+          "cliPeakRssBytes": 388005888
+        },
+        {
+          "coldStartMs": 2882.662290999986,
+          "pageLoadMs": 22.237374999996973,
+          "extractMs": 6.913834000006318,
+          "closeMs": 1729.3112079999992,
+          "totalMs": 4641.1247079999885,
+          "chars": 813,
+          "peakRssBytes": 83443712,
+          "cliMs": 6296.156625000003,
+          "cliPeakRssBytes": 417660928
+        }
+      ],
+      "median": {
+        "lightpanda": {
+          "coldStartMs": 1386.8652920000022,
+          "pageLoadMs": 333.3064160000067,
+          "closeMs": 0.012000000002444722,
+          "totalMs": 1579.1596250000002,
+          "peakRssBytes": 20119552,
+          "cliMs": 4884.311791000015,
+          "cliPeakRssBytes": 164839424
+        },
+        "chromium": {
+          "coldStartMs": 1752.6709580000024,
+          "pageLoadMs": 24.986000000004424,
+          "closeMs": 1692.5587090000045,
+          "totalMs": 3643.981625000015,
+          "peakRssBytes": 83574784,
+          "cliMs": 6296.156625000003,
+          "cliPeakRssBytes": 388005888
+        }
+      },
+      "failures": {
+        "lightpanda": 0,
+        "chromium": 0
+      }
+    },
+    {
+      "url": "<local>/spa.html",
+      "lightpanda": [
+        {
+          "coldStartMs": 713.1283750000002,
+          "pageLoadMs": 36.43079100002069,
+          "extractMs": 6.779374999983702,
+          "closeMs": 0.007790999981807545,
+          "totalMs": 777.8806659999827,
+          "chars": 811,
+          "peakRssBytes": 31326208,
+          "cliMs": 3279.4776249999995,
+          "cliPeakRssBytes": 171016192
+        },
+        {
+          "coldStartMs": 2444.9341249999998,
+          "pageLoadMs": 21.423500000004424,
+          "extractMs": 2.284834000020055,
+          "closeMs": 0.010624999995343387,
+          "totalMs": 2493.474749999994,
+          "chars": 811,
+          "peakRssBytes": 0,
+          "cliMs": 5226.734874999995,
+          "cliPeakRssBytes": 146554880
+        },
+        {
+          "coldStartMs": 1002.8669579999987,
+          "pageLoadMs": 354.5819999999949,
+          "extractMs": 22.43087499999092,
+          "closeMs": 0.017583000008016825,
+          "totalMs": 1407.6151660000032,
+          "chars": 811,
+          "peakRssBytes": 25772032,
+          "cliMs": 4599.910291999986,
+          "cliPeakRssBytes": 116637696
+        },
+        {
+          "coldStartMs": 1999.327958000009,
+          "pageLoadMs": 405.67304199998034,
+          "extractMs": 95.18149999997695,
+          "closeMs": 0.01333300000987947,
+          "totalMs": 2547.1236250000075,
+          "chars": 811,
+          "peakRssBytes": 26230784,
+          "cliMs": 8842.395459000021,
+          "cliPeakRssBytes": 131252224
+        },
+        {
+          "coldStartMs": 3520.7229170000064,
+          "pageLoadMs": 121.5142910000286,
+          "extractMs": 14.734583000012208,
+          "closeMs": 0.010583000024780631,
+          "totalMs": 3742.2422079999815,
+          "chars": 811,
+          "peakRssBytes": 20594688,
+          "cliMs": 6701.640249999997,
+          "cliPeakRssBytes": 141508608
+        }
+      ],
+      "chromium": [
+        {
+          "coldStartMs": 1082.2562919999764,
+          "pageLoadMs": 36.856125000020256,
+          "extractMs": 7.549582999985432,
+          "closeMs": 1686.236957999994,
+          "totalMs": 2812.898957999976,
+          "chars": 811,
+          "peakRssBytes": 156581888,
+          "cliMs": 4107.4992499999935,
+          "cliPeakRssBytes": 290652160
+        },
+        {
+          "coldStartMs": 1586.283584000019,
+          "pageLoadMs": 67.04337499997928,
+          "extractMs": 52.360041000007186,
+          "closeMs": 1562.3923749999958,
+          "totalMs": 3268.079375000001,
+          "chars": 811,
+          "peakRssBytes": 127188992,
+          "cliMs": 6230.242708000005,
+          "cliPeakRssBytes": 397361152
+        },
+        {
+          "coldStartMs": 2713.192875000008,
+          "pageLoadMs": 29.284958999982337,
+          "extractMs": 11.779125000000931,
+          "closeMs": 1861.0301250000193,
+          "totalMs": 4615.2870840000105,
+          "chars": 811,
+          "peakRssBytes": 83509248,
+          "cliMs": 8608.080916999985,
+          "cliPeakRssBytes": 394100736
+        },
+        {
+          "coldStartMs": 2208.8920000000217,
+          "pageLoadMs": 54.561874999984866,
+          "extractMs": 44.414667000004556,
+          "closeMs": 1593.275250000006,
+          "totalMs": 3901.143792000017,
+          "chars": 811,
+          "peakRssBytes": 269975552,
+          "cliMs": 11975.924666999985,
+          "cliPeakRssBytes": 330760192
+        },
+        {
+          "coldStartMs": 1345.5904580000206,
+          "pageLoadMs": 62.31087499996647,
+          "extractMs": 67.68949999997858,
+          "closeMs": 1631.0387920000358,
+          "totalMs": 3106.6296250000014,
+          "chars": 811,
+          "peakRssBytes": 0,
+          "cliMs": 7867.589459000039,
+          "cliPeakRssBytes": 309559296
+        }
+      ],
+      "median": {
+        "lightpanda": {
+          "coldStartMs": 1999.327958000009,
+          "pageLoadMs": 121.5142910000286,
+          "closeMs": 0.010624999995343387,
+          "totalMs": 2493.474749999994,
+          "peakRssBytes": 25772032,
+          "cliMs": 5226.734874999995,
+          "cliPeakRssBytes": 141508608
+        },
+        "chromium": {
+          "coldStartMs": 1586.283584000019,
+          "pageLoadMs": 54.561874999984866,
+          "closeMs": 1631.0387920000358,
+          "totalMs": 3268.079375000001,
+          "peakRssBytes": 127188992,
+          "cliMs": 7867.589459000039,
+          "cliPeakRssBytes": 330760192
+        }
+      },
+      "failures": {
+        "lightpanda": 0,
+        "chromium": 0
+      }
+    },
+    {
+      "url": "https://example.com/",
+      "lightpanda": [
+        {
+          "coldStartMs": 2797.6563339999993,
+          "pageLoadMs": 612.8620000000228,
+          "extractMs": 20.369375000009313,
+          "closeMs": 0.008749999979045242,
+          "totalMs": 3542.0205419999547,
+          "chars": 913,
+          "peakRssBytes": 24297472,
+          "cliMs": 4894.658959000022,
+          "cliPeakRssBytes": 93929472
+        },
+        {
+          "coldStartMs": 2453.5182909999858,
+          "pageLoadMs": 677.14724999998,
+          "extractMs": 2.4792499999748543,
+          "closeMs": 0.01433299999916926,
+          "totalMs": 3144.7555409999914,
+          "chars": 913,
+          "peakRssBytes": 32849920,
+          "cliMs": 5892.168499999971,
+          "cliPeakRssBytes": 151781376
+        },
+        {
+          "coldStartMs": 3397.453125,
+          "pageLoadMs": 669.0785840000026,
+          "extractMs": 13.355541999975685,
+          "closeMs": 0.03937499999301508,
+          "totalMs": 4106.798167000001,
+          "chars": 913,
+          "peakRssBytes": 30588928,
+          "cliMs": 7045.606749999977,
+          "cliPeakRssBytes": 155680768
+        },
+        {
+          "coldStartMs": 3359.7297499999986,
+          "pageLoadMs": 163.66787499998463,
+          "extractMs": 5.033624999981839,
+          "closeMs": 0.016750000009778887,
+          "totalMs": 3552.772082999989,
+          "chars": 913,
+          "peakRssBytes": 17104896,
+          "cliMs": 5790.16866700002,
+          "cliPeakRssBytes": 159383552
+        },
+        {
+          "coldStartMs": 488.8941660000128,
+          "pageLoadMs": 165.58145800000057,
+          "extractMs": 3.838500000012573,
+          "closeMs": 0.015167000005021691,
+          "totalMs": 683.1719170000288,
+          "chars": 913,
+          "peakRssBytes": 1949696,
+          "cliMs": 2319.7705000000424,
+          "cliPeakRssBytes": 194478080
+        }
+      ],
+      "chromium": [
+        {
+          "coldStartMs": 5879.957042000024,
+          "pageLoadMs": 1807.2250420000055,
+          "extractMs": 182.3927079999703,
+          "closeMs": 1556.5330420000246,
+          "totalMs": 9426.107834000024,
+          "chars": 913,
+          "peakRssBytes": 252837888,
+          "cliMs": 10010.24774999998,
+          "cliPeakRssBytes": 224018432
+        },
+        {
+          "coldStartMs": 1610.4365000000107,
+          "pageLoadMs": 373.04712499998277,
+          "extractMs": 126.52358300000196,
+          "closeMs": 1846.4765420000185,
+          "totalMs": 3956.483750000014,
+          "chars": 913,
+          "peakRssBytes": 305741824,
+          "cliMs": 7871.603208000015,
+          "cliPeakRssBytes": 338051072
+        },
+        {
+          "coldStartMs": 2294.6334170000046,
+          "pageLoadMs": 304.9350410000188,
+          "extractMs": 57.304499999969266,
+          "closeMs": 1589.3554170000134,
+          "totalMs": 4246.228375000006,
+          "chars": 913,
+          "peakRssBytes": 274202624,
+          "cliMs": 6947.953500000003,
+          "cliPeakRssBytes": 334479360
+        },
+        {
+          "coldStartMs": 1423.9361250000075,
+          "pageLoadMs": 590.8188749999972,
+          "extractMs": 15.679124999966007,
+          "closeMs": 1606.0063330000266,
+          "totalMs": 3636.4404579999973,
+          "chars": 913,
+          "peakRssBytes": 307855360,
+          "cliMs": 5052.450707999989,
+          "cliPeakRssBytes": 415694848
+        },
+        {
+          "coldStartMs": 641.3379580000183,
+          "pageLoadMs": 225.804124999966,
+          "extractMs": 5.047625000006519,
+          "closeMs": 1803.9146670000046,
+          "totalMs": 2676.1043749999953,
+          "chars": 913,
+          "peakRssBytes": 145588224,
+          "cliMs": 6138.682374999975,
+          "cliPeakRssBytes": 418168832
+        }
+      ],
+      "median": {
+        "lightpanda": {
+          "coldStartMs": 2797.6563339999993,
+          "pageLoadMs": 612.8620000000228,
+          "closeMs": 0.015167000005021691,
+          "totalMs": 3542.0205419999547,
+          "peakRssBytes": 24297472,
+          "cliMs": 5790.16866700002,
+          "cliPeakRssBytes": 155680768
+        },
+        "chromium": {
+          "coldStartMs": 1610.4365000000107,
+          "pageLoadMs": 373.04712499998277,
+          "closeMs": 1606.0063330000266,
+          "totalMs": 3956.483750000014,
+          "peakRssBytes": 274202624,
+          "cliMs": 6947.953500000003,
+          "cliPeakRssBytes": 338051072
+        }
+      },
+      "failures": {
+        "lightpanda": 0,
+        "chromium": 0
+      }
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Web_browser",
+      "lightpanda": [
+        {
+          "coldStartMs": 943.9966659999918,
+          "pageLoadMs": 597.9813749999739,
+          "extractMs": 8.90316599997459,
+          "closeMs": 0.006624999979976565,
+          "totalMs": 1573.4212919999845,
+          "chars": 33546,
+          "peakRssBytes": 31539200,
+          "cliMs": 2938.1509589999914,
+          "cliPeakRssBytes": 223739904
+        },
+        {
+          "coldStartMs": 1543.0031249999884,
+          "pageLoadMs": 1431.8506249999627,
+          "extractMs": 91.53108300000895,
+          "closeMs": 0.11033299996051937,
+          "totalMs": 3406.3719159999746,
+          "chars": 33546,
+          "peakRssBytes": 60260352,
+          "cliMs": 4937.499333999993,
+          "cliPeakRssBytes": 206241792
+        },
+        {
+          "coldStartMs": 1030.8788339999737,
+          "pageLoadMs": 1599.5598330000066,
+          "extractMs": 76.52191700000549,
+          "closeMs": 0.017040999955497682,
+          "totalMs": 2746.7027499999967,
+          "chars": 33546,
+          "peakRssBytes": 58490880,
+          "cliMs": 4996.044500000018,
+          "cliPeakRssBytes": 211369984
+        },
+        {
+          "coldStartMs": 2295.158999999985,
+          "pageLoadMs": 1864.9107500000391,
+          "extractMs": 9.2508749999688,
+          "closeMs": 0.013124999997671694,
+          "totalMs": 4226.921875,
+          "chars": 33546,
+          "peakRssBytes": 52133888,
+          "cliMs": 5707.823583999998,
+          "cliPeakRssBytes": 195969024
+        },
+        {
+          "coldStartMs": 615.8058329999913,
+          "pageLoadMs": 877.2464579999796,
+          "extractMs": 31.942333000013605,
+          "closeMs": 0.015167000005021691,
+          "totalMs": 1675.088791999966,
+          "chars": 33546,
+          "peakRssBytes": 44646400,
+          "cliMs": 3938.9927089999546,
+          "cliPeakRssBytes": 201834496
+        }
+      ],
+      "chromium": [
+        {
+          "coldStartMs": 919.1886250000098,
+          "pageLoadMs": 657.8931250000023,
+          "extractMs": 235.4389160000137,
+          "closeMs": 1723.7754999999888,
+          "totalMs": 3536.2961660000146,
+          "chars": 33568,
+          "peakRssBytes": 375177216,
+          "cliMs": 5165.439667000028,
+          "cliPeakRssBytes": 510754816
+        },
+        {
+          "coldStartMs": 1818.059958000027,
+          "pageLoadMs": 384.3724589999765,
+          "extractMs": 106.94933299999684,
+          "closeMs": 1714.6396669999813,
+          "totalMs": 4024.0214169999817,
+          "chars": 33140,
+          "peakRssBytes": 250724352,
+          "cliMs": 7333.432207999984,
+          "cliPeakRssBytes": 523862016
+        },
+        {
+          "coldStartMs": 1071.3172079999931,
+          "pageLoadMs": 331.0773330000229,
+          "extractMs": 488.3223340000259,
+          "closeMs": 1568.9143329999642,
+          "totalMs": 3459.631208000006,
+          "chars": 33275,
+          "peakRssBytes": 363184128,
+          "cliMs": 7205.700208000024,
+          "cliPeakRssBytes": 517914624
+        },
+        {
+          "coldStartMs": 1435.4720840000082,
+          "pageLoadMs": 786.2304160000058,
+          "extractMs": 42.166834000032395,
+          "closeMs": 1603.085832999961,
+          "totalMs": 3866.9551670000073,
+          "chars": 33568,
+          "peakRssBytes": 234373120,
+          "cliMs": 5786.34604199999,
+          "cliPeakRssBytes": 427720704
+        },
+        {
+          "coldStartMs": 1219.1675420000101,
+          "pageLoadMs": 393.42337500001304,
+          "extractMs": 331.4829160000081,
+          "closeMs": 1696.413125000021,
+          "totalMs": 3640.4869580000523,
+          "chars": 33568,
+          "peakRssBytes": 371343360,
+          "cliMs": 4785.7422079999815,
+          "cliPeakRssBytes": 525467648
+        }
+      ],
+      "median": {
+        "lightpanda": {
+          "coldStartMs": 1030.8788339999737,
+          "pageLoadMs": 1431.8506249999627,
+          "closeMs": 0.015167000005021691,
+          "totalMs": 2746.7027499999967,
+          "peakRssBytes": 52133888,
+          "cliMs": 4937.499333999993,
+          "cliPeakRssBytes": 206241792
+        },
+        "chromium": {
+          "coldStartMs": 1219.1675420000101,
+          "pageLoadMs": 393.42337500001304,
+          "closeMs": 1696.413125000021,
+          "totalMs": 3640.4869580000523,
+          "peakRssBytes": 363184128,
+          "cliMs": 5786.34604199999,
+          "cliPeakRssBytes": 517914624
+        }
+      },
+      "failures": {
+        "lightpanda": 0,
+        "chromium": 0
+      }
+    }
+  ]
+}

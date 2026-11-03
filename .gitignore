@@ -75,6 +75,16 @@ harbor-*/
 
 # Leftover demo/scratch scripts
 *.mjs
+!scripts/install-lightpanda.mjs
+!scripts/benchmark-browser-engines.mjs
+!scripts/capture-browser-engine-ui.mjs
+!tests/*-engine*.test.mjs
+!tests/browser-router.test.mjs
+!tests/lightpanda*.test.mjs
+!tests/chromium-launch-safety.test.mjs
+
+# Isolated engine binaries, benchmark profiles, and visual evidence
+.apex/
 
 # SonarQube scan artifacts
 .scannerwork/

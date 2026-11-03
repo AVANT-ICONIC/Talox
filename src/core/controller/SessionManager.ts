@@ -32,13 +32,13 @@ import { PolicyEngine } from "../PolicyEngine.js";
 import { ProfileVault } from "../ProfileVault.js";
 import { RulesEngine } from "../RulesEngine.js";
 import { captureSessionSnapshot, restoreSessionSnapshot, type SessionSnapshot } from "../SessionSnapshot.js";
+import { VisionGate } from "../VisionGate.js";
 import {
 	type ScreenshotFormat,
 	setScopedVisualScope,
 	type VisualReasoner,
 	type VisualScope,
 } from "../VisualReasoner.js";
-import { VisionGate } from "../VisionGate.js";
 import type { EventBus } from "./EventBus.js";
 
 type PreNavigationPageHook = (page: Page) => Promise<void>;
@@ -655,11 +655,21 @@ export class SessionManager {
 
 	// ─── Private: Security ────────────────────────────────────────────────────────
 
-	/**
-	 * Inject the NetworkGuard client-side JS interception script.
-	 * Runs before stealth scripts so it can intercept any requests they make.
-	 * No-op when settings.networkGuard is "off" (default).
-	 */
+	/** Install the same session security hooks on an isolated routed Chromium page. */
+	async prepareRoutedPage(page: Page): Promise<void> {
+		if (this.settings.networkGuard !== "off") {
+			const profileClass = this.profile?.class ?? "sandbox";
+			const allowlist = this.settings.trustedDomains.length
+				? this.settings.trustedDomains
+				: profileClass === "ops"
+					? ["google.com", "github.com", "localhost", "127.0.0.1", "[::1]"]
+					: ["*"];
+			await createNetworkGuard(this.settings.networkGuard, allowlist, profileClass).inject(page);
+		}
+		await this.attachSecurityHooks(page);
+	}
+
+	/** Inject the cached persistent session guard before page scripts. */
 	private async injectNetworkGuard(page: Page): Promise<void> {
 		if (this.settings.networkGuard === "off") return;
 
@@ -674,7 +684,8 @@ export class SessionManager {
 	}
 
 	private async attachSecurityHooks(page: Page): Promise<void> {
-		if (!this.profile || this.profile.class === "sandbox") return;
+		const profile = this.profile;
+		if (!profile || profile.class === "sandbox") return;
 
 		// 1. Outbound Request Guard
 		await page.route("**/*", async (route: any) => {
@@ -682,7 +693,7 @@ export class SessionManager {
 			const method = request.method();
 			const url = request.url();
 
-			if (this.profile?.class === "ops") {
+			if (profile?.class === "ops") {
 				const detection = detectCredentialLeak({
 					method,
 					url,
@@ -694,7 +705,7 @@ export class SessionManager {
 					const detail =
 						detection.source === "header" && detection.headerName
 							? `header ${detection.headerName}`
-							: detection.source ?? "request";
+							: (detection.source ?? "request");
 					this.log.error(`🛡️ SECURITY GUARD BLOCKED REQUEST: Potential credential leak via ${detail} to ${url}`);
 					return route.abort("accessdenied");
 				}
@@ -706,7 +717,7 @@ export class SessionManager {
 		let dialogCount = 0;
 		page.on("dialog", async (dialog: any) => {
 			dialogCount++;
-			if (dialogCount > 3 && this.profile?.class === "ops") {
+			if (dialogCount > 3 && profile?.class === "ops") {
 				this.log.warn("🛡️ SECURITY GUARD: Unexpected dialog storm detected. Auto-dismissing.");
 				await dialog.dismiss();
 			} else {
@@ -716,7 +727,7 @@ export class SessionManager {
 
 		page.on("popup", (popup: any) => {
 			this.log.warn(`🛡️ SECURITY GUARD: Unexpected popup opened: ${popup.url()}`);
-			if (this.profile?.class === "ops") {
+			if (profile?.class === "ops") {
 				popup.close().catch((_e: unknown) => {
 					/* intentional: best-effort popup close */
 				});
@@ -724,7 +735,7 @@ export class SessionManager {
 		});
 
 		// 3. Runtime Script Analysis (Heuristic-based)
-		if (this.profile?.class === "ops") {
+		if (profile?.class === "ops") {
 			page.on("response", async (response: any) => {
 				const url = response.url();
 				const type = response.request().resourceType();
