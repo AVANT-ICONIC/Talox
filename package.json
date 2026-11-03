@@ -35,6 +35,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "docs:capabilities": "node scripts/gen-capabilities.mjs",
     "test": "vitest --config vitest.config.unit.ts",
     "test:unit": "vitest run --config vitest.config.unit.ts",
     "test:coverage": "vitest --config vitest.config.unit.ts --coverage",
