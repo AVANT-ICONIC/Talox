@@ -20,6 +20,18 @@ describe("PolicyEngine domain boundaries", () => {
 		expect(engine.isAllowed("ops", "https://notlocalhost.test/?q=localhost")).toBe(false);
 	});
 
+	it("allows the loopback IPs the ops allowlist's localhost already means, and no other address", () => {
+		const engine = new PolicyEngine();
+
+		expect(engine.isAllowed("ops", "http://127.0.0.1:3441/ui/system.html")).toBe(true);
+		expect(engine.isAllowed("ops", "http://[::1]:3441/")).toBe(true);
+		expect(engine.isAllowed("ops", "http://8.8.8.8/")).toBe(false);
+		expect(engine.isAllowed("ops", "http://10.0.0.5/")).toBe(false);
+		expect(engine.isAllowed("ops", "http://127.0.0.2/")).toBe(false);
+		expect(engine.isAllowed("ops", "http://127.0.0.1.attacker.test/")).toBe(false);
+		expect(engine.isAllowed("ops", "https://attacker.test/?next=127.0.0.1")).toBe(false);
+	});
+
 	it("applies the same hostname boundaries to YAML domain rules", () => {
 		const engine = new PolicyEngine();
 		engine.setPolicyForProfile("qa", {
