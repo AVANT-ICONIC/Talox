@@ -1,0 +1,2217 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-10-08T01:12:14.238Z",
+  "node": "v22.23.2",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "logicalCpus": 10,
+  "totalMemoryBytes": 34359738368,
+  "runs": 3,
+  "fixturePolicy": "Owned loopback fixtures only; trustedContent true; no external site or real credentials.",
+  "lightpanda": {
+    "version": "1.0.0",
+    "upstreamCommit": "588f6223b9cae8a2406aeef035ed9363a3e404fd",
+    "artifact": {
+      "name": "lightpanda-aarch64-macos",
+      "assetId": 605336160,
+      "bytes": 90354360,
+      "sha256": "955440053a84754dd64c62f970449a56a2b350cdf43ea5f2e809a73047b8173d",
+      "url": "https://github.com/lightpanda-io/browser/releases/download/1.0.0/lightpanda-aarch64-macos"
+    }
+  },
+  "pressureBaseline": {
+    "status": "available",
+    "freeBytes": 25769803776,
+    "swapBytes": 5154736701.44,
+    "loadAverage": 109.99462890625
+  },
+  "engines": {
+    "chromium": {
+      "batches": [
+        {
+          "concurrency": 1,
+          "durationMs": 5581.510125,
+          "attempts": [
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 209.28879200000006,
+              "phases": {
+                "startup": 146.01158400000008,
+                "navigation": 25.279166000000032,
+                "execution": 26.492083000000093
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.3999999761581421,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 196.9513330000002,
+              "phases": {
+                "startup": 147.86083400000007,
+                "navigation": 17.14629100000002,
+                "execution": 19.17054200000007
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.09999990463256836,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 203.00862499999994,
+              "phases": {
+                "startup": 154.31291699999997,
+                "navigation": 13.539584000000104,
+                "execution": 27.06683399999997
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 196.5139999999999,
+              "phases": {
+                "startup": 161.68437500000027,
+                "navigation": 16.609249999999975,
+                "execution": 12.41387500000019
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 1.100000023841858
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 212.51525000000038,
+              "phases": {
+                "startup": 159.49937500000033,
+                "navigation": 12.135083000000122,
+                "execution": 31.640750000000025
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 242.1752919999999,
+              "phases": {
+                "startup": 178.94312500000024,
+                "navigation": 37.974709000000075,
+                "execution": 18.915875000000142
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.36245800000006057,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated tasks need an active Talox Chromium session; call launch() first"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 184.14241600000014,
+              "phases": {
+                "startup": 151.81304199999977,
+                "navigation": 14.686041999999816,
+                "execution": 9.16125000000011
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 176.94391600000017,
+              "phases": {
+                "startup": 152.5609159999999,
+                "navigation": 13.954834000000119,
+                "execution": 5.5317919999997684
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 196.09604200000012,
+              "phases": {
+                "startup": 164.35112500000014,
+                "navigation": 14.611167000000023,
+                "execution": 9.381125000000338
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 207.95050000000037,
+              "phases": {
+                "startup": 152.16320799999994,
+                "navigation": 13.080917000000227,
+                "execution": 34.38829100000021
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.30000007152557373,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 222.51162499999964,
+              "phases": {
+                "startup": 182.08966699999974,
+                "navigation": 14.239500000000135,
+                "execution": 19.04800000000023
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.10000002384185791,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 215.0807090000003,
+              "phases": {
+                "startup": 167.71987500000023,
+                "navigation": 12.57275000000027,
+                "execution": 26.770666999999776
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 207.16383399999995,
+              "phases": {
+                "startup": 173.08620800000017,
+                "navigation": 8.745792000000165,
+                "execution": 18.335083999999824
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 0.8999999761581421
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 201.10458400000016,
+              "phases": {
+                "startup": 149.8352500000001,
+                "navigation": 14.365875000000415,
+                "execution": 28.26837499999965
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 205.90108400000008,
+              "phases": {
+                "startup": 159.73366700000042,
+                "navigation": 12.649792000000161,
+                "execution": 25.103375000000597
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.064541000000645,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated tasks need an active Talox Chromium session; call launch() first"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 186.51229200000034,
+              "phases": {
+                "startup": 154.99733300000025,
+                "navigation": 9.024249999999483,
+                "execution": 16.121000000000095
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 180.34995900000013,
+              "phases": {
+                "startup": 150.9390830000002,
+                "navigation": 12.316249999999854,
+                "execution": 12.388915999999881
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 190.0006659999999,
+              "phases": {
+                "startup": 153.42004200000065,
+                "navigation": 21.413540999999896,
+                "execution": 6.8833749999994325
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 199.50583299999926,
+              "phases": {
+                "startup": 152.8854169999995,
+                "navigation": 14.832124999999905,
+                "execution": 24.760041999999885
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.3999999761581421,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 210.9357089999994,
+              "phases": {
+                "startup": 154.74312499999996,
+                "navigation": 22.267125000000306,
+                "execution": 27.01379200000065
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.19999992847442627,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 200.3559580000001,
+              "phases": {
+                "startup": 155.81095899999946,
+                "navigation": 14.559375000000728,
+                "execution": 15.30975000000035
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 173.06054200000017,
+              "phases": {
+                "startup": 144.9691670000002,
+                "navigation": 13.263500000000022,
+                "execution": 9.986750000000029
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 1
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 212.1055409999999,
+              "phases": {
+                "startup": 153.77416699999958,
+                "navigation": 27.033250000000407,
+                "execution": 22.46312500000022
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 284.1154999999999,
+              "phases": {
+                "startup": 218.96258300000045,
+                "navigation": 28.014874999999847,
+                "execution": 29.971708000000035
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.052999999999883585,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated tasks need an active Talox Chromium session; call launch() first"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 208.99024999999983,
+              "phases": {
+                "startup": 173.54891700000007,
+                "navigation": 18.02545800000007,
+                "execution": 10.37829099999999
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 208.1147920000003,
+              "phases": {
+                "startup": 175.70979199999965,
+                "navigation": 12.842916999999943,
+                "execution": 14.860290999999961
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 189.4507910000002,
+              "phases": {
+                "startup": 152.81712499999958,
+                "navigation": 12.34625000000051,
+                "execution": 19.74304200000006
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            }
+          ],
+          "pressureSamples": [
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 111.11572265625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 111.11572265625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 111.11572265625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25426206392.32,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 111.11572265625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 111.11572265625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 110.9462890625
+            }
+          ],
+          "throughputTasksPerSecond": 4.8374005233933,
+          "resources": {
+            "status": "measured",
+            "activeSamples": 37,
+            "unreadSamples": 0,
+            "peakRssBytes": 1389084672,
+            "medianActiveRssBytes": 1181515776,
+            "steadyStateRssBytes": null,
+            "steadyStateStatus": "unread",
+            "steadyStateReason": "No stable idle observation window; active process lifecycle samples are not steady state.",
+            "maxObservedWorkers": 1,
+            "cpuPercent": {
+              "samples": 37,
+              "p50": 147.3,
+              "p95": 193.70000000000002,
+              "status": "measured"
+            },
+            "errors": []
+          },
+          "repetitionsPerWorkload": 3,
+          "pressureBefore": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 111.11572265625
+          },
+          "pressureAfter": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "concurrency": 2,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        },
+        {
+          "concurrency": 4,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        },
+        {
+          "concurrency": 10,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        },
+        {
+          "concurrency": 25,
+          "reason": "memory-reserve",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        },
+        {
+          "concurrency": 50,
+          "reason": "memory-reserve",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 110.9462890625
+          }
+        }
+      ],
+      "lifecycle": {
+        "firstTask": {
+          "workload": "first-task",
+          "status": "passed",
+          "durationMs": 874.028084,
+          "phases": {
+            "startup": 831.8037919999999,
+            "navigation": 19.31529099999989,
+            "execution": 14.897583000000168
+          },
+          "recordsExtracted": null,
+          "extractionMs": null,
+          "jsMs": null
+        },
+        "subsequentTask": {
+          "workload": "subsequent-task",
+          "status": "passed",
+          "durationMs": 196.74879099999998,
+          "phases": {
+            "startup": 166.59620799999993,
+            "navigation": 17.91800000000012,
+            "execution": 5.548874999999953
+          },
+          "recordsExtracted": null,
+          "extractionMs": null,
+          "jsMs": null
+        },
+        "closeStatus": "closed",
+        "afterCloseResources": {
+          "rssBytes": null,
+          "cpuPercent": null,
+          "status": "unread",
+          "error": "No active Chromium browser"
+        }
+      },
+      "summary": {
+        "attempts": 30,
+        "passed": 27,
+        "failed": 0,
+        "unsupported": 3,
+        "successRate": 0.9,
+        "crashCount": 0,
+        "fallbackFrequency": {
+          "status": "unread",
+          "reason": "Raw adapter comparison; router fallback is tested separately."
+        },
+        "successfulTaskLatencyMs": {
+          "samples": 27,
+          "p50": 203.00862499999994,
+          "p95": 242.1752919999999,
+          "status": "measured"
+        },
+        "startupMs": {
+          "samples": 27,
+          "p50": 154.74312499999996,
+          "p95": 182.08966699999974,
+          "status": "measured"
+        },
+        "navigationToUsableDomMs": {
+          "samples": 27,
+          "p50": 14.365875000000415,
+          "p95": 28.014874999999847,
+          "status": "measured"
+        },
+        "executionMs": {
+          "samples": 27,
+          "p50": 19.04800000000023,
+          "p95": 31.640750000000025,
+          "status": "measured"
+        },
+        "domExtractionMs": {
+          "samples": 6,
+          "p50": 0.19999992847442627,
+          "p95": 0.3999999761581421,
+          "status": "measured"
+        },
+        "domExtractionRecordsPerSecond": 400000.0317891464,
+        "javascriptMs": {
+          "samples": 3,
+          "p50": 1,
+          "p95": 1.100000023841858,
+          "status": "measured"
+        }
+      },
+      "workloads": {
+        "static-html": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 207.95050000000037,
+            "p95": 209.28879200000006,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 152.16320799999994,
+            "p95": 152.8854169999995,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 14.832124999999905,
+            "p95": 25.279166000000032,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 26.492083000000093,
+            "p95": 34.38829100000021,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 3,
+            "p50": 0.3999999761581421,
+            "p95": 0.3999999761581421,
+            "status": "measured"
+          },
+          "domExtractionRecordsPerSecond": 272727.26681606844,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "javascript-rendered": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 210.9357089999994,
+            "p95": 222.51162499999964,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 154.74312499999996,
+            "p95": 182.08966699999974,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 17.14629100000002,
+            "p95": 22.267125000000306,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 19.17054200000007,
+            "p95": 27.01379200000065,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 3,
+            "p50": 0.10000002384185791,
+            "p95": 0.19999992847442627,
+            "status": "measured"
+          },
+          "domExtractionRecordsPerSecond": 750000.2682209974,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "structured-extraction": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 203.00862499999994,
+            "p95": 215.0807090000003,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 155.81095899999946,
+            "p95": 167.71987500000023,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.539584000000104,
+            "p95": 14.559375000000728,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 26.770666999999776,
+            "p95": 27.06683399999997,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "javascript-execution": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 196.5139999999999,
+            "p95": 207.16383399999995,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 161.68437500000027,
+            "p95": 173.08620800000017,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.263500000000022,
+            "p95": 16.609249999999975,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 12.41387500000019,
+            "p95": 18.335083999999824,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 3,
+            "p50": 1,
+            "p95": 1.100000023841858,
+            "status": "measured"
+          }
+        },
+        "form-interaction": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 212.1055409999999,
+            "p95": 212.51525000000038,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 153.77416699999958,
+            "p95": 159.49937500000033,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 14.365875000000415,
+            "p95": 27.033250000000407,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 28.26837499999965,
+            "p95": 31.640750000000025,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "complex-spa": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 242.1752919999999,
+            "p95": 284.1154999999999,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 178.94312500000024,
+            "p95": 218.96258300000045,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 28.014874999999847,
+            "p95": 37.974709000000075,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 25.103375000000597,
+            "p95": 29.971708000000035,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "authenticated-site": {
+          "attempts": 3,
+          "passed": 0,
+          "failed": 0,
+          "unsupported": 3,
+          "successRate": 0,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "startupMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "executionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-1": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 186.51229200000034,
+            "p95": 208.99024999999983,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 154.99733300000025,
+            "p95": 173.54891700000007,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 14.686041999999816,
+            "p95": 18.02545800000007,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 10.37829099999999,
+            "p95": 16.121000000000095,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-2": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 180.34995900000013,
+            "p95": 208.1147920000003,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 152.5609159999999,
+            "p95": 175.70979199999965,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 12.842916999999943,
+            "p95": 13.954834000000119,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 12.388915999999881,
+            "p95": 14.860290999999961,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-3": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 190.0006659999999,
+            "p95": 196.09604200000012,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 153.42004200000065,
+            "p95": 164.35112500000014,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 14.611167000000023,
+            "p95": 21.413540999999896,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 9.381125000000338,
+            "p95": 19.74304200000006,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        }
+      }
+    },
+    "lightpanda": {
+      "batches": [
+        {
+          "concurrency": 1,
+          "durationMs": 4908.2744999999995,
+          "attempts": [
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 180.31616700000086,
+              "phases": {
+                "startup": 158.90591700000004,
+                "navigation": 15.249875000001339,
+                "execution": 3.6158750000013242
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 1.7100000000000009,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 157.05054200000086,
+              "phases": {
+                "startup": 135.2086249999993,
+                "navigation": 13.532541000000492,
+                "execution": 0.6039590000000317
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.16499999999999915,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 171.26637500000106,
+              "phases": {
+                "startup": 158.74324999999953,
+                "navigation": 4.325082999999722,
+                "execution": 1.304333999998562
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 298.78358300000036,
+              "phases": {
+                "startup": 264.68616700000166,
+                "navigation": 15.268791999998939,
+                "execution": 6.779624999999214
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 5.659999999999998
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 189.00916700000016,
+              "phases": {
+                "startup": 169.5849159999998,
+                "navigation": 12.886916999999812,
+                "execution": 1.3997080000008282
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 187.01866700000028,
+              "phases": {
+                "startup": 167.68974999999955,
+                "navigation": 13.210667000001195,
+                "execution": 1.6739159999997355
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.16920799999934388,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated sessions require Chromium; Lightpanda never imports another engine's session"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 192.39508300000125,
+              "phases": {
+                "startup": 171.7065419999999,
+                "navigation": 15.541332999999213,
+                "execution": 0.5493749999986903
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 190.6168749999997,
+              "phases": {
+                "startup": 173.6337079999994,
+                "navigation": 13.858000000000175,
+                "execution": 0.26141699999971024
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 156.72212500000023,
+              "phases": {
+                "startup": 141.32804100000067,
+                "navigation": 12.352083000001585,
+                "execution": 0.2822089999990567
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 175.0635829999992,
+              "phases": {
+                "startup": 156.60204200000044,
+                "navigation": 15.17962499999885,
+                "execution": 0.670125000000553
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.1999999999999993,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 184.79358299999876,
+              "phases": {
+                "startup": 168.80733300000065,
+                "navigation": 12.298749999999927,
+                "execution": 0.5887920000004669
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.16500000000000092,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 193.94937500000015,
+              "phases": {
+                "startup": 175.10850000000028,
+                "navigation": 14.855125000000044,
+                "execution": 0.8903339999997115
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 250.15287499999977,
+              "phases": {
+                "startup": 211.0865419999991,
+                "navigation": 17.81750000000102,
+                "execution": 11.907124999999724
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 11.364999999999998
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 208.39945799999987,
+              "phases": {
+                "startup": 185.50874999999905,
+                "navigation": 19.352084000000104,
+                "execution": 0.4076660000009724
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 177.69766700000037,
+              "phases": {
+                "startup": 158.72270800000115,
+                "navigation": 15.75683299999946,
+                "execution": 0.779500000000553
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.07162500000049477,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated sessions require Chromium; Lightpanda never imports another engine's session"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 185.2062079999996,
+              "phases": {
+                "startup": 163.36675000000105,
+                "navigation": 17.18487499999901,
+                "execution": 0.2773749999996653
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 148.82679199999984,
+              "phases": {
+                "startup": 133.38454199999978,
+                "navigation": 12.867959000001065,
+                "execution": 0.2601250000006985
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 145.80683300000055,
+              "phases": {
+                "startup": 130.0818330000002,
+                "navigation": 13.151292000000467,
+                "execution": 0.202832999999373
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "static-html",
+              "status": "passed",
+              "durationMs": 142.9065419999988,
+              "phases": {
+                "startup": 128.00529199999983,
+                "navigation": 11.558958999999959,
+                "execution": 0.7428749999999127
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.25,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-rendered",
+              "status": "passed",
+              "durationMs": 146.50458400000025,
+              "phases": {
+                "startup": 128.0957500000004,
+                "navigation": 14.568333999999595,
+                "execution": 0.6368330000004789
+              },
+              "recordsExtracted": 100,
+              "extractionMs": 0.16000000000000014,
+              "jsMs": null
+            },
+            {
+              "workload": "structured-extraction",
+              "status": "passed",
+              "durationMs": 150.22058299999844,
+              "phases": {
+                "startup": 132.98670899999888,
+                "navigation": 13.76708299999882,
+                "execution": 0.7919170000004669
+              },
+              "recordsExtracted": 100,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "javascript-execution",
+              "status": "passed",
+              "durationMs": 160.7700840000016,
+              "phases": {
+                "startup": 134.54120800000055,
+                "navigation": 19.971999999997934,
+                "execution": 1.6242080000010901
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": 1.1400000000000006
+            },
+            {
+              "workload": "form-interaction",
+              "status": "passed",
+              "durationMs": 179.1447079999998,
+              "phases": {
+                "startup": 162.7013330000009,
+                "navigation": 13.04437500000131,
+                "execution": 0.5072919999984151
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "complex-spa",
+              "status": "passed",
+              "durationMs": 179.91104199999972,
+              "phases": {
+                "startup": 163.4364999999998,
+                "navigation": 13.085541999997076,
+                "execution": 0.5243330000012065
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "authenticated-site",
+              "status": "unsupported",
+              "durationMs": 0.0982079999994312,
+              "phases": {},
+              "code": "unsupported-capability",
+              "error": "Authenticated sessions require Chromium; Lightpanda never imports another engine's session"
+            },
+            {
+              "workload": "multi-page-1",
+              "status": "passed",
+              "durationMs": 180.4463340000002,
+              "phases": {
+                "startup": 163.76570800000263,
+                "navigation": 13.650667000001704,
+                "execution": 0.3937500000029104
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-2",
+              "status": "passed",
+              "durationMs": 177.13558300000295,
+              "phases": {
+                "startup": 161.90433300000223,
+                "navigation": 12.669707999997627,
+                "execution": 0.23608299999978044
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            },
+            {
+              "workload": "multi-page-3",
+              "status": "passed",
+              "durationMs": 150.6659159999981,
+              "phases": {
+                "startup": 135.5224589999998,
+                "navigation": 12.716542000001937,
+                "execution": 0.23037500000282307
+              },
+              "recordsExtracted": null,
+              "extractionMs": null,
+              "jsMs": null
+            }
+          ],
+          "pressureSamples": [
+            {
+              "status": "available",
+              "freeBytes": 25769803776,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 113.9931640625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25426206392.32,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 113.9931640625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25082609008.64,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 113.9931640625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25426206392.32,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 113.9931640625
+            },
+            {
+              "status": "available",
+              "freeBytes": 25426206392.32,
+              "swapBytes": 5154736701.44,
+              "loadAverage": 114.47412109375
+            }
+          ],
+          "throughputTasksPerSecond": 5.500914832697316,
+          "resources": {
+            "status": "partial",
+            "activeSamples": 76,
+            "unreadSamples": 8,
+            "peakRssBytes": 33734656,
+            "medianActiveRssBytes": 2916352,
+            "steadyStateRssBytes": null,
+            "steadyStateStatus": "unread",
+            "steadyStateReason": "No stable idle observation window; active process lifecycle samples are not steady state.",
+            "maxObservedWorkers": 1,
+            "cpuPercent": {
+              "samples": 76,
+              "p50": 0,
+              "p95": 17.2,
+              "status": "measured"
+            },
+            "errors": [
+              "No active browser process",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 21752\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 21829\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 21855\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 22221\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 23033\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 23185\n",
+              "Error: Command failed: ps -o pid=,rss=,pcpu= -p 24347\n"
+            ]
+          },
+          "repetitionsPerWorkload": 3,
+          "pressureBefore": {
+            "status": "available",
+            "freeBytes": 25769803776,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 113.9931640625
+          },
+          "pressureAfter": {
+            "status": "available",
+            "freeBytes": 25426206392.32,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "concurrency": 2,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25426206392.32,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        },
+        {
+          "concurrency": 4,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25426206392.32,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        },
+        {
+          "concurrency": 10,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25082609008.64,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        },
+        {
+          "concurrency": 25,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25426206392.32,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        },
+        {
+          "concurrency": 50,
+          "reason": "shared-cpu-pressure",
+          "pressure": {
+            "status": "available",
+            "freeBytes": 25426206392.32,
+            "swapBytes": 5154736701.44,
+            "loadAverage": 114.47412109375
+          }
+        }
+      ],
+      "lifecycle": {
+        "firstTask": {
+          "workload": "first-task",
+          "status": "passed",
+          "durationMs": 243.80208299999867,
+          "phases": {
+            "startup": 221.56783300000097,
+            "navigation": 16.949333999999,
+            "execution": 0.5626250000004802
+          },
+          "recordsExtracted": null,
+          "extractionMs": null,
+          "jsMs": null
+        },
+        "subsequentTask": {
+          "workload": "subsequent-task",
+          "status": "passed",
+          "durationMs": 142.0553749999999,
+          "phases": {
+            "startup": 126.28520800000115,
+            "navigation": 12.788042000000132,
+            "execution": 0.24487500000032014
+          },
+          "recordsExtracted": null,
+          "extractionMs": null,
+          "jsMs": null
+        },
+        "closeStatus": "closed",
+        "afterCloseResources": {
+          "rssBytes": null,
+          "cpuPercent": null,
+          "status": "unread",
+          "error": "No active browser process",
+          "workers": 0
+        }
+      },
+      "summary": {
+        "attempts": 30,
+        "passed": 27,
+        "failed": 0,
+        "unsupported": 3,
+        "successRate": 0.9,
+        "crashCount": 0,
+        "fallbackFrequency": {
+          "status": "unread",
+          "reason": "Raw adapter comparison; router fallback is tested separately."
+        },
+        "successfulTaskLatencyMs": {
+          "samples": 27,
+          "p50": 179.1447079999998,
+          "p95": 250.15287499999977,
+          "status": "measured"
+        },
+        "startupMs": {
+          "samples": 27,
+          "p50": 161.90433300000223,
+          "p95": 211.0865419999991,
+          "status": "measured"
+        },
+        "navigationToUsableDomMs": {
+          "samples": 27,
+          "p50": 13.650667000001704,
+          "p95": 19.352084000000104,
+          "status": "measured"
+        },
+        "executionMs": {
+          "samples": 27,
+          "p50": 0.6039590000000317,
+          "p95": 6.779624999999214,
+          "status": "measured"
+        },
+        "domExtractionMs": {
+          "samples": 6,
+          "p50": 0.16500000000000092,
+          "p95": 1.7100000000000009,
+          "status": "measured"
+        },
+        "domExtractionRecordsPerSecond": 226415.0943396226,
+        "javascriptMs": {
+          "samples": 3,
+          "p50": 5.659999999999998,
+          "p95": 11.364999999999998,
+          "status": "measured"
+        }
+      },
+      "workloads": {
+        "static-html": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 175.0635829999992,
+            "p95": 180.31616700000086,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 156.60204200000044,
+            "p95": 158.90591700000004,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 15.17962499999885,
+            "p95": 15.249875000001339,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.7428749999999127,
+            "p95": 3.6158750000013242,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 3,
+            "p50": 0.25,
+            "p95": 1.7100000000000009,
+            "status": "measured"
+          },
+          "domExtractionRecordsPerSecond": 138888.88888888888,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "javascript-rendered": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 157.05054200000086,
+            "p95": 184.79358299999876,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 135.2086249999993,
+            "p95": 168.80733300000065,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.532541000000492,
+            "p95": 14.568333999999595,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.6039590000000317,
+            "p95": 0.6368330000004789,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 3,
+            "p50": 0.16499999999999915,
+            "p95": 0.16500000000000092,
+            "status": "measured"
+          },
+          "domExtractionRecordsPerSecond": 612244.8979591834,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "structured-extraction": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 171.26637500000106,
+            "p95": 193.94937500000015,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 158.74324999999953,
+            "p95": 175.10850000000028,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.76708299999882,
+            "p95": 14.855125000000044,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.8903339999997115,
+            "p95": 1.304333999998562,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "javascript-execution": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 250.15287499999977,
+            "p95": 298.78358300000036,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 211.0865419999991,
+            "p95": 264.68616700000166,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 17.81750000000102,
+            "p95": 19.971999999997934,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 6.779624999999214,
+            "p95": 11.907124999999724,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 3,
+            "p50": 5.659999999999998,
+            "p95": 11.364999999999998,
+            "status": "measured"
+          }
+        },
+        "form-interaction": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 189.00916700000016,
+            "p95": 208.39945799999987,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 169.5849159999998,
+            "p95": 185.50874999999905,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.04437500000131,
+            "p95": 19.352084000000104,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.5072919999984151,
+            "p95": 1.3997080000008282,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "complex-spa": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 179.91104199999972,
+            "p95": 187.01866700000028,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 163.4364999999998,
+            "p95": 167.68974999999955,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 13.210667000001195,
+            "p95": 15.75683299999946,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.779500000000553,
+            "p95": 1.6739159999997355,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "authenticated-site": {
+          "attempts": 3,
+          "passed": 0,
+          "failed": 0,
+          "unsupported": 3,
+          "successRate": 0,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "startupMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "executionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-1": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 185.2062079999996,
+            "p95": 192.39508300000125,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 163.76570800000263,
+            "p95": 171.7065419999999,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 15.541332999999213,
+            "p95": 17.18487499999901,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.3937500000029104,
+            "p95": 0.5493749999986903,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-2": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 177.13558300000295,
+            "p95": 190.6168749999997,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 161.90433300000223,
+            "p95": 173.6337079999994,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 12.867959000001065,
+            "p95": 13.858000000000175,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.2601250000006985,
+            "p95": 0.26141699999971024,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        },
+        "multi-page-3": {
+          "attempts": 3,
+          "passed": 3,
+          "failed": 0,
+          "unsupported": 0,
+          "successRate": 1,
+          "crashCount": 0,
+          "fallbackFrequency": {
+            "status": "unread",
+            "reason": "Raw adapter comparison; router fallback is tested separately."
+          },
+          "successfulTaskLatencyMs": {
+            "samples": 3,
+            "p50": 150.6659159999981,
+            "p95": 156.72212500000023,
+            "status": "measured"
+          },
+          "startupMs": {
+            "samples": 3,
+            "p50": 135.5224589999998,
+            "p95": 141.32804100000067,
+            "status": "measured"
+          },
+          "navigationToUsableDomMs": {
+            "samples": 3,
+            "p50": 12.716542000001937,
+            "p95": 13.151292000000467,
+            "status": "measured"
+          },
+          "executionMs": {
+            "samples": 3,
+            "p50": 0.23037500000282307,
+            "p95": 0.2822089999990567,
+            "status": "measured"
+          },
+          "domExtractionMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          },
+          "domExtractionRecordsPerSecond": null,
+          "javascriptMs": {
+            "samples": 0,
+            "p50": null,
+            "p95": null,
+            "status": "unread"
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "First process launch is process-cold; OS disk caches are not flushed.",
+    "Lightpanda uses a fresh process for every task; subsequent tasks do not represent a reused warm browser.",
+    "Chromium uses the existing BrowserManager, not the controller perception/stealth/takeover pipeline.",
+    "Complex SPA fixture uses DOM/history APIs; it does not certify every application framework.",
+    "Form fixture mutates a local field; it does not submit a payment or external request.",
+    "Authenticated fixture requires an active controller context; raw adapters correctly report unsupported.",
+    "RAM/CPU are sampled active owned workers, not machine-wide usage; the 50ms sampler can miss brief peaks.",
+    "Steady-state RAM has no stable idle observation window and remains unread.",
+    "Raw adapters do not fall back, so fallback frequency is explicitly unread here."
+  ],
+  "pressureAfter": {
+    "status": "available",
+    "freeBytes": 25426206392.32,
+    "swapBytes": 5154736701.44,
+    "loadAverage": 114.47412109375
+  }
+}
