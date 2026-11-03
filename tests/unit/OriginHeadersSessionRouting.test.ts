@@ -35,17 +35,30 @@ const emptyState = {
 };
 
 function createPage(order: string[]) {
+	let closed = false;
+	let closeHandler: (() => void) | null = null;
 	return {
 		route: vi.fn(async () => {
 			order.push("route");
 		}),
 		unroute: vi.fn().mockResolvedValue(undefined),
 		on: vi.fn(),
+		once: vi.fn((event: string, handler: () => void) => {
+			if (event === "close") closeHandler = handler;
+		}),
+		off: vi.fn((event: string, handler: () => void) => {
+			if (event === "close" && closeHandler === handler) closeHandler = null;
+		}),
 		goto: vi.fn(async () => {
 			order.push("goto");
 		}),
-		close: vi.fn().mockResolvedValue(undefined),
-		isClosed: vi.fn(() => false),
+		close: vi.fn(async () => {
+			closed = true;
+			const handler = closeHandler;
+			closeHandler = null;
+			handler?.();
+		}),
+		isClosed: vi.fn(() => closed),
 	};
 }
 
@@ -123,9 +136,11 @@ describe("OriginHeaders session routing", () => {
 		await controller.closePage(1);
 
 		expect(firstPage.unroute).not.toHaveBeenCalled();
+		expect(secondPage.unroute).not.toHaveBeenCalled();
 		expect(firstPage.route).toHaveBeenCalledTimes(1);
 		await (controller as any).disposeOriginHeaders();
 		expect(firstPage.unroute).toHaveBeenCalledTimes(1);
+		expect(secondPage.unroute).not.toHaveBeenCalled();
 	});
 
 	it("installs origin headers on the recreated page before snapshot restoration navigation", async () => {
