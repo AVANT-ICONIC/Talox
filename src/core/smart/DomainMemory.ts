@@ -199,7 +199,12 @@ export class DomainMemory {
 	toJSON(): DomainMemorySnapshot {
 		const domains: Record<string, DomainRecord> = {};
 		for (const [k, v] of this.records) {
-			domains[k] = { ...v, strategies: { ...v.strategies } };
+			// Deep copy strategy scores to ensure isolation from mutable state
+			const strategies: Record<string, StrategyScore> = {};
+			for (const [strategyName, score] of Object.entries(v.strategies)) {
+				strategies[strategyName] = structuredClone(score);
+			}
+			domains[k] = { ...v, strategies };
 		}
 		return { version: 1, exportedAt: new Date().toISOString(), domains };
 	}
@@ -212,7 +217,12 @@ export class DomainMemory {
 	fromJSON(snapshot: DomainMemorySnapshot): void {
 		if (snapshot.version !== 1) return; // ignore unknown versions
 		for (const [hostname, record] of Object.entries(snapshot.domains)) {
-			this.records.set(hostname, { ...record });
+			// Deep copy strategy scores to ensure isolation from mutable state
+			const strategies: Record<string, StrategyScore> = {};
+			for (const [strategyName, score] of Object.entries(record.strategies)) {
+				strategies[strategyName] = structuredClone(score);
+			}
+			this.records.set(hostname, { ...record, strategies });
 		}
 	}
 
