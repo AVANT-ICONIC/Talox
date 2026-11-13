@@ -1,4 +1,39 @@
 import type { BrowserContext, Page } from "playwright-core";
+
+// ─── Origin Validation ─────────────────────────────────────────────────────────
+
+/**
+ * Parse a URL and extract its origin (scheme://host:port).
+ * Returns null for malformed, non-HTTP(S), or opaque URLs.
+ */
+function parseOrigin(url: string): string | null {
+	try {
+		// Only allow http and https schemes
+		if (!url.startsWith("http://") && !url.startsWith("https://")) {
+			return null;
+		}
+		
+		const urlObj = new URL(url);
+		return `${urlObj.protocol}//${urlObj.host}`;
+	} catch {
+		// Invalid URL format
+		return null;
+	}
+}
+
+/**
+ * Check if two URLs have the same origin (scheme, host, and port).
+ */
+function sameOrigin(url1: string, url2: string): boolean {
+	const origin1 = parseOrigin(url1);
+	const origin2 = parseOrigin(url2);
+	
+	if (!origin1 || !origin2) {
+		return false;
+	}
+	
+	return origin1 === origin2;
+}
 /**
  * @file SessionSnapshot.ts
  * @description Capture and restore browser session state across restarts.
@@ -71,6 +106,9 @@ export interface SessionSnapshot {
  * @param page    Playwright page object (must be in a stable state, not mid-navigation).
  * @param context Playwright browser context (for cookie extraction).
  */
+// Export helper functions for testing
+export { parseOrigin, sameOrigin };
+
 export async function captureSessionSnapshot(page: Page, context: BrowserContext): Promise<SessionSnapshot> {
 	const url = page.url();
 	const title = await page.title().catch(() => "");
@@ -201,16 +239,32 @@ export async function restoreSessionSnapshot(
 		}
 	}
 
-	// 3. Restore localStorage
+	// 3. Restore localStorage with origin validation
 	const lsEntries = Object.entries(snapshot.localStorage);
-	if (lsEntries.length > 0 && snapshot.url.startsWith("http")) {
-		await restoreStorage(page, lsEntries, "localStorage");
+	if (lsEntries.length > 0) {
+		try {
+			const currentUrl = page.url();
+			if (sameOrigin(snapshot.url, currentUrl)) {
+				await restoreStorage(page, lsEntries, "localStorage");
+			}
+			// Silently skip if origins don't match (fail closed)
+		} catch {
+			// Ignored: origin check or storage restore failed
+		}
 	}
 
-	// 4. Restore sessionStorage
+	// 4. Restore sessionStorage with origin validation
 	const ssEntries = Object.entries(snapshot.sessionStorage);
-	if (ssEntries.length > 0 && snapshot.url.startsWith("http")) {
-		await restoreStorage(page, ssEntries, "sessionStorage");
+	if (ssEntries.length > 0) {
+		try {
+			const currentUrl = page.url();
+			if (sameOrigin(snapshot.url, currentUrl)) {
+				await restoreStorage(page, ssEntries, "sessionStorage");
+			}
+			// Silently skip if origins don't match (fail closed)
+		} catch {
+			// Ignored: origin check or storage restore failed
+		}
 	}
 
 	// 5. Restore scroll position
