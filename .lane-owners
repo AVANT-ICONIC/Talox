@@ -1,0 +1,3 @@
+src/core/research/ResearchJournal.ts
+tests/unit/research/ResearchJournalReload.test.ts
+docs/maintenance/research-journal-reload.md
