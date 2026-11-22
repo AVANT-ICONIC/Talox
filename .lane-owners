@@ -1,0 +1,3 @@
+src/core/PerceptionStack.ts
+tests/unit/PerceptionStackOptionsCache.test.ts
+docs/maintenance/perception-options-cache.md
