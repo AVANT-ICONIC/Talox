@@ -1,0 +1,13 @@
+TASK: talox-agent-guide
+
+FILES ADDED/MODIFIED: 16 files: agent guide and executable recipes, generator, manifest, tests, Talox skill, llms files, package script. Committed as `7022368` on `docs/agent-guide`.
+
+MANIFEST COUNTS: 12 CLI entries; 7 MCP tools; 309 public exports (712 API entries); 5 presets; 10 environment variables; 1 schema.
+
+EXAMPLES VERIFIED (pass/total): 20/20.
+
+NOT DERIVABLE ENTRIES: 28, explicitly listed with reasons in the manifest.
+
+VALIDATION: Build, regeneration, manifest diff, 5 manifest tests, local links and diff checks pass. Full suite: 2,213 passed, 5 skipped; two doctor test timeouts plus a hook timeout, all reproduced on base source. Evidence: [VERIFIED.md](/Users/valunex/Desktop/GitHub/agent-runs/talox-agent-guide/docs/agent-guide/VERIFIED.md).
+
+PR: Not opened; nothing pushed, per override.
