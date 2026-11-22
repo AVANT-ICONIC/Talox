@@ -1,0 +1,3 @@
+src/core/AutoDialogHandler.ts
+tests/unit/AutoDialogHandlerPageLifecycle.test.ts
+docs/maintenance/dialog-page-lifecycle.md
