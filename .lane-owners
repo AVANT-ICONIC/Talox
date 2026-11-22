@@ -1,0 +1,3 @@
+src/core/smart/DomainMemory.ts
+tests/unit/DomainMemorySnapshotIsolation.test.ts
+docs/maintenance/domain-memory-snapshots.md
