@@ -1,0 +1,3 @@
+src/core/SessionSnapshot.ts
+tests/unit/SessionSnapshotOrigin.test.ts
+docs/maintenance/session-snapshot-origin.md
