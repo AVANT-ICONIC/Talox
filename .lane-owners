@@ -1,0 +1,3 @@
+src/core/AXTreeDiffer.ts
+tests/unit/AXTreeDifferAttributes.test.ts
+docs/maintenance/ax-attributes.md
